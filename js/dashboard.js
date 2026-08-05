@@ -36,12 +36,14 @@ function render(){
      (!auditUserFilter.value||x.userName===auditUserFilter.value)&&
      (!auditProjectFilter.value||x.projectName===auditProjectFilter.value)&&
      (!auditActionFilter.value||x.action===auditActionFilter.value)
-   );
+   ).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+   auditCount.textContent=`Showing ${filteredAudit.length} of ${state.auditLog.length} entries.`;
    auditBody.innerHTML=filteredAudit.map(x=>{
-     const cls=x.action==="Create"?"audit-create":x.action==="Delete"?"audit-delete":"audit-update";
-     const dt=new Date(x.timestamp).toLocaleString("en-US");
+     const cls=x.action==="Create"?"audit-create":x.action==="Delete"?"audit-delete":x.action==="Access Change"?"audit-access":"audit-update";
+     const parsedDate=new Date(x.timestamp);
+     const dt=Number.isNaN(parsedDate.getTime())?"Unknown date":parsedDate.toLocaleString("en-US");
      return `<tr><td>${esc(dt)}</td><td><strong>${esc(x.userName)}</strong></td><td>${esc(x.projectName)}</td><td><span class="audit-action ${cls}">${esc(x.action)}</span></td><td>${esc(x.recordType)}: <strong>${esc(x.recordName)}</strong></td><td>${esc(x.details)}</td></tr>`
-   }).join("")||'<tr><td colspan="6" class="small">No changes recorded yet.</td></tr>';
+   }).join("")||'<tr><td colspan="6" class="small">No changes match the current filters.</td></tr>';
  }
 
 }

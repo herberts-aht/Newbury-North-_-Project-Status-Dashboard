@@ -119,7 +119,7 @@
     </section>
 
     <section id="audit" class="view">
-      <div class="toolbar"><div><h2>Change Log</h2><div class="small">Admin-only record of additions, updates, deletions, and access changes.</div></div></div>
+      <div class="toolbar"><div><h2>Change Log</h2><div class="small">Admin-only record of additions, updates, deletions, and access changes. <span id="auditCount"></span></div></div></div>
       <div class="audit-card">
         <div class="audit-toolbar">
           <input id="auditSearch" placeholder="Search change log…" />
@@ -127,7 +127,7 @@
           <select id="auditProjectFilter"><option value="">All projects</option></select>
           <select id="auditActionFilter"><option value="">All actions</option><option>Create</option><option>Update</option><option>Delete</option><option>Access Change</option></select>
         </div>
-        <div style="overflow:auto"><table>
+        <div class="audit-table-scroll"><table>
           <thead><tr><th>Date / Time</th><th>User</th><th>Project</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
           <tbody id="auditBody"></tbody>
         </table></div>
@@ -283,7 +283,7 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
 
 
 adminUserSelect.onchange=renderAdmin;
-saveAccessBtn.onclick=()=>{
+saveAccessBtn.onclick=async()=>{
  const u=USERS.find(x=>x.id===adminUserSelect.value);
  u.role=adminRoleSelect.value;
  u.canAdmin=u.role==="Administrator";
@@ -291,8 +291,10 @@ saveAccessBtn.onclick=()=>{
  u.isInternal=u.role!=="External Viewer";
  const selected=[...projectAssignmentList.querySelectorAll("input:checked")].map(x=>x.value);
  u.projects=u.canAdmin||u.id==="bill"?["*"]:selected;
- logChange("Access Change","admin","User Access",u.name,`Role set to ${u.role}; projects: ${u.projects.join(", ")}.`);localStorage.setItem("aht_perm_demo_v23",JSON.stringify(state));alert("Access updated for this prototype session.");
- renderAdmin();
+ logChange("Access Change","admin","User Access",u.name,`Role set to ${u.role}; projects: ${u.projects.join(", ")}.`);
+ await DataProvider.saveState(state);
+ alert("Access updated.");
+ render();
 };
 
 
