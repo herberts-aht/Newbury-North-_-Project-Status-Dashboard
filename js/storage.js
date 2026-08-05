@@ -1,14 +1,17 @@
 // Browser storage, backup, and restore helpers.
 // This remains browser-only until a hosted database is added.
 
-function save(){localStorage.setItem("aht_perm_demo_v23",JSON.stringify(state));render()}
+async function save(){
+ await DataProvider.saveState(state);
+ render();
+}
 
 function backupFileName(){
  const stamp=new Date().toISOString().slice(0,10);
  return `aht-project-control-backup-${stamp}.json`;
 }
 
-function exportBackup(){
+async function exportBackup(){
  if(!currentUser?.canAdmin)return;
  const payload={
    format:"AHT Project Control Backup",
@@ -28,7 +31,7 @@ function exportBackup(){
  link.remove();
  URL.revokeObjectURL(url);
  logChange("Create","admin","System Backup","Dashboard backup",`Backup exported by ${currentUser.name}.`);
- localStorage.setItem("aht_perm_demo_v23",JSON.stringify(state));
+ await DataProvider.saveState(state);
  render();
 }
 
@@ -42,7 +45,7 @@ function validateBackup(payload){
 function importBackupFile(file){
  if(!currentUser?.canAdmin||!file)return;
  const reader=new FileReader();
- reader.onload=()=>{
+ reader.onload=async()=>{
    try{
      const payload=JSON.parse(reader.result);
      validateBackup(payload);
@@ -60,7 +63,7 @@ function importBackupFile(file){
        state.currentProjectId=state.projects.find(p=>!p.archived)?.id||state.projects[0]?.id||"";
      }
      logChange("Update","admin","System Backup","Dashboard restore",`Backup from ${exportedAt} imported by ${currentUser.name}.`);
-     localStorage.setItem("aht_perm_demo_v23",JSON.stringify(state));
+     await DataProvider.saveState(state);
      alert("Backup imported successfully.");
      render();
      showView("projects");
