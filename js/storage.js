@@ -15,9 +15,22 @@ async function exportBackup(){
  if(!currentUser?.canAdmin)return;
  const payload={
    format:"AHT Project Control Backup",
-   version:1,
+   formatVersion:APP_CONFIG.backupFormatVersion,
+   application:{
+     name:APP_CONFIG.appName,
+     version:APP_CONFIG.version,
+     buildDate:APP_CONFIG.buildDate,
+     environment:APP_CONFIG.environment
+   },
    exportedAt:new Date().toISOString(),
    exportedBy:{id:currentUser.id,name:currentUser.name},
+   recordCounts:{
+     users:USERS.length,
+     projects:state.projects.length,
+     deliverables:state.projects.reduce((sum,project)=>sum+project.deliverables.length,0),
+     informationRequests:state.projects.reduce((sum,project)=>sum+project.info.length,0),
+     auditEntries:state.auditLog.length
+   },
    state:snapshot(state),
    users:snapshot(USERS)
  };
@@ -36,9 +49,25 @@ async function exportBackup(){
 }
 
 function validateBackup(payload){
- if(!payload||payload.format!=="AHT Project Control Backup")throw new Error("This is not an AHT Project Control backup file.");
- if(!payload.state||!Array.isArray(payload.state.projects))throw new Error("The backup does not contain valid project data.");
- if(!payload.state.projects.every(p=>p&&p.id&&p.name&&Array.isArray(p.deliverables)&&Array.isArray(p.info)))throw new Error("One or more projects in the backup are incomplete.");
+ if(!payload||payload.format!=="AHT Project Control Backup"){
+   throw new Error("This is not an AHT Project Control backup file.");
+ }
+ const formatVersion=payload.formatVersion??payload.version??1;
+ if(formatVersion>APP_CONFIG.backupFormatVersion){
+   throw new Error(`This backup uses format version ${formatVersion}, which is newer than this dashboard supports.`);
+ }
+ if(!payload.state||!Array.isArray(payload.state.projects)){
+   throw new Error("The backup does not contain valid project data.");
+ }
+ if(!payload.state.projects.every(project=>
+   project&&project.id&&project.name&&
+   Array.isArray(project.deliverables)&&Array.isArray(project.info)
+ )){
+   throw new Error("One or more projects in the backup are incomplete.");
+ }
+ if(!Array.isArray(payload.users)){
+   throw new Error("The backup does not contain a valid user list.");
+ }
  return true;
 }
 

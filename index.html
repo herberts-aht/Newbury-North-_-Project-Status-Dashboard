@@ -7,11 +7,19 @@
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+<div id="startupStatus" class="startup-status">
+  <div class="startup-card">
+    <div class="startup-spinner" aria-hidden="true"></div>
+    <h2 id="startupTitle">Loading dashboard…</h2>
+    <p id="startupMessage">Preparing project data and sign-in.</p>
+    <button id="startupRetryBtn" class="btn primary hidden" type="button">Retry</button>
+  </div>
+</div>
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
     <div class="login-brand">AHT Global</div>
     <h1>Project Control</h1>
-    <p>Luxury Builder Division · Secure project visibility and coordination.</p><div class="version-tag">Version 1.0 Candidate</div>
+    <p>Luxury Builder Division · Secure project visibility and coordination.</p><div class="version-tag" id="versionTag">Version —</div>
     <div class="field"><label>User</label><select id="loginUser"></select></div>
     <div class="field"><label>Password</label><input id="loginPassword" type="password" value="demo" /></div>
     <button id="loginBtn">Sign In</button>
@@ -154,6 +162,7 @@
 
 <div class="modal-backdrop" id="modalBackdrop"><div class="modal"><h3 id="modalTitle">Edit</h3><form id="editForm"><div class="form-grid" id="formFields"></div><div class="modal-actions"><button type="button" class="btn danger hidden" id="deleteRecordBtn">Delete</button><span style="flex:1"></span><button type="button" class="btn" id="cancelModal">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div></div>
 
+<script src="js/config.js"></script>
 <script src="data/projects.js"></script>
 <script src="js/data-provider.js"></script>
 <script src="js/storage.js"></script>
