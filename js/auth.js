@@ -5,17 +5,40 @@
 
 let currentUser = null;
 
+const TEMP_PASSWORDS = {
+  stacy: "ahtadmin8626",
+  aht: "ahtadmin",
+  external: "user"
+};
+
+function passwordForUser(user) {
+  return TEMP_PASSWORDS[user?.passwordProfile] || "";
+}
+
+function populateLoginUsers(selectedUserId = "") {
+  const activeUsers = USERS.filter(user => user.active !== false);
+
+  loginUser.innerHTML = activeUsers
+    .map(user => `<option value="${user.id}">${user.name} — ${user.role}</option>`)
+    .join("");
+
+  if (selectedUserId && activeUsers.some(user => user.id === selectedUserId)) {
+    loginUser.value = selectedUserId;
+  }
+}
+
 const DemoAuthProvider = {
   sessionKey: "aht_demo_user",
 
   async signIn({ userId, password }) {
-    if (password !== "demo") {
-      throw new Error("Use demo as the password.");
+    const user = USERS.find(item => item.id === userId && item.active !== false);
+
+    if (!user) {
+      throw new Error("The selected user is not active or could not be found.");
     }
 
-    const user = USERS.find(item => item.id === userId);
-    if (!user) {
-      throw new Error("The selected user could not be found.");
+    if (password !== passwordForUser(user)) {
+      throw new Error("Incorrect password.");
     }
 
     sessionStorage.setItem(this.sessionKey, user.id);
@@ -28,7 +51,9 @@ const DemoAuthProvider = {
 
   async restoreSession() {
     const userId = sessionStorage.getItem(this.sessionKey);
-    return userId ? USERS.find(item => item.id === userId) || null : null;
+    return userId
+      ? USERS.find(item => item.id === userId && item.active !== false) || null
+      : null;
   }
 };
 
@@ -52,6 +77,7 @@ async function handleLogin() {
       userId: loginUser.value,
       password: loginPassword.value
     });
+    loginPassword.value = "";
     showSignedInApplication();
   } catch (error) {
     alert(error.message);
@@ -65,9 +91,7 @@ async function handleLogout() {
 }
 
 async function initializeAuthentication() {
-  loginUser.innerHTML = USERS
-    .map(user => `<option value="${user.id}">${user.name} — ${user.role}</option>`)
-    .join("");
+  populateLoginUsers();
 
   loginBtn.onclick = handleLogin;
   logoutBtn.onclick = handleLogout;

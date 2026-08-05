@@ -61,9 +61,30 @@ function renderAdmin(){
      </div>
    </div>`).join("");
 
- adminUserSelect.innerHTML=USERS.map(u=>`<option value="${u.id}">${u.name}</option>`).join("");
- const selected=USERS.find(u=>u.id===adminUserSelect.value)||USERS[0];
+ const previousSelection=adminUserSelect.value;
+ adminUserSelect.innerHTML='<option value="">Select user…</option>'+USERS
+   .slice()
+   .sort((a,b)=>a.name.localeCompare(b.name))
+   .map(u=>`<option value="${u.id}">${esc(u.name)}${u.active===false?" (Inactive)":""}</option>`)
+   .join("");
+
+ if(creatingUser){
+   adminUserSelect.value="";
+   return;
+ }
+
+ const selected=USERS.find(u=>u.id===previousSelection)||USERS.find(u=>u.id===currentUser?.id)||USERS[0];
+ if(!selected)return;
+
+ adminUserSelect.value=selected.id;
+ adminUserName.value=selected.name||"";
+ adminUserEmail.value=selected.email||"";
+ adminUserCompany.value=selected.company||"";
  adminRoleSelect.value=selected.role;
+ adminPasswordProfile.value=selected.id==="stacy"?"stacy":selected.passwordProfile||(selected.isInternal?"aht":"external");
+ adminPasswordProfile.disabled=selected.id==="stacy";
+ adminUserActive.checked=selected.active!==false;
+
  projectAssignmentList.innerHTML=state.projects.map(p=>{
    const checked=selected.projects.includes("*")||selected.projects.includes(p.id);
    return `<label style="display:block;margin:7px 0;font-size:13px"><input type="checkbox" value="${p.id}" ${checked?"checked":""}> ${esc(p.name)}</label>`;

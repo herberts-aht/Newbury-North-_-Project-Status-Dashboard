@@ -54,10 +54,9 @@ function importBackupFile(file){
      state=snapshot(payload.state);
      if(!state.auditLog)state.auditLog=[];
      if(Array.isArray(payload.users)){
-       payload.users.forEach(saved=>{
-         const existing=USERS.find(u=>u.id===saved.id);
-         if(existing)Object.assign(existing,saved);
-       });
+       USERS.splice(0,USERS.length,...snapshot(payload.users));
+       await DataProvider.saveUsers(USERS);
+       populateLoginUsers(currentUser?.id||"");
      }
      if(!state.projects.some(p=>p.id===state.currentProjectId&&!p.archived)){
        state.currentProjectId=state.projects.find(p=>!p.archived)?.id||state.projects[0]?.id||"";

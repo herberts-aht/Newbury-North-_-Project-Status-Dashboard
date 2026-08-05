@@ -1,9 +1,9 @@
 const USERS=[
- {id:"stacy",name:"Stacy Herbert",role:"Administrator",projects:["*"],canEdit:true,canAdmin:true,isInternal:true},
- {id:"bill",name:"Bill Hatcher",role:"Internal Editor",projects:["*"],canEdit:true,canAdmin:false,isInternal:true},
- {id:"shaun",name:"Shaun Kastner",role:"Internal Editor",projects:["2200","2340"],canEdit:true,canAdmin:false,isInternal:true},
- {id:"russel",name:"Russel Edwards",role:"External Viewer",projects:["2200","2340"],canEdit:false,canAdmin:false,isInternal:false},
- {id:"clientA",name:"Future Client A",role:"External Viewer",projects:["3000"],canEdit:false,canAdmin:false,isInternal:false}
+ {id:"stacy",name:"Stacy Herbert",email:"",company:"AHT Global",role:"Administrator",passwordProfile:"stacy",active:true,projects:["*"],canEdit:true,canAdmin:true,isInternal:true},
+ {id:"bill",name:"Bill Hatcher",email:"",company:"AHT Global",role:"Internal Editor",passwordProfile:"aht",active:true,projects:["*"],canEdit:true,canAdmin:false,isInternal:true},
+ {id:"shaun",name:"Shaun Kastner",email:"",company:"AHT Global",role:"Internal Editor",passwordProfile:"aht",active:true,projects:["2200","2340"],canEdit:true,canAdmin:false,isInternal:true},
+ {id:"russel",name:"Russel Edwards",email:"",company:"External",role:"External Viewer",passwordProfile:"external",active:true,projects:["2200","2340"],canEdit:false,canAdmin:false,isInternal:false},
+ {id:"clientA",name:"Future Client A",email:"",company:"External",role:"External Viewer",passwordProfile:"external",active:true,projects:["3000"],canEdit:false,canAdmin:false,isInternal:false}
 ];
 const DEMO={currentProjectId:"2200",projects:[
 {id:"2200",name:"2200 Gordon Dr",address:"2200 Gordon Dr",city:"Naples",state:"FL",description:"Design Coordination",subtitle:"Naples, FL · Design Coordination",phase:"Design Development",archived:false,health:"On Track",updated:"August 4, 2026",lastActivityDate:"2026-08-04",lastActivity:"Recent coordination reviewed the proposed low-voltage wall pathway and current main-house design deliverables.",progressPlanning:80,progressEngineering:35,progressInstallation:0,deliverables:[

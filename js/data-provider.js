@@ -1,10 +1,11 @@
 // Replaceable project-data provider.
 //
 // LocalStorageDataProvider is used now. A hosted database provider can later
-// implement the same loadState() and saveState() methods.
+// implement the same state and user methods.
 
 const LocalStorageDataProvider = {
   storageKey: "aht_perm_demo_v23",
+  usersKey: "aht_users_v1",
 
   async loadState() {
     const saved = localStorage.getItem(this.storageKey);
@@ -13,6 +14,15 @@ const LocalStorageDataProvider = {
 
   async saveState(nextState) {
     localStorage.setItem(this.storageKey, JSON.stringify(nextState));
+  },
+
+  async loadUsers() {
+    const saved = localStorage.getItem(this.usersKey);
+    return saved ? JSON.parse(saved) : structuredClone(USERS);
+  },
+
+  async saveUsers(nextUsers) {
+    localStorage.setItem(this.usersKey, JSON.stringify(nextUsers));
   }
 };
 

@@ -15,7 +15,7 @@
     <div class="field"><label>User</label><select id="loginUser"></select></div>
     <div class="field"><label>Password</label><input id="loginPassword" type="password" value="demo" /></div>
     <button id="loginBtn">Sign In</button>
-    <div class="demo-note">Demo password for every account: <strong>demo</strong>. This prototype login is for behavior testing only and is not production security.</div>
+    <div class="demo-note">Temporary local passwords are assigned by user type. This interim login is not production security.</div>
   </div>
 </div>
 
@@ -101,11 +101,23 @@
       <div class="admin-panel">
         <div class="admin-grid">
           <div class="admin-card">
-            <h4>User Access</h4>
+            <div class="admin-card-heading">
+              <h4>User Management</h4>
+              <button class="btn" id="newUserBtn" type="button">Add User</button>
+            </div>
             <label>User</label><select id="adminUserSelect"></select>
+            <label style="margin-top:10px">Name</label><input id="adminUserName" />
+            <label style="margin-top:10px">Email</label><input id="adminUserEmail" type="email" />
+            <label style="margin-top:10px">Company</label><input id="adminUserCompany" />
             <label style="margin-top:10px">Role</label><select id="adminRoleSelect">
               <option>Administrator</option><option>Executive Viewer</option><option>Internal Editor</option><option>External Viewer</option>
             </select>
+            <label style="margin-top:10px">Temporary Password</label><select id="adminPasswordProfile">
+              <option value="aht">AHT Internal — ahtadmin</option>
+              <option value="external">External — user</option>
+              <option value="stacy">Stacy Administrator — ahtadmin8626</option>
+            </select>
+            <label class="active-user-check"><input id="adminUserActive" type="checkbox" checked /> Active user</label>
           </div>
           <div class="admin-card">
             <h4>Project Assignment</h4>
@@ -113,7 +125,7 @@
             <div id="projectAssignmentList"></div>
           </div>
         </div>
-        <div style="margin-top:12px"><button class="btn primary" id="saveAccessBtn">Save Access</button></div>
+        <div style="margin-top:12px"><button class="btn primary" id="saveAccessBtn">Save User</button></div>
       </div>
       <div class="note">Prototype behavior only. Production permissions must be enforced by the hosted backend.</div>
     </section>
@@ -282,18 +294,98 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
 
 
 
-adminUserSelect.onchange=renderAdmin;
+function userIdFromInput(name,email){
+ const source=(email||name||"user").trim().toLowerCase();
+ const base=source
+   .replace(/@.*$/,"")
+   .replace(/[^a-z0-9]+/g,".")
+   .replace(/^\.|\.$/g,"")||"user";
+ let id=base;
+ let counter=2;
+ while(USERS.some(user=>user.id===id)){
+   id=`${base}.${counter++}`;
+ }
+ return id;
+}
+
+function setUserRoleFlags(user){
+ user.canAdmin=user.role==="Administrator";
+ user.canEdit=user.role==="Administrator"||user.role==="Internal Editor";
+ user.isInternal=user.role!=="External Viewer";
+}
+
+function startNewUser(){
+ creatingUser=true;
+ adminUserSelect.value="";
+ adminUserName.value="";
+ adminUserEmail.value="";
+ adminUserCompany.value="AHT Global";
+ adminRoleSelect.value="Internal Editor";
+ adminPasswordProfile.value="aht";
+ adminPasswordProfile.disabled=false;
+ adminUserActive.checked=true;
+ projectAssignmentList.querySelectorAll("input").forEach(input=>input.checked=false);
+ adminUserName.focus();
+}
+
+newUserBtn.onclick=startNewUser;
+adminUserSelect.onchange=()=>{
+ creatingUser=false;
+ renderAdmin();
+};
+
 saveAccessBtn.onclick=async()=>{
- const u=USERS.find(x=>x.id===adminUserSelect.value);
- u.role=adminRoleSelect.value;
- u.canAdmin=u.role==="Administrator";
- u.canEdit=u.role==="Administrator"||u.role==="Internal Editor";
- u.isInternal=u.role!=="External Viewer";
+ const name=adminUserName.value.trim();
+ if(!name){
+   alert("Enter the user's name.");
+   return;
+ }
+
+ let user=creatingUser?null:USERS.find(x=>x.id===adminUserSelect.value);
+ const isNew=!user;
+
+ if(isNew){
+   user={
+     id:userIdFromInput(name,adminUserEmail.value),
+     name:"",
+     email:"",
+     company:"",
+     role:"External Viewer",
+     passwordProfile:"external",
+     active:true,
+     projects:[],
+     canEdit:false,
+     canAdmin:false,
+     isInternal:false
+   };
+   USERS.push(user);
+ }
+
+ user.name=name;
+ user.email=adminUserEmail.value.trim();
+ user.company=adminUserCompany.value.trim();
+ user.role=adminRoleSelect.value;
+ user.passwordProfile=user.id==="stacy"?"stacy":adminPasswordProfile.value;
+ user.active=adminUserActive.checked;
+ setUserRoleFlags(user);
+
  const selected=[...projectAssignmentList.querySelectorAll("input:checked")].map(x=>x.value);
- u.projects=u.canAdmin||u.id==="bill"?["*"]:selected;
- logChange("Access Change","admin","User Access",u.name,`Role set to ${u.role}; projects: ${u.projects.join(", ")}.`);
+ user.projects=user.canAdmin||user.id==="bill"?["*"]:selected;
+
+ await DataProvider.saveUsers(USERS);
+ logChange(
+   isNew?"Create":"Access Change",
+   "admin",
+   "User Access",
+   user.name,
+   `${isNew?"User created":"User updated"}; role: ${user.role}; projects: ${user.projects.join(", ")||"none"}; active: ${user.active?"yes":"no"}.`
+ );
  await DataProvider.saveState(state);
- alert("Access updated.");
+
+ creatingUser=false;
+ populateLoginUsers(user.id);
+ adminUserSelect.value=user.id;
+ alert(isNew?"User added.":"User updated.");
  render();
 };
 

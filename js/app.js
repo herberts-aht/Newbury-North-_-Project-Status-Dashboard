@@ -5,6 +5,7 @@
 
 let state = null;
 let editContext = null;
+let creatingUser = false;
 
 async function initializeApplication() {
   try {
@@ -16,6 +17,11 @@ async function initializeApplication() {
 
     if (!state.auditLog) {
       state.auditLog = [];
+    }
+
+    const savedUsers = await DataProvider.loadUsers();
+    if (Array.isArray(savedUsers) && savedUsers.length) {
+      USERS.splice(0, USERS.length, ...savedUsers);
     }
 
     await initializeAuthentication();
