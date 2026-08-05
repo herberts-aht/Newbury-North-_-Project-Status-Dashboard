@@ -187,7 +187,6 @@ linear-gradient(145deg,#102947,#17365d 58%,#244e7c)}
 }
 
 
-.admin-header-actions{display:flex;gap:8px;flex-wrap:wrap}
 .project-admin-list{display:grid;gap:10px}
 .project-admin-row{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);background:#fff;border-radius:9px;padding:12px}
 .project-admin-row.archived{opacity:.62}
@@ -282,12 +281,7 @@ linear-gradient(145deg,#102947,#17365d 58%,#244e7c)}
     <section id="admin" class="view">
       <div class="page-header">
         <div><div class="eyebrow">System Control</div><h2>Administration</h2><p>Manage projects, user assignments, and access.</p></div>
-        <div class="admin-header-actions">
-          <button class="btn" id="exportBackupBtn">Export Backup</button>
-          <button class="btn" id="importBackupBtn">Import Backup</button>
-          <input id="importBackupFile" type="file" accept="application/json,.json" class="hidden" />
-          <button class="btn primary" id="newProjectBtn">Add Project</button>
-        </div>
+        <button class="btn primary" id="newProjectBtn">Add Project</button>
       </div>
       <div class="admin-panel">
         <h3 style="margin-top:0">Projects</h3>
@@ -540,75 +534,6 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
     <div class="field full"><label>Assigned Users</label><div class="checkbox-list">${USERS.map(u=>`<label><input type="checkbox" name="assignedUsers" value="${u.id}" ${(d.assignedUsers||[]).includes(u.id)||u.id==="stacy"||u.id==="bill"||u.id==="shaun"?"checked":""}> ${esc(u.name)}</label>`).join("")}</div></div>
   `:type==="deliverable"?`${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${field("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;modalBackdrop.style.display="flex"}
 
-
-function backupFileName(){
- const stamp=new Date().toISOString().slice(0,10);
- return `aht-project-control-backup-${stamp}.json`;
-}
-function exportBackup(){
- if(!currentUser?.canAdmin)return;
- const payload={
-   format:"AHT Project Control Backup",
-   version:1,
-   exportedAt:new Date().toISOString(),
-   exportedBy:{id:currentUser.id,name:currentUser.name},
-   state:snapshot(state),
-   users:snapshot(USERS)
- };
- const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
- const url=URL.createObjectURL(blob);
- const link=document.createElement("a");
- link.href=url;
- link.download=backupFileName();
- document.body.appendChild(link);
- link.click();
- link.remove();
- URL.revokeObjectURL(url);
- logChange("Create","admin","System Backup","Dashboard backup",`Backup exported by ${currentUser.name}.`);
- localStorage.setItem("aht_perm_demo_v23",JSON.stringify(state));
- render();
-}
-function validateBackup(payload){
- if(!payload||payload.format!=="AHT Project Control Backup")throw new Error("This is not an AHT Project Control backup file.");
- if(!payload.state||!Array.isArray(payload.state.projects))throw new Error("The backup does not contain valid project data.");
- if(!payload.state.projects.every(p=>p&&p.id&&p.name&&Array.isArray(p.deliverables)&&Array.isArray(p.info)))throw new Error("One or more projects in the backup are incomplete.");
- return true;
-}
-function importBackupFile(file){
- if(!currentUser?.canAdmin||!file)return;
- const reader=new FileReader();
- reader.onload=()=>{
-   try{
-     const payload=JSON.parse(reader.result);
-     validateBackup(payload);
-     const exportedAt=payload.exportedAt?new Date(payload.exportedAt).toLocaleString("en-US"):"an unknown date";
-     if(!confirm(`Replace the current dashboard data with the backup exported ${exportedAt}?\n\nThis cannot be undone unless you export the current data first.`))return;
-     state=snapshot(payload.state);
-     if(!state.auditLog)state.auditLog=[];
-     if(Array.isArray(payload.users)){
-       payload.users.forEach(saved=>{
-         const existing=USERS.find(u=>u.id===saved.id);
-         if(existing)Object.assign(existing,saved);
-       });
-     }
-     if(!state.projects.some(p=>p.id===state.currentProjectId&&!p.archived)){
-       state.currentProjectId=state.projects.find(p=>!p.archived)?.id||state.projects[0]?.id||"";
-     }
-     logChange("Update","admin","System Backup","Dashboard restore",`Backup from ${exportedAt} imported by ${currentUser.name}.`);
-     localStorage.setItem("aht_perm_demo_v23",JSON.stringify(state));
-     alert("Backup imported successfully.");
-     render();
-     showView("projects");
-   }catch(error){
-     alert(`Backup could not be imported: ${error.message}`);
-   }finally{
-     importBackupFileInput.value="";
-   }
- };
- reader.onerror=()=>alert("The selected backup file could not be read.");
- reader.readAsText(file);
-}
-
 function renderAdmin(){
  if(!currentUser?.canAdmin)return;
  projectAdminList.innerHTML=state.projects.map(p=>`
@@ -657,14 +582,6 @@ window.toggleArchive=id=>{
  save();
 };
 newProjectBtn.onclick=()=>openModal("project");
-const importBackupFileInput=document.getElementById("importBackupFile");
-exportBackupBtn.onclick=exportBackup;
-importBackupBtn.onclick=()=>{
- if(!currentUser?.canAdmin)return;
- if(!confirm("Importing a backup replaces the dashboard data stored in this browser. Export the current data first if you may need it later. Continue?"))return;
- importBackupFileInput.click();
-};
-importBackupFileInput.onchange=e=>importBackupFile(e.target.files?.[0]);
 
 loginUser.innerHTML=USERS.map(u=>`<option value="${u.id}">${u.name} — ${u.role}</option>`).join("");
 loginBtn.onclick=()=>{const u=USERS.find(x=>x.id===loginUser.value);if(loginPassword.value!=="demo"){alert("Use demo as the password.");return}currentUser=u;sessionStorage.setItem("aht_demo_user",u.id);loginScreen.classList.add("hidden");app.classList.remove("hidden");render()};
