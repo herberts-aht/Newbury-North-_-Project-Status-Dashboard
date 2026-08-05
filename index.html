@@ -48,6 +48,9 @@ button,input,select,textarea{font:inherit}
 .stat-mini strong{display:block;font-size:18px}.stat-mini span{font-size:10px;color:var(--muted);font-weight:700}
 .health{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;font-weight:700}
 .health .pulse{width:9px;height:9px;border-radius:50%;background:var(--green)}
+.health-mode{display:block;margin-top:4px;font-size:10px;color:var(--muted);font-weight:650}
+.health-note{margin-top:5px;font-size:11px;color:var(--muted);line-height:1.35}
+.health-control-note{grid-column:1/-1;background:var(--soft-blue);border-radius:7px;padding:9px 10px;font-size:11px;color:#35516f}
 .grid-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
 .kpi{background:#fff;border:1px solid var(--line);border-top:4px solid var(--navy);border-radius:10px;padding:16px}
 .kpi.blue{border-top-color:var(--blue)}.kpi.orange{border-top-color:var(--orange)}.kpi.green{border-top-color:var(--green)}
@@ -250,7 +253,7 @@ linear-gradient(145deg,#102947,#17365d 58%,#244e7c)}
         <div class="project-switcher"><span class="small">Project</span><select id="projectSelect"></select></div>
       </div>
       <div class="summary-ribbon">
-        <div class="summary-cell"><div class="label">Project Health</div><div class="value"><span class="status-dot"></span><span id="summaryHealth">On Track</span></div></div>
+        <div class="summary-cell"><div class="label">Project Health</div><div class="value"><span class="status-dot" id="summaryHealthDot"></span><span id="summaryHealth">On Track</span><span class="health-mode" id="summaryHealthMode">Automatic</span><div class="health-note" id="summaryHealthNote"></div></div></div>
         <div class="summary-cell"><div class="label">Project Lead</div><div class="value">Stacy Herbert</div></div>
         <div class="summary-cell"><div class="label">Last Updated</div><div class="value" id="summaryUpdated">—</div></div>
         <div class="summary-cell"><div class="label">Access Level</div><div class="value" id="summaryAccess">—</div></div>
@@ -383,6 +386,28 @@ function canSeeRecord(x){
 function visibleDeliverables(p){return p.deliverables.filter(canSeeRecord)}
 function visibleInfo(p){return p.info.filter(canSeeRecord)}
 
+function calculateProjectHealth(project){
+ const deliverables=project.deliverables||[];
+ const info=project.info||[];
+ const activeDeliverables=deliverables.filter(d=>d.status!=="Complete");
+ const unresolvedInfo=info.filter(i=>!["Received","No Longer Needed"].includes(i.status));
+ if(deliverables.length&&activeDeliverables.length===0&&unresolvedInfo.length===0)return "Complete";
+ if(deliverables.some(d=>d.status==="Blocked"))return "Blocked";
+ if(deliverables.some(d=>String(d.risk||"").trim()))return "At Risk";
+ if(deliverables.some(d=>d.status==="Waiting on Information")||unresolvedInfo.length)return "Needs Information";
+ return "On Track";
+}
+function displayedProjectHealth(project){
+ const mode=project.healthMode||"auto";
+ return mode==="manual"&&project.healthOverride?project.healthOverride:calculateProjectHealth(project);
+}
+function healthColor(health){
+ if(health==="Complete"||health==="On Track")return "var(--green)";
+ if(health==="Needs Information")return "var(--orange)";
+ if(health==="At Risk"||health==="Blocked")return "var(--red)";
+ return "var(--blue)";
+}
+
 function snapshot(obj){return JSON.parse(JSON.stringify(obj||{}))}
 function summarizeChanges(before,after){
  const skip=["id"];
@@ -447,10 +472,10 @@ function projectProgress(deliverables){
 }
 function render(){
  const projects=allowedProjects();if(!projects.length)return;if(!projects.some(p=>p.id===state.currentProjectId))state.currentProjectId=projects[0].id;const p=currentProject(),ds=visibleDeliverables(p),infoRecords=visibleInfo(p);
- userLabel.textContent=currentUser.name;roleLabel.textContent=currentUser.role;avatarInitials.textContent=currentUser.name.split(" ").map(x=>x[0]).join("").slice(0,2);projectSubtitle.textContent=`${p.name} · ${p.subtitle}`;welcomeTitle.textContent=`Welcome, ${currentUser.name.split(" ")[0]}`;summaryHealth.textContent=p.health;summaryUpdated.textContent=p.updated;summaryAccess.textContent=currentUser.canAdmin?"Administrator":currentUser.canEdit?"Editor":"Viewer";document.querySelectorAll(".internal-activity").forEach(x=>x.classList.toggle("hidden",!currentUser.isInternal));lastActivityDate.textContent=fmtDate(p.lastActivityDate);lastActivityText.textContent=p.lastActivity||"No activity recorded.";
+ userLabel.textContent=currentUser.name;roleLabel.textContent=currentUser.role;avatarInitials.textContent=currentUser.name.split(" ").map(x=>x[0]).join("").slice(0,2);projectSubtitle.textContent=`${p.name} · ${p.subtitle}`;welcomeTitle.textContent=`Welcome, ${currentUser.name.split(" ")[0]}`;const displayedHealth=displayedProjectHealth(p),calculatedHealth=calculateProjectHealth(p),manualHealth=(p.healthMode||"auto")==="manual"&&p.healthOverride;summaryHealth.textContent=displayedHealth;summaryHealthDot.style.background=healthColor(displayedHealth);summaryHealthMode.textContent=manualHealth?`Manual override · Automatic: ${calculatedHealth}`:"Automatic";summaryHealthNote.textContent=manualHealth?(p.healthOverrideNote||""):"";summaryUpdated.textContent=p.updated;summaryAccess.textContent=currentUser.canAdmin?"Administrator":currentUser.canEdit?"Editor":"Viewer";document.querySelectorAll(".internal-activity").forEach(x=>x.classList.toggle("hidden",!currentUser.isInternal));lastActivityDate.textContent=fmtDate(p.lastActivityDate);lastActivityText.textContent=p.lastActivity||"No activity recorded.";
  permissionBanner.textContent=currentUser.projects.includes("*")?`${currentUser.name} can view all assigned Newbury projects. ${currentUser.canAdmin?"Administrator access.":currentUser.canEdit?"Internal editing access.":"Read-only executive access."}`:`${currentUser.name} can view only: ${projects.map(x=>x.name).join(", ")}. ${currentUser.canEdit?"Internal editing access.":"Read-only external access."}`;
  document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canEdit));document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canAdmin));
- projectGrid.innerHTML=projects.map(pr=>{const active=pr.deliverables.filter(x=>x.status==="In Progress").length,waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length;const progress=weightedProjectProgress(pr),planning=clampPercent(pr.progressPlanning||0),engineering=clampPercent(pr.progressEngineering||0),installation=clampPercent(pr.progressInstallation||0);return `<div class="project-card" onclick="setProject('${pr.id}')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health"><span class="pulse" style="background:${pr.health==="On Track"?"var(--green)":"var(--orange)"}"></span>${esc(pr.health)}</div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong>${planning}%</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong>${engineering}%</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong>${installation}%</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
+ projectGrid.innerHTML=projects.map(pr=>{const active=pr.deliverables.filter(x=>x.status==="In Progress").length,waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length;const progress=weightedProjectProgress(pr),planning=clampPercent(pr.progressPlanning||0),engineering=clampPercent(pr.progressEngineering||0),installation=clampPercent(pr.progressInstallation||0),health=displayedProjectHealth(pr),manual=(pr.healthMode||"auto")==="manual"&&pr.healthOverride;return `<div class="project-card" onclick="setProject('${pr.id}')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health"><span class="pulse" style="background:${healthColor(health)}"></span><span>${esc(health)}${manual?`<span class="health-mode">Manual override</span>`:""}</span></div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong>${planning}%</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong>${engineering}%</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong>${installation}%</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
  const opts=projects.map(pr=>`<option value="${pr.id}" ${pr.id===p.id?"selected":""}>${esc(pr.name)}</option>`).join("");projectSelect.innerHTML=opts;document.querySelectorAll(".project-select-clone").forEach(s=>s.innerHTML=opts);
  kpiTotal.textContent=ds.length;kpiActive.textContent=ds.filter(x=>x.status==="In Progress").length;kpiWaiting.textContent=ds.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length;kpiComplete.textContent=ds.filter(x=>x.status==="Complete").length;
  currentWork.innerHTML=ds.filter(x=>x.status==="In Progress").map(x=>`<div class="item"><span class="dot"></span><div><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></div></div>`).join("")||"<span class='small'>No active items.</span>";
@@ -502,7 +527,10 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
       ${field("progressInstallation","Installation %",d.progressInstallation??0)}
     </div><div class="phase-progress-note">Overall progress is calculated automatically: Planning 15% + Engineering 35% + Installation 50%.</div></div>`:""}
     ${selectField("phase","Phase",["Planning","Design Development","Engineering","Permitting","Rough-In","Trim","Final","Complete"],d.phase||"Planning")}
-    ${selectField("health","Health",["On Track","Needs Information","At Risk","Blocked","Complete"],d.health||"On Track")}
+    ${selectField("healthMode","Health Mode",["auto","manual"],d.healthMode||"auto")}
+    ${selectField("healthOverride","Manual Health Override",["","On Track","Needs Information","At Risk","Blocked","Complete"],d.healthOverride||"")}
+    ${field("healthOverrideNote","Override Note",d.healthOverrideNote||"","full","textarea")}
+    <div class="health-control-note">Automatic health is calculated from blocked work, recorded risks, outstanding information, and completion. Select <strong>manual</strong> only when project context requires a different displayed status. Change back to <strong>auto</strong> at any time.</div>
     <div class="field full"><label>Assigned Users</label><div class="checkbox-list">${USERS.map(u=>`<label><input type="checkbox" name="assignedUsers" value="${u.id}" ${(d.assignedUsers||[]).includes(u.id)||u.id==="stacy"||u.id==="bill"||u.id==="shaun"?"checked":""}> ${esc(u.name)}</label>`).join("")}</div></div>
   `:type==="deliverable"?`${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${field("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;modalBackdrop.style.display="flex"}
 
@@ -512,7 +540,7 @@ function renderAdmin(){
    <div class="project-admin-row ${p.archived?"archived":""}">
      <div><strong>${esc(p.name)}</strong><div class="small">${esc(p.subtitle||"Naples, FL")}</div></div>
      <div><span class="small">Phase</span><br><strong>${esc(p.phase||"Planning")}</strong></div>
-     <div><span class="small">Health</span><br><strong>${esc(p.health||"On Track")}</strong></div>
+     <div><span class="small">Health</span><br><strong>${esc(displayedProjectHealth(p))}</strong><div class="small">${(p.healthMode||"auto")==="manual"?"Manual override":"Automatic"}</div></div>
      <div class="project-admin-actions">
        <button class="btn" onclick="editProject('${p.id}')">Edit</button>
        <button class="btn" onclick="toggleArchive('${p.id}')">${p.archived?"Restore":"Archive"}</button>
@@ -589,7 +617,10 @@ window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",
        p.progressInstallation=clampPercent(obj.progressInstallation);
      }
      p.phase=obj.phase;
-     p.health=obj.health;
+     p.healthMode=obj.healthMode==="manual"?"manual":"auto";
+     p.healthOverride=p.healthMode==="manual"?String(obj.healthOverride||"").trim():"";
+     p.healthOverrideNote=p.healthMode==="manual"?String(obj.healthOverrideNote||"").trim():"";
+     if(p.healthMode==="manual"&&!p.healthOverride){alert("Choose a manual health status or return Health Mode to auto.");return;}
      USERS.forEach(u=>{
        if(u.projects.includes("*"))return;
        const has=u.projects.includes(p.id),should=assignedUsers.includes(u.id);
@@ -613,19 +644,22 @@ window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",
        progressEngineering:clampPercent(obj.progressEngineering),
        progressInstallation:clampPercent(obj.progressInstallation),
        phase:obj.phase,
-       health:obj.health,
+       healthMode:obj.healthMode==="manual"?"manual":"auto",
+       healthOverride:obj.healthMode==="manual"?String(obj.healthOverride||"").trim():"",
+       healthOverrideNote:obj.healthMode==="manual"?String(obj.healthOverrideNote||"").trim():"",
        archived:false,
        updated:new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}),
        deliverables:[],
        info:[]
      };
+     if(p.healthMode==="manual"&&!p.healthOverride){alert("Choose a manual health status or return Health Mode to auto.");return;}
      state.projects.push(p);
      USERS.forEach(u=>{
        if(u.projects.includes("*"))return;
        if(assignedUsers.includes(u.id)&&!u.projects.includes(id))u.projects.push(id);
      });
      state.currentProjectId=id;
-     logChange("Create",id,"Project",p.name,`Project created in ${p.phase} phase with ${p.health} health.`);
+     logChange("Create",id,"Project",p.name,`Project created in ${p.phase} phase with ${displayedProjectHealth(p)} health (${p.healthMode==="manual"?"manual override":"automatic"}).`);
    }
    modalBackdrop.style.display="none";save();return;
  }
