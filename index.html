@@ -118,6 +118,8 @@
               <option value="stacy">Stacy Administrator — ahtadmin8626</option>
             </select>
             <label class="active-user-check"><input id="adminUserActive" type="checkbox" checked /> Active user</label>
+            <label class="active-user-check"><input id="showArchivedUsers" type="checkbox" /> Show archived users</label>
+            <button class="btn danger" id="archiveUserBtn" type="button">Archive User</button>
           </div>
           <div class="admin-card">
             <h4>Project Assignment</h4>
@@ -294,6 +296,37 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
 
 
 
+function activeAdministratorCount(){
+ return USERS.filter(user=>user.active!==false&&user.role==="Administrator").length;
+}
+
+async function archiveSelectedUser(){
+ const user=USERS.find(item=>item.id===adminUserSelect.value);
+ if(!user){
+   alert("Select a user first.");
+   return;
+ }
+ if(user.id===currentUser?.id){
+   alert("You cannot archive the account you are currently using.");
+   return;
+ }
+ if(user.role==="Administrator"&&user.active!==false&&activeAdministratorCount()<=1){
+   alert("You cannot archive the last active Administrator.");
+   return;
+ }
+ if(!confirm(`Archive ${user.name}?\n\nThey will no longer appear on the login screen, but their change-log history will be preserved.`)){
+   return;
+ }
+ user.active=false;
+ await DataProvider.saveUsers(USERS);
+ logChange("Access Change","admin","User Access",user.name,"User archived.");
+ await DataProvider.saveState(state);
+ populateLoginUsers(currentUser?.id||"");
+ adminUserSelect.value="";
+ alert("User archived.");
+ render();
+}
+
 function userIdFromInput(name,email){
  const source=(email||name||"user").trim().toLowerCase();
  const base=source
@@ -325,10 +358,13 @@ function startNewUser(){
  adminPasswordProfile.disabled=false;
  adminUserActive.checked=true;
  projectAssignmentList.querySelectorAll("input").forEach(input=>input.checked=false);
+ archiveUserBtn.disabled=true;
  adminUserName.focus();
 }
 
 newUserBtn.onclick=startNewUser;
+archiveUserBtn.onclick=archiveSelectedUser;
+showArchivedUsers.onchange=renderAdmin;
 adminUserSelect.onchange=()=>{
  creatingUser=false;
  renderAdmin();
@@ -366,7 +402,18 @@ saveAccessBtn.onclick=async()=>{
  user.company=adminUserCompany.value.trim();
  user.role=adminRoleSelect.value;
  user.passwordProfile=user.id==="stacy"?"stacy":adminPasswordProfile.value;
- user.active=adminUserActive.checked;
+
+ const requestedActive=adminUserActive.checked;
+ if(user.id===currentUser?.id&&!requestedActive){
+   alert("You cannot deactivate the account you are currently using.");
+   return;
+ }
+ if(user.role==="Administrator"&&!requestedActive&&user.active!==false&&activeAdministratorCount()<=1){
+   alert("You cannot deactivate the last active Administrator.");
+   return;
+ }
+
+ user.active=requestedActive;
  setUserRoleFlags(user);
 
  const selected=[...projectAssignmentList.querySelectorAll("input:checked")].map(x=>x.value);

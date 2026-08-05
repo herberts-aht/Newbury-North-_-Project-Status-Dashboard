@@ -192,3 +192,17 @@ linear-gradient(145deg,#102947,#17365d 58%,#244e7c)}
  .project-admin-actions{justify-content:flex-start}
  .checkbox-list{grid-template-columns:1fr}
 }
+
+.audit-table-scroll{max-height:520px;overflow:auto}
+.audit-table-scroll th{top:0;z-index:2}
+.audit-access{color:#7f6000}
+#auditCount{font-weight:700;color:#465466}
+
+.admin-card-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.admin-card-heading h4{margin:0}
+.admin-card input,.admin-card select{width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.active-user-check{display:flex!important;align-items:center;gap:8px;margin-top:12px!important;font-weight:600!important}
+.active-user-check input{width:auto}
+
+#archiveUserBtn{margin-top:12px;width:100%}
+#archiveUserBtn:disabled{opacity:.45;cursor:not-allowed;transform:none}

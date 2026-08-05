@@ -62,10 +62,14 @@ function renderAdmin(){
    </div>`).join("");
 
  const previousSelection=adminUserSelect.value;
- adminUserSelect.innerHTML='<option value="">Select user…</option>'+USERS
+ const includeArchived=showArchivedUsers.checked;
+ const visibleUsers=USERS
+   .filter(user=>includeArchived||user.active!==false)
    .slice()
-   .sort((a,b)=>a.name.localeCompare(b.name))
-   .map(u=>`<option value="${u.id}">${esc(u.name)}${u.active===false?" (Inactive)":""}</option>`)
+   .sort((a,b)=>a.name.localeCompare(b.name));
+
+ adminUserSelect.innerHTML='<option value="">Select user…</option>'+visibleUsers
+   .map(u=>`<option value="${u.id}">${esc(u.name)}${u.active===false?" (Archived)":""}</option>`)
    .join("");
 
  if(creatingUser){
@@ -73,7 +77,7 @@ function renderAdmin(){
    return;
  }
 
- const selected=USERS.find(u=>u.id===previousSelection)||USERS.find(u=>u.id===currentUser?.id)||USERS[0];
+ const selected=visibleUsers.find(u=>u.id===previousSelection)||visibleUsers.find(u=>u.id===currentUser?.id)||visibleUsers[0];
  if(!selected)return;
 
  adminUserSelect.value=selected.id;
@@ -84,6 +88,8 @@ function renderAdmin(){
  adminPasswordProfile.value=selected.id==="stacy"?"stacy":selected.passwordProfile||(selected.isInternal?"aht":"external");
  adminPasswordProfile.disabled=selected.id==="stacy";
  adminUserActive.checked=selected.active!==false;
+ archiveUserBtn.textContent=selected.active===false?"Archived":"Archive User";
+ archiveUserBtn.disabled=selected.active===false||selected.id===currentUser?.id||(selected.role==="Administrator"&&activeAdministratorCount()<=1);
 
  projectAssignmentList.innerHTML=state.projects.map(p=>{
    const checked=selected.projects.includes("*")||selected.projects.includes(p.id);
