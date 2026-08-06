@@ -81,7 +81,7 @@
     </section>
     <section id="deliverables" class="view">
       <div class="page-header"><div><div class="eyebrow">Project Data</div><h2>Deliverables</h2><p>Track ownership, next steps, dates, and status.</p></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary editor-only" id="addDeliverableBtn">Add Deliverable</button></div></div>
-      <div class="table-card desktop-table"><div class="table-tools"><input id="searchDeliverables" placeholder="Search deliverables…" /><select id="filterStatus"><option value="">All statuses</option></select><select id="filterDiscipline"><option value="">All disciplines</option></select></div><div style="overflow:auto"><table><thead><tr><th>Discipline</th><th>Deliverable</th><th>Status</th><th>Owner</th><th>Waiting On</th><th>Next Step</th><th>Target</th><th></th></tr></thead><tbody id="deliverablesBody"></tbody></table></div></div>
+      <div class="table-card desktop-table"><div class="table-tools"><input id="searchDeliverables" placeholder="Search deliverables…" /><select id="filterStatus"><option value="">All statuses</option></select><select id="filterDiscipline"><option value="">All disciplines</option></select></div><div style="overflow:auto"><table><thead><tr><th>Discipline</th><th>Deliverable</th><th>Operational Status</th><th>Schedule Health</th><th>Owner</th><th>Waiting On</th><th>Next Step</th><th>Target</th><th></th></tr></thead><tbody id="deliverablesBody"></tbody></table></div></div>
       <div id="deliverableCards" class="mobile-cards"></div>
     </section>
     <section id="info" class="view">
@@ -178,26 +178,65 @@
 
 
 
+function scheduleDate(value){
+ if(!value)return null;
+ const date=new Date(`${value}T12:00:00`);
+ return Number.isNaN(date.getTime())?null:date;
+}
+function startOfToday(){
+ const today=new Date();
+ today.setHours(12,0,0,0);
+ return today;
+}
+function activeHealthOverride(deliverable){
+ if((deliverable.healthMode||"auto")!=="manual"||!deliverable.healthOverride)return false;
+ const until=scheduleDate(deliverable.healthOverrideUntil);
+ return !until||until>=startOfToday();
+}
+function calculateDeliverableHealth(deliverable){
+ if(deliverable.status==="Complete")return "Healthy";
+ const today=startOfToday();
+ const target=scheduleDate(deliverable.date);
+ if(target&&target<today)return "Overdue";
+ const daysUntilTarget=target?Math.ceil((target-today)/86400000):null;
+ if(deliverable.status==="Blocked")return "At Risk";
+ if(String(deliverable.risk||"").trim())return "At Risk";
+ if(daysUntilTarget!==null&&daysUntilTarget<=7)return "At Risk";
+ return "Healthy";
+}
+function displayedDeliverableHealth(deliverable){
+ return activeHealthOverride(deliverable)
+   ? deliverable.healthOverride
+   : calculateDeliverableHealth(deliverable);
+}
 function calculateProjectHealth(project){
  const deliverables=project.deliverables||[];
  const info=project.info||[];
- const activeDeliverables=deliverables.filter(d=>d.status!=="Complete");
  const unresolvedInfo=info.filter(i=>!["Received","No Longer Needed"].includes(i.status));
- if(deliverables.length&&activeDeliverables.length===0&&unresolvedInfo.length===0)return "Complete";
- if(deliverables.some(d=>d.status==="Blocked"))return "Blocked";
- if(deliverables.some(d=>String(d.risk||"").trim()))return "At Risk";
- if(deliverables.some(d=>d.status==="Waiting on Information")||unresolvedInfo.length)return "Needs Information";
- return "On Track";
+ if(deliverables.length&&deliverables.every(d=>d.status==="Complete")&&unresolvedInfo.length===0)return "Complete";
+ const health=deliverables.map(displayedDeliverableHealth);
+ if(health.includes("Overdue"))return "Overdue";
+ if(health.includes("At Risk"))return "At Risk";
+ return "Healthy";
 }
 function displayedProjectHealth(project){
- const mode=project.healthMode||"auto";
- return mode==="manual"&&project.healthOverride?project.healthOverride:calculateProjectHealth(project);
+ return calculateProjectHealth(project);
 }
 function healthColor(health){
- if(health==="Complete"||health==="On Track")return "var(--green)";
- if(health==="Needs Information")return "var(--orange)";
- if(health==="At Risk"||health==="Blocked")return "var(--red)";
+ if(health==="Complete"||health==="Healthy")return "var(--green)";
+ if(health==="At Risk")return "var(--orange)";
+ if(health==="Overdue")return "var(--red)";
  return "var(--blue)";
+}
+function healthBadge(deliverable){
+ const displayed=displayedDeliverableHealth(deliverable);
+ const automatic=calculateDeliverableHealth(deliverable);
+ const manual=activeHealthOverride(deliverable);
+ const cls=displayed.toLowerCase().replace(/\s+/g,"-");
+ const note=manual
+   ? `Manual override${deliverable.healthOverrideUntil?` until ${fmtDate(deliverable.healthOverrideUntil)}`:""}: ${deliverable.healthOverrideReason||"No reason entered"}. Automatic: ${automatic}.`
+   : `Automatic schedule health: ${automatic}.`;
+ return `<span class="schedule-health ${cls}" title="${esc(note)}">${esc(displayed)}${manual?'<span class="manual-health-mark">M</span>':""}</span>`;
 }
 
 function snapshot(obj){return JSON.parse(JSON.stringify(obj||{}))}
@@ -299,12 +338,20 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
       ${field("progressInstallation","Installation %",d.progressInstallation??0)}
     </div><div class="phase-progress-note">Overall progress is calculated automatically: Planning 15% + Engineering 35% + Installation 50%.</div></div>`:""}
     ${selectField("phase","Phase",["Planning","Design Development","Engineering","Permitting","Rough-In","Trim","Final","Complete"],d.phase||"Planning")}
-    ${selectField("healthMode","Health Mode",["auto","manual"],d.healthMode||"auto")}
-    ${selectField("healthOverride","Manual Health Override",["","On Track","Needs Information","At Risk","Blocked","Complete"],d.healthOverride||"")}
-    ${field("healthOverrideNote","Override Note",d.healthOverrideNote||"","full","textarea")}
-    <div class="health-control-note">Automatic health is calculated from blocked work, recorded risks, outstanding information, and completion. Select <strong>manual</strong> only when project context requires a different displayed status. Change back to <strong>auto</strong> at any time.</div>
+    <div class="health-control-note">Project schedule health is calculated automatically from the deliverables. Manual schedule-health overrides are applied only to the individual deliverable that has an approved exception.</div>
     <div class="field full"><label>Assigned Users</label><div class="checkbox-list">${USERS.map(u=>`<label><input type="checkbox" name="assignedUsers" value="${u.id}" ${(d.assignedUsers||[]).includes(u.id)||u.id==="stacy"||u.id==="bill"||u.id==="shaun"?"checked":""}> ${esc(u.name)}</label>`).join("")}</div></div>
-  `:type==="deliverable"?`${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${dateField("startDate","Start Date",d.startDate)}${dateField("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;modalBackdrop.style.display="flex"}
+  `:type==="deliverable"?`${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Operational Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${dateField("startDate","Start Date",d.startDate)}${dateField("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}
+    <div class="field full health-override-section">
+      <label>Schedule Health</label>
+      <div class="automatic-health-preview">Automatic result: <strong>${calculateDeliverableHealth(d)}</strong></div>
+      <div class="health-override-grid">
+        ${selectField("healthMode","Health Mode",["auto","manual"],d.healthMode||"auto")}
+        ${selectField("healthOverride","Manual Override",["","Healthy","At Risk","Overdue"],d.healthOverride||"")}
+        ${dateField("healthOverrideUntil","Override Until (optional)",d.healthOverrideUntil||"")}
+      </div>
+      ${field("healthOverrideReason","Override Reason",d.healthOverrideReason||"","full","textarea")}
+      <div class="health-control-note">Use a manual override only when the displayed schedule health does not reflect a known, approved project condition. A reason is required. If an expiration date is entered, automatic health resumes after that date.</div>
+    </div>`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;modalBackdrop.style.display="flex"}
 
 
 
@@ -508,10 +555,9 @@ window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",
        p.progressInstallation=clampPercent(obj.progressInstallation);
      }
      p.phase=obj.phase;
-     p.healthMode=obj.healthMode==="manual"?"manual":"auto";
-     p.healthOverride=p.healthMode==="manual"?String(obj.healthOverride||"").trim():"";
-     p.healthOverrideNote=p.healthMode==="manual"?String(obj.healthOverrideNote||"").trim():"";
-     if(p.healthMode==="manual"&&!p.healthOverride){alert("Choose a manual health status or return Health Mode to auto.");return;}
+     p.healthMode="auto";
+     p.healthOverride="";
+     p.healthOverrideNote="";
      USERS.forEach(u=>{
        if(u.projects.includes("*"))return;
        const has=u.projects.includes(p.id),should=assignedUsers.includes(u.id);
@@ -536,9 +582,9 @@ window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",
        progressEngineering:clampPercent(obj.progressEngineering),
        progressInstallation:clampPercent(obj.progressInstallation),
        phase:obj.phase,
-       healthMode:obj.healthMode==="manual"?"manual":"auto",
-       healthOverride:obj.healthMode==="manual"?String(obj.healthOverride||"").trim():"",
-       healthOverrideNote:obj.healthMode==="manual"?String(obj.healthOverrideNote||"").trim():"",
+       healthMode:"auto",
+       healthOverride:"",
+       healthOverrideNote:"",
        archived:false,
        lastUpdatedAt:new Date().toISOString(),
        lastUpdatedBy:currentUser?.name||"System",
@@ -546,7 +592,6 @@ window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",
        deliverables:[],
        info:[]
      };
-     if(p.healthMode==="manual"&&!p.healthOverride){alert("Choose a manual health status or return Health Mode to auto.");return;}
      state.projects.push(p);
      USERS.forEach(u=>{
        if(u.projects.includes("*"))return;
@@ -559,6 +604,20 @@ window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",
  }
 
  const obj2=Object.fromEntries(new FormData(editForm).entries()),p=currentProject(),arr=editContext.type==="deliverable"?p.deliverables:p.info;
+ if(editContext.type==="deliverable"){
+   obj2.healthMode=obj2.healthMode==="manual"?"manual":"auto";
+   obj2.healthOverride=obj2.healthMode==="manual"?String(obj2.healthOverride||"").trim():"";
+   obj2.healthOverrideReason=obj2.healthMode==="manual"?String(obj2.healthOverrideReason||"").trim():"";
+   obj2.healthOverrideUntil=obj2.healthMode==="manual"?String(obj2.healthOverrideUntil||"").trim():"";
+   if(obj2.healthMode==="manual"&&!obj2.healthOverride){
+     alert("Choose a manual schedule-health override or return Health Mode to auto.");
+     return;
+   }
+   if(obj2.healthMode==="manual"&&!obj2.healthOverrideReason){
+     alert("Enter the reason for the manual schedule-health override.");
+     return;
+   }
+ }
  if(editContext.id){
    const i=arr.findIndex(x=>x.id===editContext.id),before=snapshot(arr[i]);
    arr[i]={...arr[i],...obj2};
