@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SharePoint List Explorer</title>
+  <link rel="stylesheet" href="sharepoint-explorer.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">AHT PROJECT CONTROL</div>
+      <h1>SharePoint List Explorer</h1>
+      <p>Read-only connection and schema test. This tool does not modify SharePoint.</p>
+    </div>
+    <span class="badge">Diagnostic Tool</span>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <h2>Connection</h2>
+      <div class="grid">
+        <label>
+          SharePoint site URL
+          <input id="siteUrl" value="https://ahtglobalteam-my.sharepoint.com/personal/stace_ahtglobal_com">
+        </label>
+        <label>
+          List name
+          <input id="listName" value="AHT Project Control Test">
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="readItemsBtn" class="primary">Read List Items</button>
+        <button id="readFieldsBtn">Read Columns</button>
+        <button id="openItemsBtn">Open REST Items URL</button>
+        <button id="openFieldsBtn">Open REST Columns URL</button>
+      </div>
+
+      <div id="status" class="status neutral">Ready.</div>
+
+      <details class="note">
+        <summary>Why a direct connection may be blocked</summary>
+        <p>
+          A page running in Codespaces is on a different web domain than SharePoint.
+          SharePoint may reject that cross-domain browser request even though you are signed in.
+          That does not mean the list or REST API failed. Use the Open REST buttons, then paste
+          the returned XML or JSON below.
+        </p>
+      </details>
+    </section>
+
+    <section class="card">
+      <div class="section-heading">
+        <div>
+          <h2>Paste SharePoint Response</h2>
+          <p>Paste the XML or JSON returned by the REST URL, then parse it.</p>
+        </div>
+        <button id="loadSampleBtn" class="quiet">Load sample format</button>
+      </div>
+      <textarea id="responseInput" spellcheck="false" placeholder="Paste SharePoint XML or JSON here..."></textarea>
+      <div class="actions">
+        <button id="parseBtn" class="primary">Parse Response</button>
+        <button id="clearBtn">Clear</button>
+        <button id="exportBtn">Export Discovery JSON</button>
+      </div>
+    </section>
+
+    <section class="card span-full">
+      <div class="section-heading">
+        <div>
+          <h2>Records</h2>
+          <p id="recordSummary">No records loaded.</p>
+        </div>
+        <input id="recordSearch" class="search" placeholder="Search records..." disabled>
+      </div>
+      <div class="table-wrap">
+        <table id="recordsTable">
+          <thead><tr><th>No records loaded</th></tr></thead>
+          <tbody><tr><td>Connect or paste a response above.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Discovered Fields</h2>
+      <p class="muted">Display/internal field names found in the response.</p>
+      <div class="table-wrap compact">
+        <table id="fieldsTable">
+          <thead><tr><th>Internal name</th><th>Values found</th></tr></thead>
+          <tbody><tr><td colspan="2">No fields loaded.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Connection Details</h2>
+      <dl class="details-grid">
+        <dt>Items endpoint</dt><dd id="itemsEndpoint">—</dd>
+        <dt>Columns endpoint</dt><dd id="fieldsEndpoint">—</dd>
+        <dt>Detected format</dt><dd id="detectedFormat">—</dd>
+        <dt>Records found</dt><dd id="recordsFound">0</dd>
+        <dt>Fields found</dt><dd id="fieldsFound">0</dd>
+      </dl>
+    </section>
+
+    <section class="card span-full">
+      <h2>Raw Parsed Data</h2>
+      <pre id="rawOutput">Nothing loaded.</pre>
+    </section>
+  </main>
+
+  <script src="sharepoint-explorer.js"></script>
+</body>
+</html>
