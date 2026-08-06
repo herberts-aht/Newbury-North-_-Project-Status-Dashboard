@@ -1,0 +1,61 @@
+{
+  "projects": [
+    {
+      "projectKey": "2200",
+      "projectName": "2200 Gordon Dr",
+      "address": "2200 Gordon Dr",
+      "city": "Naples",
+      "state": "FL",
+      "description": "Design Coordination",
+      "subtitle": "Naples, FL \u00b7 Design Coordination",
+      "phase": "Design Development",
+      "lastActivityDate": "2026-08-04",
+      "lastActivity": "Recent coordination reviewed the proposed low-voltage wall pathway and current main-house design deliverables.",
+      "progressPlanning": 80,
+      "progressEngineering": 35,
+      "progressInstallation": 0
+    }
+  ],
+  "deliverables": [
+    {
+      "projectKey": "2200",
+      "legacyId": 1,
+      "discipline": "TPP / Permit",
+      "deliverable": "Permit Drawings",
+      "status": "Complete",
+      "owner": "AHT",
+      "currentActivity": "Initial TPP permit drawings completed",
+      "waitingOn": "Fire suppression coordination",
+      "nextStep": "Revise mechanical-space layouts if required",
+      "targetDate": "2026-08-14",
+      "risk": "Fire suppression equipment added in mechanical spaces may require minor relocation of AHT equipment and revisions to completed TPP drawings.",
+      "visibility": "Shared"
+    },
+    {
+      "projectKey": "2200",
+      "legacyId": 2,
+      "discipline": "Lighting Controls",
+      "deliverable": "Keypad Locations",
+      "status": "Awaiting Review",
+      "owner": "Russel Edwards / Team",
+      "currentActivity": "Proposed lighting keypad locations issued for review",
+      "waitingOn": "Review comments and markups",
+      "nextStep": "Incorporate comments and finalize keypad layout",
+      "targetDate": "2026-08-18",
+      "visibility": "Shared"
+    }
+  ],
+  "informationRequired": [
+    {
+      "projectKey": "2200",
+      "legacyId": 101,
+      "item": "Door Schedule",
+      "requestedFrom": "Architect / Project Team",
+      "status": "Outstanding",
+      "blocking": "Door-by-door access-control planning",
+      "neededBy": "2026-08-14",
+      "notes": "Needed to identify requirements and hardware coordination at each controlled opening.",
+      "visibility": "Shared"
+    }
+  ]
+}
