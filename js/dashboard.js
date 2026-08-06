@@ -20,7 +20,7 @@ function render(){
  infoBody.innerHTML=infoRecords.map(x=>`<tr><td><strong>${esc(x.item)}</strong>${visBadge(x.visibility)}</td><td>${esc(x.from)}</td><td>${badge(x.status)}</td><td>${esc(x.blocking)}</td><td>${esc(x.notes)}</td><td>${currentUser.canEdit?`<button class="linkbtn" onclick="editInfo(${x.id})">Edit</button>`:""}</td></tr>`).join("");
  infoCards.innerHTML=infoRecords.map(x=>`<div class="mobile-record"><h4>${esc(x.item)} ${visBadge(x.visibility)}</h4><div class="row"><span>Status</span><span>${badge(x.status)}</span></div><div class="row"><span>Requested From</span><strong>${esc(x.from)}</strong></div><div class="row"><span>Blocking</span><span>${esc(x.blocking)}</span></div><div class="row"><span>Needed By</span><span>${fmtDate(x.neededBy)}</span></div>${currentUser.canEdit?`<div style="margin-top:9px"><button class="linkbtn" onclick="editInfo(${x.id})">Edit source</button></div>`:""}</div>`).join("");
  const statuses=[...new Set(ds.map(x=>x.status))].sort(),disciplines=[...new Set(ds.map(x=>x.discipline))].sort(),oldS=filterStatus.value,oldD=filterDiscipline.value;filterStatus.innerHTML='<option value="">All statuses</option>'+statuses.map(s=>`<option>${esc(s)}</option>`).join("");filterStatus.value=oldS;filterDiscipline.innerHTML='<option value="">All disciplines</option>'+disciplines.map(s=>`<option>${esc(s)}</option>`).join("");filterDiscipline.value=oldD;
- timelineTrack.innerHTML=[...ds].sort((a,b)=>(a.date||"9999").localeCompare(b.date||"9999")).map(x=>`<div class="timeline-entry ${x.status==="Complete"?"complete":x.status.includes("Waiting")||x.status==="Awaiting Review"?"waiting":""}"><h4>${esc(x.deliverable)} ${badge(x.status)} ${currentUser.canEdit?`<button class="linkbtn timeline-edit" onclick="editDeliverable(${x.id})">Edit source</button>`:""}</h4><p>${fmtDate(x.date)} · ${esc(x.nextStep)}</p></div>`).join("");
+ timelineTrack.innerHTML=renderGantt(ds);
  const events=[...ds.filter(x=>x.date).map(x=>({date:x.date,title:x.deliverable,type:x.status==="Complete"?"green":x.status.includes("Waiting")||x.status==="Awaiting Review"?"orange":"",source:"deliverable",sourceId:x.id})),...infoRecords.filter(x=>x.neededBy).map(x=>({date:x.neededBy,title:x.item+" needed",type:"orange",source:"info",sourceId:x.id}))].sort((a,b)=>a.date.localeCompare(b.date)),grouped={};events.forEach(e=>(grouped[e.date]??=[]).push(e));agendaList.innerHTML=Object.entries(grouped).slice(0,8).map(([date,items])=>`<div class="agenda-day"><div class="agenda-date">${fmtDate(date)}</div><div class="agenda-items">${items.map(i=>`<div class="agenda-pill ${i.type}"><span>${esc(i.title)}</span>${currentUser.canEdit?`<button class="linkbtn agenda-edit" onclick="${i.source==="deliverable"?`editDeliverable(${i.sourceId})`:`editInfo(${i.sourceId})`}">Edit source</button>`:""}</div>`).join("")}</div></div>`).join("");
  let cells="";["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>cells+=`<div class="day-head">${d}</div>`);for(let i=0;i<6;i++)cells+=`<div class="day-cell"></div>`;for(let day=1;day<=31;day++){const key=`2026-08-${String(day).padStart(2,"0")}`,ev=grouped[key]||[];cells+=`<div class="day-cell"><div class="day-num">${day}</div>${ev.slice(0,2).map(e=>`<div class="event-dot ${e.type}" ${currentUser.canEdit?`onclick="${e.source==="deliverable"?`editDeliverable(${e.sourceId})`:`editInfo(${e.sourceId})`}" style="cursor:pointer" title="Edit source record"`:""}>${esc(e.title)}</div>`).join("")}</div>`}monthGrid.innerHTML=cells;if(currentUser.canAdmin)renderAdmin();
  if(currentUser.canAdmin){
@@ -46,6 +46,156 @@ function render(){
    }).join("")||'<tr><td colspan="6" class="small">No changes match the current filters.</td></tr>';
  }
 
+}
+
+
+function ganttDate(value){
+ if(!value)return null;
+ const date=new Date(`${value}T12:00:00`);
+ return Number.isNaN(date.getTime())?null:date;
+}
+function ganttIso(date){
+ const year=date.getFullYear(),month=String(date.getMonth()+1).padStart(2,"0"),day=String(date.getDate()).padStart(2,"0");
+ return `${year}-${month}-${day}`;
+}
+function ganttShort(iso){
+ const date=ganttDate(iso);
+ if(!date)return "";
+ const day=String(date.getDate()).padStart(2,"0");
+ const month=date.toLocaleString("en-US",{month:"short"});
+ return `${day} ${month} ${date.getFullYear()}`;
+}
+function ganttAddDays(date,days){const next=new Date(date);next.setDate(next.getDate()+days);return next}
+function ganttStartFor(record){
+ const explicit=ganttDate(record.startDate);if(explicit)return explicit;
+ const target=ganttDate(record.date);if(!target)return null;
+ return ganttAddDays(target,record.status==="Complete"?-7:-14);
+}
+function ganttStatusClass(record){
+ if(record.status==="Complete")return "complete";
+ if(record.status==="Blocked")return "blocked";
+ if(record.status.includes("Waiting")||record.status==="Awaiting Review")return "waiting";
+ if(record.status==="In Progress")return "active";
+ return "pending";
+}
+let ganttCollapsedGroups=new Set();
+
+function resetGanttGroups(){
+ ganttCollapsedGroups.clear();
+}
+
+function toggleGanttGroup(encodedDiscipline){
+ const discipline=decodeURIComponent(encodedDiscipline);
+ if(ganttCollapsedGroups.has(discipline)){
+   ganttCollapsedGroups.delete(discipline);
+ }else{
+   ganttCollapsedGroups.add(discipline);
+ }
+ render();
+}
+
+function renderGantt(records){
+ const scheduled=records
+   .map(record=>({record,start:ganttStartFor(record),end:ganttDate(record.date)}))
+   .filter(item=>item.start&&item.end);
+ const unscheduled=records.filter(record=>!ganttDate(record.date));
+
+ if(!scheduled.length){
+   return `<div class="gantt-empty">No deliverables currently have target dates.${currentUser.canEdit?" Add dates from the Deliverables view to build the schedule.":""}</div>`;
+ }
+
+ const earliest=new Date(Math.min(...scheduled.map(item=>item.start)));
+ const latest=new Date(Math.max(...scheduled.map(item=>item.end)));
+ const rangeStart=ganttAddDays(earliest,-3);
+ const rangeEnd=ganttAddDays(latest,5);
+ const totalDays=Math.max(1,Math.round((rangeEnd-rangeStart)/86400000));
+ const today=ganttDate(new Date());
+ const todayOffset=((today-rangeStart)/86400000/totalDays)*100;
+
+ const weeks=[];
+ for(let cursor=new Date(rangeStart);cursor<=rangeEnd;cursor=ganttAddDays(cursor,7)){
+   const offset=((cursor-rangeStart)/86400000/totalDays)*100;
+   weeks.push(`<span style="left:${offset}%">${fmtDate(ganttIso(cursor))}</span>`);
+ }
+
+ const disciplineOrder=[];
+ const grouped=new Map();
+ scheduled.forEach(item=>{
+   const discipline=(item.record.discipline||"Other").trim()||"Other";
+   if(!grouped.has(discipline)){
+     grouped.set(discipline,[]);
+     disciplineOrder.push(discipline);
+   }
+   grouped.get(discipline).push(item);
+ });
+
+ const groupedRows=disciplineOrder.map(discipline=>{
+   const items=grouped.get(discipline)
+     .slice()
+     .sort((a,b)=>a.start-b.start||a.end-b.end||a.record.deliverable.localeCompare(b.record.deliverable));
+   const collapsed=ganttCollapsedGroups.has(discipline);
+   const encoded=encodeURIComponent(discipline);
+
+   const rows=collapsed?"":items.map(({record,start,end})=>{
+     if(start>end){
+       const swap=start;
+       start=end;
+       end=swap;
+     }
+
+     const left=Math.max(0,((start-rangeStart)/86400000/totalDays)*100);
+     const width=Math.max(1.5,(((end-start)/86400000+1)/totalDays)*100);
+     const blocked=/blocked|waiting/i.test(record.status||"")||Boolean(record.waitingOn);
+     const inferred=!ganttDate(record.startDate);
+
+     return `<div class="gantt-row">
+       <div class="gantt-label" ${currentUser.canEdit?`onclick="editDeliverable(${record.id})"`:""}>
+         <strong title="${esc(record.deliverable)}">${esc(record.deliverable)}</strong>
+         <span>${badge(record.status)}</span>
+       </div>
+       <div class="gantt-lane">
+         ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today" style="left:${todayOffset}%" title="Today"></i>`:""}
+         <button class="gantt-bar ${ganttStatusClass(record)}"
+           style="left:${left}%;width:${width}%"
+           ${currentUser.canEdit?`onclick="editDeliverable(${record.id})"`:""}
+           title="${esc(record.deliverable)}: ${fmtDate(ganttIso(start))} – ${fmtDate(ganttIso(end))}${inferred?" (start estimated)":""}">
+           
+           <span>${ganttShort(ganttIso(start))} → ${ganttShort(record.date)}</span>
+         </button>
+       </div>
+     </div>`;
+   }).join("");
+
+   return `<section class="gantt-group">
+     <button class="gantt-group-header" type="button" onclick="toggleGanttGroup('${encoded}')" aria-expanded="${collapsed?"false":"true"}">
+       <span class="gantt-group-arrow">${collapsed?"▶":"▼"}</span>
+       <strong>${esc(discipline)}</strong>
+       <span class="gantt-group-count">${items.length}</span>
+     </button>
+     ${rows}
+   </section>`;
+ }).join("");
+
+ return `<div class="gantt-shell">
+   <div class="gantt-legend">
+     <span><i class="active"></i>In progress</span>
+     <span><i class="waiting"></i>Waiting</span>
+     <span><i class="blocked"></i>Blocked</span>
+     <span><i class="complete"></i>Complete</span>
+     <span class="gantt-note">Missing start dates use a temporary 14-day estimate until manually entered.</span>
+   </div>
+   <div class="gantt-scroll">
+     <div class="gantt-head">
+       <div>Deliverable</div>
+       <div class="gantt-scale">
+         ${weeks.join("")}
+         ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today head" style="left:${todayOffset}%"></i>`:""}
+       </div>
+     </div>
+     ${groupedRows}
+   </div>
+   ${unscheduled.length?`<div class="gantt-unscheduled"><strong>Unscheduled:</strong> ${unscheduled.map(record=>esc(record.deliverable)).join(", ")}</div>`:""}
+ </div>`;
 }
 
 function renderAdmin(){

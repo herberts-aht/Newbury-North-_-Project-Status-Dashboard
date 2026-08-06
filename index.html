@@ -36,7 +36,7 @@
         <button data-view="dashboard">Executive Summary</button>
         <button data-view="deliverables">Deliverables</button>
         <button data-view="info">Information Required</button>
-        <button data-view="timeline">Timeline</button>
+        <button data-view="timeline">Gantt</button>
         <button data-view="calendar">Calendar</button>
         <button class="admin-only" data-view="admin">Administration</button>
         <button class="admin-only" data-view="audit">Change Log</button>
@@ -89,7 +89,7 @@
       <div class="table-card desktop-table"><div style="overflow:auto"><table><thead><tr><th>Item Needed</th><th>Requested From</th><th>Status</th><th>Blocking</th><th>Notes</th><th></th></tr></thead><tbody id="infoBody"></tbody></table></div></div>
       <div id="infoCards" class="mobile-cards"></div>
     </section>
-    <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Sequence</div><h2>Timeline</h2><p>Generated from the editable Deliverables list.</p></div><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div></div><div class="timeline"><div class="timeline-track" id="timelineTrack"></div></div></section>
+    <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Schedule Overview</div><h2>Gantt</h2><p>Simple visual schedule generated from Deliverable start and target dates.</p></div><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div></div><div class="timeline"><div id="timelineTrack"></div></div></section>
     <section id="calendar" class="view"><div class="page-header"><div><div class="eyebrow">Schedule</div><h2>Calendar & Agenda</h2><p>Generated from editable Deliverables and Information Required records.</p></div><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div></div><div class="agenda-grid"><div class="calendar-card"><h3>UPCOMING AGENDA</h3><div id="agendaList"></div></div><div class="calendar-card"><h3>AUGUST 2026</h3><div class="month-grid" id="monthGrid"></div></div></div></section>
 
     <section id="admin" class="view">
@@ -249,7 +249,14 @@ function formatLastUpdated(project){
  const time=when.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
  return `${date} · ${time}${project.lastUpdatedBy?` · ${project.lastUpdatedBy}`:""}`;
 }
-function showView(id){document.querySelectorAll(".sidebar-nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===id));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id))}
+function showView(id){
+ document.querySelectorAll(".sidebar-nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===id));
+ document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
+ if(id==="timeline"&&typeof resetGanttGroups==="function"){
+   resetGanttGroups();
+   render();
+ }
+}
 function setProject(id){if(!allowedProjects().some(p=>p.id===id))return;state.currentProjectId=id;save();showView("dashboard")}
 function clampPercent(value){
  const n=Number(value);
@@ -277,6 +284,7 @@ function projectProgress(deliverables){
 }
 
 function field(name,label,val,cls="",type="input"){return `<div class="field ${cls}"><label>${label}</label>${type==="textarea"?`<textarea name="${name}" rows="3">${esc(val)}</textarea>`:`<input name="${name}" value="${esc(val??"")}">`}</div>`}
+function dateField(name,label,val){return `<div class="field"><label>${label}</label><input type="date" name="${name}" value="${esc(val??"")}"></div>`}
 function selectField(name,label,opts,val){return `<div class="field"><label>${label}</label><select name="${name}">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select></div>`}
 function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;if(type!=="project"&&!currentUser.canEdit)return;editContext={type,id:obj?.id??null};deleteRecordBtn.classList.toggle("hidden",!obj||type==="project");modalTitle.textContent=(obj?"Edit ":"Add ")+(type==="deliverable"?"Deliverable":type==="info"?"Information Request":"Project");const d=obj||{};formFields.innerHTML=type==="project"?`
     ${field("address","Project Address",d.address||d.name||"")}
@@ -296,7 +304,7 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
     ${field("healthOverrideNote","Override Note",d.healthOverrideNote||"","full","textarea")}
     <div class="health-control-note">Automatic health is calculated from blocked work, recorded risks, outstanding information, and completion. Select <strong>manual</strong> only when project context requires a different displayed status. Change back to <strong>auto</strong> at any time.</div>
     <div class="field full"><label>Assigned Users</label><div class="checkbox-list">${USERS.map(u=>`<label><input type="checkbox" name="assignedUsers" value="${u.id}" ${(d.assignedUsers||[]).includes(u.id)||u.id==="stacy"||u.id==="bill"||u.id==="shaun"?"checked":""}> ${esc(u.name)}</label>`).join("")}</div></div>
-  `:type==="deliverable"?`${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${field("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;modalBackdrop.style.display="flex"}
+  `:type==="deliverable"?`${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${dateField("startDate","Start Date",d.startDate)}${dateField("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;modalBackdrop.style.display="flex"}
 
 
 

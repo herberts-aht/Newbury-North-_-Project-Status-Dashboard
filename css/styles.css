@@ -215,3 +215,54 @@ linear-gradient(145deg,#102947,#17365d 58%,#244e7c)}
 .startup-spinner{width:34px;height:34px;margin:0 auto;border:4px solid #dce6ef;border-top-color:var(--blue);border-radius:50%;animation:startup-spin .8s linear infinite}
 .startup-status.error .startup-spinner{display:none}
 @keyframes startup-spin{to{transform:rotate(360deg)}}
+
+
+/* Simple Gantt schedule overview */
+.gantt-shell{min-width:820px}
+.gantt-scroll{overflow:auto;border:1px solid var(--line);border-radius:9px;background:#fff}
+.gantt-head,.gantt-row{display:grid;grid-template-columns:260px minmax(620px,1fr)}
+.gantt-head{position:sticky;top:0;z-index:4;background:#edf3f7;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;color:#44596d}
+.gantt-head>div,.gantt-label{padding:10px 12px}
+.gantt-scale,.gantt-lane{position:relative;background-image:linear-gradient(to right,rgba(202,214,224,.65) 1px,transparent 1px);background-size:14.285% 100%}
+.gantt-scale{height:38px;border-left:1px solid var(--line)}
+.gantt-scale span{position:absolute;top:11px;transform:translateX(5px);white-space:nowrap;font-weight:700}
+.gantt-group{border-bottom:1px solid #dfe6ec}
+.gantt-group:last-child{border-bottom:0}
+.gantt-group-header{width:100%;height:35px;border:0;border-radius:0;background:#f1f5f8;color:#314b63;padding:0 12px;display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer}
+.gantt-group-header:hover{background:#e7eef4}
+.gantt-group-arrow{width:13px;font-size:10px;color:#60778b}
+.gantt-group-header strong{font-size:11px;letter-spacing:.055em;text-transform:uppercase}
+.gantt-group-count{min-width:22px;height:20px;border-radius:999px;background:#dce6ee;color:#40576b;display:inline-grid;place-items:center;font-size:10px;font-weight:800}
+.gantt-row{min-height:60px;border-top:1px solid #e6ebef}
+.gantt-row:nth-child(odd){background:#fbfcfd}
+.gantt-label{display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0}
+.gantt-label[onclick]{cursor:pointer}
+.gantt-label[onclick]:hover{background:#f0f5f8}
+.gantt-label strong{font-size:12px;line-height:1.25;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.gantt-label span{font-size:10px;color:var(--muted)}
+.gantt-lane{border-left:1px solid var(--line);min-height:60px}
+.gantt-bar{position:absolute;top:16px;height:28px;min-width:12px;border:0;border-radius:6px;padding:0 7px;display:flex;align-items:center;justify-content:flex-end;gap:5px;color:#fff;font-size:10px;font-weight:800;overflow:visible;box-shadow:0 2px 5px rgba(15,35,55,.14);cursor:default}
+.gantt-bar.active{background:#2f79b9}
+.gantt-bar.waiting{background:#d58a24}
+.gantt-bar.blocked{background:#b8443c}
+.gantt-bar.complete{background:#2f8a63}
+.gantt-bar.pending{background:#7b8793}
+.gantt-bar[onclick]{cursor:pointer}
+.gantt-bar[onclick]:hover{filter:brightness(.94);transform:translateY(-1px)}
+.gantt-today{position:absolute;top:0;bottom:0;width:2px;background:#d64045;z-index:2;pointer-events:none}
+.gantt-today:before{content:"Today";position:absolute;top:2px;left:4px;background:#fff;color:#b52e33;font-size:9px;font-weight:800;padding:1px 3px;border-radius:3px;white-space:nowrap}
+.gantt-legend{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px;font-size:11px;color:#536577}
+.gantt-legend>span{display:flex;align-items:center;gap:5px}
+.gantt-legend i{width:10px;height:10px;border-radius:3px}
+.gantt-legend i.active{background:#2f79b9}
+.gantt-legend i.waiting{background:#d58a24}
+.gantt-legend i.blocked{background:#b8443c}
+.gantt-legend i.complete{background:#2f8a63}
+.gantt-legend .gantt-note{margin-left:auto;color:var(--muted);font-style:italic}
+.gantt-unscheduled,.gantt-empty{margin-top:12px;padding:11px 12px;border-radius:8px;background:#f4f7f9;color:#5a6b7b;font-size:12px}
+@media(max-width:760px){
+ .timeline{overflow:auto;padding:12px}
+ .gantt-shell{min-width:760px}
+ .gantt-head,.gantt-row{grid-template-columns:225px minmax(535px,1fr)}
+ .gantt-legend .gantt-note{width:100%;margin-left:0}
+}
