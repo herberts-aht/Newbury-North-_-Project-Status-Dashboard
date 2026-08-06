@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>AHT Project Control · Version 1.0</title>
 <link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/branding.css" />
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -17,7 +18,7 @@
 </div>
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
-    <div class="login-brand">AHT Global</div>
+    <div class="login-logo-wrap"><img class="login-logo" src="assets/aht-global-logo.svg" alt="AHT Global Lifestyle Technology" /></div>
     <h1>Project Control</h1>
     <p>Luxury Builder Division · Secure project visibility and coordination.</p><div class="version-tag" id="versionTag">Version —</div>
     <div class="field"><label>User</label><select id="loginUser"></select></div>
@@ -30,7 +31,11 @@
 <div id="app" class="app hidden">
   <div class="shell">
     <aside class="sidebar">
-      <div class="sidebar-brand"><div class="mark">AHT Project Control</div><div class="sub">Luxury Builder Division</div></div>
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="assets/aht-global-logo.svg" alt="AHT Global Lifestyle Technology" />
+        <div class="sidebar-product-name">Project Control</div>
+        <div class="sub">Luxury Builder Division</div>
+      </div>
       <div class="sidebar-nav">
         <button class="active" data-view="projects">Projects</button>
         <button data-view="dashboard">Executive Summary</button>

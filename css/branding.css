@@ -1,0 +1,60 @@
+/* Official AHT logo placement — isolated from application styling */
+
+.login-logo-wrap{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  margin:0 0 16px;
+}
+
+.login-logo{
+  display:block;
+  width:min(230px,72%);
+  height:auto;
+  max-height:86px;
+  object-fit:contain;
+  object-position:left center;
+}
+
+.sidebar-brand{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+}
+
+.sidebar-logo{
+  display:block;
+  width:100%;
+  max-width:184px;
+  height:auto;
+  max-height:78px;
+  object-fit:contain;
+  object-position:left center;
+  margin-bottom:13px;
+}
+
+.sidebar-product-name{
+  color:#fff;
+  font-size:18px;
+  line-height:1.15;
+  font-weight:800;
+  letter-spacing:.01em;
+}
+
+.sidebar-brand .sub{
+  margin-top:5px;
+}
+
+@media(max-width:980px){
+  .sidebar-logo,
+  .sidebar-product-name,
+  .sidebar-brand .sub{
+    display:none;
+  }
+}
+
+@media(max-width:520px){
+  .login-logo{
+    width:min(215px,78%);
+  }
+}

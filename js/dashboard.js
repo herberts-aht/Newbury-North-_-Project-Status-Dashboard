@@ -109,6 +109,7 @@ function renderGantt(records){
  const rangeStart=ganttAddDays(earliest,-3);
  const rangeEnd=ganttAddDays(latest,5);
  const totalDays=Math.max(1,Math.round((rangeEnd-rangeStart)/86400000));
+ const weekGridWidth=(7/totalDays)*100;
  const today=ganttDate(new Date());
  const todayOffset=((today-rangeStart)/86400000/totalDays)*100;
 
@@ -153,7 +154,7 @@ function renderGantt(records){
          <strong title="${esc(record.deliverable)}">${esc(record.deliverable)}</strong>
          <span>${badge(record.status)}</span>
        </div>
-       <div class="gantt-lane">
+       <div class="gantt-lane" style="--gantt-week:${weekGridWidth}%">
          ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today" style="left:${todayOffset}%" title="Today"></i>`:""}
          <button class="gantt-bar ${ganttStatusClass(record)}"
            style="left:${left}%;width:${width}%"
@@ -187,7 +188,7 @@ function renderGantt(records){
    <div class="gantt-scroll">
      <div class="gantt-head">
        <div>Deliverable</div>
-       <div class="gantt-scale">
+       <div class="gantt-scale" style="--gantt-week:${weekGridWidth}%">
          ${weeks.join("")}
          ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today head" style="left:${todayOffset}%"></i>`:""}
        </div>
