@@ -356,7 +356,10 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
       </div>
       ${field("healthOverrideReason","Override Reason",d.healthOverrideReason||"","full","textarea")}
       <div class="health-control-note">Use a manual override only when the displayed schedule health does not reflect a known, approved project condition. A reason is required. If an expiration date is entered, automatic health resumes after that date.</div>
-    </div>`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;modalBackdrop.style.display="flex"}
+    </div>`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;
+  modalBackdrop.style.display="flex";
+  requestAnimationFrame(()=>formFields.querySelector("input, select, textarea")?.focus());
+}
 
 
 
@@ -530,7 +533,14 @@ importBackupBtn.onclick=()=>{
 importBackupFileInput.onchange=e=>importBackupFile(e.target.files?.[0]);
 
 document.querySelectorAll(".sidebar-nav button").forEach(b=>b.onclick=()=>showView(b.dataset.view));projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
-window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};editForm.onsubmit=e=>{
+window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&modalBackdrop.style.display==="flex"){
+    e.preventDefault();
+    modalBackdrop.style.display="none";
+  }
+});
+editForm.onsubmit=e=>{
  e.preventDefault();
  const fd=new FormData(editForm);
  const obj=Object.fromEntries(fd.entries());

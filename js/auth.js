@@ -69,6 +69,7 @@ function showSignedInApplication() {
 function showLoginScreen() {
   app.classList.add("hidden");
   loginScreen.classList.remove("hidden");
+  requestAnimationFrame(() => loginPassword.focus());
 }
 
 async function handleLogin() {
@@ -94,6 +95,11 @@ async function initializeAuthentication() {
   populateLoginUsers();
 
   loginBtn.onclick = handleLogin;
+  loginPassword.addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    handleLogin();
+  });
   logoutBtn.onclick = handleLogout;
 
   currentUser = await AuthProvider.restoreSession();
