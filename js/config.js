@@ -8,8 +8,8 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.11.0",
-  buildDate: "2026-08-07",
+  version: "0.12.0",
+  buildDate: "2026-08-11",
 
   // Development stays fully local until Entra and hosting are approved.
   environment: "development",
@@ -17,7 +17,7 @@ const APP_CONFIG = Object.freeze({
   // Supported values today:
   //   "demo"      = temporary local login
   //   "microsoft" = reserved for Entra/MSAL integration
-  authProvider: "demo",
+  authProvider: "microsoft",
 
   // "localStorage" preserves the current dashboard behavior.
   // Change to "sharePoint" only after Microsoft authentication is configured
@@ -40,20 +40,21 @@ const APP_CONFIG = Object.freeze({
 
   entra: Object.freeze({
     // Non-secret identifiers supplied by AHT IT.
-    tenantId: "",
-    clientId: "",
+    tenantId: "5a5d8945-36e4-407e-89ba-5e5cc456ff3b",
+    clientId: "bf827b7e-aede-449e-bdfa-e6cee3dad6ca",
 
     // Must exactly match an Entra SPA redirect URI once Microsoft sign-in is enabled.
     // Leave blank until the hosting URL is known.
-    redirectUri: "",
+    redirectUri: "", // blank = use the current browser origin (localhost or Codespaces)
 
-    // The dashboard currently calls SharePoint REST directly, not Microsoft Graph.
-    // Authentication code will request the appropriate SharePoint delegated scope
-    // when Entra integration is enabled.
-    sharePointReadScope:
-      "https://ahtglobalteam.sharepoint.com/AllSites.Read",
-    sharePointWriteScope:
-      "https://ahtglobalteam.sharepoint.com/AllSites.Write"
+    // Microsoft Graph delegated scopes configured on the Entra app.
+    // No client secret is used by this browser application.
+    scopes: Object.freeze(["User.Read", "Sites.ReadWrite.All"]),
+
+    // Accounts listed here receive the existing dashboard Administrator profile.
+    // Other AHT accounts are matched to a configured dashboard user by email/name,
+    // otherwise they receive a safe internal-viewer profile until an admin assigns access.
+    adminEmails: Object.freeze(["stace@ahtglobal.com"])
   }),
 
   sharePoint: Object.freeze({
