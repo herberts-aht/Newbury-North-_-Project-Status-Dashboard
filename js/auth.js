@@ -59,10 +59,11 @@ function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function dashboardUserForAccount(account) {
+function dashboardUserForAccount(account, graphUser = null) {
   const claims = account?.idTokenClaims || {};
   const email = normalizeEmail(account?.username || claims.preferred_username || claims.email);
-  const displayName = String(account?.name || claims.name || "AHT User").trim();
+  const displayName = String(graphUser?.displayName || account?.name || claims.name || "AHT User").trim();
+  const entraUserType = String(graphUser?.userType || "").trim().toLowerCase();
   const adminEmails = (APP_CONFIG.entra.adminEmails || []).map(normalizeEmail);
 
   let user = USERS.find(item => normalizeEmail(item.email) && normalizeEmail(item.email) === email);
@@ -73,6 +74,28 @@ function dashboardUserForAccount(account) {
   if (adminEmails.includes(email)) {
     const admin = USERS.find(item => item.canAdmin && item.active !== false) || user;
     if (admin) return { ...admin, email, name: displayName || admin.name, authAccount: account.homeAccountId };
+  }
+
+  // Entra B2B guests are always external to AHT, even if their email/name
+  // happens to match a locally configured dashboard user. If an external
+  // dashboard profile exists, preserve its project assignments; otherwise
+  // default to no projects until an administrator assigns them.
+  if (entraUserType === "guest") {
+    const externalUser = user && user.isInternal === false ? user : null;
+    return {
+      ...(externalUser || {}),
+      id: externalUser?.id || `entra-${account?.localAccountId || "guest"}`,
+      name: displayName || externalUser?.name || "External User",
+      email: normalizeEmail(graphUser?.mail || graphUser?.userPrincipalName || email),
+      company: externalUser?.company || "External",
+      role: "External",
+      active: true,
+      projects: externalUser?.projects || [],
+      canEdit: false,
+      canAdmin: false,
+      isInternal: false,
+      authAccount: account?.homeAccountId || ""
+    };
   }
 
   if (user) {
@@ -86,7 +109,7 @@ function dashboardUserForAccount(account) {
     name: displayName,
     email,
     company: "AHT Global",
-    role: "Internal Viewer",
+    role: "AHT Internal",
     active: true,
     projects: ["*"],
     canEdit: false,
@@ -152,7 +175,23 @@ const MicrosoftAuthProvider = {
     microsoftAccount = msalInstance?.getActiveAccount() || msalInstance?.getAllAccounts()[0] || null;
     if (!microsoftAccount) return null;
     msalInstance.setActiveAccount(microsoftAccount);
-    return dashboardUserForAccount(microsoftAccount);
+
+    // User.Read is sufficient for /me and lets Entra tell us whether the
+    // authenticated identity is an internal Member or a B2B Guest.
+    let graphUser = null;
+    try {
+      const accessToken = await getMicrosoftAccessToken(["User.Read"]);
+      const response = await fetch(
+        "https://graph.microsoft.com/v1.0/me?$select=displayName,mail,userPrincipalName,userType",
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!response.ok) throw new Error(`Microsoft Graph /me failed (${response.status}).`);
+      graphUser = await response.json();
+    } catch (error) {
+      console.warn("Could not read Entra userType; using safe account fallback.", error);
+    }
+
+    return dashboardUserForAccount(microsoftAccount, graphUser);
   }
 };
 

@@ -8,7 +8,7 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.12.0",
+  version: "0.12.1",
   buildDate: "2026-08-11",
 
   // Development stays fully local until Entra and hosting are approved.
@@ -53,7 +53,7 @@ const APP_CONFIG = Object.freeze({
 
     // Accounts listed here receive the existing dashboard Administrator profile.
     // Other AHT accounts are matched to a configured dashboard user by email/name,
-    // otherwise they receive a safe internal-viewer profile until an admin assigns access.
+    // Entra Members otherwise receive a safe AHT Internal profile. Entra Guests are External and receive no project access until assigned.
     adminEmails: Object.freeze(["stace@ahtglobal.com"])
   }),
 
