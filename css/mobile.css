@@ -251,3 +251,10 @@
   .grid-kpi{grid-template-columns:1fr}
   .project-card .stats{grid-template-columns:1fr}
 }
+
+@media (max-width:768px){
+  .entra-access-heading,.entra-table-heading{display:block}
+  .entra-access-heading .btn{margin-top:10px;width:100%}
+  .redeem-row{display:block}.redeem-row .btn{width:100%;margin-top:7px}
+  .entra-user-table-wrap{margin-left:-2px;margin-right:-2px}
+}

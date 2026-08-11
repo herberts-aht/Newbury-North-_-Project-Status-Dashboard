@@ -393,3 +393,18 @@ input:focus,select:focus,textarea:focus{
   outline:3px solid rgba(0,136,199,.13);
   border-color:var(--blue);
 }
+
+
+/* Microsoft Entra administration */
+.entra-access-panel{border:1px solid #d7e4ec;background:#fbfdff}
+.entra-access-heading,.entra-table-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.entra-access-heading h3,.entra-table-heading h4{margin:0 0 4px}
+.entra-access-status{margin:12px 0;padding:9px 11px;border-radius:7px;background:#eef4f7;font-size:13px;color:#405460}
+.entra-access-status.success{background:#e9f6ef;color:#23613d}.entra-access-status.error{background:#fff0f0;color:#8a2929}
+.entra-access-actions{margin-top:12px}.entra-access-actions .admin-card{min-height:0}
+.entra-user-table-wrap{margin-top:16px;overflow:auto}.entra-user-table{width:100%;min-width:760px}
+.entra-user-table td{vertical-align:middle}.entra-row-actions{white-space:nowrap;text-align:right}.entra-row-actions .btn{margin-left:5px}
+.entra-type{display:inline-block;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;background:#e8f1f7;color:#174e70}
+.entra-type.external{background:#fff1df;color:#8a5000}.entra-type.internal{background:#e8f3fb;color:#135b84}
+.invite-redeem{margin-top:12px;padding:10px;border-radius:7px;background:#fff8e8;border:1px solid #efd69b}
+.redeem-row{display:flex;gap:7px;margin-top:7px}.redeem-row input{flex:1;min-width:0}

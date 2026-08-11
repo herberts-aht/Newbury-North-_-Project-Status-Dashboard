@@ -8,7 +8,7 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.12.1",
+  version: "0.12.4",
   buildDate: "2026-08-11",
 
   // Development stays fully local until Entra and hosting are approved.
@@ -54,7 +54,18 @@ const APP_CONFIG = Object.freeze({
     // Accounts listed here receive the existing dashboard Administrator profile.
     // Other AHT accounts are matched to a configured dashboard user by email/name,
     // Entra Members otherwise receive a safe AHT Internal profile. Entra Guests are External and receive no project access until assigned.
-    adminEmails: Object.freeze(["stace@ahtglobal.com"])
+    adminEmails: Object.freeze(["stace@ahtglobal.com"]),
+
+    // Dedicated Entra Security Group assigned to the Enterprise Application.
+    // Membership in this group is the gate for dashboard access.
+    accessGroupId: "cb2b8e45-9b5b-4cb3-a24d-4ca2f3c63d69",
+
+    // Requested only by the Admin > Microsoft Access tools.
+    accessManagementScopes: Object.freeze([
+      "User.ReadBasic.All",
+      "User.Invite.All",
+      "GroupMember.ReadWrite.All"
+    ])
   }),
 
   sharePoint: Object.freeze({

@@ -235,6 +235,20 @@ function renderAdmin(){
  adminUserName.value=selected.name||"";
  adminUserEmail.value=selected.email||"";
  adminUserCompany.value=selected.company||"";
+ const isConfiguredAdmin=(APP_CONFIG.entra.adminEmails||[]).map(x=>String(x).toLowerCase()).includes(String(selected.email||"").toLowerCase());
+ if(selected.entraUserType==="Guest"){
+   adminRoleSelect.innerHTML='<option>External Viewer</option>';
+   adminRoleSelect.disabled=true;
+ }else if(selected.entraUserType==="Member"&&!isConfiguredAdmin){
+   adminRoleSelect.innerHTML='<option>Executive Viewer</option><option>Internal Editor</option>';
+   adminRoleSelect.disabled=false;
+ }else if(isConfiguredAdmin||selected.canAdmin){
+   adminRoleSelect.innerHTML='<option>Administrator</option>';
+   adminRoleSelect.disabled=true;
+ }else{
+   adminRoleSelect.innerHTML='<option>Administrator</option><option>Executive Viewer</option><option>Internal Editor</option><option>External Viewer</option>';
+   adminRoleSelect.disabled=false;
+ }
  adminRoleSelect.value=selected.role;
  adminPasswordProfile.value=selected.id==="stacy"?"stacy":selected.passwordProfile||(selected.isInternal?"aht":"external");
  adminPasswordProfile.disabled=selected.id==="stacy";

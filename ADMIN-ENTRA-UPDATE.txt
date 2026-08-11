@@ -1,0 +1,16 @@
+AHT Project Control - Live Entra Admin Update 0.12.4
+
+Changed files:
+- index.html
+- js/config.js
+- js/microsoft-access.js (new)
+- js/dashboard.js
+- css/styles.css
+- css/mobile.css
+
+This update makes Administration > Microsoft Access read the live direct members
+of the dedicated Project Control Entra Security Group and sync them into the
+dashboard access-profile list for project/role assignment.
+
+Access group Object ID:
+cb2b8e45-9b5b-4cb3-a24d-4ca2f3c63d69

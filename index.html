@@ -112,12 +112,52 @@
         <h3 style="margin-top:0">Projects</h3>
         <div id="projectAdminList" class="project-admin-list"></div>
       </div>
-      <div class="admin-panel">
+
+      <div class="admin-panel entra-access-panel" id="entraAccessPanel">
+        <div class="entra-access-heading">
+          <div>
+            <div class="eyebrow">Live Microsoft Entra</div>
+            <h3>Microsoft Access</h3>
+            <p class="small">The dedicated Project Control Security Group controls who can sign in. Dashboard profiles below control edit level and project visibility.</p>
+          </div>
+          <button class="btn" id="refreshEntraUsersBtn" type="button">Refresh Microsoft Users</button>
+        </div>
+        <div id="entraAccessStatus" class="entra-access-status">Open Administration to load the live access group.</div>
+        <div class="admin-grid entra-access-actions">
+          <div class="admin-card">
+            <h4>Add AHT Internal User</h4>
+            <p class="small">Adds an existing AHT Microsoft account to the dedicated Project Control access group.</p>
+            <label>AHT Email</label><input id="internalUserEmail" type="email" placeholder="name@ahtglobal.com" />
+            <button class="btn primary" id="addInternalBtn" type="button" style="margin-top:10px">Grant Dashboard Access</button>
+          </div>
+          <div class="admin-card">
+            <h4>Invite External User</h4>
+            <p class="small">Creates an Entra B2B guest and grants access to this dashboard group only. This does not add the guest to SharePoint.</p>
+            <label>Email</label><input id="externalInviteEmail" type="email" placeholder="person@company.com" />
+            <label style="margin-top:8px">Name</label><input id="externalInviteName" placeholder="Name" />
+            <label style="margin-top:8px">Company</label><input id="externalInviteCompany" placeholder="Company" />
+            <button class="btn primary" id="inviteExternalBtn" type="button" style="margin-top:10px">Invite & Grant Dashboard Access</button>
+            <div id="inviteRedeemArea" class="invite-redeem hidden">
+              <div class="small"><strong>Manual redemption link</strong> — use only if Microsoft's invitation email does not arrive.</div>
+              <div class="redeem-row"><input id="inviteRedeemLink" readonly /><button class="btn" id="copyRedeemLinkBtn" type="button">Copy</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="entra-user-table-wrap">
+          <div class="entra-table-heading"><h4>Current Dashboard Access</h4><span class="small" id="entraUserCount"></span></div>
+          <table class="entra-user-table">
+            <thead><tr><th>User</th><th>Entra Type</th><th>Dashboard Level</th><th>Projects</th><th></th></tr></thead>
+            <tbody id="entraUsersBody"><tr><td colspan="5" class="small">Microsoft users have not been loaded yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="admin-panel" id="dashboardProfilePanel">
         <div class="admin-grid">
           <div class="admin-card">
             <div class="admin-card-heading">
-              <h4>User Management</h4>
-              <button class="btn" id="newUserBtn" type="button">Add User</button>
+              <h4>Dashboard Role / Project Assignment</h4>
+              <button class="btn" id="newUserBtn" type="button">Add Local Profile</button>
             </div>
             <label>User</label><select id="adminUserSelect"></select>
             <label style="margin-top:10px">Name</label><input id="adminUserName" />
@@ -126,11 +166,11 @@
             <label style="margin-top:10px">Role</label><select id="adminRoleSelect">
               <option>Administrator</option><option>Executive Viewer</option><option>Internal Editor</option><option>External Viewer</option>
             </select>
-            <label style="margin-top:10px">Temporary Password</label><select id="adminPasswordProfile">
+            <div id="legacyPasswordControls"><label style="margin-top:10px">Temporary Password</label><select id="adminPasswordProfile">
               <option value="aht">AHT Internal — ahtadmin</option>
               <option value="external">External — user</option>
               <option value="stacy">Stacy Administrator — ahtadmin8626</option>
-            </select>
+            </select></div>
             <label class="active-user-check"><input id="adminUserActive" type="checkbox" checked /> Active user</label>
             <label class="active-user-check"><input id="showArchivedUsers" type="checkbox" /> Show archived users</label>
             <button class="btn danger" id="archiveUserBtn" type="button">Archive User</button>
@@ -143,7 +183,7 @@
         </div>
         <div style="margin-top:12px"><button class="btn primary" id="saveAccessBtn">Save User</button></div>
       </div>
-      <div class="note">Prototype behavior only. Production permissions must be enforced by the hosted backend.</div>
+      <div class="note">Microsoft Entra controls sign-in access. Dashboard profiles control application edit level and project visibility only.</div>
     </section>
 
     <section id="audit" class="view">
@@ -174,6 +214,7 @@
 <script src="js/data-provider.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/microsoft-access.js"></script>
 <script src="js/permissions.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/app.js"></script>
@@ -301,6 +342,9 @@ function showView(id){
  if(id==="timeline"&&typeof resetGanttGroups==="function"){
    resetGanttGroups();
    render();
+ }
+ if(id==="admin"&&window.MicrosoftAccess){
+   window.MicrosoftAccess.onAdminView();
  }
 }
 function setProject(id){if(!allowedProjects().some(p=>p.id===id))return;state.currentProjectId=id;save();showView("dashboard")}
@@ -475,6 +519,9 @@ saveAccessBtn.onclick=async()=>{
  user.email=adminUserEmail.value.trim();
  user.company=adminUserCompany.value.trim();
  user.role=adminRoleSelect.value;
+ if(user.entraUserType==="Guest") user.role="External Viewer";
+ const configuredAdmin=(APP_CONFIG.entra.adminEmails||[]).map(x=>String(x).toLowerCase()).includes(String(user.email||"").toLowerCase());
+ if(configuredAdmin) user.role="Administrator";
  user.passwordProfile=user.id==="stacy"?"stacy":adminPasswordProfile.value;
 
  const requestedActive=adminUserActive.checked;
