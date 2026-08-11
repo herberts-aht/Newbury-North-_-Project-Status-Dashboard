@@ -123,20 +123,28 @@ const MicrosoftAuthProvider = {
   },
 
   async signIn() {
-    const response = await msalInstance.loginPopup({
+    // Redirect is more reliable than popup auth for Safari, mobile browsers,
+    // Azure Static Web Apps, and cases where the app is itself opened in a popup.
+    await msalInstance.loginRedirect({
       scopes: APP_CONFIG.entra.scopes,
-      prompt: "select_account"
+      prompt: "select_account",
+      redirectStartPage: window.location.href
     });
-    microsoftAccount = response.account;
-    msalInstance.setActiveAccount(microsoftAccount);
-    return dashboardUserForAccount(microsoftAccount);
+
+    // Navigation normally occurs before this line. Keep the return explicit so
+    // the caller never treats a redirect-based sign-in as an authenticated user
+    // before MSAL handles the redirect response on the next page load.
+    return null;
   },
 
   async signOut() {
     const account = microsoftAccount || msalInstance?.getActiveAccount();
     microsoftAccount = null;
     if (account) {
-      await msalInstance.logoutPopup({ account, postLogoutRedirectUri: microsoftRedirectUri() });
+      await msalInstance.logoutRedirect({
+        account,
+        postLogoutRedirectUri: microsoftRedirectUri()
+      });
     }
   },
 
@@ -201,6 +209,12 @@ async function handleLogin() {
       userId: loginUser.value,
       password: loginPassword.value
     });
+
+    // Microsoft redirect authentication leaves this page and returns through
+    // initializeAuthentication(), where handleRedirectPromise restores the
+    // signed-in account. Do not render the app before that round trip completes.
+    if (APP_CONFIG.authProvider === "microsoft" && !currentUser) return;
+
     loginPassword.value = "";
     showSignedInApplication();
   } catch (error) {
