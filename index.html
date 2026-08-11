@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AHT Project Control · Version 1.0</title>
+<title>AHT Project Control · 0.12.5</title>
 <link rel="stylesheet" href="css/styles.css" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
@@ -47,7 +47,7 @@
         <button class="admin-only" data-view="admin">Administration</button>
         <button class="admin-only" data-view="audit">Change Log</button>
       </div>
-      <div class="sidebar-footer">AHT Project Control<br>Version 1.0<br>© AHT Global</div>
+      <div class="sidebar-footer">AHT Project Control<br>Version 0.12.5<br>© AHT Global</div>
     </aside>
     <div class="content-shell">
   <header class="topbar">
@@ -128,6 +128,8 @@
             <h4>Add AHT Internal User</h4>
             <p class="small">Adds an existing AHT Microsoft account to the dedicated Project Control access group.</p>
             <label>AHT Email</label><input id="internalUserEmail" type="email" placeholder="name@ahtglobal.com" />
+            <label style="margin-top:8px">Dashboard Level</label><select id="internalUserRole"><option>Executive Viewer</option><option>Internal Editor</option></select>
+            <label style="margin-top:8px">Viewable Projects</label><div id="internalInviteProjects" class="invite-project-list"></div>
             <button class="btn primary" id="addInternalBtn" type="button" style="margin-top:10px">Grant Dashboard Access</button>
           </div>
           <div class="admin-card">
@@ -136,6 +138,8 @@
             <label>Email</label><input id="externalInviteEmail" type="email" placeholder="person@company.com" />
             <label style="margin-top:8px">Name</label><input id="externalInviteName" placeholder="Name" />
             <label style="margin-top:8px">Company</label><input id="externalInviteCompany" placeholder="Company" />
+            <label style="margin-top:8px">Dashboard Level</label><select id="externalInviteRole"><option>External Viewer</option></select>
+            <label style="margin-top:8px">Viewable Projects</label><div id="externalInviteProjects" class="invite-project-list"></div>
             <button class="btn primary" id="inviteExternalBtn" type="button" style="margin-top:10px">Invite & Grant Dashboard Access</button>
             <div id="inviteRedeemArea" class="invite-redeem hidden">
               <div class="small"><strong>Manual redemption link</strong> — use only if Microsoft's invitation email does not arrive.</div>
@@ -337,6 +341,9 @@ function formatLastUpdated(project){
  return `${date} · ${time}${project.lastUpdatedBy?` · ${project.lastUpdatedBy}`:""}`;
 }
 function showView(id){
+ if((id==="admin"||id==="audit")&&!currentUser?.canAdmin){
+   id="projects";
+ }
  document.querySelectorAll(".sidebar-nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===id));
  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
  if(id==="timeline"&&typeof resetGanttGroups==="function"){
@@ -541,6 +548,10 @@ saveAccessBtn.onclick=async()=>{
  user.projects=user.canAdmin||user.id==="bill"?["*"]:selected;
 
  await DataProvider.saveUsers(USERS);
+ if(user.entraObjectId && window.MicrosoftAccess?.saveDashboardProfile){
+   try{ await window.MicrosoftAccess.saveDashboardProfile(user); }
+   catch(error){ alert(`Dashboard profile was saved locally, but Microsoft profile sync failed: ${error.message}`); }
+ }
  logChange(
    isNew?"Create":"Access Change",
    "admin",

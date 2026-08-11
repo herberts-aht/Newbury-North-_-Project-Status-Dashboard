@@ -4,7 +4,15 @@
 // permissions, storage, and project data remain separate.
 
 function render(){
- const projects=allowedProjects();if(!projects.length)return;if(!projects.some(p=>p.id===state.currentProjectId))state.currentProjectId=projects[0].id;const p=currentProject(),ds=visibleDeliverables(p),infoRecords=visibleInfo(p);
+ document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canEdit));
+ document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canAdmin));
+ const projects=allowedProjects();
+ if(!projects.length){
+   if(permissionBanner) permissionBanner.textContent=`${currentUser?.name||"This user"} does not currently have any Project Control projects assigned.`;
+   if(projectGrid) projectGrid.innerHTML='<div class="panel" style="padding:18px"><strong>No projects assigned.</strong><div class="small" style="margin-top:5px">Contact the Project Control administrator if project access is required.</div></div>';
+   return;
+ }
+ if(!projects.some(p=>p.id===state.currentProjectId))state.currentProjectId=projects[0].id;const p=currentProject(),ds=visibleDeliverables(p),infoRecords=visibleInfo(p);
  userLabel.textContent=currentUser.name;roleLabel.textContent=currentUser.role;avatarInitials.textContent=currentUser.name.split(" ").map(x=>x[0]).join("").slice(0,2);projectSubtitle.textContent=`${p.name} · ${p.subtitle}`;welcomeTitle.textContent=`Welcome, ${currentUser.name.split(" ")[0]}`;const displayedHealth=displayedProjectHealth(p);summaryHealth.textContent=displayedHealth;summaryHealthDot.style.background=healthColor(displayedHealth);summaryHealthMode.textContent="Automatic from deliverables";summaryHealthNote.textContent="";summaryUpdated.textContent=formatLastUpdated(p);summaryAccess.textContent=currentUser.canAdmin?"Administrator":currentUser.canEdit?"Editor":"Viewer";document.querySelectorAll(".internal-activity").forEach(x=>x.classList.toggle("hidden",!currentUser.isInternal));lastActivityDate.textContent=fmtDate(p.lastActivityDate);lastActivityText.textContent=p.lastActivity||"No activity recorded.";
  permissionBanner.textContent=currentUser.projects.includes("*")?`${currentUser.name} can view all assigned Newbury projects. ${currentUser.canAdmin?"Administrator access.":currentUser.canEdit?"Internal editing access.":"Read-only executive access."}`:`${currentUser.name} can view only: ${projects.map(x=>x.name).join(", ")}. ${currentUser.canEdit?"Internal editing access.":"Read-only external access."}`;
  document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canEdit));document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canAdmin));

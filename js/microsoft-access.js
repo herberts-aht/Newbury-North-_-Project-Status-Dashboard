@@ -8,6 +8,8 @@ const MicrosoftAccess = (() => {
   let loadedOnce = false;
   let loading = false;
   let directoryMembers = [];
+  let sharedProfiles = {};
+  let profileExtensionExists = false;
   let lastRedeemUrl = "";
 
   function el(id) { return document.getElementById(id); }
@@ -21,6 +23,8 @@ const MicrosoftAccess = (() => {
   function normalizeEmail(value) { return String(value || "").trim().toLowerCase(); }
   function groupId() { return APP_CONFIG.entra.accessGroupId || ""; }
   function managementScopes() { return APP_CONFIG.entra.accessManagementScopes || []; }
+  function profileExtensionName() { return APP_CONFIG.entra.accessProfileExtensionName || ""; }
+  function profileReadScopes() { return APP_CONFIG.entra.accessProfileReadScopes || []; }
   function memberEmail(member) {
     const mail = normalizeEmail(member.mail);
     if (mail) return mail;
@@ -45,14 +49,14 @@ const MicrosoftAccess = (() => {
     });
   }
 
-  async function token() {
+  async function token(scopes = managementScopes()) {
     if (!currentUser?.canAdmin) throw new Error("Administrator access is required.");
     if (!groupId()) throw new Error("The Entra access group Object ID is missing from js/config.js.");
-    return getMicrosoftAccessToken(managementScopes());
+    return getMicrosoftAccessToken(scopes);
   }
 
-  async function graph(url, options = {}) {
-    const accessToken = await token();
+  async function graph(url, options = {}, scopes = managementScopes()) {
+    const accessToken = await token(scopes);
     const response = await fetch(url.startsWith("http") ? url : `${GRAPH}${url}`, {
       ...options,
       headers: {
@@ -68,6 +72,78 @@ const MicrosoftAccess = (() => {
       throw new Error(message);
     }
     return data;
+  }
+
+  async function loadSharedProfiles() {
+    sharedProfiles = {};
+    profileExtensionExists = false;
+    const name = profileExtensionName();
+    if (!name) return sharedProfiles;
+    const accessToken = await token(profileReadScopes().length ? profileReadScopes() : managementScopes());
+    const response = await fetch(`${GRAPH}/groups/${encodeURIComponent(groupId())}/extensions/${encodeURIComponent(name)}`, {
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }
+    });
+    if (response.status === 404) return sharedProfiles;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error?.message || `Could not read dashboard profile store (${response.status}).`);
+    profileExtensionExists = true;
+    try { sharedProfiles = JSON.parse(data.profilesJson || "{}"); } catch { sharedProfiles = {}; }
+    return sharedProfiles;
+  }
+
+  async function persistSharedProfiles() {
+    const name = profileExtensionName();
+    if (!name) throw new Error("The shared dashboard profile extension name is missing from js/config.js.");
+    const profilesJson = JSON.stringify(sharedProfiles);
+    if (new TextEncoder().encode(profilesJson).length > 1800) {
+      throw new Error("The Entra dashboard profile store is nearing its size limit. Move profiles to the shared backend before adding more users.");
+    }
+    const body = {
+      "@odata.type": "#microsoft.graph.openTypeExtension",
+      extensionName: name,
+      profilesJson
+    };
+    if (profileExtensionExists) {
+      await graph(`/groups/${encodeURIComponent(groupId())}/extensions/${encodeURIComponent(name)}`, { method: "PATCH", body: JSON.stringify(body) }, managementScopes());
+    } else {
+      await graph(`/groups/${encodeURIComponent(groupId())}/extensions`, { method: "POST", body: JSON.stringify(body) }, managementScopes());
+      profileExtensionExists = true;
+    }
+  }
+
+  function compactProfile(profile) {
+    return {
+      r: profile.role || (profile.entraUserType === "Guest" ? "External Viewer" : "Executive Viewer"),
+      p: Array.isArray(profile.projects) ? profile.projects.filter(Boolean) : [],
+      c: profile.company || (profile.entraUserType === "Guest" ? "External" : "AHT Global"),
+      n: profile.name || "",
+      e: normalizeEmail(profile.email)
+    };
+  }
+
+  async function saveDashboardProfile(profile) {
+    if (!currentUser?.canAdmin || !profile?.entraObjectId) return;
+    sharedProfiles[profile.entraObjectId] = compactProfile(profile);
+    await persistSharedProfiles();
+  }
+
+  async function saveProfileForObject(objectId, values) {
+    sharedProfiles[objectId] = {
+      r: values.role, p: values.projects || [], c: values.company || "", n: values.name || "", e: normalizeEmail(values.email)
+    };
+    await persistSharedProfiles();
+  }
+
+  function selectedProjects(containerId) {
+    return [...(el(containerId)?.querySelectorAll('input[type="checkbox"]:checked') || [])].map(x => x.value);
+  }
+
+  function renderInviteProjects() {
+    const markup = (state.projects || []).filter(p => !p.archived).map(p =>
+      `<label><input type="checkbox" value="${escText(p.id)}">${escText(p.name)}</label>`
+    ).join("") || '<span class="small">No active projects are available.</span>';
+    const internal = el("internalInviteProjects"); if (internal) internal.innerHTML = markup;
+    const external = el("externalInviteProjects"); if (external) external.innerHTML = markup;
   }
 
   async function listGroupUsers() {
@@ -95,6 +171,14 @@ const MicrosoftAccess = (() => {
   }
 
   function applyDirectoryIdentity(profile, member) {
+    const stored = sharedProfiles[member.id] || null;
+    if (stored) {
+      if (stored.n) profile.name = stored.n;
+      if (stored.e) profile.email = stored.e;
+      if (stored.c) profile.company = stored.c;
+      if (stored.r) profile.role = stored.r;
+      if (Array.isArray(stored.p)) profile.projects = [...stored.p];
+    }
     const email = memberEmail(member);
     const isGuest = String(member.userType || "").toLowerCase() === "guest";
     const isAdmin = (APP_CONFIG.entra.adminEmails || []).map(normalizeEmail).includes(email);
@@ -127,7 +211,7 @@ const MicrosoftAccess = (() => {
       profile.canAdmin = false;
       profile.canEdit = profile.role === "Internal Editor";
       profile.isInternal = true;
-      if (!Array.isArray(profile.projects) || !profile.projects.length) profile.projects = ["*"];
+      if (!stored && (!Array.isArray(profile.projects) || !profile.projects.length)) profile.projects = ["*"];
       profile.company = "AHT Global";
     }
   }
@@ -210,8 +294,10 @@ const MicrosoftAccess = (() => {
     setBusy(true);
     setStatus("Loading live Microsoft access group…");
     try {
+      await loadSharedProfiles();
       directoryMembers = await listGroupUsers();
       await syncProfiles(directoryMembers);
+      renderInviteProjects();
       loadedOnce = true;
       renderMembers();
       renderAdmin();
@@ -234,16 +320,22 @@ const MicrosoftAccess = (() => {
   async function addInternal() {
     const input = el("internalUserEmail");
     const email = normalizeEmail(input?.value);
+    const role = el("internalUserRole")?.value || "Executive Viewer";
+    const projects = selectedProjects("internalInviteProjects");
     if (!email) { alert("Enter the AHT user's email address."); return; }
+    if (!projects.length) { alert("Select at least one project before granting access."); return; }
     if (!/@ahtglobal\.com$/i.test(email)) {
       if (!confirm(`${email} is not an @ahtglobal.com address. Continue as an internal-user lookup?`)) return;
     }
-    setBusy(true); setStatus(`Looking up ${email}…`);
+    setBusy(true); setStatus(`Preparing ${email}…`);
     try {
+      await loadSharedProfiles();
       const user = await graph(`/users/${encodeURIComponent(email)}?$select=id,displayName,mail,userPrincipalName,userType,accountEnabled`);
+      await saveProfileForObject(user.id, { role, projects, company: "AHT Global", name: user.displayName || email, email });
       await addMemberObjectId(user.id);
       if (input) input.value = "";
-      setStatus(`${user.displayName || email} was added to Project Control access.`, "success");
+      el("internalInviteProjects")?.querySelectorAll('input[type="checkbox"]').forEach(x => x.checked = false);
+      setStatus(`${user.displayName || email} was configured and granted Project Control access.`, "success");
       await refresh();
     } catch (error) {
       console.error(error); setStatus(`Could not add AHT user: ${error.message}`, "error");
@@ -257,9 +349,13 @@ const MicrosoftAccess = (() => {
     const email = normalizeEmail(emailInput?.value);
     const name = String(nameInput?.value || "").trim();
     const company = String(companyInput?.value || "").trim();
+    const role = "External Viewer";
+    const projects = selectedProjects("externalInviteProjects");
     if (!email) { alert("Enter the external user's email address."); return; }
+    if (!projects.length) { alert("Select at least one project before sending the invitation."); return; }
     setBusy(true); setStatus(`Inviting ${email}…`);
     try {
+      await loadSharedProfiles();
       const invitation = await graph("/invitations", {
         method: "POST",
         body: JSON.stringify({
@@ -274,12 +370,16 @@ const MicrosoftAccess = (() => {
       });
       const objectId = invitation?.invitedUser?.id;
       if (!objectId) throw new Error("Microsoft created the invitation but did not return a guest user ID.");
+      // Save role/projects before group membership is granted. This prevents a
+      // newly invited user from entering Project Control before configuration is complete.
+      await saveProfileForObject(objectId, { role, projects, company: company || "External", name: name || email, email });
       await addMemberObjectId(objectId);
       lastRedeemUrl = invitation.inviteRedeemUrl || "";
       if (emailInput) emailInput.value = "";
       if (nameInput) nameInput.value = "";
       if (companyInput) companyInput.value = "";
-      setStatus(`Invitation created and ${email} was granted Project Control access.`, "success");
+      el("externalInviteProjects")?.querySelectorAll('input[type="checkbox"]').forEach(x => x.checked = false);
+      setStatus(`Invitation created, access configured, and ${email} was granted Project Control access.`, "success");
       const redeem = el("inviteRedeemArea");
       if (redeem) {
         redeem.classList.toggle("hidden", !lastRedeemUrl);
@@ -298,6 +398,7 @@ const MicrosoftAccess = (() => {
     setBusy(true); setStatus(`Removing access for ${label}…`);
     try {
       await graph(`/groups/${encodeURIComponent(groupId())}/members/${encodeURIComponent(objectId)}/$ref`, { method: "DELETE" });
+      if (sharedProfiles[objectId]) { delete sharedProfiles[objectId]; await persistSharedProfiles(); }
       setStatus(`${label} no longer has Project Control access.`, "success");
       await refresh();
     } catch (error) {
@@ -318,6 +419,7 @@ const MicrosoftAccess = (() => {
   }
 
   function initialize() {
+    renderInviteProjects();
     el("refreshEntraUsersBtn")?.addEventListener("click", () => refresh());
     el("inviteExternalBtn")?.addEventListener("click", inviteExternal);
     el("addInternalBtn")?.addEventListener("click", addInternal);
@@ -328,7 +430,7 @@ const MicrosoftAccess = (() => {
     }
   }
 
-  return { initialize, onAdminView, refresh };
+  return { initialize, onAdminView, refresh, saveDashboardProfile, renderInviteProjects };
 })();
 
 MicrosoftAccess.initialize();

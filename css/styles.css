@@ -408,3 +408,7 @@ input:focus,select:focus,textarea:focus{
 .entra-type.external{background:#fff1df;color:#8a5000}.entra-type.internal{background:#e8f3fb;color:#135b84}
 .invite-redeem{margin-top:12px;padding:10px;border-radius:7px;background:#fff8e8;border:1px solid #efd69b}
 .redeem-row{display:flex;gap:7px;margin-top:7px}.redeem-row input{flex:1;min-width:0}
+
+.invite-project-list{border:1px solid var(--line);border-radius:7px;padding:7px 9px;max-height:150px;overflow:auto;background:#fff}
+.invite-project-list label{display:block;margin:5px 0;font-size:12px;line-height:1.25}
+.invite-project-list input{margin-right:6px}

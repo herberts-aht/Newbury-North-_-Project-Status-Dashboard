@@ -8,7 +8,7 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.12.4",
+  version: "0.12.5",
   buildDate: "2026-08-11",
 
   // Development stays fully local until Entra and hosting are approved.
@@ -64,8 +64,16 @@ const APP_CONFIG = Object.freeze({
     accessManagementScopes: Object.freeze([
       "User.ReadBasic.All",
       "User.Invite.All",
-      "GroupMember.ReadWrite.All"
-    ])
+      "GroupMember.ReadWrite.All",
+      "Group.ReadWrite.All"
+    ]),
+
+    // Shared dashboard-specific role/project assignments are stored on the
+    // dedicated access group as a Microsoft Graph open extension. This keeps
+    // external users out of SharePoint while making assignments available on
+    // every browser/device.
+    accessProfileExtensionName: "com.ahtglobal.projectcontrol.profiles",
+    accessProfileReadScopes: Object.freeze(["Group.Read.All"])
   }),
 
   sharePoint: Object.freeze({

@@ -14,3 +14,11 @@ dashboard access-profile list for project/role assignment.
 
 Access group Object ID:
 cb2b8e45-9b5b-4cb3-a24d-4ca2f3c63d69
+
+
+0.12.5 - Preconfigured user access
+- External and internal users are assigned dashboard level/projects before access is granted.
+- Dashboard profile is keyed by Entra Object ID, not the redeemed email/UPN.
+- Administration/Change Log are blocked and hidden for non-admin users, including zero-project users.
+- Dashboard-specific role/project assignments are stored in an open extension on the dedicated Project Control access group so they follow the user across browsers/devices.
+- Additional delegated Graph permissions required on the Project Control app: Group.Read.All and Group.ReadWrite.All (admin consent).

@@ -59,17 +59,20 @@ function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function dashboardUserForAccount(account, graphUser = null) {
+function dashboardUserForAccount(account, graphUser = null, sharedProfile = null) {
   const claims = account?.idTokenClaims || {};
   const email = normalizeEmail(account?.username || claims.preferred_username || claims.email);
   const displayName = String(graphUser?.displayName || account?.name || claims.name || "AHT User").trim();
   const entraUserType = String(graphUser?.userType || "").trim().toLowerCase();
   const adminEmails = (APP_CONFIG.entra.adminEmails || []).map(normalizeEmail);
 
-  let user = USERS.find(item => normalizeEmail(item.email) && normalizeEmail(item.email) === email);
+  let user = graphUser?.id ? USERS.find(item => item.entraObjectId === graphUser.id) : null;
+  if (!user) user = USERS.find(item => normalizeEmail(item.email) && normalizeEmail(item.email) === email);
   if (!user) {
     user = USERS.find(item => String(item.name || "").trim().toLowerCase() === displayName.toLowerCase());
   }
+
+  const shared = sharedProfile && typeof sharedProfile === "object" ? sharedProfile : null;
 
   if (adminEmails.includes(email)) {
     const admin = USERS.find(item => item.canAdmin && item.active !== false) || user;
@@ -82,15 +85,18 @@ function dashboardUserForAccount(account, graphUser = null) {
   // default to no projects until an administrator assigns them.
   if (entraUserType === "guest") {
     const externalUser = user && user.isInternal === false ? user : null;
+    const projects = Array.isArray(shared?.p) ? shared.p : (externalUser?.projects || []);
     return {
       ...(externalUser || {}),
-      id: externalUser?.id || `entra-${account?.localAccountId || "guest"}`,
-      name: displayName || externalUser?.name || "External User",
-      email: normalizeEmail(graphUser?.mail || graphUser?.userPrincipalName || email),
-      company: externalUser?.company || "External",
-      role: "External",
+      id: externalUser?.id || `entra-${graphUser?.id || account?.localAccountId || "guest"}`,
+      entraObjectId: graphUser?.id || externalUser?.entraObjectId || "",
+      entraUserType: "Guest",
+      name: shared?.n || displayName || externalUser?.name || "External User",
+      email: normalizeEmail(shared?.e || graphUser?.mail || graphUser?.userPrincipalName || email),
+      company: shared?.c || externalUser?.company || "External",
+      role: "External Viewer",
       active: true,
-      projects: externalUser?.projects || [],
+      projects,
       canEdit: false,
       canAdmin: false,
       isInternal: false,
@@ -98,8 +104,24 @@ function dashboardUserForAccount(account, graphUser = null) {
     };
   }
 
-  if (user) {
-    return { ...user, email: email || user.email, name: displayName || user.name, authAccount: account.homeAccountId };
+  if (user || shared) {
+    const role = shared?.r || user?.role || "Executive Viewer";
+    return {
+      ...(user || {}),
+      id: user?.id || `entra-${graphUser?.id || account?.localAccountId || "user"}`,
+      entraObjectId: graphUser?.id || user?.entraObjectId || "",
+      entraUserType: "Member",
+      email: normalizeEmail(shared?.e || email || user?.email),
+      name: shared?.n || displayName || user?.name || "AHT User",
+      company: shared?.c || user?.company || "AHT Global",
+      role,
+      active: true,
+      projects: Array.isArray(shared?.p) ? shared.p : (user?.projects || ["*"]),
+      canAdmin: false,
+      canEdit: role === "Internal Editor",
+      isInternal: true,
+      authAccount: account.homeAccountId
+    };
   }
 
   // Safe default for an authenticated AHT tenant user not yet configured in
@@ -117,6 +139,28 @@ function dashboardUserForAccount(account, graphUser = null) {
     isInternal: true,
     authAccount: account?.homeAccountId || ""
   };
+}
+
+async function loadSharedDashboardProfile(graphUser) {
+  const groupId = APP_CONFIG.entra.accessGroupId || "";
+  const extensionName = APP_CONFIG.entra.accessProfileExtensionName || "";
+  const scopes = APP_CONFIG.entra.accessProfileReadScopes || [];
+  if (!graphUser?.id || !groupId || !extensionName || !scopes.length) return null;
+  try {
+    const accessToken = await getMicrosoftAccessToken(scopes);
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/groups/${encodeURIComponent(groupId)}/extensions/${encodeURIComponent(extensionName)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`Microsoft profile store failed (${response.status}).`);
+    const extension = await response.json();
+    const profiles = JSON.parse(extension.profilesJson || "{}");
+    return profiles[graphUser.id] || null;
+  } catch (error) {
+    console.warn("Could not load shared Project Control profile; using safe local/default access.", error);
+    return null;
+  }
 }
 
 const MicrosoftAuthProvider = {
@@ -182,7 +226,7 @@ const MicrosoftAuthProvider = {
     try {
       const accessToken = await getMicrosoftAccessToken(["User.Read"]);
       const response = await fetch(
-        "https://graph.microsoft.com/v1.0/me?$select=displayName,mail,userPrincipalName,userType",
+        "https://graph.microsoft.com/v1.0/me?$select=id,displayName,mail,userPrincipalName,userType",
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       if (!response.ok) throw new Error(`Microsoft Graph /me failed (${response.status}).`);
@@ -191,7 +235,8 @@ const MicrosoftAuthProvider = {
       console.warn("Could not read Entra userType; using safe account fallback.", error);
     }
 
-    return dashboardUserForAccount(microsoftAccount, graphUser);
+    const sharedProfile = await loadSharedDashboardProfile(graphUser);
+    return dashboardUserForAccount(microsoftAccount, graphUser, sharedProfile);
   }
 };
 
