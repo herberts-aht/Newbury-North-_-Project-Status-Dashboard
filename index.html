@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AHT Project Control · 0.12.5</title>
+<title>AHT Project Control · 0.13.1</title>
 <link rel="stylesheet" href="css/styles.css" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
@@ -47,7 +47,7 @@
         <button class="admin-only" data-view="admin">Administration</button>
         <button class="admin-only" data-view="audit">Change Log</button>
       </div>
-      <div class="sidebar-footer">AHT Project Control<br>Version 0.12.5<br>© AHT Global</div>
+      <div class="sidebar-footer">AHT Project Control<br>Version 0.13.1<br>© AHT Global</div>
     </aside>
     <div class="content-shell">
   <header class="topbar">
@@ -354,7 +354,12 @@ function showView(id){
    window.MicrosoftAccess.onAdminView();
  }
 }
-function setProject(id){if(!allowedProjects().some(p=>p.id===id))return;state.currentProjectId=id;save();showView("dashboard")}
+function setProject(id){
+ if(!allowedProjects().some(p=>p.id===id))return;
+ state.currentProjectId=id;
+ localStorage.setItem("ahtProjectControl.currentProjectId",id);
+ render();
+}
 function clampPercent(value){
  const n=Number(value);
  if(!Number.isFinite(n))return 0;

@@ -134,13 +134,17 @@ const SharePointDataProvider = {
     return rows;
   },
 
-  async getListRows(displayName) {
+  async getListRows(displayName, fieldNames = []) {
     const site = await this.getSite();
     const listId = await this.getListId(displayName);
 
+    const expand = fieldNames.length
+      ? `fields($select=${fieldNames.join(",")})`
+      : "fields";
+
     let url =
       `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
-      `/items?$expand=fields&$top=500`;
+      `/items?$expand=${expand}&$top=500`;
 
     const rows = [];
     while (url) {
@@ -167,19 +171,25 @@ const SharePointDataProvider = {
 
   mapDeliverable(item) {
     const fields = item.fields || {};
+    const title = fields.Title || "Untitled Deliverable";
+    const current = fields.CurrentActivity || "";
+    const targetDate = this.normalizeDate(fields.TargetDate);
     return {
       id: Number(item.id),
       legacyId: Number(fields.LegacyId || 0),
       projectSharePointId: this.projectLookupId(fields),
-      name: fields.Title || "Untitled Deliverable",
+      deliverable: title,
+      name: title,
       discipline: fields.Discipline || "",
       status: fields.OperationalStatus || "Pending",
       owner: fields.Owner || "",
-      currentActivity: fields.CurrentActivity || "",
+      current,
+      currentActivity: current,
       waitingOn: fields.WaitingOn || "",
       nextStep: fields.NextStep || "",
       startDate: this.normalizeDate(fields.StartDate),
-      targetDate: this.normalizeDate(fields.TargetDate),
+      date: targetDate,
+      targetDate,
       risk: fields.Risk || "",
       visibility: fields.Visibility || "Shared",
       archived: Boolean(fields.Archived),
@@ -192,12 +202,14 @@ const SharePointDataProvider = {
 
   mapInformationRequired(item) {
     const fields = item.fields || {};
+    const requestedFrom = fields.RequestedFrom || "";
     return {
       id: Number(item.id),
       legacyId: Number(fields.LegacyId || 0),
       projectSharePointId: this.projectLookupId(fields),
       item: fields.Title || "Untitled Information Request",
-      requestedFrom: fields.RequestedFrom || "",
+      from: requestedFrom,
+      requestedFrom,
       status: fields.RequestStatus || "Outstanding",
       blocking: fields.Blocking || "",
       neededBy: this.normalizeDate(fields.NeededBy),
@@ -210,8 +222,16 @@ const SharePointDataProvider = {
   async loadState() {
     const [projectItems, deliverableItems, informationItems] = await Promise.all([
       this.getProjectRows(),
-      this.getListRows(this.config.lists.deliverables),
-      this.getListRows(this.config.lists.informationRequired)
+      this.getListRows(this.config.lists.deliverables, [
+        "Title","Project","LegacyId","Discipline","OperationalStatus","Owner",
+        "CurrentActivity","WaitingOn","NextStep","StartDate","TargetDate","Risk",
+        "Visibility","Archived","HealthMode","HealthOverride",
+        "HealthOverrideReason","HealthOverrideUntil"
+      ]),
+      this.getListRows(this.config.lists.informationRequired, [
+        "Title","Project","LegacyId","RequestedFrom","RequestStatus","Blocking",
+        "NeededBy","Notes","Visibility","Archived"
+      ])
     ]);
 
     const deliverables = deliverableItems
@@ -262,8 +282,13 @@ const SharePointDataProvider = {
       })
       .sort((a, b) => a.name.localeCompare(b.name));
 
+    const savedProjectId = localStorage.getItem("ahtProjectControl.currentProjectId");
+    const currentProjectId = projects.some(project => project.id === savedProjectId)
+      ? savedProjectId
+      : (projects[0]?.id || null);
+
     return {
-      currentProjectId: projects[0]?.id || null,
+      currentProjectId,
       projects,
       auditLog: []
     };
