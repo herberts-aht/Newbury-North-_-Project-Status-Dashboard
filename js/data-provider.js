@@ -223,13 +223,13 @@ const SharePointDataProvider = {
     const [projectItems, deliverableItems, informationItems] = await Promise.all([
       this.getProjectRows(),
       this.getListRows(this.config.lists.deliverables, [
-        "Title","Project","LegacyId","Discipline","OperationalStatus","Owner",
+        "Title","Project","ProjectLookupId","LegacyId","Discipline","OperationalStatus","Owner",
         "CurrentActivity","WaitingOn","NextStep","StartDate","TargetDate","Risk",
         "Visibility","Archived","HealthMode","HealthOverride",
         "HealthOverrideReason","HealthOverrideUntil"
       ]),
       this.getListRows(this.config.lists.informationRequired, [
-        "Title","Project","LegacyId","RequestedFrom","RequestStatus","Blocking",
+        "Title","Project","ProjectLookupId","LegacyId","RequestedFrom","RequestStatus","Blocking",
         "NeededBy","Notes","Visibility","Archived"
       ])
     ]);
@@ -241,6 +241,18 @@ const SharePointDataProvider = {
     const informationRequired = informationItems
       .map(item => this.mapInformationRequired(item))
       .filter(item => !item.archived);
+
+    if (informationRequired.length) {
+      console.debug(
+        "Information Required lookup check",
+        informationRequired.map(item => ({
+          id: item.id,
+          legacyId: item.legacyId,
+          projectSharePointId: item.projectSharePointId,
+          item: item.item
+        }))
+      );
+    }
 
     const projects = projectItems
       .map(item => ({ item, fields: item.fields || {} }))
