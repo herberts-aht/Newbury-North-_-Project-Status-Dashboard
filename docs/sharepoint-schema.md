@@ -36,7 +36,9 @@ The existing **Control Dashboard** list is not deleted or modified by the setup 
 | Health Override Reason | `HealthOverrideReason` | Multiple lines text | No | |
 | Health Override Until | `HealthOverrideUntil` | Date only | No | |
 
-**Indexes:** Project Key, Archived.
+**Indexes:** Project Key (unique), Archived.
+
+`ProjectKey` is the permanent dashboard identifier. The setup script enforces unique values so duplicate project keys cannot be created.
 
 ---
 
@@ -137,3 +139,7 @@ Versioning is enabled on all four lists. The setup script retains up to 100 majo
 Run `tools/Create-AHTDashboard.ps1` from PowerShell 7. The script is idempotent: it creates missing lists, fields, indexes, and views, while leaving existing matching objects in place.
 
 The script requires an approved Entra application/client ID for PnP interactive sign-in. No client secret is stored in the project.
+
+When `-SeedSampleData` is used, the loader is safe to rerun: Projects are matched by `ProjectKey`, and Deliverables / Information Required records are matched by Project + `LegacyId` before insertion. Existing seed records are left in place rather than duplicated.
+
+Microsoft Entra identities, dashboard roles, and user-to-project assignments are intentionally not stored in these four operational SharePoint lists.

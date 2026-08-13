@@ -155,6 +155,28 @@ function Ensure-IndexedField {
     }
 }
 
+function Ensure-UniqueIndexedField {
+    param([string]$List, [string]$InternalName)
+    $field = Get-PnPField -List $List -Identity $InternalName
+    if (-not $field.Indexed -or -not $field.EnforceUniqueValues) {
+        Write-Host "  Enforcing unique indexed values on $List.$InternalName"
+        Set-PnPField -List $List -Identity $InternalName -Values @{ Indexed = $true; EnforceUniqueValues = $true } | Out-Null
+    }
+}
+
+function Get-SeedRecordByProjectAndLegacyId {
+    param(
+        [string]$List,
+        [int]$ProjectId,
+        [int]$LegacyId
+    )
+
+    $query = @"
+<View><Query><Where><And><Eq><FieldRef Name='Project' LookupId='TRUE'/><Value Type='Lookup'>$ProjectId</Value></Eq><Eq><FieldRef Name='LegacyId'/><Value Type='Number'>$LegacyId</Value></Eq></And></Where></Query><RowLimit>1</RowLimit></View>
+"@
+    return Get-PnPListItem -List $List -Query $query | Select-Object -First 1
+}
+
 function Ensure-View {
     param(
         [string]$List,
@@ -264,7 +286,7 @@ Ensure-Field -List "Change Log" -InternalName "Details" -DisplayName "Details" -
 Ensure-Field -List "Change Log" -InternalName "Visibility" -DisplayName "Visibility" -Type Choice -Required $true -Choices @("Shared","AHT Internal","Admin Only") -DefaultValue "AHT Internal"
 
 Write-Step "Adding indexes"
-Ensure-IndexedField -List "Projects" -InternalName "ProjectKey"
+Ensure-UniqueIndexedField -List "Projects" -InternalName "ProjectKey"
 Ensure-IndexedField -List "Projects" -InternalName "Archived"
 Ensure-IndexedField -List "Deliverables" -InternalName "Project"
 Ensure-IndexedField -List "Deliverables" -InternalName "TargetDate"
@@ -336,6 +358,12 @@ if ($SeedSampleData) {
 
     foreach ($record in $sample.deliverables) {
         $projectId = $projectIds[$record.projectKey]
+        $existing = Get-SeedRecordByProjectAndLegacyId -List "Deliverables" -ProjectId $projectId -LegacyId $record.legacyId
+        if ($existing) {
+            Write-Host "  Sample deliverable already exists: $($record.deliverable)"
+            continue
+        }
+
         Add-PnPListItem -List "Deliverables" -Values @{
             Title            = $record.deliverable
             Project          = $projectId
@@ -357,6 +385,12 @@ if ($SeedSampleData) {
 
     foreach ($record in $sample.informationRequired) {
         $projectId = $projectIds[$record.projectKey]
+        $existing = Get-SeedRecordByProjectAndLegacyId -List "Information Required" -ProjectId $projectId -LegacyId $record.legacyId
+        if ($existing) {
+            Write-Host "  Sample information request already exists: $($record.item)"
+            continue
+        }
+
         Add-PnPListItem -List "Information Required" -Values @{
             Title          = $record.item
             Project        = $projectId
