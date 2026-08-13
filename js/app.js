@@ -18,6 +18,8 @@ function setStartupStatus({ title = "", message = "", error = false, hidden = fa
 function applyApplicationConfig() {
   document.title = `${APP_CONFIG.appName} · ${APP_CONFIG.version}`;
   versionTag.textContent = `Version ${APP_CONFIG.version} · ${APP_CONFIG.environment}`;
+  const sidebarVersion = document.getElementById("sidebarVersion");
+  if (sidebarVersion) sidebarVersion.textContent = `Version ${APP_CONFIG.version}`;
 }
 
 async function initializeApplication() {

@@ -47,7 +47,7 @@
         <button class="admin-only" data-view="admin">Administration</button>
         <button class="admin-only" data-view="audit">Change Log</button>
       </div>
-      <div class="sidebar-footer">AHT Project Control<br>Version 0.13.1<br>© AHT Global</div>
+      <div class="sidebar-footer">AHT Project Control<br><span id="sidebarVersion">Version —</span><br>© AHT Global</div>
     </aside>
     <div class="content-shell">
   <header class="topbar">
@@ -96,7 +96,7 @@
       <div id="infoCards" class="mobile-cards"></div>
     </section>
     <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Schedule Overview</div><h2>Gantt</h2><p>Simple visual schedule generated from Deliverable start and target dates.</p></div><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div></div><div class="timeline"><div id="timelineTrack"></div></div></section>
-    <section id="calendar" class="view"><div class="page-header"><div><div class="eyebrow">Schedule</div><h2>Calendar & Agenda</h2><p>Generated from editable Deliverables and Information Required records.</p></div><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div></div><div class="agenda-grid"><div class="calendar-card"><h3>UPCOMING AGENDA</h3><div id="agendaList"></div></div><div class="calendar-card"><h3>AUGUST 2026</h3><div class="month-grid" id="monthGrid"></div></div></div></section>
+    <section id="calendar" class="view"><div class="page-header"><div><div class="eyebrow">Schedule</div><h2>Calendar & Agenda</h2><p>Generated from editable Deliverables and Information Required records.</p></div><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div></div><div class="agenda-grid"><div class="calendar-card"><h3>UPCOMING AGENDA</h3><div id="agendaList"></div></div><div class="calendar-card"><h3 id="calendarMonthTitle">MONTH</h3><div class="month-grid" id="monthGrid"></div></div></div></section>
 
     <section id="admin" class="view">
       <div class="page-header">
