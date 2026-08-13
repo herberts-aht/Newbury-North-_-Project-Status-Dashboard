@@ -419,7 +419,8 @@ const MicrosoftAccess = (() => {
   }
 
   function initialize() {
-    renderInviteProjects();
+    // Project choices are rendered after the live application state has loaded.
+    // Calling renderInviteProjects here runs before app.js initializes `state`.
     el("refreshEntraUsersBtn")?.addEventListener("click", () => refresh());
     el("inviteExternalBtn")?.addEventListener("click", inviteExternal);
     el("addInternalBtn")?.addEventListener("click", addInternal);

@@ -37,30 +37,25 @@ const SharePointDataProvider = {
   },
 
   async getAccessToken() {
-    // auth.js will provide this function when Microsoft/Entra sign-in is added.
-    // Keeping the dependency behind one function lets the data provider be
-    // completed and tested without changing the dashboard screens.
     if (typeof window.getMicrosoftAccessToken === "function") {
-      return window.getMicrosoftAccessToken();
+      return window.getMicrosoftAccessToken(APP_CONFIG.entra.scopes);
     }
-
-    throw new Error(
-      "SharePoint mode is configured, but Microsoft sign-in is not ready. " +
-      "Switch APP_CONFIG.dataProvider to 'localStorage' or complete Entra setup."
-    );
+    throw new Error("Microsoft sign-in is not ready.");
   },
 
-  async request(path, options = {}) {
+  async graph(path, options = {}) {
     const token = await this.getAccessToken();
-    const response = await fetch(`${this.config.siteUrl}${path}`, {
-      ...options,
-      headers: {
-        Accept: "application/json;odata=nometadata",
-        "Content-Type": "application/json;odata=nometadata",
-        Authorization: `Bearer ${token}`,
-        ...(options.headers || {})
+    const response = await fetch(
+      path.startsWith("http") ? path : `https://graph.microsoft.com/v1.0${path}`,
+      {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
       }
-    });
+    );
 
     if (!response.ok) {
       let details = "";
@@ -70,9 +65,8 @@ const SharePointDataProvider = {
       } catch (_) {
         details = await response.text();
       }
-
       throw new Error(
-        `SharePoint request failed (${response.status} ${response.statusText})` +
+        `Microsoft Graph request failed (${response.status} ${response.statusText})` +
         (details ? `: ${details}` : "")
       );
     }
@@ -81,121 +75,105 @@ const SharePointDataProvider = {
     return response.json();
   },
 
-  async getListItems(listTitle, query = "") {
-    const encodedTitle = encodeURIComponent(listTitle);
-    const suffix = query ? `?${query}` : "";
-    const result = await this.request(
-      `/_api/web/lists/getbytitle('${encodedTitle}')/items${suffix}`
-    );
-    return Array.isArray(result?.value) ? result.value : [];
-  },
-
   normalizeDate(value) {
     if (!value) return "";
     return String(value).slice(0, 10);
   },
 
-  mapHealth(project) {
-    if (project.HealthMode === "manual" && project.HealthOverride) {
-      return project.HealthOverride;
+  mapHealth(fields) {
+    if (fields.HealthMode === "manual" && fields.HealthOverride) {
+      return fields.HealthOverride;
     }
     return "On Track";
   },
 
+  async getSite() {
+    if (this._site) return this._site;
+
+    const siteUrl = new URL(this.config.siteUrl);
+    const relativePath = siteUrl.pathname.replace(/^\/+/, "");
+    this._site = await this.graph(
+      `/sites/${encodeURIComponent(siteUrl.hostname)}:/${relativePath}?$select=id,displayName,webUrl`
+    );
+    return this._site;
+  },
+
+  async getListId(displayName) {
+    this._listIds ||= {};
+    if (this._listIds[displayName]) return this._listIds[displayName];
+
+    const site = await this.getSite();
+    let url = `/sites/${encodeURIComponent(site.id)}/lists?$select=id,displayName`;
+    while (url) {
+      const data = await this.graph(url);
+      for (const list of data.value || []) {
+        this._listIds[list.displayName] = list.id;
+      }
+      url = data["@odata.nextLink"] || "";
+    }
+
+    const id = this._listIds[displayName];
+    if (!id) throw new Error(`SharePoint list not found: ${displayName}`);
+    return id;
+  },
+
+  async getProjectRows() {
+    const site = await this.getSite();
+    const listId = await this.getListId(this.config.lists.projects);
+
+    let url =
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+      `/items?$expand=fields&$top=200`;
+
+    const rows = [];
+    while (url) {
+      const data = await this.graph(url);
+      rows.push(...(data.value || []));
+      url = data["@odata.nextLink"] || "";
+    }
+    return rows;
+  },
+
   async loadState() {
-    const lists = this.config.lists;
+    // Phase 1: Projects only. Deliverables and Information Required remain empty
+    // until the Projects/assignment path is proven against the live backend.
+    const projectItems = await this.getProjectRows();
 
-    const [projectRows, deliverableRows, informationRows] = await Promise.all([
-      this.getListItems(
-        lists.projects,
-        "$select=Id,Title,ProjectKey,ProjectAddress,ProjectCity,ProjectState,ProjectDescription,ProjectSubtitle,ProjectPhase,Archived,LastActivityDate,LastActivity,ProgressPlanning,ProgressEngineering,ProgressInstallation,HealthMode,HealthOverride,HealthOverrideReason,HealthOverrideUntil&$filter=Archived ne 1&$orderby=Title"
-      ),
-      this.getListItems(
-        lists.deliverables,
-        "$select=Id,Title,ProjectId,LegacyId,Discipline,OperationalStatus,Owner,CurrentActivity,WaitingOn,NextStep,StartDate,TargetDate,Risk,Visibility,Archived,HealthMode,HealthOverride,HealthOverrideReason,HealthOverrideUntil&$filter=Archived ne 1&$orderby=TargetDate"
-      ),
-      this.getListItems(
-        lists.informationRequired,
-        "$select=Id,Title,ProjectId,LegacyId,RequestedFrom,RequestStatus,Blocking,NeededBy,Notes,Visibility,Archived&$filter=Archived ne 1&$orderby=NeededBy"
-      )
-    ]);
-
-    const projectsBySharePointId = new Map();
-    const projects = projectRows.map((row) => {
-      const project = {
-        id: row.ProjectKey || String(row.Id),
-        sharePointId: row.Id,
-        name: row.Title || "Untitled Project",
-        address: row.ProjectAddress || "",
-        city: row.ProjectCity || "",
-        state: row.ProjectState || "",
-        description: row.ProjectDescription || "",
-        subtitle: row.ProjectSubtitle || "",
-        phase: row.ProjectPhase || "",
-        archived: Boolean(row.Archived),
-        health: this.mapHealth(row),
-        updated: row.LastActivityDate
-          ? new Date(row.LastActivityDate).toLocaleDateString("en-US", {
+    const projects = projectItems
+      .map(item => ({ item, fields: item.fields || {} }))
+      .filter(({ fields }) => !Boolean(fields.Archived))
+      .map(({ item, fields }) => ({
+        id: fields.ProjectKey || String(item.id),
+        sharePointId: Number(item.id),
+        name: fields.Title || "Untitled Project",
+        address: fields.ProjectAddress || "",
+        city: fields.ProjectCity || "",
+        state: fields.ProjectState || "",
+        description: fields.ProjectDescription || "",
+        subtitle: fields.ProjectSubtitle || "",
+        phase: fields.ProjectPhase || "",
+        archived: Boolean(fields.Archived),
+        health: this.mapHealth(fields),
+        updated: fields.LastActivityDate
+          ? new Date(fields.LastActivityDate).toLocaleDateString("en-US", {
               month: "long",
               day: "numeric",
               year: "numeric"
             })
           : "",
-        lastActivityDate: this.normalizeDate(row.LastActivityDate),
-        lastActivity: row.LastActivity || "",
-        progressPlanning: Number(row.ProgressPlanning || 0),
-        progressEngineering: Number(row.ProgressEngineering || 0),
-        progressInstallation: Number(row.ProgressInstallation || 0),
-        healthMode: row.HealthMode || "auto",
-        healthOverride: row.HealthOverride || "",
-        healthOverrideReason: row.HealthOverrideReason || "",
-        healthOverrideUntil: this.normalizeDate(row.HealthOverrideUntil),
+        lastActivityDate: this.normalizeDate(fields.LastActivityDate),
+        lastActivity: fields.LastActivity || "",
+        progressPlanning: Number(fields.ProgressPlanning || 0),
+        progressEngineering: Number(fields.ProgressEngineering || 0),
+        progressInstallation: Number(fields.ProgressInstallation || 0),
+        healthMode: fields.HealthMode || "auto",
+        healthOverride: fields.HealthOverride || "",
+        healthOverrideReason: fields.HealthOverrideReason || "",
+        healthOverrideUntil: this.normalizeDate(fields.HealthOverrideUntil),
         deliverables: [],
         info: []
-      };
-      projectsBySharePointId.set(row.Id, project);
-      return project;
-    });
-
-    for (const row of deliverableRows) {
-      const project = projectsBySharePointId.get(row.ProjectId);
-      if (!project) continue;
-      project.deliverables.push({
-        id: Number(row.LegacyId || row.Id),
-        sharePointId: row.Id,
-        discipline: row.Discipline || "",
-        deliverable: row.Title || "",
-        status: row.OperationalStatus || "Pending",
-        owner: row.Owner || "",
-        current: row.CurrentActivity || "",
-        waitingOn: row.WaitingOn || "",
-        nextStep: row.NextStep || "",
-        startDate: this.normalizeDate(row.StartDate),
-        date: this.normalizeDate(row.TargetDate),
-        risk: row.Risk || "",
-        visibility: row.Visibility || "Shared",
-        healthMode: row.HealthMode || "auto",
-        healthOverride: row.HealthOverride || "",
-        healthOverrideReason: row.HealthOverrideReason || "",
-        healthOverrideUntil: this.normalizeDate(row.HealthOverrideUntil)
-      });
-    }
-
-    for (const row of informationRows) {
-      const project = projectsBySharePointId.get(row.ProjectId);
-      if (!project) continue;
-      project.info.push({
-        id: Number(row.LegacyId || row.Id),
-        sharePointId: row.Id,
-        item: row.Title || "",
-        from: row.RequestedFrom || "",
-        status: row.RequestStatus || "Outstanding",
-        blocking: row.Blocking || "",
-        neededBy: this.normalizeDate(row.NeededBy),
-        notes: row.Notes || "",
-        visibility: row.Visibility || "Shared"
-      });
-    }
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     return {
       currentProjectId: projects[0]?.id || null,
@@ -211,7 +189,6 @@ const SharePointDataProvider = {
   },
 
   async loadUsers() {
-    // User administration remains local during the read-only SharePoint phase.
     return LocalStorageDataProvider.loadUsers();
   },
 
