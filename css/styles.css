@@ -412,3 +412,36 @@ input:focus,select:focus,textarea:focus{
 .invite-project-list{border:1px solid var(--line);border-radius:7px;padding:7px 9px;max-height:150px;overflow:auto;background:#fff}
 .invite-project-list label{display:block;margin:5px 0;font-size:12px;line-height:1.25}
 .invite-project-list input{margin-right:6px}
+
+/* Login portal alignment refinement — 0.12.6 */
+.login-card{
+  text-align:center;
+}
+.login-logo-wrap{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin:0 auto 12px;
+}
+.login-logo{
+  display:block;
+  margin:0 auto;
+  max-width:240px;
+  width:72%;
+  height:auto;
+}
+.login-card h1,
+.login-card > p,
+.login-card .version-tag{
+  text-align:center;
+}
+.login-card .version-tag{
+  margin:6px 0 10px;
+}
+.login-card .demo-note{
+  text-align:center;
+  line-height:1.4;
+}
+.login-card .field{
+  text-align:left;
+}
