@@ -268,7 +268,7 @@ function configureLoginScreen() {
   loginBtn.textContent = microsoftMode ? "Sign in with Microsoft" : "Sign In";
   if (note) {
     note.textContent = microsoftMode
-      ? "Use your AHT Global Microsoft account. No dashboard password is stored."
+      ? "Use the email address associated with your Project Control invitation. Microsoft will guide you through sign-in or verification. No Project Control password is stored."
       : "Temporary local passwords are assigned by user type. This interim login is not production security.";
   }
 }
