@@ -134,45 +134,132 @@ const SharePointDataProvider = {
     return rows;
   },
 
+  async getListRows(displayName) {
+    const site = await this.getSite();
+    const listId = await this.getListId(displayName);
+
+    let url =
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+      `/items?$expand=fields&$top=500`;
+
+    const rows = [];
+    while (url) {
+      const data = await this.graph(url);
+      rows.push(...(data.value || []));
+      url = data["@odata.nextLink"] || "";
+    }
+    return rows;
+  },
+
+  projectLookupId(fields) {
+    const candidates = [
+      fields.ProjectLookupId,
+      fields.ProjectId,
+      fields.Project,
+      fields.Project_x003a_ID
+    ];
+    for (const value of candidates) {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    }
+    return 0;
+  },
+
+  mapDeliverable(item) {
+    const fields = item.fields || {};
+    return {
+      id: Number(item.id),
+      legacyId: Number(fields.LegacyId || 0),
+      projectSharePointId: this.projectLookupId(fields),
+      name: fields.Title || "Untitled Deliverable",
+      discipline: fields.Discipline || "",
+      status: fields.OperationalStatus || "Pending",
+      owner: fields.Owner || "",
+      currentActivity: fields.CurrentActivity || "",
+      waitingOn: fields.WaitingOn || "",
+      nextStep: fields.NextStep || "",
+      startDate: this.normalizeDate(fields.StartDate),
+      targetDate: this.normalizeDate(fields.TargetDate),
+      risk: fields.Risk || "",
+      visibility: fields.Visibility || "Shared",
+      archived: Boolean(fields.Archived),
+      healthMode: fields.HealthMode || "auto",
+      healthOverride: fields.HealthOverride || "",
+      healthOverrideReason: fields.HealthOverrideReason || "",
+      healthOverrideUntil: this.normalizeDate(fields.HealthOverrideUntil)
+    };
+  },
+
+  mapInformationRequired(item) {
+    const fields = item.fields || {};
+    return {
+      id: Number(item.id),
+      legacyId: Number(fields.LegacyId || 0),
+      projectSharePointId: this.projectLookupId(fields),
+      item: fields.Title || "Untitled Information Request",
+      requestedFrom: fields.RequestedFrom || "",
+      status: fields.RequestStatus || "Outstanding",
+      blocking: fields.Blocking || "",
+      neededBy: this.normalizeDate(fields.NeededBy),
+      notes: fields.Notes || "",
+      visibility: fields.Visibility || "Shared",
+      archived: Boolean(fields.Archived)
+    };
+  },
+
   async loadState() {
-    // Phase 1: Projects only. Deliverables and Information Required remain empty
-    // until the Projects/assignment path is proven against the live backend.
-    const projectItems = await this.getProjectRows();
+    const [projectItems, deliverableItems, informationItems] = await Promise.all([
+      this.getProjectRows(),
+      this.getListRows(this.config.lists.deliverables),
+      this.getListRows(this.config.lists.informationRequired)
+    ]);
+
+    const deliverables = deliverableItems
+      .map(item => this.mapDeliverable(item))
+      .filter(item => !item.archived);
+
+    const informationRequired = informationItems
+      .map(item => this.mapInformationRequired(item))
+      .filter(item => !item.archived);
 
     const projects = projectItems
       .map(item => ({ item, fields: item.fields || {} }))
       .filter(({ fields }) => !Boolean(fields.Archived))
-      .map(({ item, fields }) => ({
-        id: fields.ProjectKey || String(item.id),
-        sharePointId: Number(item.id),
-        name: fields.Title || "Untitled Project",
-        address: fields.ProjectAddress || "",
-        city: fields.ProjectCity || "",
-        state: fields.ProjectState || "",
-        description: fields.ProjectDescription || "",
-        subtitle: fields.ProjectSubtitle || "",
-        phase: fields.ProjectPhase || "",
-        archived: Boolean(fields.Archived),
-        health: this.mapHealth(fields),
-        updated: fields.LastActivityDate
-          ? new Date(fields.LastActivityDate).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-              year: "numeric"
-            })
-          : "",
-        lastActivityDate: this.normalizeDate(fields.LastActivityDate),
-        lastActivity: fields.LastActivity || "",
-        progressPlanning: Number(fields.ProgressPlanning || 0),
-        progressEngineering: Number(fields.ProgressEngineering || 0),
-        progressInstallation: Number(fields.ProgressInstallation || 0),
-        healthMode: fields.HealthMode || "auto",
-        healthOverride: fields.HealthOverride || "",
-        healthOverrideReason: fields.HealthOverrideReason || "",
-        healthOverrideUntil: this.normalizeDate(fields.HealthOverrideUntil),
-        deliverables: [],
-        info: []
-      }))
+      .map(({ item, fields }) => {
+        const sharePointId = Number(item.id);
+
+        return {
+          id: fields.ProjectKey || String(item.id),
+          sharePointId,
+          name: fields.Title || "Untitled Project",
+          address: fields.ProjectAddress || "",
+          city: fields.ProjectCity || "",
+          state: fields.ProjectState || "",
+          description: fields.ProjectDescription || "",
+          subtitle: fields.ProjectSubtitle || "",
+          phase: fields.ProjectPhase || "",
+          archived: Boolean(fields.Archived),
+          health: this.mapHealth(fields),
+          updated: fields.LastActivityDate
+            ? new Date(fields.LastActivityDate).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric"
+              })
+            : "",
+          lastActivityDate: this.normalizeDate(fields.LastActivityDate),
+          lastActivity: fields.LastActivity || "",
+          progressPlanning: Number(fields.ProgressPlanning || 0),
+          progressEngineering: Number(fields.ProgressEngineering || 0),
+          progressInstallation: Number(fields.ProgressInstallation || 0),
+          healthMode: fields.HealthMode || "auto",
+          healthOverride: fields.HealthOverride || "",
+          healthOverrideReason: fields.HealthOverrideReason || "",
+          healthOverrideUntil: this.normalizeDate(fields.HealthOverrideUntil),
+          deliverables: deliverables.filter(record => record.projectSharePointId === sharePointId),
+          info: informationRequired.filter(record => record.projectSharePointId === sharePointId)
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
 
     return {

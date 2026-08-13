@@ -8,7 +8,7 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.12.9",
+  version: "0.13.0",
   buildDate: "2026-08-13",
 
   // Development stays fully local until Entra and hosting are approved.
