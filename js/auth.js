@@ -299,6 +299,16 @@ async function handleLogin() {
     // signed-in account. Do not render the app before that round trip completes.
     if (APP_CONFIG.authProvider === "microsoft" && !currentUser) return;
 
+    // SharePoint data requires the authenticated Microsoft account/token.
+    // Load the live state only after sign-in has completed.
+    if (APP_CONFIG.dataProvider === "sharePoint") {
+      state = await DataProvider.loadState();
+      if (!state || !Array.isArray(state.projects)) {
+        throw new Error("Live SharePoint project data could not be loaded.");
+      }
+      if (!state.auditLog) state.auditLog = [];
+    }
+
     loginPassword.value = "";
     showSignedInApplication();
   } catch (error) {
@@ -313,7 +323,7 @@ async function handleLogout() {
   showLoginScreen();
 }
 
-async function initializeAuthentication() {
+async function initializeAuthentication({ deferRender = false } = {}) {
   populateLoginUsers();
   configureLoginScreen();
   await AuthProvider.initialize();
@@ -327,6 +337,9 @@ async function initializeAuthentication() {
   logoutBtn.onclick = handleLogout;
 
   currentUser = await AuthProvider.restoreSession();
-  if (currentUser) showSignedInApplication();
-  else showLoginScreen();
+  if (!deferRender) {
+    if (currentUser) showSignedInApplication();
+    else showLoginScreen();
+  }
+  return currentUser;
 }

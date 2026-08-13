@@ -8,11 +8,11 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.12.7",
-  buildDate: "2026-08-11",
+  version: "0.12.8",
+  buildDate: "2026-08-13",
 
   // Development stays fully local until Entra and hosting are approved.
-  environment: "development",
+  environment: "production",
 
   // Supported values today:
   //   "demo"      = temporary local login
@@ -22,7 +22,7 @@ const APP_CONFIG = Object.freeze({
   // "localStorage" preserves the current dashboard behavior.
   // Change to "sharePoint" only after Microsoft authentication is configured
   // and the SharePoint read-only connection test passes.
-  dataProvider: "localStorage",
+  dataProvider: "sharePoint",
 
   // During the first SharePoint tests, a failed SharePoint load can fall back
   // to the existing local data instead of making the dashboard unusable.

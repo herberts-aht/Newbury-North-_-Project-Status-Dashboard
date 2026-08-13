@@ -28,22 +28,30 @@ async function initializeApplication() {
   });
 
   try {
-    state = await DataProvider.loadState();
-
-    if (!state || !Array.isArray(state.projects)) {
-      throw new Error("Project data could not be loaded.");
-    }
-
-    if (!state.auditLog) {
-      state.auditLog = [];
-    }
-
+    // User profiles remain local during this read-only SharePoint phase.
     const savedUsers = await DataProvider.loadUsers();
     if (Array.isArray(savedUsers) && savedUsers.length) {
       USERS.splice(0, USERS.length, ...savedUsers);
     }
 
-    await initializeAuthentication();
+    // Initialize Microsoft authentication first. SharePoint cannot be queried
+    // until MSAL has restored (or completed) the signed-in account.
+    await initializeAuthentication({ deferRender: true });
+
+    if (currentUser) {
+      state = await DataProvider.loadState();
+
+      if (!state || !Array.isArray(state.projects)) {
+        throw new Error("Project data could not be loaded.");
+      }
+      if (!state.auditLog) state.auditLog = [];
+
+      showSignedInApplication();
+    } else {
+      // No SharePoint request is made until the user signs in.
+      showLoginScreen();
+    }
+
     setStartupStatus({ hidden: true });
   } catch (error) {
     console.error(error);
