@@ -74,7 +74,9 @@
       </div>
       <div class="summary-ribbon">
         <div class="summary-cell"><div class="label">Project Health</div><div class="value"><span class="status-dot" id="summaryHealthDot"></span><span id="summaryHealth">On Track</span><span class="health-mode" id="summaryHealthMode">Automatic</span><div class="health-note" id="summaryHealthNote"></div></div></div>
-        <div class="summary-cell"><div class="label">Project Lead</div><div class="value">Stacy Herbert</div></div>
+        <div class="summary-cell"><div class="label">Executive Lead</div><div class="value" id="summaryExecutiveLead">—</div></div>
+        <div class="summary-cell"><div class="label">Senior Project Manager</div><div class="value" id="summarySeniorProjectManager">—</div></div>
+        <div class="summary-cell"><div class="label">Project Manager / Site Lead</div><div class="value" id="summaryProjectManagerSiteLead">—</div></div>
         <div class="summary-cell"><div class="label">Last Updated</div><div class="value" id="summaryUpdated">—</div></div>
         <div class="summary-cell"><div class="label">Access Level</div><div class="value" id="summaryAccess">—</div></div>
       </div>
@@ -416,12 +418,19 @@ function progressModeMark(mode){return mode==="manual"?'<span class="manual-heal
 
 function field(name,label,val,cls="",type="input"){return `<div class="field ${cls}"><label>${label}</label>${type==="textarea"?`<textarea name="${name}" rows="3">${esc(val)}</textarea>`:`<input name="${name}" value="${esc(val??"")}">`}</div>`}
 function dateField(name,label,val){return `<div class="field"><label>${label}</label><input type="date" name="${name}" value="${esc(val??"")}"></div>`}
+function projectTeamField(name,label,val){
+ const users=USERS.filter(u=>u.isInternal&&u.active!==false).slice().sort((a,b)=>a.name.localeCompare(b.name));
+ return `<div class="field"><label>${label}</label><select name="${name}"><option value="">— Unassigned —</option>${users.map(u=>`<option value="${esc(u.name)}" ${u.name===val?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div>`;
+}
 function selectField(name,label,opts,val){return `<div class="field"><label>${label}</label><select name="${name}">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select></div>`}
 function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;if(type!=="project"&&!currentUser.canEdit)return;editContext={type,id:obj?.id??null};deleteRecordBtn.classList.toggle("hidden",!obj||type==="project");modalTitle.textContent=(obj?"Edit ":"Add ")+(type==="deliverable"?"Deliverable":type==="info"?"Information Request":"Project");const d=obj||{};formFields.innerHTML=type==="project"?`
     ${field("address","Project Address",d.address||d.name||"")}
     ${field("city","City",d.city||((d.subtitle||"").split(",")[0])||"Naples")}
     ${field("state","State",d.state||((d.subtitle||"").split(",")[1]||"FL").trim())}
     ${field("description","Builder / Client",d.description||((d.subtitle||"").includes("·")?(d.subtitle.split("·")[1]||"").trim():""),"full")}
+    ${projectTeamField("executiveLead","Executive Lead",d.executiveLead||"")}
+    ${projectTeamField("seniorProjectManager","Senior Project Manager",d.seniorProjectManager||"")}
+    ${projectTeamField("projectManagerSiteLead","Project Manager / Site Lead",d.projectManagerSiteLead||"")}
             ${currentUser.canAdmin?`<div class="field full progress-control-section"><label>Progress Control</label>
       <div class="automatic-health-preview">Automatic phase results from assigned deliverables: Planning <strong>${autoPhaseProgress(d,"Planning")}%</strong> · Engineering <strong>${autoPhaseProgress(d,"Engineering")}%</strong> · Installation <strong>${autoPhaseProgress(d,"Installation")}%</strong></div>
       <div class="phase-control-cards">
@@ -693,6 +702,9 @@ editForm.onsubmit=e=>{
      p.city=city;
      p.state=stateCode;
      p.description=description;
+     p.executiveLead=String(obj.executiveLead||"").trim();
+     p.seniorProjectManager=String(obj.seniorProjectManager||"").trim();
+     p.projectManagerSiteLead=String(obj.projectManagerSiteLead||"").trim();
      p.subtitle=`${city}, ${stateCode}${description?` · ${description}`:""}`;
      if(currentUser.canAdmin){
        p.lastActivityDate=String(obj.lastActivityDate||"").trim();
@@ -728,6 +740,9 @@ editForm.onsubmit=e=>{
        city,
        state:stateCode,
        description,
+       executiveLead:String(obj.executiveLead||"").trim(),
+       seniorProjectManager:String(obj.seniorProjectManager||"").trim(),
+       projectManagerSiteLead:String(obj.projectManagerSiteLead||"").trim(),
        subtitle:`${city}, ${stateCode}${description?` · ${description}`:""}`,
        lastActivityDate:String(obj.lastActivityDate||"").trim(),
        lastActivity:String(obj.lastActivity||"").trim(),
