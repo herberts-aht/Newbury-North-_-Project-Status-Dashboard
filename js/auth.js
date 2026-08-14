@@ -1,4 +1,4 @@
-// Authentication adapter.
+git // Authentication adapter.
 //
 // MicrosoftAuthProvider uses MSAL Browser (authorization code + PKCE) for
 // AHT Entra sign-in. No client secret is used or stored in this SPA.
@@ -141,25 +141,47 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
   };
 }
 
+async function projectControlApi(action, options = {}) {
+  const token = await getMicrosoftAccessToken(["User.Read"]);
+  const base = APP_CONFIG.backend?.apiBasePath || "/api/project-control";
+  const response = await fetch(`${base}/${action}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data?.message || `Project Control API failed (${response.status}).`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+window.projectControlApi = projectControlApi;
+
 async function loadSharedDashboardProfile(graphUser) {
-  const groupId = APP_CONFIG.entra.accessGroupId || "";
-  const extensionName = APP_CONFIG.entra.accessProfileExtensionName || "";
-  const scopes = APP_CONFIG.entra.accessProfileReadScopes || [];
-  if (!graphUser?.id || !groupId || !extensionName || !scopes.length) return { profile: null, error: "" };
+  if (!graphUser?.id) return { profile: null, error: "" };
   try {
-    const accessToken = await getMicrosoftAccessToken(scopes, { interactive: false });
-    const response = await fetch(
-      `https://graph.microsoft.com/v1.0/groups/${encodeURIComponent(groupId)}/extensions/${encodeURIComponent(extensionName)}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    if (response.status === 404) return { profile: null, error: "" };
-    if (!response.ok) throw new Error(`Microsoft profile store failed (${response.status}).`);
-    const extension = await response.json();
-    const profiles = JSON.parse(extension.profilesJson || "{}");
-    return { profile: profiles[graphUser.id] || null, error: "" };
+    const data = await projectControlApi("access-me");
+    const p = data?.profile;
+    if (!p) return { profile: null, error: "" };
+    return {
+      profile: {
+        r: p.role,
+        p: Array.isArray(p.projects) ? p.projects : [],
+        c: p.company || "",
+        n: p.name || "",
+        e: p.email || ""
+      },
+      error: ""
+    };
   } catch (error) {
-    console.warn("Could not load shared Project Control profile.", error);
-    return { profile: null, error: error?.message || "Microsoft profile sync failed." };
+    if (error?.status === 404 || error?.status === 403) return { profile: null, error: "" };
+    console.warn("Could not load Project Control access profile from the Azure API.", error);
+    return { profile: null, error: error?.message || "Project Control access sync failed." };
   }
 }
 

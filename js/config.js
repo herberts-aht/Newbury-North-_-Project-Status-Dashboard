@@ -8,7 +8,7 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.14.3",
+  version: "0.15.0",
   buildDate: "2026-08-14",
 
   // Development stays fully local until Entra and hosting are approved.
@@ -22,7 +22,7 @@ const APP_CONFIG = Object.freeze({
   // "localStorage" preserves the current dashboard behavior.
   // Change to "sharePoint" only after Microsoft authentication is configured
   // and the SharePoint read-only connection test passes.
-  dataProvider: "sharePoint",
+  dataProvider: "azureApi",
 
   // During the first SharePoint tests, a failed SharePoint load can fall back
   // to the existing local data instead of making the dashboard unusable.
@@ -49,7 +49,7 @@ const APP_CONFIG = Object.freeze({
 
     // Microsoft Graph delegated scopes configured on the Entra app.
     // No client secret is used by this browser application.
-    scopes: Object.freeze(["User.Read", "Sites.ReadWrite.All", "Group.Read.All"]),
+    scopes: Object.freeze(["User.Read"]),
 
     // Accounts listed here receive the existing dashboard Administrator profile.
     // Other AHT accounts are matched to a configured dashboard user by email/name,
@@ -68,12 +68,10 @@ const APP_CONFIG = Object.freeze({
       "Group.ReadWrite.All"
     ]),
 
-    // Shared dashboard-specific role/project assignments are stored on the
-    // dedicated access group as a Microsoft Graph open extension. This keeps
-    // external users out of SharePoint while making assignments available on
-    // every browser/device.
-    accessProfileExtensionName: "com.ahtglobal.projectcontrol.profiles",
-    accessProfileReadScopes: Object.freeze(["Group.Read.All"])
+    // Dashboard role/project assignments are stored in the private SharePoint
+    // Dashboard Access list and are read through the Azure managed API.
+    accessProfileExtensionName: "",
+    accessProfileReadScopes: Object.freeze([])
   }),
 
   sharePoint: Object.freeze({
@@ -82,8 +80,13 @@ const APP_CONFIG = Object.freeze({
       projects: "Projects",
       deliverables: "Deliverables",
       informationRequired: "Information Required",
-      changeLog: "Change Log"
+      changeLog: "Change Log",
+      dashboardAccess: "Dashboard Access"
     })
+  }),
+
+  backend: Object.freeze({
+    apiBasePath: "/api/project-control"
   }),
 
   backupFormatVersion: 2
