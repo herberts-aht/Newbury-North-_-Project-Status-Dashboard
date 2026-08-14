@@ -117,8 +117,8 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
       role,
       active: true,
       projects: Array.isArray(shared?.p) ? shared.p : (user?.projects || ["*"]),
-      canAdmin: false,
-      canEdit: role === "Internal Editor",
+      canAdmin: role === "Administrator",
+      canEdit: role === "Administrator" || role === "Internal Editor",
       isInternal: true,
       authAccount: account.homeAccountId
     };
@@ -145,21 +145,21 @@ async function loadSharedDashboardProfile(graphUser) {
   const groupId = APP_CONFIG.entra.accessGroupId || "";
   const extensionName = APP_CONFIG.entra.accessProfileExtensionName || "";
   const scopes = APP_CONFIG.entra.accessProfileReadScopes || [];
-  if (!graphUser?.id || !groupId || !extensionName || !scopes.length) return null;
+  if (!graphUser?.id || !groupId || !extensionName || !scopes.length) return { profile: null, error: "" };
   try {
-    const accessToken = await getMicrosoftAccessToken(scopes);
+    const accessToken = await getMicrosoftAccessToken(scopes, { interactive: false });
     const response = await fetch(
       `https://graph.microsoft.com/v1.0/groups/${encodeURIComponent(groupId)}/extensions/${encodeURIComponent(extensionName)}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    if (response.status === 404) return null;
+    if (response.status === 404) return { profile: null, error: "" };
     if (!response.ok) throw new Error(`Microsoft profile store failed (${response.status}).`);
     const extension = await response.json();
     const profiles = JSON.parse(extension.profilesJson || "{}");
-    return profiles[graphUser.id] || null;
+    return { profile: profiles[graphUser.id] || null, error: "" };
   } catch (error) {
-    console.warn("Could not load shared Project Control profile; using safe local/default access.", error);
-    return null;
+    console.warn("Could not load shared Project Control profile.", error);
+    return { profile: null, error: error?.message || "Microsoft profile sync failed." };
   }
 }
 
@@ -235,14 +235,16 @@ const MicrosoftAuthProvider = {
       console.warn("Could not read Entra userType; using safe account fallback.", error);
     }
 
-    const sharedProfile = await loadSharedDashboardProfile(graphUser);
-    return dashboardUserForAccount(microsoftAccount, graphUser, sharedProfile);
+    const sharedResult = await loadSharedDashboardProfile(graphUser);
+    const dashboardUser = dashboardUserForAccount(microsoftAccount, graphUser, sharedResult.profile);
+    dashboardUser.accessProfileSyncError = sharedResult.error || "";
+    return dashboardUser;
   }
 };
 
 let AuthProvider = APP_CONFIG.authProvider === "microsoft" ? MicrosoftAuthProvider : DemoAuthProvider;
 
-async function getMicrosoftAccessToken(scopes = APP_CONFIG.entra.scopes) {
+async function getMicrosoftAccessToken(scopes = APP_CONFIG.entra.scopes, { interactive = true } = {}) {
   if (!msalInstance) throw new Error("Microsoft authentication has not been initialized.");
   const account = microsoftAccount || msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
   if (!account) throw new Error("Sign in with Microsoft before accessing SharePoint.");
@@ -251,6 +253,7 @@ async function getMicrosoftAccessToken(scopes = APP_CONFIG.entra.scopes) {
     const result = await msalInstance.acquireTokenSilent({ account, scopes });
     return result.accessToken;
   } catch (error) {
+    if (!interactive) throw error;
     const result = await msalInstance.acquireTokenPopup({ account, scopes });
     return result.accessToken;
   }

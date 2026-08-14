@@ -207,11 +207,12 @@ const MicrosoftAccess = (() => {
       profile.projects = Array.isArray(profile.projects) ? profile.projects.filter(x => x !== "*") : [];
       profile.company = profile.company && profile.company !== "AHT Global" ? profile.company : "External";
     } else {
-      if (!["Internal Editor", "Executive Viewer"].includes(profile.role)) profile.role = "Executive Viewer";
-      profile.canAdmin = false;
-      profile.canEdit = profile.role === "Internal Editor";
+      if (!["Administrator", "Internal Editor", "Executive Viewer"].includes(profile.role)) profile.role = "Executive Viewer";
+      profile.canAdmin = profile.role === "Administrator";
+      profile.canEdit = profile.role === "Administrator" || profile.role === "Internal Editor";
       profile.isInternal = true;
-      if (!stored && (!Array.isArray(profile.projects) || !profile.projects.length)) profile.projects = ["*"];
+      if (profile.canAdmin) profile.projects = ["*"];
+      else if (!stored && (!Array.isArray(profile.projects) || !profile.projects.length)) profile.projects = ["*"];
       profile.company = "AHT Global";
     }
   }

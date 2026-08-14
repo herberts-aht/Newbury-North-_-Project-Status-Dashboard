@@ -424,18 +424,15 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
     ${field("description","Project Description",d.description||((d.subtitle||"").includes("·")?(d.subtitle.split("·")[1]||"").trim():""),"full")}
     ${currentUser.canAdmin?field("lastActivityDate","Last Internal Activity Date",d.lastActivityDate||""):""}
     ${currentUser.canAdmin?field("lastActivity","Last Internal Activity",d.lastActivity||"","full","textarea"):""}
-    ${currentUser.canAdmin?`<div class="field full"><label>Progress Control</label>
+    ${currentUser.canAdmin?`<div class="field full progress-control-section"><label>Progress Control</label>
       <div class="automatic-health-preview">Automatic phase results from assigned deliverables: Planning <strong>${autoPhaseProgress(d,"Planning")}%</strong> · Engineering <strong>${autoPhaseProgress(d,"Engineering")}%</strong> · Installation <strong>${autoPhaseProgress(d,"Installation")}%</strong></div>
-      <div class="phase-fields">
-        ${selectField("progressPlanningMode","Planning Mode",["auto","manual"],d.progressPlanningMode||"manual")}
-        ${field("progressPlanning","Planning Manual %",d.progressPlanning??0)}
-        ${selectField("progressEngineeringMode","Engineering Mode",["auto","manual"],d.progressEngineeringMode||"manual")}
-        ${field("progressEngineering","Engineering Manual %",d.progressEngineering??0)}
-        ${selectField("progressInstallationMode","Installation Mode",["auto","manual"],d.progressInstallationMode||"manual")}
-        ${field("progressInstallation","Installation Manual %",d.progressInstallation??0)}
-        ${selectField("progressOverallMode","Overall Mode",["auto","manual"],d.progressOverallMode||"auto")}
-        ${field("progressOverallOverride","Overall Manual %",d.progressOverallOverride??automaticOverallProgress(d))}
-      </div><div class="phase-progress-note">Auto uses deliverable status within each Progress Phase. Overall Auto remains weighted Planning 15% + Engineering 35% + Installation 50%. Manual values are retained and can be used at any time.</div></div>`:""}
+      <div class="phase-control-cards">
+        <div class="phase-control-card"><div class="phase-control-title">Planning</div>${selectField("progressPlanningMode","Mode",["auto","manual"],d.progressPlanningMode||"manual")}${field("progressPlanning","Manual %",d.progressPlanning??0)}</div>
+        <div class="phase-control-card"><div class="phase-control-title">Engineering</div>${selectField("progressEngineeringMode","Mode",["auto","manual"],d.progressEngineeringMode||"manual")}${field("progressEngineering","Manual %",d.progressEngineering??0)}</div>
+        <div class="phase-control-card"><div class="phase-control-title">Installation</div>${selectField("progressInstallationMode","Mode",["auto","manual"],d.progressInstallationMode||"manual")}${field("progressInstallation","Manual %",d.progressInstallation??0)}</div>
+      </div>
+      <div class="overall-progress-control"><div class="phase-control-title">Overall Project</div><div class="overall-progress-grid">${selectField("progressOverallMode","Mode",["auto","manual"],d.progressOverallMode||"auto")}${field("progressOverallOverride","Manual %",d.progressOverallOverride??automaticOverallProgress(d))}</div></div>
+      <div class="phase-progress-note">Auto uses deliverable status within each Progress Phase. Overall Auto remains weighted Planning 15% + Engineering 35% + Installation 50%. Manual values are retained and can be used at any time.</div></div>`:""}
     ${selectField("phase","Phase",["Planning","Design Development","Engineering","Permitting","Rough-In","Trim","Final","Complete"],d.phase||"Planning")}
     ${currentUser.canAdmin?`<div class="field full health-override-section"><label>Project Schedule Health</label>
       <div class="automatic-health-preview">Automatic result: <strong>${calculateProjectHealth(d)}</strong></div>
@@ -461,15 +458,29 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
       <div class="health-control-note">Use a manual override only when the displayed schedule health does not reflect a known, approved project condition. A reason is required. If an expiration date is entered, automatic health resumes after that date.</div>
     </div>`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;
   modalBackdrop.style.display="flex";
+  syncProjectProgressControls();
+  ["progressPlanningMode","progressEngineeringMode","progressInstallationMode","progressOverallMode"].forEach(name=>{
+    formFields.querySelector(`[name="${name}"]`)?.addEventListener("change",syncProjectProgressControls);
+  });
   requestAnimationFrame(()=>formFields.querySelector("input, select, textarea")?.focus());
 }
 
-
-
-
-
-
-
+function syncProjectProgressControls(){
+  const pairs=[
+    ["progressPlanningMode","progressPlanning"],
+    ["progressEngineeringMode","progressEngineering"],
+    ["progressInstallationMode","progressInstallation"],
+    ["progressOverallMode","progressOverallOverride"]
+  ];
+  pairs.forEach(([modeName,valueName])=>{
+    const mode=formFields.querySelector(`[name="${modeName}"]`);
+    const input=formFields.querySelector(`[name="${valueName}"]`);
+    if(!mode||!input)return;
+    const auto=mode.value==="auto";
+    input.readOnly=auto;
+    input.closest(".field")?.classList.toggle("auto-value-disabled",auto);
+  });
+}
 
 function activeAdministratorCount(){
  return USERS.filter(user=>user.active!==false&&user.role==="Administrator").length;
@@ -575,8 +586,19 @@ saveAccessBtn.onclick=async()=>{
  user.name=name;
  user.email=adminUserEmail.value.trim();
  user.company=adminUserCompany.value.trim();
+ const previousRole=user.role;
  user.role=adminRoleSelect.value;
  if(user.entraUserType==="Guest") user.role="External Viewer";
+ if(user.id===currentUser?.id&&user.role!==previousRole){
+   alert("For safety, you cannot change the Administrator role of the account you are currently using. Another Administrator can change it.");
+   user.role=previousRole;
+   return;
+ }
+ if(previousRole==="Administrator"&&user.role!=="Administrator"&&user.active!==false&&activeAdministratorCount()<=1){
+   alert("You cannot remove the last active Administrator.");
+   user.role=previousRole;
+   return;
+ }
  const configuredAdmin=(APP_CONFIG.entra.adminEmails||[]).map(x=>String(x).toLowerCase()).includes(String(user.email||"").toLowerCase());
  if(configuredAdmin) user.role="Administrator";
  user.passwordProfile=user.id==="stacy"?"stacy":adminPasswordProfile.value;

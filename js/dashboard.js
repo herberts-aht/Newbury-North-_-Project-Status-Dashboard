@@ -8,8 +8,13 @@ function render(){
  document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canAdmin));
  const projects=allowedProjects();
  if(!projects.length){
-   if(permissionBanner) permissionBanner.textContent=`${currentUser?.name||"This user"} does not currently have any Project Control projects assigned.`;
-   if(projectGrid) projectGrid.innerHTML='<div class="panel" style="padding:18px"><strong>No projects assigned.</strong><div class="small" style="margin-top:5px">Contact the Project Control administrator if project access is required.</div></div>';
+   const profileSyncFailed=Boolean(currentUser?.accessProfileSyncError);
+   if(permissionBanner) permissionBanner.textContent=profileSyncFailed
+     ? "Project access could not be verified from Microsoft. Sign out and sign back in; if this continues, contact the Project Control administrator."
+     : `${currentUser?.name||"This user"} does not currently have any Project Control projects assigned.`;
+   if(projectGrid) projectGrid.innerHTML=profileSyncFailed
+     ? '<div class="panel" style="padding:18px"><strong>Project access could not be verified.</strong><div class="small" style="margin-top:5px">Your Microsoft dashboard profile did not load. Sign out and sign back in before requesting a new project assignment.</div></div>'
+     : '<div class="panel" style="padding:18px"><strong>No projects assigned.</strong><div class="small" style="margin-top:5px">Contact the Project Control administrator if project access is required.</div></div>';
    return;
  }
  if(!projects.some(p=>p.id===state.currentProjectId))state.currentProjectId=projects[0].id;const p=currentProject(),ds=visibleDeliverables(p),infoRecords=visibleInfo(p);
@@ -250,9 +255,9 @@ function renderAdmin(){
    adminRoleSelect.innerHTML='<option>External Viewer</option>';
    adminRoleSelect.disabled=true;
  }else if(selected.entraUserType==="Member"&&!isConfiguredAdmin){
-   adminRoleSelect.innerHTML='<option>Executive Viewer</option><option>Internal Editor</option>';
+   adminRoleSelect.innerHTML='<option>Administrator</option><option>Executive Viewer</option><option>Internal Editor</option>';
    adminRoleSelect.disabled=false;
- }else if(isConfiguredAdmin||selected.canAdmin){
+ }else if(isConfiguredAdmin){
    adminRoleSelect.innerHTML='<option>Administrator</option>';
    adminRoleSelect.disabled=true;
  }else{

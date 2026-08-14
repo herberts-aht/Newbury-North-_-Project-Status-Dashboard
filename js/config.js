@@ -8,7 +8,7 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.14.2",
+  version: "0.14.3",
   buildDate: "2026-08-14",
 
   // Development stays fully local until Entra and hosting are approved.
@@ -49,7 +49,7 @@ const APP_CONFIG = Object.freeze({
 
     // Microsoft Graph delegated scopes configured on the Entra app.
     // No client secret is used by this browser application.
-    scopes: Object.freeze(["User.Read", "Sites.ReadWrite.All"]),
+    scopes: Object.freeze(["User.Read", "Sites.ReadWrite.All", "Group.Read.All"]),
 
     // Accounts listed here receive the existing dashboard Administrator profile.
     // Other AHT accounts are matched to a configured dashboard user by email/name,
