@@ -453,3 +453,40 @@ input:focus,select:focus,textarea:focus{
 .login-card .field{
   text-align:left;
 }
+
+/* v0.14.4 — normalize phase rows across project cards */
+.project-card .phase-progress{
+  grid-template-rows:repeat(3,22px);
+  grid-auto-rows:22px;
+  gap:6px;
+}
+.project-card .phase-progress-row{
+  height:22px;
+  min-height:22px;
+  line-height:16px;
+  margin:0;
+}
+.project-card .phase-progress-row > strong{
+  display:grid;
+  grid-template-columns:32px 16px;
+  column-gap:2px;
+  width:50px;
+  height:22px;
+  align-items:center;
+  justify-content:end;
+  text-align:right;
+}
+.project-card .phase-progress-value{
+  grid-column:1;
+  justify-self:end;
+  width:32px;
+  text-align:right;
+}
+.project-card .phase-progress-row > strong .manual-health-mark{
+  grid-column:2;
+  justify-self:end;
+  margin:0;
+}
+.project-card .phase-progress-row .progress-bar{
+  align-self:center;
+}

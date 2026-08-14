@@ -128,7 +128,7 @@
             <h4>Add AHT Internal User</h4>
             <p class="small">Adds an existing AHT Microsoft account to the dedicated Project Control access group.</p>
             <label>AHT Email</label><input id="internalUserEmail" type="email" placeholder="name@ahtglobal.com" />
-            <label style="margin-top:8px">Dashboard Level</label><select id="internalUserRole"><option>Executive Viewer</option><option>Internal Editor</option></select>
+            <label style="margin-top:8px">Dashboard Level</label><select id="internalUserRole"><option>Viewer</option><option>Editor</option></select>
             <label style="margin-top:8px">Viewable Projects</label><div id="internalInviteProjects" class="invite-project-list"></div>
             <button class="btn primary" id="addInternalBtn" type="button" style="margin-top:10px">Grant Dashboard Access</button>
           </div>
@@ -168,7 +168,7 @@
             <label style="margin-top:10px">Email</label><input id="adminUserEmail" type="email" />
             <label style="margin-top:10px">Company</label><input id="adminUserCompany" />
             <label style="margin-top:10px">Role</label><select id="adminRoleSelect">
-              <option>Administrator</option><option>Executive Viewer</option><option>Internal Editor</option><option>External Viewer</option>
+              <option>Administrator</option><option>Viewer</option><option>Editor</option><option>External Viewer</option>
             </select>
             <div id="legacyPasswordControls"><label style="margin-top:10px">Temporary Password</label><select id="adminPasswordProfile">
               <option value="aht">AHT Internal — ahtadmin</option>
@@ -421,10 +421,8 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
     ${field("address","Project Address",d.address||d.name||"")}
     ${field("city","City",d.city||((d.subtitle||"").split(",")[0])||"Naples")}
     ${field("state","State",d.state||((d.subtitle||"").split(",")[1]||"FL").trim())}
-    ${field("description","Project Description",d.description||((d.subtitle||"").includes("·")?(d.subtitle.split("·")[1]||"").trim():""),"full")}
-    ${currentUser.canAdmin?field("lastActivityDate","Last Internal Activity Date",d.lastActivityDate||""):""}
-    ${currentUser.canAdmin?field("lastActivity","Last Internal Activity",d.lastActivity||"","full","textarea"):""}
-    ${currentUser.canAdmin?`<div class="field full progress-control-section"><label>Progress Control</label>
+    ${field("description","Builder / Client",d.description||((d.subtitle||"").includes("·")?(d.subtitle.split("·")[1]||"").trim():""),"full")}
+            ${currentUser.canAdmin?`<div class="field full progress-control-section"><label>Progress Control</label>
       <div class="automatic-health-preview">Automatic phase results from assigned deliverables: Planning <strong>${autoPhaseProgress(d,"Planning")}%</strong> · Engineering <strong>${autoPhaseProgress(d,"Engineering")}%</strong> · Installation <strong>${autoPhaseProgress(d,"Installation")}%</strong></div>
       <div class="phase-control-cards">
         <div class="phase-control-card"><div class="phase-control-title">Planning</div>${selectField("progressPlanningMode","Mode",["auto","manual"],d.progressPlanningMode||"manual")}${field("progressPlanning","Manual %",d.progressPlanning??0)}</div>
@@ -529,7 +527,7 @@ function userIdFromInput(name,email){
 
 function setUserRoleFlags(user){
  user.canAdmin=user.role==="Administrator";
- user.canEdit=user.role==="Administrator"||user.role==="Internal Editor";
+ user.canEdit=user.role==="Administrator"||user.role==="Editor";
  user.isInternal=user.role!=="External Viewer";
 }
 
@@ -539,7 +537,7 @@ function startNewUser(){
  adminUserName.value="";
  adminUserEmail.value="";
  adminUserCompany.value="AHT Global";
- adminRoleSelect.value="Internal Editor";
+ adminRoleSelect.value="Editor";
  adminPasswordProfile.value="aht";
  adminPasswordProfile.disabled=false;
  adminUserActive.checked=true;
