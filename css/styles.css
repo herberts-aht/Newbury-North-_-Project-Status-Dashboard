@@ -490,3 +490,34 @@ input:focus,select:focus,textarea:focus{
 .project-card .phase-progress-row .progress-bar{
   align-self:center;
 }
+
+/* v0.14.7 — Deliverables / Information Required header actions */
+.page-header > .actions{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:10px;
+}
+
+.page-header > .actions .project-switcher{
+  justify-content:flex-end;
+}
+
+.page-header > .actions .btn{
+  align-self:flex-end;
+}
+
+@media(max-width:700px){
+  .page-header > .actions{
+    width:100%;
+    align-items:flex-start;
+  }
+
+  .page-header > .actions .project-switcher{
+    justify-content:flex-start;
+  }
+
+  .page-header > .actions .btn{
+    align-self:flex-start;
+  }
+}
