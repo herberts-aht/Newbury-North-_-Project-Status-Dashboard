@@ -480,6 +480,40 @@ const SharePointDataProvider = {
   }
 };
 
+
+const AzureApiDataProvider = {
+  name: "azureApi",
+
+  async request(action, options = {}) {
+    if (typeof window.projectControlApi !== "function") {
+      throw new Error("Project Control API is not ready.");
+    }
+    return window.projectControlApi(action, options);
+  },
+
+  async loadState() {
+    return this.request("state");
+  },
+
+  async saveState(nextState) {
+    await this.request("state", {
+      method: "PUT",
+      body: JSON.stringify(nextState)
+    });
+  },
+
+  // User-directory editing remains client-side for the Administration UI.
+  // The authoritative role/project assignment is persisted by MicrosoftAccess
+  // through the Azure API's private Dashboard Access SharePoint list.
+  async loadUsers() {
+    return LocalStorageDataProvider.loadUsers();
+  },
+
+  async saveUsers(nextUsers) {
+    return LocalStorageDataProvider.saveUsers(nextUsers);
+  }
+};
+
 const FallbackDataProvider = {
   name: "sharePointWithLocalFallback",
   fallbackWasUsed: false,
@@ -514,6 +548,8 @@ const FallbackDataProvider = {
 
 function selectDataProvider() {
   switch (APP_CONFIG.dataProvider) {
+    case "azureApi":
+      return AzureApiDataProvider;
     case "sharePoint":
       return APP_CONFIG.allowLocalFallback
         ? FallbackDataProvider

@@ -23,8 +23,6 @@ const MicrosoftAccess = (() => {
   function normalizeEmail(value) { return String(value || "").trim().toLowerCase(); }
   function groupId() { return APP_CONFIG.entra.accessGroupId || ""; }
   function managementScopes() { return APP_CONFIG.entra.accessManagementScopes || []; }
-  function profileExtensionName() { return APP_CONFIG.entra.accessProfileExtensionName || ""; }
-  function profileReadScopes() { return APP_CONFIG.entra.accessProfileReadScopes || []; }
   function memberEmail(member) {
     const mail = normalizeEmail(member.mail);
     if (mail) return mail;
@@ -76,39 +74,13 @@ const MicrosoftAccess = (() => {
 
   async function loadSharedProfiles() {
     sharedProfiles = {};
-    profileExtensionExists = false;
-    const name = profileExtensionName();
-    if (!name) return sharedProfiles;
-    const accessToken = await token(profileReadScopes().length ? profileReadScopes() : managementScopes());
-    const response = await fetch(`${GRAPH}/groups/${encodeURIComponent(groupId())}/extensions/${encodeURIComponent(name)}`, {
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }
-    });
-    if (response.status === 404) return sharedProfiles;
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.error?.message || `Could not read dashboard profile store (${response.status}).`);
-    profileExtensionExists = true;
-    try { sharedProfiles = JSON.parse(data.profilesJson || "{}"); } catch { sharedProfiles = {}; }
+    const data = await window.projectControlApi("access-users");
+    for (const profile of data?.profiles || []) {
+      const compact = compactProfile(profile);
+      if (profile.entraObjectId) sharedProfiles[profile.entraObjectId] = compact;
+      if (profile.email) sharedProfiles[`email:${normalizeEmail(profile.email)}`] = compact;
+    }
     return sharedProfiles;
-  }
-
-  async function persistSharedProfiles() {
-    const name = profileExtensionName();
-    if (!name) throw new Error("The shared dashboard profile extension name is missing from js/config.js.");
-    const profilesJson = JSON.stringify(sharedProfiles);
-    if (new TextEncoder().encode(profilesJson).length > 1800) {
-      throw new Error("The Entra dashboard profile store is nearing its size limit. Move profiles to the shared backend before adding more users.");
-    }
-    const body = {
-      "@odata.type": "#microsoft.graph.openTypeExtension",
-      extensionName: name,
-      profilesJson
-    };
-    if (profileExtensionExists) {
-      await graph(`/groups/${encodeURIComponent(groupId())}/extensions/${encodeURIComponent(name)}`, { method: "PATCH", body: JSON.stringify(body) }, managementScopes());
-    } else {
-      await graph(`/groups/${encodeURIComponent(groupId())}/extensions`, { method: "POST", body: JSON.stringify(body) }, managementScopes());
-      profileExtensionExists = true;
-    }
   }
 
   function compactProfile(profile) {
@@ -117,21 +89,43 @@ const MicrosoftAccess = (() => {
       p: Array.isArray(profile.projects) ? profile.projects.filter(Boolean) : [],
       c: profile.company || (profile.entraUserType === "Guest" ? "External" : "AHT Global"),
       n: profile.name || "",
-      e: normalizeEmail(profile.email)
+      e: normalizeEmail(profile.email),
+      a: profile.active !== false
     };
   }
 
   async function saveDashboardProfile(profile) {
-    if (!currentUser?.canAdmin || !profile?.entraObjectId) return;
-    sharedProfiles[profile.entraObjectId] = compactProfile(profile);
-    await persistSharedProfiles();
+    if (!currentUser?.canAdmin || !profile) return;
+    await window.projectControlApi("access-profile", {
+      method: "POST",
+      body: JSON.stringify({
+        id: profile.id,
+        entraObjectId: profile.entraObjectId || "",
+        entraUserType: profile.entraUserType || "",
+        email: normalizeEmail(profile.email),
+        name: profile.name || "",
+        company: profile.company || "",
+        role: profile.role || "External Viewer",
+        projects: Array.isArray(profile.projects) ? profile.projects : [],
+        active: profile.active !== false
+      })
+    });
   }
 
   async function saveProfileForObject(objectId, values) {
-    sharedProfiles[objectId] = {
-      r: values.role, p: values.projects || [], c: values.company || "", n: values.name || "", e: normalizeEmail(values.email)
-    };
-    await persistSharedProfiles();
+    await window.projectControlApi("access-profile", {
+      method: "POST",
+      body: JSON.stringify({
+        id: `entra-${objectId}`,
+        entraObjectId: objectId,
+        email: normalizeEmail(values.email),
+        name: values.name || "",
+        company: values.company || "",
+        role: values.role || "External Viewer",
+        projects: values.projects || [],
+        active: true
+      })
+    });
   }
 
   function selectedProjects(containerId) {
@@ -171,7 +165,7 @@ const MicrosoftAccess = (() => {
   }
 
   function applyDirectoryIdentity(profile, member) {
-    const stored = sharedProfiles[member.id] || null;
+    const stored = sharedProfiles[member.id] || sharedProfiles[`email:${memberEmail(member)}`] || null;
     if (stored) {
       if (stored.n) profile.name = stored.n;
       if (stored.e) profile.email = stored.e;
@@ -399,7 +393,10 @@ const MicrosoftAccess = (() => {
     setBusy(true); setStatus(`Removing access for ${label}…`);
     try {
       await graph(`/groups/${encodeURIComponent(groupId())}/members/${encodeURIComponent(objectId)}/$ref`, { method: "DELETE" });
-      if (sharedProfiles[objectId]) { delete sharedProfiles[objectId]; await persistSharedProfiles(); }
+      await window.projectControlApi("access-profile", {
+        method: "DELETE",
+        body: JSON.stringify({ entraObjectId: objectId, email: memberEmail(member || {}) })
+      });
       setStatus(`${label} no longer has Project Control access.`, "success");
       await refresh();
     } catch (error) {

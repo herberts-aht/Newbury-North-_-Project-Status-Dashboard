@@ -1,0 +1,12 @@
+{
+  "name": "newbury-project-control-api",
+  "version": "0.15.0",
+  "private": true,
+  "main": "src/functions/*.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.7.2"
+  }
+}
