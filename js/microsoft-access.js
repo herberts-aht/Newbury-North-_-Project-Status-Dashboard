@@ -122,8 +122,34 @@ const MicrosoftAccess = (() => {
   }
 
   async function saveDashboardProfile(profile) {
-    if (!currentUser?.canAdmin || !profile?.entraObjectId) return;
-    sharedProfiles[profile.entraObjectId] = compactProfile(profile);
+    if (!currentUser?.canAdmin || !profile) return;
+
+    // Always start from the current shared store so an admin save cannot
+    // accidentally overwrite profiles written by another session.
+    await loadSharedProfiles();
+
+    let objectId = String(profile.entraObjectId || "").trim();
+    if (!objectId) {
+      const email = normalizeEmail(profile.email);
+      if (!email) throw new Error("This dashboard user has no email address to resolve in Microsoft Entra.");
+
+      const members = directoryMembers.length ? directoryMembers : await listGroupUsers();
+      const member = members.find(item => {
+        const mail = normalizeEmail(item.mail);
+        const upn = normalizeEmail(item.userPrincipalName);
+        return mail === email || upn === email;
+      });
+
+      if (!member?.id) {
+        throw new Error(`Could not match ${email} to a member of the Project Control access group.`);
+      }
+
+      objectId = member.id;
+      profile.entraObjectId = objectId;
+      if (member.userType) profile.entraUserType = member.userType;
+    }
+
+    sharedProfiles[objectId] = compactProfile(profile);
     await persistSharedProfiles();
   }
 

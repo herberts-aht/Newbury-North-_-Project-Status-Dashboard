@@ -618,7 +618,7 @@ saveAccessBtn.onclick=async()=>{
  user.projects=user.canAdmin||user.id==="bill"?["*"]:selected;
 
  await DataProvider.saveUsers(USERS);
- if(user.entraObjectId && window.MicrosoftAccess?.saveDashboardProfile){
+ if(window.MicrosoftAccess?.saveDashboardProfile){
    try{ await window.MicrosoftAccess.saveDashboardProfile(user); }
    catch(error){ alert(`Dashboard profile was saved locally, but Microsoft profile sync failed: ${error.message}`); }
  }

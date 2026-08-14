@@ -156,7 +156,31 @@ async function loadSharedDashboardProfile(graphUser) {
     if (!response.ok) throw new Error(`Microsoft profile store failed (${response.status}).`);
     const extension = await response.json();
     const profiles = JSON.parse(extension.profilesJson || "{}");
-    return { profile: profiles[graphUser.id] || null, error: "" };
+
+    // Primary match: the Entra object ID used when Admin saved the profile.
+    let profile = profiles[graphUser.id] || null;
+
+    // B2B/guest identities can surface a different object ID at sign-in than
+    // the directory object originally used by Admin. Fall back to the email
+    // stored inside the compact dashboard profile rather than losing the
+    // user's project assignments.
+    if (!profile) {
+      const account = microsoftAccount || msalInstance?.getActiveAccount?.() || null;
+      const claims = account?.idTokenClaims || {};
+      const signedInEmails = [
+        graphUser?.mail,
+        graphUser?.userPrincipalName,
+        account?.username,
+        claims?.preferred_username,
+        claims?.email
+      ].map(normalizeEmail).filter(Boolean);
+
+      profile = Object.values(profiles).find(candidate =>
+        candidate && signedInEmails.includes(normalizeEmail(candidate.e))
+      ) || null;
+    }
+
+    return { profile, error: "" };
   } catch (error) {
     console.warn("Could not load shared Project Control profile.", error);
     return { profile: null, error: error?.message || "Microsoft profile sync failed." };
