@@ -6,7 +6,6 @@
 let currentUser = null;
 let msalInstance = null;
 let microsoftAccount = null;
-var AuthProvider = null;
 
 const TEMP_PASSWORDS = {
   stacy: "ahtadmin8626",
@@ -29,7 +28,7 @@ function populateLoginUsers(selectedUserId = "") {
   }
 }
 
-var DemoAuthProvider = {
+const DemoAuthProvider = {
   sessionKey: "aht_demo_user",
 
   async initialize() {},
@@ -142,51 +141,29 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
   };
 }
 
-async function projectControlApi(action, options = {}) {
-  const token = await getMicrosoftAccessToken(["User.Read"]);
-  const base = APP_CONFIG.backend?.apiBasePath || "/api/project-control";
-  const response = await fetch(`${base}/${action}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    }
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data?.message || `Project Control API failed (${response.status}).`);
-    error.status = response.status;
-    throw error;
-  }
-  return data;
-}
-window.projectControlApi = projectControlApi;
-
 async function loadSharedDashboardProfile(graphUser) {
-  if (!graphUser?.id) return { profile: null, error: "" };
+  const groupId = APP_CONFIG.entra.accessGroupId || "";
+  const extensionName = APP_CONFIG.entra.accessProfileExtensionName || "";
+  const scopes = APP_CONFIG.entra.accessProfileReadScopes || [];
+  if (!graphUser?.id || !groupId || !extensionName || !scopes.length) return { profile: null, error: "" };
   try {
-    const data = await projectControlApi("access-me");
-    const p = data?.profile;
-    if (!p) return { profile: null, error: "" };
-    return {
-      profile: {
-        r: p.role,
-        p: Array.isArray(p.projects) ? p.projects : [],
-        c: p.company || "",
-        n: p.name || "",
-        e: p.email || ""
-      },
-      error: ""
-    };
+    const accessToken = await getMicrosoftAccessToken(scopes, { interactive: false });
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/groups/${encodeURIComponent(groupId)}/extensions/${encodeURIComponent(extensionName)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (response.status === 404) return { profile: null, error: "" };
+    if (!response.ok) throw new Error(`Microsoft profile store failed (${response.status}).`);
+    const extension = await response.json();
+    const profiles = JSON.parse(extension.profilesJson || "{}");
+    return { profile: profiles[graphUser.id] || null, error: "" };
   } catch (error) {
-    if (error?.status === 404 || error?.status === 403) return { profile: null, error: "" };
-    console.warn("Could not load Project Control access profile from the Azure API.", error);
-    return { profile: null, error: error?.message || "Project Control access sync failed." };
+    console.warn("Could not load shared Project Control profile.", error);
+    return { profile: null, error: error?.message || "Microsoft profile sync failed." };
   }
 }
 
-var MicrosoftAuthProvider = {
+const MicrosoftAuthProvider = {
   async initialize() {
     if (!window.msal?.PublicClientApplication) {
       throw new Error("Microsoft sign-in library did not load. Check the network connection and reload the page.");
@@ -265,9 +242,7 @@ var MicrosoftAuthProvider = {
   }
 };
 
-AuthProvider = APP_CONFIG.authProvider === "microsoft"
-  ? MicrosoftAuthProvider
-  : DemoAuthProvider;
+let AuthProvider = APP_CONFIG.authProvider === "microsoft" ? MicrosoftAuthProvider : DemoAuthProvider;
 
 async function getMicrosoftAccessToken(scopes = APP_CONFIG.entra.scopes, { interactive = true } = {}) {
   if (!msalInstance) throw new Error("Microsoft authentication has not been initialized.");
@@ -317,7 +292,7 @@ function showLoginScreen() {
 
 async function handleLogin() {
   try {
-    currentUser = await (APP_CONFIG.authProvider === "microsoft" ? MicrosoftAuthProvider : DemoAuthProvider).signIn({
+    currentUser = await AuthProvider.signIn({
       userId: loginUser.value,
       password: loginPassword.value
     });
@@ -346,7 +321,7 @@ async function handleLogin() {
 }
 
 async function handleLogout() {
-  await (APP_CONFIG.authProvider === "microsoft" ? MicrosoftAuthProvider : DemoAuthProvider).signOut();
+  await AuthProvider.signOut();
   currentUser = null;
   showLoginScreen();
 }
@@ -354,7 +329,7 @@ async function handleLogout() {
 async function initializeAuthentication({ deferRender = false } = {}) {
   populateLoginUsers();
   configureLoginScreen();
-  await (APP_CONFIG.authProvider === "microsoft" ? MicrosoftAuthProvider : DemoAuthProvider).initialize();
+  await AuthProvider.initialize();
 
   loginBtn.onclick = handleLogin;
   loginPassword.addEventListener("keydown", event => {
@@ -364,7 +339,7 @@ async function initializeAuthentication({ deferRender = false } = {}) {
   });
   logoutBtn.onclick = handleLogout;
 
-  currentUser = await (APP_CONFIG.authProvider === "microsoft" ? MicrosoftAuthProvider : DemoAuthProvider).restoreSession();
+  currentUser = await AuthProvider.restoreSession();
   if (!deferRender) {
     if (currentUser) showSignedInApplication();
     else showLoginScreen();
