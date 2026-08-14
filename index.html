@@ -271,8 +271,15 @@ function calculateProjectHealth(project){
  if(health.includes("At Risk"))return "At Risk";
  return "Healthy";
 }
+function activeProjectHealthOverride(project){
+ if((project.healthMode||"auto")!=="manual"||!project.healthOverride)return false;
+ const until=scheduleDate(project.healthOverrideUntil);
+ return !until||until>=startOfToday();
+}
 function displayedProjectHealth(project){
- return calculateProjectHealth(project);
+ return activeProjectHealthOverride(project)
+   ? project.healthOverride
+   : calculateProjectHealth(project);
 }
 function healthColor(health){
  if(health==="Complete"||health==="Healthy")return "var(--green)";
@@ -365,25 +372,47 @@ function clampPercent(value){
  if(!Number.isFinite(n))return 0;
  return Math.max(0,Math.min(100,Math.round(n)));
 }
-function weightedProjectProgress(project){
+const PROGRESS_STATUS_WEIGHTS={
+ "Complete":100,
+ "Awaiting Review":80,
+ "In Progress":55,
+ "Waiting on Information":25,
+ "Blocked":25,
+ "Pending":10,
+ "Not Started":0
+};
+function autoPhaseProgress(project,phase){
+ const records=(project.deliverables||[]).filter(d=>d.progressPhase===phase);
+ if(!records.length)return 0;
+ return Math.round(records.reduce((sum,d)=>sum+(PROGRESS_STATUS_WEIGHTS[d.status]??0),0)/records.length);
+}
+function phaseProgressMode(project,phase){
+ const key=`progress${phase}Mode`;
+ return project[key]||"manual";
+}
+function displayedPhaseProgress(project,phase){
+ const manualKey=`progress${phase}`;
+ return phaseProgressMode(project,phase)==="manual"
+   ? clampPercent(project[manualKey]||0)
+   : autoPhaseProgress(project,phase);
+}
+function automaticOverallProgress(project){
  return Math.round(
-  clampPercent(project.progressPlanning||0)*0.15+
-  clampPercent(project.progressEngineering||0)*0.35+
-  clampPercent(project.progressInstallation||0)*0.50
+  displayedPhaseProgress(project,"Planning")*0.15+
+  displayedPhaseProgress(project,"Engineering")*0.35+
+  displayedPhaseProgress(project,"Installation")*0.50
  );
 }
-function projectProgress(deliverables){
- const weights={
-  "Complete":100,
-  "Awaiting Review":80,
-  "In Progress":55,
-  "Waiting on Information":25,
-  "Pending":10,
-  "Not Started":0
- };
- if(!deliverables.length)return 0;
- return Math.round(deliverables.reduce((sum,d)=>sum+(weights[d.status]??0),0)/deliverables.length);
+function weightedProjectProgress(project){
+ return (project.progressOverallMode||"auto")==="manual"
+   ? clampPercent(project.progressOverallOverride||0)
+   : automaticOverallProgress(project);
 }
+function projectProgress(deliverables){
+ if(!deliverables.length)return 0;
+ return Math.round(deliverables.reduce((sum,d)=>sum+(PROGRESS_STATUS_WEIGHTS[d.status]??0),0)/deliverables.length);
+}
+function progressModeMark(mode){return mode==="manual"?'<span class="manual-health-mark" title="Manual override">M</span>':""}
 
 function field(name,label,val,cls="",type="input"){return `<div class="field ${cls}"><label>${label}</label>${type==="textarea"?`<textarea name="${name}" rows="3">${esc(val)}</textarea>`:`<input name="${name}" value="${esc(val??"")}">`}</div>`}
 function dateField(name,label,val){return `<div class="field"><label>${label}</label><input type="date" name="${name}" value="${esc(val??"")}"></div>`}
@@ -395,15 +424,31 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
     ${field("description","Project Description",d.description||((d.subtitle||"").includes("·")?(d.subtitle.split("·")[1]||"").trim():""),"full")}
     ${currentUser.canAdmin?field("lastActivityDate","Last Internal Activity Date",d.lastActivityDate||""):""}
     ${currentUser.canAdmin?field("lastActivity","Last Internal Activity",d.lastActivity||"","full","textarea"):""}
-    ${currentUser.canAdmin?`<div class="field full"><label>Phase Progress</label><div class="phase-fields">
-      ${field("progressPlanning","Planning %",d.progressPlanning??0)}
-      ${field("progressEngineering","Engineering %",d.progressEngineering??0)}
-      ${field("progressInstallation","Installation %",d.progressInstallation??0)}
-    </div><div class="phase-progress-note">Overall progress is calculated automatically: Planning 15% + Engineering 35% + Installation 50%.</div></div>`:""}
+    ${currentUser.canAdmin?`<div class="field full"><label>Progress Control</label>
+      <div class="automatic-health-preview">Automatic phase results from assigned deliverables: Planning <strong>${autoPhaseProgress(d,"Planning")}%</strong> · Engineering <strong>${autoPhaseProgress(d,"Engineering")}%</strong> · Installation <strong>${autoPhaseProgress(d,"Installation")}%</strong></div>
+      <div class="phase-fields">
+        ${selectField("progressPlanningMode","Planning Mode",["auto","manual"],d.progressPlanningMode||"manual")}
+        ${field("progressPlanning","Planning Manual %",d.progressPlanning??0)}
+        ${selectField("progressEngineeringMode","Engineering Mode",["auto","manual"],d.progressEngineeringMode||"manual")}
+        ${field("progressEngineering","Engineering Manual %",d.progressEngineering??0)}
+        ${selectField("progressInstallationMode","Installation Mode",["auto","manual"],d.progressInstallationMode||"manual")}
+        ${field("progressInstallation","Installation Manual %",d.progressInstallation??0)}
+        ${selectField("progressOverallMode","Overall Mode",["auto","manual"],d.progressOverallMode||"auto")}
+        ${field("progressOverallOverride","Overall Manual %",d.progressOverallOverride??automaticOverallProgress(d))}
+      </div><div class="phase-progress-note">Auto uses deliverable status within each Progress Phase. Overall Auto remains weighted Planning 15% + Engineering 35% + Installation 50%. Manual values are retained and can be used at any time.</div></div>`:""}
     ${selectField("phase","Phase",["Planning","Design Development","Engineering","Permitting","Rough-In","Trim","Final","Complete"],d.phase||"Planning")}
-    <div class="health-control-note">Project schedule health is calculated automatically from the deliverables. Manual schedule-health overrides are applied only to the individual deliverable that has an approved exception.</div>
+    ${currentUser.canAdmin?`<div class="field full health-override-section"><label>Project Schedule Health</label>
+      <div class="automatic-health-preview">Automatic result: <strong>${calculateProjectHealth(d)}</strong></div>
+      <div class="health-override-grid">
+        ${selectField("healthMode","Health Mode",["auto","manual"],d.healthMode||"auto")}
+        ${selectField("healthOverride","Manual Override",["","Healthy","At Risk","Overdue"],d.healthOverride||"")}
+        ${dateField("healthOverrideUntil","Override Until (optional)",d.healthOverrideUntil||"")}
+      </div>
+      ${field("healthOverrideReason","Override Reason",d.healthOverrideReason||"","full","textarea")}
+      <div class="health-control-note">Project health normally follows the deliverables. Use Manual only when the automatic result does not reflect the known project condition.</div>
+    </div>`:""}
     <div class="field full"><label>Assigned Users</label><div class="checkbox-list">${USERS.map(u=>`<label><input type="checkbox" name="assignedUsers" value="${u.id}" ${(d.assignedUsers||[]).includes(u.id)||u.id==="stacy"||u.id==="bill"||u.id==="shaun"?"checked":""}> ${esc(u.name)}</label>`).join("")}</div></div>
-  `:type==="deliverable"?`${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Operational Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${dateField("startDate","Start Date",d.startDate)}${dateField("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}
+  `:type==="deliverable"?`${selectField("progressPhase","Progress Phase",["","Planning","Engineering","Installation","Exclude"],d.progressPhase||"")}${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Operational Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${dateField("startDate","Start Date",d.startDate)}${dateField("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}
     <div class="field full health-override-section">
       <label>Schedule Health</label>
       <div class="automatic-health-preview">Automatic result: <strong>${calculateDeliverableHealth(d)}</strong></div>
@@ -619,6 +664,8 @@ editForm.onsubmit=e=>{
    if(!address){alert("Enter the project address.");return;}
    if(!city){alert("Enter the city.");return;}
    if(!stateCode){alert("Enter the state.");return;}
+   if(currentUser.canAdmin&&obj.healthMode==="manual"&&!String(obj.healthOverride||"").trim()){alert("Choose a manual project-health override or return Health Mode to auto.");return;}
+   if(currentUser.canAdmin&&obj.healthMode==="manual"&&!String(obj.healthOverrideReason||"").trim()){alert("Enter the reason for the manual project-health override.");return;}
    if(editContext.id){
      const p=state.projects.find(x=>x.id===editContext.id),before=snapshot(p);
      p.name=address;
@@ -631,13 +678,19 @@ editForm.onsubmit=e=>{
        p.lastActivityDate=String(obj.lastActivityDate||"").trim();
        p.lastActivity=String(obj.lastActivity||"").trim();
        p.progressPlanning=clampPercent(obj.progressPlanning);
+       p.progressPlanningMode=obj.progressPlanningMode==="auto"?"auto":"manual";
        p.progressEngineering=clampPercent(obj.progressEngineering);
+       p.progressEngineeringMode=obj.progressEngineeringMode==="auto"?"auto":"manual";
        p.progressInstallation=clampPercent(obj.progressInstallation);
+       p.progressInstallationMode=obj.progressInstallationMode==="auto"?"auto":"manual";
+       p.progressOverallMode=obj.progressOverallMode==="manual"?"manual":"auto";
+       p.progressOverallOverride=clampPercent(obj.progressOverallOverride);
+       p.healthMode=obj.healthMode==="manual"?"manual":"auto";
+       p.healthOverride=p.healthMode==="manual"?String(obj.healthOverride||"").trim():"";
+       p.healthOverrideReason=p.healthMode==="manual"?String(obj.healthOverrideReason||"").trim():"";
+       p.healthOverrideUntil=p.healthMode==="manual"?String(obj.healthOverrideUntil||"").trim():"";
      }
      p.phase=obj.phase;
-     p.healthMode="auto";
-     p.healthOverride="";
-     p.healthOverrideNote="";
      USERS.forEach(u=>{
        if(u.projects.includes("*"))return;
        const has=u.projects.includes(p.id),should=assignedUsers.includes(u.id);
@@ -659,12 +712,18 @@ editForm.onsubmit=e=>{
        lastActivityDate:String(obj.lastActivityDate||"").trim(),
        lastActivity:String(obj.lastActivity||"").trim(),
        progressPlanning:clampPercent(obj.progressPlanning),
+       progressPlanningMode:obj.progressPlanningMode==="auto"?"auto":"manual",
        progressEngineering:clampPercent(obj.progressEngineering),
+       progressEngineeringMode:obj.progressEngineeringMode==="auto"?"auto":"manual",
        progressInstallation:clampPercent(obj.progressInstallation),
+       progressInstallationMode:obj.progressInstallationMode==="auto"?"auto":"manual",
+       progressOverallMode:obj.progressOverallMode==="manual"?"manual":"auto",
+       progressOverallOverride:clampPercent(obj.progressOverallOverride),
        phase:obj.phase,
-       healthMode:"auto",
-       healthOverride:"",
-       healthOverrideNote:"",
+       healthMode:obj.healthMode==="manual"?"manual":"auto",
+       healthOverride:obj.healthMode==="manual"?String(obj.healthOverride||"").trim():"",
+       healthOverrideReason:obj.healthMode==="manual"?String(obj.healthOverrideReason||"").trim():"",
+       healthOverrideUntil:obj.healthMode==="manual"?String(obj.healthOverrideUntil||"").trim():"",
        archived:false,
        lastUpdatedAt:new Date().toISOString(),
        lastUpdatedBy:currentUser?.name||"System",

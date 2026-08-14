@@ -72,7 +72,7 @@ button,input,select,textarea{font:inherit}
 .table-tools{padding:12px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
 .table-tools input,.table-tools select{padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:11px 12px;border-bottom:1px solid #edf1f5;vertical-align:top}
-th{background:#f7f9fb;color:#465466;font-size:12px;position:sticky;top:49px}
+th{background:#f7f9fb;color:#465466;font-size:12px;position:sticky;top:0;z-index:2}
 tr:hover td{background:#fafcff}
 .badge{display:inline-block;padding:4px 7px;border-radius:999px;font-size:11px;font-weight:700}
 .badge.inprogress{background:#dcecf8;color:#1f4e78}.badge.waiting{background:#fce6d8;color:#9e480e}
@@ -143,6 +143,9 @@ tr:hover td{background:#fafcff}
 .page-header .eyebrow{font-size:11px;font-weight:750;color:var(--blue);letter-spacing:.08em;text-transform:uppercase}
 .page-header h2{margin:3px 0 4px;font-size:25px}
 .page-header p{margin:0;color:var(--muted);font-size:13px}
+.page-header .actions{display:flex;flex-direction:column;align-items:flex-end;gap:16px}
+.page-header .actions .project-switcher{justify-content:flex-end}
+.page-header .actions .btn{align-self:flex-end}
 .project-card{position:relative;overflow:hidden}
 .project-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue)}
 .project-card .progress-wrap{margin-top:14px}
@@ -189,6 +192,9 @@ linear-gradient(145deg,#102947,#17365d 58%,#244e7c)}
   .container{padding:16px}
   .topbar{padding:14px 16px}
   .page-header{flex-direction:column}
+  .page-header .actions{align-items:stretch;width:100%;gap:10px}
+  .page-header .actions .project-switcher{justify-content:flex-start}
+  .page-header .actions .btn{align-self:flex-start}
 }
 
 

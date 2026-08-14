@@ -176,11 +176,13 @@ const SharePointDataProvider = {
     const targetDate = this.normalizeDate(fields.TargetDate);
     return {
       id: Number(item.id),
+      sharePointId: Number(item.id),
       legacyId: Number(fields.LegacyId || 0),
       projectSharePointId: this.projectLookupId(fields),
       deliverable: title,
       name: title,
       discipline: fields.Discipline || "",
+      progressPhase: fields.ProgressPhase || "",
       status: fields.OperationalStatus || "Pending",
       owner: fields.Owner || "",
       current,
@@ -205,6 +207,7 @@ const SharePointDataProvider = {
     const requestedFrom = fields.RequestedFrom || "";
     return {
       id: Number(item.id),
+      sharePointId: Number(item.id),
       legacyId: Number(fields.LegacyId || 0),
       projectSharePointId: this.projectLookupId(fields),
       item: fields.Title || "Untitled Information Request",
@@ -223,7 +226,7 @@ const SharePointDataProvider = {
     const [projectItems, deliverableItems, informationItems] = await Promise.all([
       this.getProjectRows(),
       this.getListRows(this.config.lists.deliverables, [
-        "Title","Project","ProjectLookupId","LegacyId","Discipline","OperationalStatus","Owner",
+        "Title","Project","ProjectLookupId","LegacyId","Discipline","ProgressPhase","OperationalStatus","Owner",
         "CurrentActivity","WaitingOn","NextStep","StartDate","TargetDate","Risk",
         "Visibility","Archived","HealthMode","HealthOverride",
         "HealthOverrideReason","HealthOverrideUntil"
@@ -282,8 +285,13 @@ const SharePointDataProvider = {
           lastActivityDate: this.normalizeDate(fields.LastActivityDate),
           lastActivity: fields.LastActivity || "",
           progressPlanning: Number(fields.ProgressPlanning || 0),
+          progressPlanningMode: fields.ProgressPlanningMode || "manual",
           progressEngineering: Number(fields.ProgressEngineering || 0),
+          progressEngineeringMode: fields.ProgressEngineeringMode || "manual",
           progressInstallation: Number(fields.ProgressInstallation || 0),
+          progressInstallationMode: fields.ProgressInstallationMode || "manual",
+          progressOverallMode: fields.ProgressOverallMode || "auto",
+          progressOverallOverride: Number(fields.ProgressOverallOverride || 0),
           healthMode: fields.HealthMode || "auto",
           healthOverride: fields.HealthOverride || "",
           healthOverrideReason: fields.HealthOverrideReason || "",
@@ -299,17 +307,168 @@ const SharePointDataProvider = {
       ? savedProjectId
       : (projects[0]?.id || null);
 
-    return {
+    const result = {
       currentProjectId,
       projects,
       auditLog: []
     };
+    this._lastState = structuredClone(result);
+    return result;
   },
 
-  async saveState() {
-    throw new Error(
-      "SharePoint write-back is not enabled yet. Reading will be tested first."
+  graphDate(value) {
+    if (!value) return null;
+    return `${String(value).slice(0, 10)}T12:00:00Z`;
+  },
+
+  async createItem(displayName, fields) {
+    const site = await this.getSite();
+    const listId = await this.getListId(displayName);
+    return this.graph(
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items`,
+      { method: "POST", body: JSON.stringify({ fields }) }
     );
+  },
+
+  async updateItem(displayName, itemId, fields) {
+    const site = await this.getSite();
+    const listId = await this.getListId(displayName);
+    return this.graph(
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}/fields`,
+      { method: "PATCH", body: JSON.stringify(fields) }
+    );
+  },
+
+  projectFields(project) {
+    return {
+      Title: project.name || project.address || "Untitled Project",
+      ProjectKey: String(project.id || ""),
+      ProjectAddress: project.address || "",
+      ProjectCity: project.city || "",
+      ProjectState: project.state || "",
+      ProjectDescription: project.description || "",
+      ProjectSubtitle: project.subtitle || "",
+      ProjectPhase: project.phase || "",
+      Archived: Boolean(project.archived),
+      LastActivityDate: this.graphDate(project.lastActivityDate),
+      LastActivity: project.lastActivity || "",
+      ProgressPlanning: Number(project.progressPlanning || 0),
+      ProgressPlanningMode: project.progressPlanningMode || "manual",
+      ProgressEngineering: Number(project.progressEngineering || 0),
+      ProgressEngineeringMode: project.progressEngineeringMode || "manual",
+      ProgressInstallation: Number(project.progressInstallation || 0),
+      ProgressInstallationMode: project.progressInstallationMode || "manual",
+      ProgressOverallMode: project.progressOverallMode || "auto",
+      ProgressOverallOverride: Number(project.progressOverallOverride || 0),
+      HealthMode: project.healthMode || "auto",
+      HealthOverride: project.healthMode === "manual" ? (project.healthOverride || null) : null,
+      HealthOverrideReason: project.healthMode === "manual" ? (project.healthOverrideReason || "") : "",
+      HealthOverrideUntil: project.healthMode === "manual" ? this.graphDate(project.healthOverrideUntil) : null
+    };
+  },
+
+  deliverableFields(record, projectSharePointId) {
+    return {
+      Title: record.deliverable || record.name || "Untitled Deliverable",
+      ProjectLookupId: String(projectSharePointId),
+      LegacyId: Number(record.legacyId || 0),
+      Discipline: record.discipline || "",
+      ProgressPhase: record.progressPhase || null,
+      OperationalStatus: record.status || "Pending",
+      Owner: record.owner || "",
+      CurrentActivity: record.current || record.currentActivity || "",
+      WaitingOn: record.waitingOn || "",
+      NextStep: record.nextStep || "",
+      StartDate: this.graphDate(record.startDate),
+      TargetDate: this.graphDate(record.date || record.targetDate),
+      Risk: record.risk || "",
+      Visibility: record.visibility || "Shared",
+      Archived: Boolean(record.archived),
+      HealthMode: record.healthMode || "auto",
+      HealthOverride: record.healthMode === "manual" ? (record.healthOverride || null) : null,
+      HealthOverrideReason: record.healthMode === "manual" ? (record.healthOverrideReason || "") : "",
+      HealthOverrideUntil: record.healthMode === "manual" ? this.graphDate(record.healthOverrideUntil) : null
+    };
+  },
+
+  informationFields(record, projectSharePointId) {
+    return {
+      Title: record.item || "Untitled Information Request",
+      ProjectLookupId: String(projectSharePointId),
+      LegacyId: Number(record.legacyId || 0),
+      RequestedFrom: record.from || record.requestedFrom || "",
+      RequestStatus: record.status || "Outstanding",
+      Blocking: record.blocking || "",
+      NeededBy: this.graphDate(record.neededBy),
+      Notes: record.notes || "",
+      Visibility: record.visibility || "Shared",
+      Archived: Boolean(record.archived)
+    };
+  },
+
+  comparable(value) {
+    return JSON.stringify(value ?? null);
+  },
+
+  async saveState(nextState) {
+    const previous = this._lastState || { projects: [] };
+    const previousProjects = new Map((previous.projects || []).map(project => [project.id, project]));
+
+    // Projects are updated first so newly-created projects have a SharePoint lookup ID
+    // before their child records are written.
+    for (const project of nextState.projects || []) {
+      const before = previousProjects.get(project.id);
+      if (!project.sharePointId) {
+        const created = await this.createItem(this.config.lists.projects, this.projectFields(project));
+        project.sharePointId = Number(created.id);
+      } else if (!before || this.comparable(this.projectFields(before)) !== this.comparable(this.projectFields(project))) {
+        await this.updateItem(this.config.lists.projects, project.sharePointId, this.projectFields(project));
+      }
+
+      const previousDeliverables = new Map(((before && before.deliverables) || []).map(record => [String(record.id), record]));
+      const currentDeliverableIds = new Set();
+      for (const record of project.deliverables || []) {
+        const key = String(record.id);
+        const prior = previousDeliverables.get(key);
+        if (!record.sharePointId) {
+          const created = await this.createItem(this.config.lists.deliverables, this.deliverableFields(record, project.sharePointId));
+          record.sharePointId = Number(created.id);
+          record.id = Number(created.id);
+        } else if (!prior || this.comparable(this.deliverableFields(prior, project.sharePointId)) !== this.comparable(this.deliverableFields(record, project.sharePointId))) {
+          await this.updateItem(this.config.lists.deliverables, record.sharePointId, this.deliverableFields(record, project.sharePointId));
+        }
+        currentDeliverableIds.add(String(record.sharePointId || record.id));
+      }
+      for (const prior of previousDeliverables.values()) {
+        const priorId = prior.sharePointId || prior.id;
+        if (priorId && !currentDeliverableIds.has(String(priorId))) {
+          await this.updateItem(this.config.lists.deliverables, priorId, { Archived: true });
+        }
+      }
+
+      const previousInfo = new Map(((before && before.info) || []).map(record => [String(record.id), record]));
+      const currentInfoIds = new Set();
+      for (const record of project.info || []) {
+        const key = String(record.id);
+        const prior = previousInfo.get(key);
+        if (!record.sharePointId) {
+          const created = await this.createItem(this.config.lists.informationRequired, this.informationFields(record, project.sharePointId));
+          record.sharePointId = Number(created.id);
+          record.id = Number(created.id);
+        } else if (!prior || this.comparable(this.informationFields(prior, project.sharePointId)) !== this.comparable(this.informationFields(record, project.sharePointId))) {
+          await this.updateItem(this.config.lists.informationRequired, record.sharePointId, this.informationFields(record, project.sharePointId));
+        }
+        currentInfoIds.add(String(record.sharePointId || record.id));
+      }
+      for (const prior of previousInfo.values()) {
+        const priorId = prior.sharePointId || prior.id;
+        if (priorId && !currentInfoIds.has(String(priorId))) {
+          await this.updateItem(this.config.lists.informationRequired, priorId, { Archived: true });
+        }
+      }
+    }
+
+    this._lastState = structuredClone(nextState);
   },
 
   async loadUsers() {
