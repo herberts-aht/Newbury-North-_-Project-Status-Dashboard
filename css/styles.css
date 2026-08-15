@@ -521,3 +521,80 @@ input:focus,select:focus,textarea:focus{
     align-self:flex-start;
   }
 }
+
+/* v0.14.11 — bounded Microsoft access list */
+.entra-user-table-wrap{
+  max-height:430px;
+  overflow:auto;
+  padding:4px 2px 2px;
+  border-radius:8px;
+  scrollbar-gutter:stable;
+}
+.entra-user-table-wrap .entra-table-heading{
+  position:sticky;
+  top:0;
+  z-index:3;
+  background:#fbfdff;
+  padding:5px 0 8px;
+}
+.entra-user-table thead th{
+  position:sticky;
+  top:48px;
+  z-index:2;
+  background:#f4f8fb;
+}
+
+/* v0.14.12 — reliable Current Dashboard Access scrolling */
+.entra-user-table-wrap{
+  position:relative;
+  height:auto;
+  max-height:none;
+  overflow:visible;
+  padding:0;
+}
+
+.entra-user-table-wrap .entra-table-heading{
+  position:relative;
+  top:auto;
+  z-index:auto;
+  background:transparent;
+  padding:0 0 8px;
+}
+
+/* Make the actual table body area the scroll container. */
+.entra-user-table-wrap .entra-user-table{
+  display:block;
+  width:100%;
+  max-height:360px;
+  overflow-y:auto;
+  overflow-x:auto;
+  border-collapse:separate;
+  border-spacing:0;
+  scrollbar-gutter:stable;
+  -webkit-overflow-scrolling:touch;
+}
+
+.entra-user-table-wrap .entra-user-table thead,
+.entra-user-table-wrap .entra-user-table tbody{
+  display:table;
+  width:100%;
+  table-layout:fixed;
+}
+
+.entra-user-table-wrap .entra-user-table thead{
+  position:sticky;
+  top:0;
+  z-index:3;
+}
+
+.entra-user-table-wrap .entra-user-table thead th{
+  position:static;
+  background:#f4f8fb;
+}
+
+/* Keep row geometry stable as names/projects grow. */
+.entra-user-table-wrap .entra-user-table td,
+.entra-user-table-wrap .entra-user-table th{
+  box-sizing:border-box;
+  vertical-align:top;
+}

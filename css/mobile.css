@@ -347,3 +347,48 @@
     min-width:0;
   }
 }
+
+/* v0.14.11 — Microsoft access list on mobile */
+@media (max-width:700px){
+  .entra-user-table-wrap{
+    max-height:400px;
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+    margin-left:0;
+    margin-right:0;
+    padding-top:4px;
+  }
+  .entra-user-table{
+    min-width:720px;
+  }
+  .entra-user-table-wrap .entra-table-heading{
+    min-width:100%;
+    padding-left:2px;
+    padding-right:2px;
+  }
+}
+
+/* v0.14.12 — Current Dashboard Access mobile scrolling */
+@media (max-width:700px){
+  .entra-user-table-wrap{
+    max-height:none!important;
+    overflow:visible!important;
+  }
+
+  .entra-user-table-wrap .entra-user-table{
+    display:block;
+    width:100%;
+    min-width:680px;
+    max-height:320px;
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .entra-user-table-wrap .entra-user-table thead,
+  .entra-user-table-wrap .entra-user-table tbody{
+    display:table;
+    width:100%;
+    min-width:680px;
+    table-layout:fixed;
+  }
+}
