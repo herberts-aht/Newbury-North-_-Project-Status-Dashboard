@@ -392,3 +392,56 @@
     table-layout:fixed;
   }
 }
+
+/* v0.14.13 — Current Dashboard Access wrapper scroll mobile */
+@media (max-width:700px){
+  .entra-user-table-wrap{
+    display:block!important;
+    width:100%!important;
+    max-height:320px!important;
+    overflow:auto!important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    scrollbar-gutter:auto;
+  }
+
+  .entra-user-table-wrap .entra-user-table{
+    display:table!important;
+    width:760px!important;
+    min-width:760px!important;
+    max-height:none!important;
+    overflow:visible!important;
+  }
+
+  .entra-user-table-wrap .entra-user-table thead{
+    display:table-header-group!important;
+  }
+
+  .entra-user-table-wrap .entra-user-table tbody{
+    display:table-row-group!important;
+  }
+
+  .entra-user-table-wrap .entra-table-heading{
+    position:sticky!important;
+    top:0!important;
+    min-width:760px;
+    z-index:5!important;
+    background:#fbfdff!important;
+  }
+
+  .entra-user-table-wrap .entra-user-table thead th{
+    position:sticky!important;
+    top:45px!important;
+    z-index:4!important;
+  }
+}
+
+/* v0.14.14 — compact Current Dashboard Access viewport mobile */
+@media (max-width:700px){
+  .entra-user-table-wrap{
+    height:245px!important;
+    max-height:245px!important;
+    overflow:auto!important;
+    -webkit-overflow-scrolling:touch;
+  }
+}

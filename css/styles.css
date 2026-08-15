@@ -598,3 +598,82 @@ input:focus,select:focus,textarea:focus{
   box-sizing:border-box;
   vertical-align:top;
 }
+
+/* v0.14.13 — Current Dashboard Access wrapper scroll */
+.entra-user-table-wrap{
+  position:relative!important;
+  display:block!important;
+  width:100%!important;
+  max-height:360px!important;
+  overflow-y:auto!important;
+  overflow-x:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable both-edges;
+  -webkit-overflow-scrolling:touch;
+  padding:4px 4px 2px!important;
+  box-sizing:border-box;
+}
+
+/* Put the table back into normal table layout. */
+.entra-user-table-wrap .entra-user-table{
+  display:table!important;
+  width:100%!important;
+  min-width:760px;
+  max-height:none!important;
+  overflow:visible!important;
+  border-collapse:separate;
+  border-spacing:0;
+}
+
+.entra-user-table-wrap .entra-user-table thead,
+.entra-user-table-wrap .entra-user-table tbody{
+  display:table-row-group!important;
+  width:auto!important;
+  min-width:0!important;
+  table-layout:auto!important;
+}
+
+.entra-user-table-wrap .entra-user-table thead{
+  display:table-header-group!important;
+  position:static!important;
+}
+
+.entra-user-table-wrap .entra-table-heading{
+  position:sticky!important;
+  top:0!important;
+  z-index:5!important;
+  background:#fbfdff!important;
+  padding:4px 0 8px!important;
+}
+
+.entra-user-table-wrap .entra-user-table thead th{
+  position:sticky!important;
+  top:45px!important;
+  z-index:4!important;
+  background:#f4f8fb!important;
+}
+
+/* v0.14.14 — compact Current Dashboard Access viewport */
+.entra-user-table-wrap{
+  height:260px!important;
+  max-height:260px!important;
+  overflow-y:scroll!important;
+  overflow-x:auto!important;
+  scrollbar-gutter:stable!important;
+}
+
+/* Keep the title visible while the user rows move beneath it. */
+.entra-user-table-wrap .entra-table-heading{
+  position:sticky!important;
+  top:0!important;
+  z-index:6!important;
+  background:#fbfdff!important;
+}
+
+/* Keep column labels visible beneath the title. */
+.entra-user-table-wrap .entra-user-table thead th{
+  position:sticky!important;
+  top:45px!important;
+  z-index:5!important;
+  background:#f4f8fb!important;
+}
