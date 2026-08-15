@@ -20,6 +20,8 @@ function applyApplicationConfig() {
   versionTag.textContent = `Version ${APP_CONFIG.version} · ${APP_CONFIG.environment}`;
   const sidebarVersion = document.getElementById("sidebarVersion");
   if (sidebarVersion) sidebarVersion.textContent = `Version ${APP_CONFIG.version}`;
+  const mobileVersion = document.getElementById("mobileVersion");
+  if (mobileVersion) mobileVersion.textContent = `v${APP_CONFIG.version}`;
 }
 
 async function initializeApplication() {

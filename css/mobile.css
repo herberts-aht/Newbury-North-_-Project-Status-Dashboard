@@ -258,3 +258,65 @@
   .redeem-row{display:block}.redeem-row .btn{width:100%;margin-top:7px}
   .entra-user-table-wrap{margin-left:-2px;margin-right:-2px}
 }
+
+
+/* v0.14.9 — mobile Deliverables / Information Required parity */
+@media (max-width:700px){
+  /* Keep Deliverables filters available, while the desktop table itself stays hidden. */
+  #deliverables .desktop-table{
+    display:block!important;
+    border:0;
+    background:transparent;
+    overflow:visible;
+    margin-bottom:10px;
+  }
+  #deliverables .desktop-table>.table-tools{
+    display:grid!important;
+    grid-template-columns:1fr;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#fff;
+  }
+  #deliverables .desktop-table>div[style*="overflow:auto"]{
+    display:none!important;
+  }
+
+  .mobile-record-heading{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:7px;
+  }
+  .mobile-record-heading>div{min-width:0}
+  .mobile-record-heading h4{margin:0}
+  .mobile-record-kicker{
+    color:var(--muted);
+    font-size:10px;
+    font-weight:750;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    margin-bottom:3px;
+  }
+  .mobile-record-current{
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.4;
+    padding:8px 0 9px;
+    border-bottom:1px solid #edf1f5;
+  }
+  .mobile-record-actions{
+    padding-top:10px;
+  }
+  .mobile-record-actions .btn{
+    width:100%;
+  }
+  .mobile-empty{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px;
+    color:var(--muted);
+    font-size:13px;
+  }
+}
