@@ -3,10 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AHT Project Control</title>
-<meta name="application-name" content="AHT Project Control" />
-<meta name="apple-mobile-web-app-title" content="AHT Project Control" />
-<meta property="og:title" content="AHT Project Control" />
+<title>AHT Project Control · 0.13.1</title>
 <link rel="stylesheet" href="css/styles.css" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
@@ -76,7 +73,7 @@
         <div><div class="eyebrow">Project Overview</div><h2>Executive Summary</h2><p>Current status, upcoming work, and active blockers.</p></div>
         <div class="actions">
           <div class="project-switcher"><span class="small">Project</span><select id="projectSelect"></select></div>
-          <button class="btn primary" type="button" onclick="downloadCurrentProjectPDF()">Download PDF</button>
+          <button class="btn" type="button" onclick="printCurrentProjectReport()">Print / PDF</button>
         </div>
       </div>
       <div class="summary-ribbon">
@@ -104,7 +101,7 @@
       <div class="table-card desktop-table"><div style="overflow:auto"><table><thead><tr><th>Item Needed</th><th>Requested From</th><th>Status</th><th>Blocking</th><th>Notes</th><th></th></tr></thead><tbody id="infoBody"></tbody></table></div></div>
       <div id="infoCards" class="mobile-cards"></div>
     </section>
-    <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Schedule Overview</div><h2>Gantt</h2><p>Simple visual schedule generated from Deliverable start and target dates.</p></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary admin-only" type="button" onclick="downloadCurrentGanttPDF()">Download Gantt PDF</button></div></div><div class="timeline"><div id="timelineTrack"></div></div></section>
+    <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Schedule Overview</div><h2>Gantt</h2><p>Simple visual schedule generated from Deliverable start and target dates.</p></div><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div></div><div class="timeline"><div id="timelineTrack"></div></div></section>
     <section id="calendar" class="view"><div class="page-header"><div><div class="eyebrow">Schedule</div><h2>Calendar & Agenda</h2><p>Generated from editable Deliverables and Information Required records.</p></div><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div></div><div class="agenda-grid"><div class="calendar-card"><h3>UPCOMING AGENDA</h3><div id="agendaList"></div></div><div class="calendar-card"><h3 id="calendarMonthTitle">MONTH</h3><div class="month-grid" id="monthGrid"></div></div></div></section>
 
     <section id="admin" class="view">
@@ -230,8 +227,6 @@
 <script src="js/microsoft-access.js"></script>
 <script src="js/permissions.js"></script>
 <script src="js/dashboard.js"></script>
-<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js"></script>
 <script>
 

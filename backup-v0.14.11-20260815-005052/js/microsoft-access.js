@@ -21,13 +21,6 @@ const MicrosoftAccess = (() => {
       .replaceAll('"', "&quot;");
   }
   function normalizeEmail(value) { return String(value || "").trim().toLowerCase(); }
-  function normalizeDashboardRole(value, isGuest = false) {
-    if (isGuest) return "External Viewer";
-    let role = String(value || "").trim();
-    if (role === "Internal Editor") role = "Editor";
-    if (role === "Executive Viewer") role = "Viewer";
-    return ["Administrator", "Editor", "Viewer"].includes(role) ? role : "Viewer";
-  }
   function groupId() { return APP_CONFIG.entra.accessGroupId || ""; }
   function managementScopes() { return APP_CONFIG.entra.accessManagementScopes || []; }
   function profileExtensionName() { return APP_CONFIG.entra.accessProfileExtensionName || ""; }
@@ -119,11 +112,10 @@ const MicrosoftAccess = (() => {
   }
 
   function compactProfile(profile) {
-    const isGuest = String(profile.entraUserType || "").toLowerCase() === "guest";
     return {
-      r: normalizeDashboardRole(profile.role, isGuest),
+      r: profile.role || (profile.entraUserType === "Guest" ? "External Viewer" : "Executive Viewer"),
       p: Array.isArray(profile.projects) ? profile.projects.filter(Boolean) : [],
-      c: profile.company || (isGuest ? "External" : "AHT Global"),
+      c: profile.company || (profile.entraUserType === "Guest" ? "External" : "AHT Global"),
       n: profile.name || "",
       e: normalizeEmail(profile.email)
     };
@@ -141,7 +133,7 @@ const MicrosoftAccess = (() => {
       const email = normalizeEmail(profile.email);
       if (!email) throw new Error("This dashboard user has no email address to resolve in Microsoft Entra.");
 
-      const members = await listGroupUsers();
+      const members = directoryMembers.length ? directoryMembers : await listGroupUsers();
       const member = members.find(item => {
         const mail = normalizeEmail(item.mail);
         const upn = normalizeEmail(item.userPrincipalName);
@@ -162,13 +154,8 @@ const MicrosoftAccess = (() => {
   }
 
   async function saveProfileForObject(objectId, values) {
-    const isGuest = String(values.entraUserType || "").toLowerCase() === "guest" || values.role === "External Viewer";
     sharedProfiles[objectId] = {
-      r: normalizeDashboardRole(values.role, isGuest),
-      p: values.projects || [],
-      c: values.company || "",
-      n: values.name || "",
-      e: normalizeEmail(values.email)
+      r: values.role, p: values.projects || [], c: values.company || "", n: values.name || "", e: normalizeEmail(values.email)
     };
     await persistSharedProfiles();
   }
@@ -246,9 +233,9 @@ const MicrosoftAccess = (() => {
       profile.projects = Array.isArray(profile.projects) ? profile.projects.filter(x => x !== "*") : [];
       profile.company = profile.company && profile.company !== "AHT Global" ? profile.company : "External";
     } else {
-      profile.role = normalizeDashboardRole(profile.role, false);
+      if (!["Administrator", "Internal Editor", "Executive Viewer"].includes(profile.role)) profile.role = "Executive Viewer";
       profile.canAdmin = profile.role === "Administrator";
-      profile.canEdit = profile.role === "Administrator" || profile.role === "Editor";
+      profile.canEdit = profile.role === "Administrator" || profile.role === "Internal Editor";
       profile.isInternal = true;
       if (profile.canAdmin) profile.projects = ["*"];
       else if (!stored && (!Array.isArray(profile.projects) || !profile.projects.length)) profile.projects = ["*"];
@@ -268,7 +255,7 @@ const MicrosoftAccess = (() => {
           name: member.displayName || "Microsoft User",
           email: memberEmail(member),
           company: isGuest ? "External" : "AHT Global",
-          role: isGuest ? "External Viewer" : "Viewer",
+          role: isGuest ? "External Viewer" : "Executive Viewer",
           passwordProfile: isGuest ? "external" : "aht",
           active: true,
           projects: isGuest ? [] : ["*"],
@@ -306,7 +293,7 @@ const MicrosoftAccess = (() => {
       return `<tr>
         <td><strong>${escText(member.displayName || "Microsoft User")}</strong><div class="small">${escText(email)}</div></td>
         <td><span class="entra-type ${type === "External" ? "external" : "internal"}">${escText(type)}</span></td>
-        <td>${escText(normalizeDashboardRole(profile?.role, type === "External"))}</td>
+        <td>${escText(profile?.role || (type === "External" ? "External Viewer" : "Executive Viewer"))}</td>
         <td>${escText(projects)}</td>
         <td class="entra-row-actions">
           <button class="btn" type="button" data-manage-profile="${escText(profile?.id || "")}">Manage</button>
@@ -360,7 +347,7 @@ const MicrosoftAccess = (() => {
   async function addInternal() {
     const input = el("internalUserEmail");
     const email = normalizeEmail(input?.value);
-    const role = el("internalUserRole")?.value || "Viewer";
+    const role = el("internalUserRole")?.value || "Executive Viewer";
     const projects = selectedProjects("internalInviteProjects");
     if (!email) { alert("Enter the AHT user's email address."); return; }
     if (!projects.length) { alert("Select at least one project before granting access."); return; }
@@ -373,27 +360,6 @@ const MicrosoftAccess = (() => {
       const user = await graph(`/users/${encodeURIComponent(email)}?$select=id,displayName,mail,userPrincipalName,userType,accountEnabled`);
       await saveProfileForObject(user.id, { role, projects, company: "AHT Global", name: user.displayName || email, email });
       await addMemberObjectId(user.id);
-
-      const localProfile = USERS.find(item => normalizeEmail(item.email) === email);
-      if (localProfile) {
-        localProfile.entraObjectId = user.id;
-        localProfile.entraUserType = "Member";
-        localProfile.managedByEntraAccessGroup = true;
-        localProfile.role = normalizeDashboardRole(role, false);
-        localProfile.canAdmin = localProfile.role === "Administrator";
-        localProfile.canEdit = localProfile.role === "Administrator" || localProfile.role === "Editor";
-        localProfile.isInternal = true;
-        localProfile.projects = [...projects];
-        localProfile.active = true;
-        localProfile.company = "AHT Global";
-        await DataProvider.saveUsers(USERS);
-      }
-
-      if (!directoryMembers.some(item => item.id === user.id)) {
-        directoryMembers.push(user);
-        directoryMembers.sort((a,b) => String(a.displayName || "").localeCompare(String(b.displayName || "")));
-      }
-
       if (input) input.value = "";
       el("internalInviteProjects")?.querySelectorAll('input[type="checkbox"]').forEach(x => x.checked = false);
       setStatus(`${user.displayName || email} was configured and granted Project Control access.`, "success");

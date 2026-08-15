@@ -1,0 +1,16 @@
+v0.14.6 — Project assignment save fix
+
+Diagnosis:
+Administration was saving project checkboxes to the local dashboard user record,
+but skipped the shared Microsoft dashboard-profile write whenever the local user
+record did not already contain an Entra object ID.
+
+Fix:
+- Save User now always attempts shared-profile synchronization.
+- If the local record lacks an Entra object ID, the admin session resolves the
+  existing Project Control access-group member by email and stores the ID.
+- The shared profile store is refreshed before every write to avoid stale
+  profile-store overwrites.
+
+No Azure API, SharePoint schema, project data, progress, or external auth
+architecture changes are included.

@@ -542,19 +542,7 @@ async function downloadCurrentProjectPDF(){
   const installation=displayedPhaseProgress(p,"Installation");
   const health=displayedProjectHealth(p);
 
-  const navy=[0,78,132], blue=[0,136,199], green=[112,173,71], orange=[237,125,49], red=[192,0,0],
-        muted=[97,113,130], line=[220,228,234], soft=[244,247,249],
-        lightBlue=[228,242,250], lightGreen=[234,245,225], lightOrange=[253,239,222], lightRed=[250,228,228];
-
-  const statusStyle=value=>{
-    const s=String(value||"").toLowerCase();
-    if(s==="complete"||s==="received"||s==="healthy")return {fill:lightGreen,text:[55,100,35],accent:green};
-    if(s.includes("overdue"))return {fill:lightRed,text:[150,30,30],accent:red};
-    if(s.includes("waiting")||s.includes("awaiting")||s==="pending"||s==="outstanding"||s==="at risk")
-      return {fill:lightOrange,text:[145,84,15],accent:orange};
-    if(s.includes("progress")||s==="active")return {fill:lightBlue,text:[20,80,125],accent:blue};
-    return {fill:soft,text:navy,accent:blue};
-  };
+  const navy=[12,35,56], blue=[20,95,138], muted=[97,113,130], line=[220,228,234], soft=[244,247,249];
   const pageWidth=doc.internal.pageSize.getWidth();
   const pageHeight=doc.internal.pageSize.getHeight();
   const margin=28;
@@ -602,16 +590,15 @@ async function downloadCurrentProjectPDF(){
     return y+16;
   }
 
-  function summaryPanel(title,items,x,y,w,accent,headerText=[255,255,255]){
+  function summaryPanel(title,items,x,y,w){
     const padding=8;
     doc.setDrawColor(...line);
     doc.roundedRect(x,y,w,86,5,5,"S");
-    doc.setFillColor(...accent);
-    doc.roundedRect(x,y,w,20,5,5,"F");
-    doc.rect(x,y+12,w,8,"F");
+    doc.setFillColor(...soft);
+    doc.rect(x,y,w,20,"F");
     doc.setFont("helvetica","bold");
     doc.setFontSize(8);
-    doc.setTextColor(...headerText);
+    doc.setTextColor(...navy);
     doc.text(title,x+padding,y+13);
 
     doc.setFont("helvetica","normal");
@@ -669,22 +656,14 @@ async function downloadCurrentProjectPDF(){
   const teamW=contentWidth/team.length;
   team.forEach(([label,value],i)=>{
     const x=margin+i*teamW;
-    const healthLook=i===0?statusStyle(value):null;
     doc.setDrawColor(...line);
-    if(healthLook){
-      doc.setFillColor(...healthLook.fill);
-      doc.rect(x,88,teamW,46,"FD");
-      doc.setFillColor(...healthLook.accent);
-      doc.rect(x,88,4,46,"F");
-    }else{
-      doc.rect(x,88,teamW,46,"S");
-    }
+    doc.rect(x,88,teamW,46,"S");
     doc.setFont("helvetica","bold");
     doc.setFontSize(6.5);
     doc.setTextColor(...muted);
     doc.text(label.toUpperCase(),x+7,102);
     doc.setFontSize(9);
-    doc.setTextColor(...(healthLook?healthLook.text:navy));
+    doc.setTextColor(...navy);
     const wrapped=doc.splitTextToSize(clean(value),teamW-14);
     doc.text(wrapped.slice(0,2),x+7,118);
   });
@@ -720,13 +699,10 @@ async function downloadCurrentProjectPDF(){
     ["WAITING / REVIEW",waiting],
     ["COMPLETE",complete]
   ];
-  const countAccents=[blue,blue,orange,green];
   counts.forEach(([label,value],i)=>{
     const x=margin+i*(cardW+cardGap);
     doc.setDrawColor(...line);
     doc.roundedRect(x,210,cardW,42,5,5,"S");
-    doc.setFillColor(...countAccents[i]);
-    doc.roundedRect(x,210,cardW,4,2,2,"F");
     doc.setFont("helvetica","bold");
     doc.setFontSize(15);
     doc.setTextColor(...navy);
@@ -738,10 +714,10 @@ async function downloadCurrentProjectPDF(){
 
   const panelGap=10;
   const panelW=(contentWidth-panelGap)/2;
-  summaryPanel("CURRENT WORK",current.map(x=>`${x.deliverable}${x.current?` — ${x.current}`:""}`),margin,265,panelW,blue);
-  summaryPanel("REQUIRED FROM OTHERS",outstandingInfo.map(x=>`${x.item} — ${x.from||"—"}${x.blocking?`; blocks ${x.blocking}`:""}`),margin+panelW+panelGap,265,panelW,orange);
-  summaryPanel("NEXT DELIVERABLES",current.map(x=>`${x.deliverable} — ${x.nextStep||"—"}${x.date?`; ${date(x.date)}`:""}`),margin,361,panelW,green);
-  summaryPanel("PROJECT RISKS",risks.map(x=>x.risk),margin+panelW+panelGap,361,panelW,red);
+  summaryPanel("CURRENT WORK",current.map(x=>`${x.deliverable}${x.current?` — ${x.current}`:""}`),margin,265,panelW);
+  summaryPanel("REQUIRED FROM OTHERS",outstandingInfo.map(x=>`${x.item} — ${x.from||"—"}${x.blocking?`; blocks ${x.blocking}`:""}`),margin+panelW+panelGap,265,panelW);
+  summaryPanel("NEXT DELIVERABLES",current.map(x=>`${x.deliverable} — ${x.nextStep||"—"}${x.date?`; ${date(x.date)}`:""}`),margin,361,panelW);
+  summaryPanel("PROJECT RISKS",risks.map(x=>x.risk),margin+panelW+panelGap,361,panelW);
 
   // ----------------------------------------------------------------
   // PAGE 2+ — Deliverables
@@ -774,14 +750,6 @@ async function downloadCurrentProjectPDF(){
       4:{cellWidth:110},
       5:{cellWidth:146},
       6:{cellWidth:58}
-    },
-    didParseCell:data=>{
-      if(data.section==="body"&&data.column.index===2){
-        const look=statusStyle(data.cell.raw);
-        data.cell.styles.fillColor=look.fill;
-        data.cell.styles.textColor=look.text;
-        data.cell.styles.fontStyle="bold";
-      }
     },
     didDrawPage:()=>{}
   });
@@ -818,14 +786,6 @@ async function downloadCurrentProjectPDF(){
       3:{cellWidth:130},
       4:{cellWidth:62},
       5:{cellWidth:210}
-    },
-    didParseCell:data=>{
-      if(data.section==="body"&&data.column.index===2){
-        const look=statusStyle(data.cell.raw);
-        data.cell.styles.fillColor=look.fill;
-        data.cell.styles.textColor=look.text;
-        data.cell.styles.fontStyle="bold";
-      }
     }
   });
 
@@ -834,238 +794,4 @@ async function downloadCurrentProjectPDF(){
   const filename=`${projectReportSafeFileName(p.name)}-Project-Report-${dateStamp}.pdf`;
   const blob=doc.output("blob");
   await saveProjectPdfBlob(blob,filename);
-}
-
-async function downloadCurrentGanttPDF(){
-  if(!currentUser?.canAdmin){
-    alert("Gantt PDF export is available to Administrators only.");
-    return;
-  }
-
-  const p=currentProject();
-  if(!p)return;
-
-  if(!window.jspdf?.jsPDF){
-    alert("The PDF library did not load. Refresh Project Control and try again.");
-    return;
-  }
-
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
-  const records=visibleDeliverables(p);
-
-  const scheduled=records
-    .map(record=>({record,start:ganttStartFor(record),end:ganttDate(record.date)}))
-    .filter(item=>item.start&&item.end)
-    .sort((a,b)=>a.end-b.end);
-
-  const unscheduled=records.filter(record=>!ganttDate(record.date));
-
-  const pageWidth=doc.internal.pageSize.getWidth();
-  const pageHeight=doc.internal.pageSize.getHeight();
-  const margin=28;
-  const leftCol=190;
-  const chartX=margin+leftCol;
-  const chartW=pageWidth-margin-chartX;
-  const rowH=24;
-  const headerY=92;
-  const footerY=pageHeight-20;
-
-  const navy=[0,78,132], blue=[0,136,199], green=[112,173,71], orange=[237,125,49], red=[192,0,0],
-        muted=[97,113,130], line=[220,228,234], soft=[244,247,249], lightBlue=[228,242,250];
-
-  const clean=value=>String(value??"").replace(/\s+/g," ").trim();
-  const dateStamp=(()=>{
-    const d=new Date();
-    return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
-  })();
-
-  function statusColor(record){
-    const status=String(record.status||"");
-    if(status==="Complete")return green;
-    if(status==="Blocked")return red;
-    if(status.includes("Waiting")||status==="Awaiting Review")return orange;
-    if(status==="In Progress")return blue;
-    return navy;
-  }
-
-  function footer(){
-    doc.setDrawColor(...line);
-    doc.line(margin,footerY-8,pageWidth-margin,footerY-8);
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(7);
-    doc.setTextColor(...muted);
-    doc.text("AHT Global · Project Control",margin,footerY);
-    doc.text(`${clean(p.name)} · Gantt · v${APP_CONFIG.version}`,pageWidth-margin,footerY,{align:"right"});
-  }
-
-  function header(pageNo,totalPages){
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(...navy);
-    doc.setFontSize(9);
-    doc.text("AHT GLOBAL · PROJECT CONTROL",margin,28);
-
-    doc.setFontSize(20);
-    doc.text(`${clean(p.name)} — Gantt Schedule`,margin,51);
-
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...muted);
-    doc.text(clean(p.subtitle||""),margin,64);
-
-    doc.text(`Generated ${new Date().toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"})}`,pageWidth-margin,28,{align:"right"});
-    doc.text(`Page ${pageNo} of ${totalPages}`,pageWidth-margin,42,{align:"right"});
-
-    doc.setDrawColor(...navy);
-    doc.setLineWidth(2);
-    doc.line(margin,74,pageWidth-margin,74);
-    doc.setLineWidth(.5);
-  }
-
-  if(!scheduled.length){
-    header(1,1);
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(13);
-    doc.setTextColor(...navy);
-    doc.text("No deliverables currently have target dates.",margin,112);
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...muted);
-    doc.text("Add target dates in Deliverables to populate the Gantt schedule.",margin,130);
-    footer();
-
-    const filename=`${projectReportSafeFileName(p.name)}-Gantt-${dateStamp}.pdf`;
-    await saveProjectPdfBlob(doc.output("blob"),filename);
-    return;
-  }
-
-  const earliest=new Date(Math.min(...scheduled.map(item=>item.start)));
-  const latest=new Date(Math.max(...scheduled.map(item=>item.end)));
-  const rangeStart=ganttAddDays(earliest,-3);
-  const rangeEnd=ganttAddDays(latest,5);
-  const totalMs=Math.max(86400000,rangeEnd-rangeStart);
-
-  const rowsPerPage=Math.max(1,Math.floor((pageHeight-headerY-58)/rowH));
-  const scheduledPages=Math.ceil(scheduled.length/rowsPerPage);
-  const unscheduledPages=unscheduled.length?1:0;
-  const totalPages=scheduledPages+unscheduledPages;
-
-  const dayToX=date=>chartX+((date-rangeStart)/totalMs)*chartW;
-
-  for(let pageIndex=0;pageIndex<scheduledPages;pageIndex++){
-    if(pageIndex>0)doc.addPage("letter","landscape");
-    header(pageIndex+1,totalPages);
-
-    // Timeline header
-    doc.setFillColor(...soft);
-    doc.rect(margin,82,leftCol,24,"F");
-    doc.rect(chartX,82,chartW,24,"F");
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(7);
-    doc.setTextColor(...navy);
-    doc.text("DELIVERABLE",margin+6,97);
-
-    // Week markers
-    for(let cursor=new Date(rangeStart);cursor<=rangeEnd;cursor=ganttAddDays(cursor,7)){
-      const x=dayToX(cursor);
-      doc.setDrawColor(...line);
-      doc.line(x,82,x,pageHeight-42);
-      doc.setFont("helvetica","normal");
-      doc.setFontSize(6.2);
-      doc.setTextColor(...muted);
-      doc.text(fmtDate(ganttIso(cursor)),Math.min(x+2,pageWidth-margin-50),97);
-    }
-
-    const today=ganttDate(new Date());
-    if(today>=rangeStart&&today<=rangeEnd){
-      const todayX=dayToX(today);
-      doc.setDrawColor(...red);
-      doc.setLineWidth(1);
-      doc.line(todayX,106,todayX,pageHeight-42);
-      doc.setLineWidth(.5);
-      doc.setFontSize(6);
-      doc.setTextColor(...red);
-      doc.text("TODAY",todayX+2,114);
-    }
-
-    const pageRows=scheduled.slice(pageIndex*rowsPerPage,(pageIndex+1)*rowsPerPage);
-
-    pageRows.forEach((item,i)=>{
-      const y=106+i*rowH;
-      const r=item.record;
-      const x1=Math.max(chartX,dayToX(item.start));
-      const x2=Math.min(chartX+chartW,dayToX(item.end));
-      const barW=Math.max(5,x2-x1);
-
-      if(i%2===0){
-        doc.setFillColor(250,252,253);
-        doc.rect(margin,y,leftCol+chartW,rowH,"F");
-      }
-
-      doc.setDrawColor(...line);
-      doc.line(margin,y+rowH,chartX+chartW,y+rowH);
-
-      doc.setFont("helvetica","bold");
-      doc.setFontSize(7.2);
-      doc.setTextColor(...navy);
-      const titleLines=doc.splitTextToSize(clean(r.deliverable),leftCol-12).slice(0,2);
-      doc.text(titleLines,margin+6,y+9);
-
-      doc.setFillColor(...statusColor(r));
-      doc.roundedRect(x1,y+7,barW,9,4,4,"F");
-
-      doc.setFont("helvetica","normal");
-      doc.setFontSize(5.7);
-      doc.setTextColor(...muted);
-      doc.text(fmtDate(ganttIso(item.start)),x1,y+21);
-      doc.text(fmtDate(ganttIso(item.end)),x2,y+21,{align:"right"});
-    });
-
-    footer();
-  }
-
-  if(unscheduled.length){
-    doc.addPage("letter","landscape");
-    header(totalPages,totalPages);
-
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(13);
-    doc.setTextColor(...navy);
-    doc.text("Not Yet Tracked on Timeline",margin,102);
-
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...muted);
-    doc.text("These deliverables are valid project work but do not yet have target dates, so they are not positioned on the timeline.",margin,118);
-
-    const rows=unscheduled.map(r=>[
-      clean(r.discipline||"—"),
-      clean(r.deliverable||"—"),
-      clean(r.status||"—"),
-      clean(r.owner||"—"),
-      clean(r.nextStep||"—")
-    ]);
-
-    doc.autoTable({
-      startY:132,
-      margin:{left:margin,right:margin,bottom:34},
-      head:[["Discipline","Deliverable","Status","Owner","Next Step"]],
-      body:rows,
-      theme:"grid",
-      styles:{font:"helvetica",fontSize:7,cellPadding:4,lineColor:line,lineWidth:.4,valign:"top"},
-      headStyles:{fillColor:lightBlue,textColor:navy,fontStyle:"bold",fontSize:6.5},
-      columnStyles:{
-        0:{cellWidth:85},
-        1:{cellWidth:175},
-        2:{cellWidth:85},
-        3:{cellWidth:95},
-        4:{cellWidth:270}
-      }
-    });
-
-    footer();
-  }
-
-  const filename=`${projectReportSafeFileName(p.name)}-Gantt-${dateStamp}.pdf`;
-  await saveProjectPdfBlob(doc.output("blob"),filename);
 }

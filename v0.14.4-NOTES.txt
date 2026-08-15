@@ -1,0 +1,22 @@
+v0.14.4 CLEAN UI patch
+
+Built directly from the confirmed full v0.14.3 archive.
+
+Changes:
+- Normalizes Planning / Engineering / Installation row geometry across every project card.
+- Bumps version to 0.14.4.
+
+Important:
+- No authentication changes.
+- No Azure API changes.
+- No SharePoint provider changes.
+- No admin logic changes.
+
+The v0.14.3 baseline already contains:
+- grouped phase Mode + Manual % controls,
+- disabled/grey Manual % while Auto is selected,
+- multiple Administrator role selection for eligible internal users,
+- protection against changing/deactivating the current admin,
+- protection against removing/archiving/deactivating the last active Administrator.
+
+Those admin behaviors should be tested in the UI before any further code changes.

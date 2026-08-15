@@ -105,8 +105,7 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
   }
 
   if (user || shared) {
-    const storedRole = shared?.r || user?.role || "Viewer";
-    const role = storedRole === "Internal Editor" ? "Editor" : storedRole === "Executive Viewer" ? "Viewer" : storedRole;
+    const role = shared?.r || user?.role || "Executive Viewer";
     return {
       ...(user || {}),
       id: user?.id || `entra-${graphUser?.id || account?.localAccountId || "user"}`,
@@ -119,7 +118,7 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
       active: true,
       projects: Array.isArray(shared?.p) ? shared.p : (user?.projects || ["*"]),
       canAdmin: role === "Administrator",
-      canEdit: role === "Administrator" || role === "Editor",
+      canEdit: role === "Administrator" || role === "Internal Editor",
       isInternal: true,
       authAccount: account.homeAccountId
     };

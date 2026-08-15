@@ -1,0 +1,14 @@
+v0.14.5 — assigned-project identity lookup fix
+
+Scope:
+- No Azure API.
+- No SharePoint schema changes.
+- No authentication architecture changes.
+- No project/progress/UI changes.
+
+Change:
+The shared dashboard profile still uses the existing Entra group extension.
+At sign-in it first matches the saved profile by Entra object ID. If that does
+not match, it now falls back to the email stored in the saved profile. This is
+specifically intended to preserve project assignments for B2B/guest identities
+whose sign-in object ID differs from the object ID seen by Administration.
