@@ -320,3 +320,30 @@
     font-size:13px;
   }
 }
+
+/* v0.14.10 — compact mobile status badges */
+@media (max-width:700px){
+  .mobile-record-heading{
+    align-items:flex-start;
+  }
+
+  .mobile-record-heading > .badge,
+  .mobile-record-heading > span > .badge,
+  .mobile-record .badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+    width:max-content;
+    max-width:none;
+    min-width:0;
+    white-space:nowrap;
+    line-height:1.15;
+    text-align:center;
+    vertical-align:top;
+  }
+
+  .mobile-record-heading h4{
+    min-width:0;
+  }
+}
