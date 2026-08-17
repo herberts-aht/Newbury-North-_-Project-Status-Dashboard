@@ -8,7 +8,7 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.14.22",
+  version: "0.14.23",
   buildDate: "2026-08-14",
 
   // Development stays fully local until Entra and hosting are approved.
@@ -59,6 +59,10 @@ const APP_CONFIG = Object.freeze({
     // Dedicated Entra Security Group assigned to the Enterprise Application.
     // Membership in this group is the gate for dashboard access.
     accessGroupId: "cb2b8e45-9b5b-4cb3-a24d-4ca2f3c63d69",
+
+    // Existing Entra group already nested in "Newbury North Members" in SharePoint.
+    // Editor / Administrator roles are synchronized into this group for Edit rights.
+    editAccessGroupId: "52c62197-dae3-4b48-be7f-11c3c875cffc",
 
     // Requested only by the Admin > Microsoft Access tools.
     accessManagementScopes: Object.freeze([

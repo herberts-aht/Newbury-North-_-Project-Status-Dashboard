@@ -874,6 +874,12 @@ deleteRecordBtn.onclick=async()=>{
        throw new Error("The active data provider does not support project deletion.");
      }
 
+     // Remove the project from Microsoft sharedProfiles too, so a later
+     // Microsoft Access refresh cannot restore a stale ProjectKey.
+     if(typeof window.MicrosoftAccess?.removeProjectFromProfiles==="function"){
+       await window.MicrosoftAccess.removeProjectFromProfiles(project.id);
+     }
+
      // Remove explicit local/dashboard assignments. "*" remains all projects.
      USERS.forEach(user=>{
        if(user.projects?.includes("*"))return;

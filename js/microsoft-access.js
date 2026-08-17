@@ -29,6 +29,7 @@ const MicrosoftAccess = (() => {
     return ["Administrator", "Editor", "Viewer"].includes(role) ? role : "Viewer";
   }
   function groupId() { return APP_CONFIG.entra.accessGroupId || ""; }
+  function editGroupId() { return APP_CONFIG.entra.editAccessGroupId || ""; }
   function managementScopes() { return APP_CONFIG.entra.accessManagementScopes || []; }
   function profileExtensionName() { return APP_CONFIG.entra.accessProfileExtensionName || ""; }
   function profileReadScopes() { return APP_CONFIG.entra.accessProfileReadScopes || []; }
@@ -159,6 +160,10 @@ const MicrosoftAccess = (() => {
 
     sharedProfiles[objectId] = compactProfile(profile);
     await persistSharedProfiles();
+
+    if (String(profile.entraUserType || "").toLowerCase() !== "guest") {
+      await syncSharePointEditAccess(objectId, profile.role);
+    }
   }
 
   async function saveProfileForObject(objectId, values) {
@@ -171,6 +176,30 @@ const MicrosoftAccess = (() => {
       e: normalizeEmail(values.email)
     };
     await persistSharedProfiles();
+  }
+
+  async function removeProjectFromProfiles(projectId) {
+    if (!currentUser?.canAdmin || !projectId) return;
+
+    await loadSharedProfiles();
+
+    let changed = false;
+
+    Object.keys(sharedProfiles).forEach(objectId => {
+      const profile = sharedProfiles[objectId];
+      if (!profile || !Array.isArray(profile.p) || profile.p.includes("*")) return;
+
+      const updated = profile.p.filter(id => id !== projectId);
+
+      if (updated.length !== profile.p.length) {
+        profile.p = updated;
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      await persistSharedProfiles();
+    }
   }
 
   function selectedProjects(containerId) {
@@ -350,6 +379,52 @@ const MicrosoftAccess = (() => {
     }
   }
 
+  async function groupHasMember(targetGroupId, objectId) {
+    if (!targetGroupId || !objectId) return false;
+
+    let url =
+      `/groups/${encodeURIComponent(targetGroupId)}/members` +
+      `?$select=id&$top=999`;
+
+    while (url) {
+      const data = await graph(url);
+      if ((data.value || []).some(item => String(item.id) === String(objectId))) {
+        return true;
+      }
+      url = data["@odata.nextLink"] || "";
+    }
+
+    return false;
+  }
+
+  async function syncSharePointEditAccess(objectId, role) {
+    const targetGroupId = editGroupId();
+    if (!targetGroupId || !objectId) return;
+
+    const normalizedRole = normalizeDashboardRole(role, false);
+    const needsEdit =
+      normalizedRole === "Administrator" ||
+      normalizedRole === "Editor";
+
+    const isMember = await groupHasMember(targetGroupId, objectId);
+
+    if (needsEdit && !isMember) {
+      await graph(`/groups/${encodeURIComponent(targetGroupId)}/members/$ref`, {
+        method: "POST",
+        body: JSON.stringify({
+          "@odata.id": `${GRAPH}/directoryObjects/${objectId}`
+        })
+      });
+    }
+
+    if (!needsEdit && isMember) {
+      await graph(
+        `/groups/${encodeURIComponent(targetGroupId)}/members/${encodeURIComponent(objectId)}/$ref`,
+        { method: "DELETE" }
+      );
+    }
+  }
+
   async function addMemberObjectId(objectId) {
     await graph(`/groups/${encodeURIComponent(groupId())}/members/$ref`, {
       method: "POST",
@@ -373,6 +448,7 @@ const MicrosoftAccess = (() => {
       const user = await graph(`/users/${encodeURIComponent(email)}?$select=id,displayName,mail,userPrincipalName,userType,accountEnabled`);
       await saveProfileForObject(user.id, { role, projects, company: "AHT Global", name: user.displayName || email, email });
       await addMemberObjectId(user.id);
+      await syncSharePointEditAccess(user.id, role);
 
       const localProfile = USERS.find(item => normalizeEmail(item.email) === email);
       if (localProfile) {
@@ -459,6 +535,7 @@ const MicrosoftAccess = (() => {
     setBusy(true); setStatus(`Removing access for ${label}…`);
     try {
       await graph(`/groups/${encodeURIComponent(groupId())}/members/${encodeURIComponent(objectId)}/$ref`, { method: "DELETE" });
+      await syncSharePointEditAccess(objectId, "Viewer");
       if (sharedProfiles[objectId]) { delete sharedProfiles[objectId]; await persistSharedProfiles(); }
       setStatus(`${label} no longer has Project Control access.`, "success");
       await refresh();
@@ -492,7 +569,7 @@ const MicrosoftAccess = (() => {
     }
   }
 
-  return { initialize, onAdminView, refresh, saveDashboardProfile, renderInviteProjects };
+  return { initialize, onAdminView, refresh, saveDashboardProfile, removeProjectFromProfiles, renderInviteProjects };
 })();
 
 MicrosoftAccess.initialize();
