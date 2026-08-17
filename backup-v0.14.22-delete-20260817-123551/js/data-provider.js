@@ -342,16 +342,6 @@ const SharePointDataProvider = {
     );
   },
 
-  async deleteItem(displayName, itemId) {
-    if (!itemId) return;
-    const site = await this.getSite();
-    const listId = await this.getListId(displayName);
-    await this.graph(
-      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}`,
-      { method: "DELETE" }
-    );
-  },
-
   projectFields(project) {
     return {
       Title: project.name || project.address || "Untitled Project",
@@ -485,57 +475,6 @@ const SharePointDataProvider = {
     }
 
     this._lastState = structuredClone(nextState);
-  },
-
-  async deleteProject(project) {
-    if (!project) throw new Error("Project was not supplied for deletion.");
-
-    // Delete child records first so SharePoint lookup relationships cannot
-    // leave orphaned records behind.
-    for (const record of project.deliverables || []) {
-      const itemId = record.sharePointId || record.id;
-      if (itemId) {
-        await this.deleteItem(this.config.lists.deliverables, itemId);
-      }
-    }
-
-    for (const record of project.info || []) {
-      const itemId = record.sharePointId || record.id;
-      if (itemId) {
-        await this.deleteItem(this.config.lists.informationRequired, itemId);
-      }
-    }
-
-    // Remove the project row itself.
-    if (project.sharePointId) {
-      await this.deleteItem(this.config.lists.projects, project.sharePointId);
-    }
-
-    // Remove this project key from users with explicit assignments.
-    // "*" remains all-project access and needs no change.
-    const accessRows = await this.getDashboardAccessRows();
-
-    for (const row of accessRows) {
-      const raw = String(row.fields?.ProjectKeys || "").trim();
-      if (!raw || raw === "*") continue;
-
-      const keys = raw
-        .split(/[;,|]/)
-        .map(value => value.trim())
-        .filter(Boolean);
-
-      if (!keys.includes(project.id)) continue;
-
-      const updated = keys
-        .filter(value => value !== project.id)
-        .join(";");
-
-      await this.updateItem(
-        this.config.lists.dashboardAccess,
-        row.id,
-        { ProjectKeys: updated }
-      );
-    }
   },
 
   async getDashboardAccessRows() {
@@ -809,11 +748,6 @@ const FallbackDataProvider = {
       return LocalStorageDataProvider.saveState(nextState);
     }
     return SharePointDataProvider.saveState(nextState);
-  },
-
-  async deleteProject(project) {
-    if (this.fallbackWasUsed) return;
-    return SharePointDataProvider.deleteProject(project);
   },
 
   async loadUsers() {

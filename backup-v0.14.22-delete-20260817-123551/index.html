@@ -473,18 +473,6 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
       ${field("healthOverrideReason","Override Reason",d.healthOverrideReason||"","full","textarea")}
       <div class="health-control-note">Use a manual override only when the displayed schedule health does not reflect a known, approved project condition. A reason is required. If an expiration date is entered, automatic health resumes after that date.</div>
     </div>`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;
-  const canDeleteCurrent =
-    Boolean(editContext?.id) &&
-    (
-      editContext.type === "project"
-        ? Boolean(currentUser?.canAdmin)
-        : Boolean(currentUser?.canEdit)
-    );
-
-  deleteRecordBtn.classList.toggle("hidden", !canDeleteCurrent);
-  deleteRecordBtn.textContent =
-    editContext.type === "project" ? "Delete Project" : "Delete";
-
   modalBackdrop.style.display="flex";
   syncProjectProgressControls();
   ["progressPlanningMode","progressEngineeringMode","progressInstallationMode","progressOverallMode"].forEach(name=>{
@@ -842,93 +830,17 @@ if(state.projects.some(project=>String(project.id).toUpperCase()===id)){
  modalBackdrop.style.display="none";save();
 };
 
-deleteRecordBtn.onclick=async()=>{
- if(!editContext?.id)return;
-
- if(editContext.type==="project"){
-   if(!currentUser?.canAdmin)return;
-
-   const i=state.projects.findIndex(x=>x.id===editContext.id);
-   if(i<0)return;
-
-   const project=state.projects[i];
-   const name=project.name||project.address||project.id;
-
-   if(!confirm(
-     `Permanently delete "${name}"?\n\n`+
-     `This removes the project, its Deliverables, its Information Required records, `+
-     `and explicit user project assignments from Project Control and SharePoint.\n\n`+
-     `This cannot be undone.`
-   ))return;
-
-   const typed=prompt(`Type DELETE to permanently remove "${name}".`);
-   if(String(typed||"").trim().toUpperCase()!=="DELETE")return;
-
-   deleteRecordBtn.disabled=true;
-   deleteRecordBtn.textContent="Deleting...";
-
-   try{
-     if(typeof DataProvider?.deleteProject==="function"){
-       await DataProvider.deleteProject(project);
-     }else{
-       throw new Error("The active data provider does not support project deletion.");
-     }
-
-     // Remove explicit local/dashboard assignments. "*" remains all projects.
-     USERS.forEach(user=>{
-       if(user.projects?.includes("*"))return;
-       user.projects=(user.projects||[]).filter(projectId=>projectId!==project.id);
-     });
-
-     logChange(
-       "Delete",
-       project.id,
-       "Project",
-       name,
-       "Project permanently deleted with child records and explicit access assignments."
-     );
-
-     state.projects.splice(i,1);
-
-     if(state.currentProjectId===project.id){
-       state.currentProjectId=state.projects.find(x=>!x.archived)?.id||state.projects[0]?.id||"";
-     }
-
-     modalBackdrop.style.display="none";
-     await save();
-     render();
-     alert(`"${name}" was permanently deleted.`);
-   }catch(error){
-     console.error("Project deletion failed.",error);
-     alert(`Project deletion failed: ${error?.message||error}`);
-     deleteRecordBtn.disabled=false;
-     deleteRecordBtn.textContent="Delete Project";
-   }
-
-   return;
- }
-
- if(!currentUser?.canEdit)return;
-
- const p=currentProject();
- const arr=editContext.type==="deliverable"?p.deliverables:p.info;
+deleteRecordBtn.onclick=()=>{
+ if(!currentUser.canEdit||!editContext?.id)return;
+ const p=currentProject(),arr=editContext.type==="deliverable"?p.deliverables:p.info;
  const i=arr.findIndex(x=>x.id===editContext.id);
  if(i<0)return;
-
  const record=arr[i],name=record.deliverable||record.item;
  if(!confirm(`Delete "${name}"? This will be recorded in the change log.`))return;
-
  arr.splice(i,1);
  touchProject(p);
- logChange(
-   "Delete",
-   p.id,
-   editContext.type==="deliverable"?"Deliverable":"Information Request",
-   name,
-   "Record deleted."
- );
- modalBackdrop.style.display="none";
- save();
+ logChange("Delete",p.id,editContext.type==="deliverable"?"Deliverable":"Information Request",name,"Record deleted.");
+ modalBackdrop.style.display="none";save();
 };
 
 initializeApplication();
