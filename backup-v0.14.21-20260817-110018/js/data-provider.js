@@ -543,9 +543,16 @@ const SharePointDataProvider = {
       );
     }
 
-    // Deliberately do NOT fall back to display name here.
-    // Names are mutable and can collide; sign-in identity must be anchored
-    // to Entra Object ID or exact ProfileKey/email.
+    if (!row && displayName) {
+      row = rows.find(item =>
+        String(
+          item.fields?.DisplayName ||
+          item.fields?.Title ||
+          ""
+        ).trim().toLowerCase() === displayName
+      );
+    }
+
     if (!row || row.fields?.Active === false) return null;
 
     const user = this.dashboardAccessUser(row);
@@ -615,7 +622,6 @@ const SharePointDataProvider = {
 
     const byProfileKey = new Map();
     const byObjectId = new Map();
-    const bySharePointId = new Map();
     const byDisplayName = new Map();
 
     for (const row of rows) {
@@ -629,7 +635,6 @@ const SharePointDataProvider = {
 
       if (profileKey) byProfileKey.set(profileKey, row);
       if (objectId) byObjectId.set(objectId, row);
-      if (row.id != null) bySharePointId.set(String(row.id), row);
       if (displayName) byDisplayName.set(displayName, row);
     }
 
@@ -672,23 +677,10 @@ const SharePointDataProvider = {
         EntraUserType: "Member"
       };
 
-      const sharePointAccessId = String(user.sharePointAccessId || "").trim();
-
-      let existing =
+      const existing =
         (objectId && byObjectId.get(objectId.toLowerCase())) ||
-        (profileKey && byProfileKey.get(profileKey.toLowerCase())) ||
-        (sharePointAccessId && bySharePointId.get(sharePointAccessId)) ||
-        null;
-
-      if (
-        !existing &&
-        !objectId &&
-        !profileKey &&
-        !sharePointAccessId &&
-        displayName
-      ) {
-        existing = byDisplayName.get(displayName.toLowerCase()) || null;
-      }
+        byProfileKey.get(profileKey.toLowerCase()) ||
+        byDisplayName.get(displayName.toLowerCase());
 
       if (existing) {
         await this.updateItem(
@@ -701,8 +693,6 @@ const SharePointDataProvider = {
           ...(existing.fields || {}),
           ...fields
         };
-
-        user.sharePointAccessId = Number(existing.id);
       } else {
         const created = await this.createItem(
           this.config.lists.dashboardAccess,
@@ -714,11 +704,8 @@ const SharePointDataProvider = {
           fields
         };
 
-        user.sharePointAccessId = Number(created.id);
-
         byProfileKey.set(profileKey.toLowerCase(), row);
         if (objectId) byObjectId.set(objectId.toLowerCase(), row);
-        if (created.id != null) bySharePointId.set(String(created.id), row);
         if (displayName) byDisplayName.set(displayName.toLowerCase(), row);
       }
     }
