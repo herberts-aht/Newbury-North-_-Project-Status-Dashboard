@@ -143,30 +143,6 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
 }
 
 async function loadSharedDashboardProfile(graphUser) {
-  // Internal AHT users use SharePoint Dashboard Access as the authoritative
-  // source for dashboard role and project visibility.
-  if (
-    String(graphUser?.userType || "").toLowerCase() !== "guest" &&
-    typeof DataProvider?.getDashboardAccessProfile === "function"
-  ) {
-    try {
-      const sharePointProfile =
-        await DataProvider.getDashboardAccessProfile(graphUser);
-
-      if (sharePointProfile) {
-        return {
-          profile: sharePointProfile,
-          error: ""
-        };
-      }
-    } catch (error) {
-      console.warn(
-        "SharePoint Dashboard Access lookup failed; falling back to existing Entra profile store.",
-        error
-      );
-    }
-  }
-
   const groupId = APP_CONFIG.entra.accessGroupId || "";
   const extensionName = APP_CONFIG.entra.accessProfileExtensionName || "";
   const scopes = APP_CONFIG.entra.accessProfileReadScopes || [];
