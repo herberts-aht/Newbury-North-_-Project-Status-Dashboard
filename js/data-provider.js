@@ -278,13 +278,22 @@ const SharePointDataProvider = {
           projectManagerSiteLead: fields.ProjectManagerSiteLead || "",
           archived: Boolean(fields.Archived),
           health: this.mapHealth(fields),
-          updated: fields.LastActivityDate
-            ? new Date(fields.LastActivityDate).toLocaleDateString("en-US", {
+
+          // SharePoint is the permanent source for project Last Updated.
+          lastUpdatedAt: item.lastModifiedDateTime || "",
+          lastUpdatedBy:
+            item.lastModifiedBy?.user?.displayName ||
+            item.lastModifiedBy?.application?.displayName ||
+            "",
+
+          updated: item.lastModifiedDateTime
+            ? new Date(item.lastModifiedDateTime).toLocaleDateString("en-US", {
                 month: "long",
                 day: "numeric",
                 year: "numeric"
               })
             : "",
+
           lastActivityDate: this.normalizeDate(fields.LastActivityDate),
           lastActivity: fields.LastActivity || "",
           progressPlanning: Number(fields.ProgressPlanning || 0),
@@ -434,11 +443,24 @@ const SharePointDataProvider = {
     // before their child records are written.
     for (const project of nextState.projects || []) {
       const before = previousProjects.get(project.id);
+
+      const projectWasTouched =
+        Boolean(before) &&
+        String(before.lastUpdatedAt || "") !== String(project.lastUpdatedAt || "");
+
       if (!project.sharePointId) {
         const created = await this.createItem(this.config.lists.projects, this.projectFields(project));
         project.sharePointId = Number(created.id);
-      } else if (!before || this.comparable(this.projectFields(before)) !== this.comparable(this.projectFields(project))) {
-        await this.updateItem(this.config.lists.projects, project.sharePointId, this.projectFields(project));
+      } else if (
+        !before ||
+        projectWasTouched ||
+        this.comparable(this.projectFields(before)) !== this.comparable(this.projectFields(project))
+      ) {
+        await this.updateItem(
+          this.config.lists.projects,
+          project.sharePointId,
+          this.projectFields(project)
+        );
       }
 
       const previousDeliverables = new Map(((before && before.deliverables) || []).map(record => [String(record.id), record]));
