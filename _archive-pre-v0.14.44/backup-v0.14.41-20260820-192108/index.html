@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AHT Project Control</title>
+<meta name="application-name" content="AHT Project Control" />
+<meta name="apple-mobile-web-app-title" content="AHT Project Control" />
+<meta property="og:title" content="AHT Project Control" />
+<link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/branding.css" />
+<link rel="stylesheet" href="css/mobile.css" />
+</head>
+<body>
+<div id="startupStatus" class="startup-status">
+  <div class="startup-card">
+    <div class="startup-spinner" aria-hidden="true"></div>
+    <h2 id="startupTitle">Loading dashboard…</h2>
+    <p id="startupMessage">Preparing project data and sign-in.</p>
+    <button id="startupRetryBtn" class="btn primary hidden" type="button">Retry</button>
+  </div>
+</div>
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo-wrap"><img class="login-logo" src="assets/aht-global-logo.svg" alt="AHT Global Lifestyle Technology" /></div>
+    <h1>Project Control</h1>
+    <p>Luxury Builder Division · Secure project visibility and coordination.</p><div class="version-tag" id="versionTag">Version —</div>
+    <div class="field"><label>User</label><select id="loginUser"></select></div>
+    <div class="field"><label>Password</label><input id="loginPassword" type="password" value="demo" /></div>
+    <button id="loginBtn">Sign In</button>
+    <div class="demo-note">Use the email address associated with your Project Control invitation. Microsoft will guide you through sign-in or verification. No Project Control password is stored.</div>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="assets/aht-global-logo.svg" alt="AHT Global Lifestyle Technology" />
+        <div class="sidebar-product-name">Project Control</div>
+        <div class="sub">Luxury Builder Division</div>
+      </div>
+      <div class="sidebar-nav">
+        <button class="active" data-view="projects">Projects</button>
+        <button data-view="dashboard">Executive Summary</button>
+        <button data-view="deliverables">Deliverables</button>
+        <button data-view="info">Information Required</button>
+        <button data-view="timeline">Gantt</button>
+        <button data-view="calendar">Calendar</button>
+        <button class="admin-only" data-view="admin">Administration</button>
+        <button class="admin-only" data-view="audit">Change Log</button>
+      </div>
+      <div class="sidebar-footer">AHT Project Control<br><span id="sidebarVersion">Version —</span><br>© AHT Global</div>
+      <div class="mobile-version" id="mobileVersion">Version —</div>
+    </aside>
+    <div class="content-shell">
+  <header class="topbar">
+    <div class="brand"><h1>AHT Project Control</h1><p id="projectSubtitle">Luxury Builder Project Overview</p></div>
+    <div class="profile-chip">
+      <div class="avatar" id="avatarInitials">SH</div>
+      <div><div id="userLabel" style="font-weight:750"></div><div><span id="roleLabel" class="role-pill"></span></div></div>
+      <button id="logoutBtn" class="btn" style="margin-left:8px">Sign Out</button>
+    </div>
+  </header>
+  
+  <main class="container">
+    <div id="permissionBanner" class="permission-banner"></div>
+    <section id="projects" class="view active">
+      <div class="page-header">
+        <div><div class="eyebrow">Newbury North</div><h2 id="welcomeTitle">Projects</h2><p>Only projects assigned to the signed-in user are shown.</p></div>
+      </div>
+      <div class="project-grid" id="projectGrid"></div>
+    </section>
+    <section id="dashboard" class="view">
+      <div class="page-header">
+        <div><div class="eyebrow">Project Overview</div><h2>Executive Summary</h2><p>Current status, upcoming work, and active blockers.</p></div>
+        <div class="actions">
+          <div class="project-switcher"><span class="small">Project</span><select id="projectSelect"></select></div>
+          <button class="btn primary" type="button" onclick="downloadCurrentProjectPDF()">Download PDF</button>
+        </div>
+      </div>
+      <div class="summary-ribbon">
+        <div class="summary-cell"><div class="label">Project Health</div><div class="value"><span class="status-dot" id="summaryHealthDot"></span><span id="summaryHealth">On Track</span><span class="health-mode" id="summaryHealthMode">Automatic</span><div class="health-note" id="summaryHealthNote"></div></div></div>
+        <div class="summary-cell"><div class="label">Executive Lead</div><div class="value" id="summaryExecutiveLead">—</div></div>
+        <div class="summary-cell"><div class="label">Senior Project Manager</div><div class="value" id="summarySeniorProjectManager">—</div></div>
+        <div class="summary-cell"><div class="label">Project Manager / Site Lead</div><div class="value" id="summaryProjectManagerSiteLead">—</div></div>
+        <div class="summary-cell"><div class="label">Last Updated</div><div class="value" id="summaryUpdated">—</div></div>
+        <div class="summary-cell"><div class="label">Access Level</div><div class="value" id="summaryAccess">—</div></div>
+      </div>
+      <div class="last-activity internal-activity">
+        <div class="activity-date"><span class="activity-label">Project Activity</span><span id="lastActivityDate">—</span></div>
+        <div class="activity-text" id="lastActivityText">No activity recorded.</div>
+      </div>
+      <div class="grid-kpi"><div class="kpi"><div class="num" id="kpiTotal">0</div><div class="label">DELIVERABLES</div></div><div class="kpi blue"><div class="num" id="kpiActive">0</div><div class="label">ACTIVE</div></div><div class="kpi orange"><div class="num" id="kpiWaiting">0</div><div class="label">WAITING / REVIEW</div></div><div class="kpi green"><div class="num" id="kpiComplete">0</div><div class="label">COMPLETE</div></div></div>
+      <div class="grid-2"><div class="panel"><h3>CURRENT WORK</h3><div class="body" id="currentWork"></div></div><div class="panel orange"><h3>REQUIRED FROM OTHERS</h3><div class="body" id="requiredOthers"></div></div><div class="panel green"><h3>NEXT DELIVERABLES</h3><div class="body" id="nextDeliverables"></div></div><div class="panel red"><h3>PROJECT RISKS</h3><div class="body" id="projectRisks"></div></div></div>
+    </section>
+    <section id="deliverables" class="view">
+      <div class="page-header"><div><div class="eyebrow">Project Data</div><h2>Deliverables</h2><p>Track ownership, next steps, dates, and status.</p></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary editor-only" id="addDeliverableBtn">Add Deliverable</button></div></div>
+      <div class="table-card desktop-table"><div class="table-tools"><input id="searchDeliverables" placeholder="Search deliverables…" /><select id="filterStatus"><option value="">All statuses</option></select><select id="filterDiscipline"><option value="">All disciplines</option></select></div><div style="overflow:auto"><table><thead><tr><th>Discipline</th><th>Deliverable</th><th>Operational Status</th><th>Schedule Health</th><th>Owner</th><th>Waiting On</th><th>Next Step</th><th>Target</th><th></th></tr></thead><tbody id="deliverablesBody"></tbody></table></div></div>
+      <div id="deliverableCards" class="mobile-cards"></div>
+    </section>
+    <section id="info" class="view">
+      <div class="page-header"><div><div class="eyebrow">Dependencies</div><h2>Information Required</h2><p>Track missing information and what it is blocking.</p></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary editor-only" id="addInfoBtn">Add Information Request</button></div></div>
+      <div class="table-card desktop-table"><div style="overflow:auto"><table><thead><tr><th>Item Needed</th><th>Requested From</th><th>Status</th><th>Blocking</th><th>Notes</th><th></th></tr></thead><tbody id="infoBody"></tbody></table></div></div>
+      <div id="infoCards" class="mobile-cards"></div>
+    </section>
+    <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Schedule Overview</div><h2>Gantt</h2><p>Simple visual schedule generated from Deliverable start and target dates.</p></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary" type="button" onclick="downloadCurrentGanttPDF()">Download Gantt PDF</button></div></div><div class="timeline"><div id="timelineTrack"></div></div></section>
+    <section id="calendar" class="view">
+  <div class="page-header">
+    <div>
+      <div class="eyebrow">Schedule</div>
+      <h2>Calendar & Agenda</h2>
+      <p>Generated from editable Deliverables and Information Required records.</p>
+    </div>
+    <div class="actions">
+      <div class="project-switcher">
+        <span class="small">Project</span>
+        <select class="project-select-clone"></select>
+      </div>
+      <button class="btn primary" type="button" onclick="downloadCurrentCalendarPDF()">Download Calendar PDF</button>
+    </div>
+  </div>
+
+  <div class="agenda-grid">
+    <div class="calendar-card">
+      <h3>UPCOMING AGENDA</h3>
+      <div id="agendaList"></div>
+    </div>
+
+    <div class="calendar-card">
+      <div class="calendar-nav">
+        <button class="btn calendar-nav-btn" type="button" onclick="calendarPrevMonth()">‹</button>
+
+        <div class="calendar-nav-center">
+          <h3 id="calendarMonthTitle">MONTH</h3>
+          <select id="calendarMonthPicker" class="calendar-month-picker" aria-label="Jump to month and year" onchange="calendarMonthPicked(this.value)"></select>
+        </div>
+
+        <div class="calendar-nav-actions">
+          <button class="btn calendar-today-btn" type="button" onclick="calendarToday()">Today</button>
+          <button class="btn calendar-nav-btn" type="button" onclick="calendarNextMonth()">›</button>
+        </div>
+      </div>
+
+      <div class="month-grid" id="monthGrid"></div>
+    </div>
+  </div>
+</section>
+
+    <section id="admin" class="view">
+      <div class="page-header">
+        <div><div class="eyebrow">System Control</div><h2>Administration</h2><p>Manage projects, user assignments, and access.</p></div>
+        <div class="admin-header-actions">
+          <button class="btn" id="exportBackupBtn">Export Backup</button>
+          <button class="btn" id="importBackupBtn">Import Backup</button>
+          <input id="importBackupFile" type="file" accept="application/json,.json" class="hidden" />
+          <button class="btn primary" id="newProjectBtn">Add Project</button>
+        </div>
+      </div>
+      <div class="admin-panel">
+        <h3 style="margin-top:0">Projects</h3>
+        <div id="projectAdminList" class="project-admin-list"></div>
+      </div>
+
+      <div class="admin-panel entra-access-panel" id="entraAccessPanel">
+        <div class="entra-access-heading">
+          <div>
+            <div class="eyebrow">Live Microsoft Entra</div>
+            <h3>Microsoft Access</h3>
+            <p class="small">The dedicated Project Control Security Group controls who can sign in. Dashboard profiles below control edit level and project visibility.</p>
+          </div>
+          <button class="btn" id="refreshEntraUsersBtn" type="button">Refresh Microsoft Users</button>
+        </div>
+        <div id="entraAccessStatus" class="entra-access-status">Open Administration to load the live access group.</div>
+        <div class="admin-grid entra-access-actions">
+          <div class="admin-card">
+            <h4>Add AHT Internal User</h4>
+            <p class="small">Adds an existing AHT Microsoft account to the dedicated Project Control access group.</p>
+            <label>AHT Email</label><input id="internalUserEmail" type="email" placeholder="name@ahtglobal.com" />
+            <label style="margin-top:8px">Dashboard Level</label><select id="internalUserRole"><option>Viewer</option><option>Editor</option></select>
+            <label style="margin-top:8px">Viewable Projects</label><div id="internalInviteProjects" class="invite-project-list"></div>
+            <button class="btn primary" id="addInternalBtn" type="button" style="margin-top:10px">Grant Dashboard Access</button>
+          </div>
+          <div class="admin-card">
+            <h4>Invite External User</h4>
+            <p class="small">Creates an Entra B2B guest and grants access to this dashboard group only. This does not add the guest to SharePoint.</p>
+            <label>Email</label><input id="externalInviteEmail" type="email" placeholder="person@company.com" />
+            <label style="margin-top:8px">Name</label><input id="externalInviteName" placeholder="Name" />
+            <label style="margin-top:8px">Company</label><input id="externalInviteCompany" placeholder="Company" />
+            <label style="margin-top:8px">Dashboard Level</label><select id="externalInviteRole"><option>External Viewer</option></select>
+            <label style="margin-top:8px">Viewable Projects</label><div id="externalInviteProjects" class="invite-project-list"></div>
+            <button class="btn primary" id="inviteExternalBtn" type="button" style="margin-top:10px">Create Invitation</button>
+            <div id="inviteRedeemArea" class="invite-redeem hidden">
+              <div class="small" id="inviteReadySummary"><strong>Invitation ready.</strong></div>
+              <div class="small" style="margin-top:4px">Use the Microsoft activation link below. For an existing pending guest, paste a redemption link here if needed.</div>
+              <div class="redeem-row">
+                <input id="inviteRedeemLink" placeholder="Microsoft invitation / redemption link" />
+                <button class="btn" id="copyRedeemLinkBtn" type="button">Copy Link</button>
+                <button class="btn primary" id="openInviteDraftBtn" type="button">Open Outlook Draft</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="entra-user-table-wrap">
+          <div class="entra-table-heading"><h4>Current Dashboard Access</h4><span class="small" id="entraUserCount"></span></div>
+          <table class="entra-user-table">
+            <thead><tr><th>User</th><th>Entra Type</th><th>Dashboard Level</th><th>Projects</th><th></th></tr></thead>
+            <tbody id="entraUsersBody"><tr><td colspan="5" class="small">Microsoft users have not been loaded yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="admin-panel" id="dashboardProfilePanel">
+        <div class="admin-grid">
+          <div class="admin-card">
+            <div class="admin-card-heading">
+              <h4>Dashboard Role / Project Assignment</h4>
+              <button class="btn" id="newUserBtn" type="button">Add Local Profile</button>
+            </div>
+            <label>User</label><select id="adminUserSelect"></select>
+            <label style="margin-top:10px">Name</label><input id="adminUserName" />
+            <label style="margin-top:10px">Email</label><input id="adminUserEmail" type="email" />
+            <label style="margin-top:10px">Company</label><input id="adminUserCompany" />
+            <label style="margin-top:10px">Role</label><select id="adminRoleSelect">
+              <option>Administrator</option><option>Viewer</option><option>Editor</option><option>External Viewer</option>
+            </select>
+            <div id="legacyPasswordControls"><label style="margin-top:10px">Temporary Password</label><select id="adminPasswordProfile">
+              <option value="aht">AHT Internal — ahtadmin</option>
+              <option value="external">External — user</option>
+              <option value="stacy">Stacy Administrator — ahtadmin8626</option>
+            </select></div>
+            <label class="active-user-check"><input id="adminUserActive" type="checkbox" checked /> Active user</label>
+            <label class="active-user-check"><input id="showArchivedUsers" type="checkbox" /> Show archived users</label>
+            <button class="btn danger" id="archiveUserBtn" type="button">Archive User</button>
+          </div>
+          <div class="admin-card">
+            <h4>Project Assignment</h4>
+            <label>Assigned Projects</label>
+            <div id="projectAssignmentList"></div>
+          </div>
+        </div>
+        <div style="margin-top:12px"><button class="btn primary" id="saveAccessBtn">Save User</button></div>
+      </div>
+      <div class="note">Microsoft Entra controls sign-in access. Dashboard profiles control application edit level and project visibility only.</div>
+    </section>
+
+    <section id="audit" class="view">
+      <div class="toolbar"><div><h2>Change Log</h2><div class="small">Admin-only record of additions, updates, deletions, and access changes. <span id="auditCount"></span></div></div></div>
+      <div class="audit-card">
+        <div class="audit-toolbar">
+          <input id="auditSearch" placeholder="Search change log…" />
+          <select id="auditUserFilter"><option value="">All users</option></select>
+          <select id="auditProjectFilter"><option value="">All projects</option></select>
+          <select id="auditActionFilter"><option value="">All actions</option><option>Create</option><option>Update</option><option>Delete</option><option>Access Change</option></select>
+        </div>
+        <div class="audit-table-scroll"><table>
+          <thead><tr><th>Date / Time</th><th>User</th><th>Project</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
+          <tbody id="auditBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+  </main>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop"><div class="modal"><h3 id="modalTitle">Edit</h3><form id="editForm"><div class="form-grid" id="formFields"></div><div class="modal-actions"><button type="button" class="btn danger hidden" id="deleteRecordBtn">Delete</button><span style="flex:1"></span><button type="button" class="btn" id="cancelModal">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div></div>
+
+<script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+<script src="js/config.js"></script>
+<script src="data/projects.js"></script>
+<script src="js/data-provider.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/microsoft-access.js"></script>
+<script src="js/permissions.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="js/app.js"></script>
+<script>
+
+
+
+
+
+
+
+function scheduleDate(value){
+ if(!value)return null;
+ const date=new Date(`${value}T12:00:00`);
+ return Number.isNaN(date.getTime())?null:date;
+}
+function startOfToday(){
+ const today=new Date();
+ today.setHours(12,0,0,0);
+ return today;
+}
+function activeHealthOverride(deliverable){
+ if((deliverable.healthMode||"auto")!=="manual"||!deliverable.healthOverride)return false;
+ const until=scheduleDate(deliverable.healthOverrideUntil);
+ return !until||until>=startOfToday();
+}
+function calculateDeliverableHealth(deliverable){
+ if(deliverable.status==="Complete")return "Healthy";
+ const today=startOfToday();
+ const target=scheduleDate(deliverable.date);
+ if(target&&target<today)return "Overdue";
+ const daysUntilTarget=target?Math.ceil((target-today)/86400000):null;
+ if(deliverable.status==="Blocked")return "At Risk";
+ if(String(deliverable.risk||"").trim())return "At Risk";
+ if(daysUntilTarget!==null&&daysUntilTarget<=7)return "At Risk";
+ return "Healthy";
+}
+function displayedDeliverableHealth(deliverable){
+ return activeHealthOverride(deliverable)
+   ? deliverable.healthOverride
+   : calculateDeliverableHealth(deliverable);
+}
+function calculateProjectHealth(project){
+ const deliverables=project.deliverables||[];
+ const info=project.info||[];
+ const unresolvedInfo=info.filter(i=>!["Received","No Longer Needed"].includes(i.status));
+ if(deliverables.length&&deliverables.every(d=>d.status==="Complete")&&unresolvedInfo.length===0)return "Complete";
+ const health=deliverables.map(displayedDeliverableHealth);
+ if(health.includes("Overdue"))return "Overdue";
+ if(health.includes("At Risk"))return "At Risk";
+ return "Healthy";
+}
+function activeProjectHealthOverride(project){
+ if((project.healthMode||"auto")!=="manual"||!project.healthOverride)return false;
+ const until=scheduleDate(project.healthOverrideUntil);
+ return !until||until>=startOfToday();
+}
+function displayedProjectHealth(project){
+ return activeProjectHealthOverride(project)
+   ? project.healthOverride
+   : calculateProjectHealth(project);
+}
+function healthColor(health){
+ if(health==="Complete"||health==="Healthy")return "var(--green)";
+ if(health==="At Risk")return "var(--orange)";
+ if(health==="Overdue")return "var(--red)";
+ return "var(--blue)";
+}
+function healthBadge(deliverable){
+ const displayed=displayedDeliverableHealth(deliverable);
+ const automatic=calculateDeliverableHealth(deliverable);
+ const manual=activeHealthOverride(deliverable);
+ const cls=displayed.toLowerCase().replace(/\s+/g,"-");
+ const note=manual
+   ? `Manual override${deliverable.healthOverrideUntil?` until ${fmtDate(deliverable.healthOverrideUntil)}`:""}: ${deliverable.healthOverrideReason||"No reason entered"}. Automatic: ${automatic}.`
+   : `Automatic schedule health: ${automatic}.`;
+ return `<span class="schedule-health ${cls}" title="${esc(note)}">${esc(displayed)}${manual?'<span class="manual-health-mark">M</span>':""}</span>`;
+}
+
+function snapshot(obj){return JSON.parse(JSON.stringify(obj||{}))}
+function summarizeChanges(before,after){
+ const skip=["id"];
+ const keys=[...new Set([...Object.keys(before||{}),...Object.keys(after||{})])].filter(k=>!skip.includes(k));
+ const changes=[];
+ for(const k of keys){
+   const a=before?.[k]??"", b=after?.[k]??"";
+   if(JSON.stringify(a)!==JSON.stringify(b))changes.push(`${k}: "${a}" → "${b}"`);
+ }
+ return changes.join("; ")||"No field-level changes detected.";
+}
+function logChange(action,projectId,recordType,recordName,details){
+ const project=state.projects.find(p=>p.id===projectId);
+ state.auditLog.unshift({
+   id:Date.now()+Math.random(),
+   timestamp:new Date().toISOString(),
+   userId:currentUser?.id||"system",
+   userName:currentUser?.name||"System",
+   projectId,
+   projectName:project?.name||"Administration",
+   action,
+   recordType,
+   recordName,
+   details
+ });
+}
+
+function visBadge(v){
+ const key=(v||"Shared").toLowerCase().replaceAll(" ","");
+ const cls=key==="ahtinternal"?"internal":key==="adminonly"?"admin":"shared";
+ return `<span class="visibility ${cls}">${esc(v||"Shared")}</span>`;
+}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function fmtDate(s){if(!s)return"TBD";return new Date(s+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+function badge(status){let c="pending";if(status==="In Progress")c="inprogress";else if(status.includes("Waiting"))c="waiting";else if(status==="Awaiting Review")c="review";else if(status==="Complete"||status==="Received")c="complete";else if(status==="Blocked"||status==="Outstanding")c="blocked";return `<span class="badge ${c}">${esc(status)}</span>`}
+
+function touchProject(project){
+ if(!project)return;
+ project.lastUpdatedAt=new Date().toISOString();
+ project.lastUpdatedBy=currentUser?.name||"System";
+ project.updated=new Date(project.lastUpdatedAt).toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
+}
+function formatLastUpdated(project){
+ if(!project?.lastUpdatedAt)return project?.updated||"—";
+ const when=new Date(project.lastUpdatedAt);
+ const date=when.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+ const time=when.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+ return `${date} · ${time}${project.lastUpdatedBy?` · ${project.lastUpdatedBy}`:""}`;
+}
+function showView(id){
+ if((id==="admin"||id==="audit")&&!currentUser?.canAdmin){
+   id="projects";
+ }
+ document.querySelectorAll(".sidebar-nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===id));
+ document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
+ if(id==="timeline"&&typeof resetGanttGroups==="function"){
+   resetGanttGroups();
+   render();
+ }
+ if(id==="admin"&&window.MicrosoftAccess){
+   window.MicrosoftAccess.onAdminView();
+ }
+}
+function setProject(id){
+ if(!allowedProjects().some(p=>p.id===id))return;
+ state.currentProjectId=id;
+ localStorage.setItem("ahtProjectControl.currentProjectId",id);
+ render();
+}
+function clampPercent(value){
+ const n=Number(value);
+ if(!Number.isFinite(n))return 0;
+ return Math.max(0,Math.min(100,Math.round(n)));
+}
+const PROGRESS_STATUS_WEIGHTS={
+ "Complete":100,
+ "Awaiting Review":80,
+ "In Progress":55,
+ "Waiting on Information":25,
+ "Blocked":25,
+ "Pending":10,
+ "Not Started":0
+};
+function autoPhaseProgress(project,phase){
+ const records=(project.deliverables||[]).filter(d=>d.progressPhase===phase);
+ if(!records.length)return 0;
+ return Math.round(records.reduce((sum,d)=>sum+(PROGRESS_STATUS_WEIGHTS[d.status]??0),0)/records.length);
+}
+function phaseProgressMode(project,phase){
+ const key=`progress${phase}Mode`;
+ return project[key]||"manual";
+}
+function displayedPhaseProgress(project,phase){
+ const manualKey=`progress${phase}`;
+ return phaseProgressMode(project,phase)==="manual"
+   ? clampPercent(project[manualKey]||0)
+   : autoPhaseProgress(project,phase);
+}
+function automaticOverallProgress(project){
+ return Math.round(
+  displayedPhaseProgress(project,"Planning")*0.15+
+  displayedPhaseProgress(project,"Engineering")*0.35+
+  displayedPhaseProgress(project,"Installation")*0.50
+ );
+}
+function weightedProjectProgress(project){
+ return (project.progressOverallMode||"auto")==="manual"
+   ? clampPercent(project.progressOverallOverride||0)
+   : automaticOverallProgress(project);
+}
+function projectProgress(deliverables){
+ if(!deliverables.length)return 0;
+ return Math.round(deliverables.reduce((sum,d)=>sum+(PROGRESS_STATUS_WEIGHTS[d.status]??0),0)/deliverables.length);
+}
+function progressModeMark(mode){return mode==="manual"?'<span class="manual-health-mark" title="Manual override">M</span>':""}
+
+function field(name,label,val,cls="",type="input"){return `<div class="field ${cls}"><label>${label}</label>${type==="textarea"?`<textarea name="${name}" rows="3">${esc(val)}</textarea>`:`<input name="${name}" value="${esc(val??"")}">`}</div>`}
+function dateField(name,label,val){return `<div class="field"><label>${label}</label><input type="date" name="${name}" value="${esc(val??"")}"></div>`}
+function projectTeamField(name,label,val){
+ const users=USERS.filter(u=>u.isInternal&&u.active!==false).slice().sort((a,b)=>a.name.localeCompare(b.name));
+ return `<div class="field"><label>${label}</label><select name="${name}"><option value="">— Unassigned —</option>${users.map(u=>`<option value="${esc(u.name)}" ${u.name===val?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div>`;
+}
+function selectField(name,label,opts,val){return `<div class="field"><label>${label}</label><select name="${name}">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select></div>`}
+function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;if(type!=="project"&&!currentUser.canEdit)return;editContext={type,id:obj?.id??null};deleteRecordBtn.classList.toggle("hidden",!obj||type==="project");modalTitle.textContent=(obj?"Edit ":"Add ")+(type==="deliverable"?"Deliverable":type==="info"?"Information Request":"Project");const d=obj||{};formFields.innerHTML=type==="project"?`
+    ${field("address","Project Address",d.address||d.name||"")}
+    ${field("city","City",d.city||((d.subtitle||"").split(",")[0])||"Naples")}
+    ${field("state","State",d.state||((d.subtitle||"").split(",")[1]||"FL").trim())}
+    ${field("description","Builder / Client",d.description||((d.subtitle||"").includes("·")?(d.subtitle.split("·")[1]||"").trim():""),"full")}
+    ${projectTeamField("executiveLead","Executive Lead",d.executiveLead||"")}
+    ${projectTeamField("seniorProjectManager","Senior Project Manager",d.seniorProjectManager||"")}
+    ${projectTeamField("projectManagerSiteLead","Project Manager / Site Lead",d.projectManagerSiteLead||"")}
+            ${currentUser.canAdmin?`<div class="field full progress-control-section"><label>Progress Control</label>
+      <div class="automatic-health-preview">Automatic phase results from assigned deliverables: Planning <strong>${autoPhaseProgress(d,"Planning")}%</strong> · Engineering <strong>${autoPhaseProgress(d,"Engineering")}%</strong> · Installation <strong>${autoPhaseProgress(d,"Installation")}%</strong></div>
+      <div class="phase-control-cards">
+        <div class="phase-control-card"><div class="phase-control-title">Planning</div>${selectField("progressPlanningMode","Mode",["auto","manual"],d.progressPlanningMode||"manual")}${field("progressPlanning","Manual %",d.progressPlanning??0)}</div>
+        <div class="phase-control-card"><div class="phase-control-title">Engineering</div>${selectField("progressEngineeringMode","Mode",["auto","manual"],d.progressEngineeringMode||"manual")}${field("progressEngineering","Manual %",d.progressEngineering??0)}</div>
+        <div class="phase-control-card"><div class="phase-control-title">Installation</div>${selectField("progressInstallationMode","Mode",["auto","manual"],d.progressInstallationMode||"manual")}${field("progressInstallation","Manual %",d.progressInstallation??0)}</div>
+      </div>
+      <div class="overall-progress-control"><div class="phase-control-title">Overall Project</div><div class="overall-progress-grid">${selectField("progressOverallMode","Mode",["auto","manual"],d.progressOverallMode||"auto")}${field("progressOverallOverride","Manual %",d.progressOverallOverride??automaticOverallProgress(d))}</div></div>
+      <div class="phase-progress-note">Auto uses deliverable status within each Progress Phase. Overall Auto remains weighted Planning 15% + Engineering 35% + Installation 50%. Manual values are retained and can be used at any time.</div></div>`:""}
+    ${selectField("phase","Phase",["Planning","Design Development","Engineering","Permitting","Rough-In","Trim","Final","Complete"],d.phase||"Planning")}
+    ${currentUser.canAdmin?`<div class="field full health-override-section"><label>Project Schedule Health</label>
+      <div class="automatic-health-preview">Automatic result: <strong>${calculateProjectHealth(d)}</strong></div>
+      <div class="health-override-grid">
+        ${selectField("healthMode","Health Mode",["auto","manual"],d.healthMode||"auto")}
+        ${selectField("healthOverride","Manual Override",["","Healthy","At Risk","Overdue"],d.healthOverride||"")}
+        ${dateField("healthOverrideUntil","Override Until (optional)",d.healthOverrideUntil||"")}
+      </div>
+      ${field("healthOverrideReason","Override Reason",d.healthOverrideReason||"","full","textarea")}
+      <div class="health-control-note">Project health normally follows the deliverables. Use Manual only when the automatic result does not reflect the known project condition.</div>
+    </div>`:""}
+    <div class="field full"><label>Assigned Users</label><div class="checkbox-list">${USERS.map(u=>`<label><input type="checkbox" name="assignedUsers" value="${u.id}" ${(d.assignedUsers||[]).includes(u.id)||u.id==="stacy"||u.id==="bill"||u.id==="shaun"?"checked":""}> ${esc(u.name)}</label>`).join("")}</div></div>
+  `:type==="deliverable"?`${selectField("progressPhase","Progress Phase",["","Planning","Engineering","Installation","Exclude"],d.progressPhase||"")}${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Operational Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${dateField("startDate","Start Date",d.startDate)}${dateField("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}
+    <div class="field full health-override-section">
+      <label>Schedule Health</label>
+      <div class="automatic-health-preview">Automatic result: <strong>${calculateDeliverableHealth(d)}</strong></div>
+      <div class="health-override-grid">
+        ${selectField("healthMode","Health Mode",["auto","manual"],d.healthMode||"auto")}
+        ${selectField("healthOverride","Manual Override",["","Healthy","At Risk","Overdue"],d.healthOverride||"")}
+        ${dateField("healthOverrideUntil","Override Until (optional)",d.healthOverrideUntil||"")}
+      </div>
+      ${field("healthOverrideReason","Override Reason",d.healthOverrideReason||"","full","textarea")}
+      <div class="health-control-note">Use a manual override only when the displayed schedule health does not reflect a known, approved project condition. A reason is required. If an expiration date is entered, automatic health resumes after that date.</div>
+    </div>`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;
+  const canDeleteCurrent =
+    Boolean(editContext?.id) &&
+    (
+      editContext.type === "project"
+        ? Boolean(currentUser?.canAdmin)
+        : Boolean(currentUser?.canEdit)
+    );
+
+  deleteRecordBtn.classList.toggle("hidden", !canDeleteCurrent);
+  deleteRecordBtn.textContent =
+    editContext.type === "project" ? "Delete Project" : "Delete";
+
+  modalBackdrop.style.display="flex";
+  syncProjectProgressControls();
+  ["progressPlanningMode","progressEngineeringMode","progressInstallationMode","progressOverallMode"].forEach(name=>{
+    formFields.querySelector(`[name="${name}"]`)?.addEventListener("change",syncProjectProgressControls);
+  });
+  requestAnimationFrame(()=>formFields.querySelector("input, select, textarea")?.focus());
+}
+
+function syncProjectProgressControls(){
+  const pairs=[
+    ["progressPlanningMode","progressPlanning"],
+    ["progressEngineeringMode","progressEngineering"],
+    ["progressInstallationMode","progressInstallation"],
+    ["progressOverallMode","progressOverallOverride"]
+  ];
+  pairs.forEach(([modeName,valueName])=>{
+    const mode=formFields.querySelector(`[name="${modeName}"]`);
+    const input=formFields.querySelector(`[name="${valueName}"]`);
+    if(!mode||!input)return;
+    const auto=mode.value==="auto";
+    input.readOnly=auto;
+    input.closest(".field")?.classList.toggle("auto-value-disabled",auto);
+  });
+}
+
+function activeAdministratorCount(){
+ return USERS.filter(user=>user.active!==false&&user.role==="Administrator").length;
+}
+
+async function archiveSelectedUser(){
+ const user=USERS.find(item=>item.id===adminUserSelect.value);
+ if(!user){
+   alert("Select a user first.");
+   return;
+ }
+ if(user.id===currentUser?.id){
+   alert("You cannot archive the account you are currently using.");
+   return;
+ }
+ if(user.role==="Administrator"&&user.active!==false&&activeAdministratorCount()<=1){
+   alert("You cannot archive the last active Administrator.");
+   return;
+ }
+ if(!confirm(`Archive ${user.name}?\n\nThey will no longer appear on the login screen, but their change-log history will be preserved.`)){
+   return;
+ }
+ user.active=false;
+ await DataProvider.saveUsers(USERS);
+ logChange("Access Change","admin","User Access",user.name,"User archived.");
+ await DataProvider.saveState(state);
+ populateLoginUsers(currentUser?.id||"");
+ adminUserSelect.value="";
+ alert("User archived.");
+ render();
+}
+
+function userIdFromInput(name,email){
+ const source=(email||name||"user").trim().toLowerCase();
+ const base=source
+   .replace(/@.*$/,"")
+   .replace(/[^a-z0-9]+/g,".")
+   .replace(/^\.|\.$/g,"")||"user";
+ let id=base;
+ let counter=2;
+ while(USERS.some(user=>user.id===id)){
+   id=`${base}.${counter++}`;
+ }
+ return id;
+}
+
+function setUserRoleFlags(user){
+ user.canAdmin=user.role==="Administrator";
+ user.canEdit=user.role==="Administrator"||user.role==="Editor";
+ user.isInternal=user.role!=="External Viewer";
+}
+
+function startNewUser(){
+ creatingUser=true;
+ adminUserSelect.value="";
+ adminUserName.value="";
+ adminUserEmail.value="";
+ adminUserCompany.value="AHT Global";
+ adminRoleSelect.value="Editor";
+ adminPasswordProfile.value="aht";
+ adminPasswordProfile.disabled=false;
+ adminUserActive.checked=true;
+ projectAssignmentList.querySelectorAll("input").forEach(input=>input.checked=false);
+ archiveUserBtn.disabled=true;
+ adminUserName.focus();
+}
+
+newUserBtn.onclick=startNewUser;
+archiveUserBtn.onclick=archiveSelectedUser;
+showArchivedUsers.onchange=renderAdmin;
+adminUserSelect.onchange=()=>{
+ creatingUser=false;
+ renderAdmin();
+};
+
+saveAccessBtn.onclick=async()=>{
+ const name=adminUserName.value.trim();
+ if(!name){
+   alert("Enter the user's name.");
+   return;
+ }
+
+ let user=creatingUser?null:USERS.find(x=>x.id===adminUserSelect.value);
+ const isNew=!user;
+
+ if(isNew){
+   user={
+     id:userIdFromInput(name,adminUserEmail.value),
+     name:"",
+     email:"",
+     company:"",
+     role:"External Viewer",
+     passwordProfile:"external",
+     active:true,
+     projects:[],
+     canEdit:false,
+     canAdmin:false,
+     isInternal:false
+   };
+   USERS.push(user);
+ }
+
+ user.name=name;
+ user.email=adminUserEmail.value.trim();
+ user.company=adminUserCompany.value.trim();
+ const previousRole=user.role;
+ user.role=adminRoleSelect.value;
+ if(user.entraUserType==="Guest") user.role="External Viewer";
+ if(user.id===currentUser?.id&&user.role!==previousRole){
+   alert("For safety, you cannot change the Administrator role of the account you are currently using. Another Administrator can change it.");
+   user.role=previousRole;
+   return;
+ }
+ if(previousRole==="Administrator"&&user.role!=="Administrator"&&user.active!==false&&activeAdministratorCount()<=1){
+   alert("You cannot remove the last active Administrator.");
+   user.role=previousRole;
+   return;
+ }
+ const configuredAdmin=(APP_CONFIG.entra.adminEmails||[]).map(x=>String(x).toLowerCase()).includes(String(user.email||"").toLowerCase());
+ if(configuredAdmin) user.role="Administrator";
+ user.passwordProfile=user.id==="stacy"?"stacy":adminPasswordProfile.value;
+
+ const requestedActive=adminUserActive.checked;
+ if(user.id===currentUser?.id&&!requestedActive){
+   alert("You cannot deactivate the account you are currently using.");
+   return;
+ }
+ if(user.role==="Administrator"&&!requestedActive&&user.active!==false&&activeAdministratorCount()<=1){
+   alert("You cannot deactivate the last active Administrator.");
+   return;
+ }
+
+ user.active=requestedActive;
+ setUserRoleFlags(user);
+
+ const selected=[...projectAssignmentList.querySelectorAll("input:checked")].map(x=>x.value);
+ user.projects=user.canAdmin?["*"]:selected;
+
+ await DataProvider.saveUsers(USERS);
+ if(window.MicrosoftAccess?.saveDashboardProfile){
+   try{ await window.MicrosoftAccess.saveDashboardProfile(user); }
+   catch(error){ alert(`Dashboard profile was saved locally, but Microsoft profile sync failed: ${error.message}`); }
+ }
+ logChange(
+   isNew?"Create":"Access Change",
+   "admin",
+   "User Access",
+   user.name,
+   `${isNew?"User created":"User updated"}; role: ${user.role}; projects: ${user.projects.join(", ")||"none"}; active: ${user.active?"yes":"no"}.`
+ );
+ await DataProvider.saveState(state);
+
+ creatingUser=false;
+ populateLoginUsers(user.id);
+ adminUserSelect.value=user.id;
+ alert(isNew?"User added.":"User updated.");
+ render();
+};
+
+
+window.editProject=id=>{
+ const p=state.projects.find(x=>x.id===id);
+ const assignedUsers=USERS.filter(u=>u.projects.includes("*")||u.projects.includes(id)).map(u=>u.id);
+ openModal("project",{...p,address:p.address||p.name,city:p.city||((p.subtitle||"").split(",")[0])||"",state:p.state||"FL",description:p.description||"",assignedUsers});
+};
+window.toggleArchive=id=>{
+ const p=state.projects.find(x=>x.id===id);
+ if(!p||!currentUser.canAdmin)return;
+ p.archived=!p.archived;
+ touchProject(p);
+ logChange("Update",p.id,"Project",p.name,p.archived?"Project archived.":"Project restored.");
+ save();
+};
+newProjectBtn.onclick=()=>openModal("project");
+const importBackupFileInput=document.getElementById("importBackupFile");
+exportBackupBtn.onclick=exportBackup;
+importBackupBtn.onclick=()=>{
+ if(!currentUser?.canAdmin)return;
+ if(!confirm("Importing a backup replaces the dashboard data stored in this browser. Export the current data first if you may need it later. Continue?"))return;
+ importBackupFileInput.click();
+};
+importBackupFileInput.onchange=e=>importBackupFile(e.target.files?.[0]);
+
+document.querySelectorAll(".sidebar-nav button").forEach(b=>b.onclick=()=>showView(b.dataset.view));projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
+window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&modalBackdrop.style.display==="flex"){
+    e.preventDefault();
+    modalBackdrop.style.display="none";
+  }
+});
+editForm.onsubmit=e=>{
+ e.preventDefault();
+ const fd=new FormData(editForm);
+ const obj=Object.fromEntries(fd.entries());
+
+ if(editContext.type==="project"){
+   const assignedUsers=fd.getAll("assignedUsers");
+   const address=String(obj.address||"").trim();
+   const city=String(obj.city||"").trim();
+   const stateCode=String(obj.state||"").trim();
+   const description=String(obj.description||"").trim();
+   if(!address){alert("Enter the project address.");return;}
+   if(!city){alert("Enter the city.");return;}
+   if(!stateCode){alert("Enter the state.");return;}
+   if(currentUser.canAdmin&&obj.healthMode==="manual"&&!String(obj.healthOverride||"").trim()){alert("Choose a manual project-health override or return Health Mode to auto.");return;}
+   if(currentUser.canAdmin&&obj.healthMode==="manual"&&!String(obj.healthOverrideReason||"").trim()){alert("Enter the reason for the manual project-health override.");return;}
+   if(editContext.id){
+     const p=state.projects.find(x=>x.id===editContext.id),before=snapshot(p);
+     p.name=address;
+     p.address=address;
+     p.city=city;
+     p.state=stateCode;
+     p.description=description;
+     p.executiveLead=String(obj.executiveLead||"").trim();
+     p.seniorProjectManager=String(obj.seniorProjectManager||"").trim();
+     p.projectManagerSiteLead=String(obj.projectManagerSiteLead||"").trim();
+     p.subtitle=`${city}, ${stateCode}${description?` · ${description}`:""}`;
+     if(currentUser.canAdmin){
+       p.lastActivityDate=String(obj.lastActivityDate||"").trim();
+       p.lastActivity=String(obj.lastActivity||"").trim();
+       p.progressPlanning=clampPercent(obj.progressPlanning);
+       p.progressPlanningMode=obj.progressPlanningMode==="auto"?"auto":"manual";
+       p.progressEngineering=clampPercent(obj.progressEngineering);
+       p.progressEngineeringMode=obj.progressEngineeringMode==="auto"?"auto":"manual";
+       p.progressInstallation=clampPercent(obj.progressInstallation);
+       p.progressInstallationMode=obj.progressInstallationMode==="auto"?"auto":"manual";
+       p.progressOverallMode=obj.progressOverallMode==="manual"?"manual":"auto";
+       p.progressOverallOverride=clampPercent(obj.progressOverallOverride);
+       p.healthMode=obj.healthMode==="manual"?"manual":"auto";
+       p.healthOverride=p.healthMode==="manual"?String(obj.healthOverride||"").trim():"";
+       p.healthOverrideReason=p.healthMode==="manual"?String(obj.healthOverrideReason||"").trim():"";
+       p.healthOverrideUntil=p.healthMode==="manual"?String(obj.healthOverrideUntil||"").trim():"";
+     }
+     p.phase=obj.phase;
+     USERS.forEach(u=>{
+       if(u.projects.includes("*"))return;
+       const has=u.projects.includes(p.id),should=assignedUsers.includes(u.id);
+       if(should&&!has)u.projects.push(p.id);
+       if(!should&&has)u.projects=u.projects.filter(x=>x!==p.id);
+     });
+     touchProject(p);
+     logChange("Update",p.id,"Project",p.name,summarizeChanges(before,p));
+   }else{
+     const baseId=String(address||"PROJECT")
+  .trim()
+  .toUpperCase()
+  .replace(/\b(DRIVE|DR|STREET|ST|ROAD|RD|AVENUE|AVE|LANE|LN|COURT|CT|BOULEVARD|BLVD|WAY|PLACE|PL)\b\.?/g,"")
+  .replace(/[^A-Z0-9]+/g,"-")
+  .replace(/^-+|-+$/g,"")
+  .replace(/-+/g,"-");
+
+let id=baseId||`PROJECT-${Date.now()}`;
+if(state.projects.some(project=>String(project.id).toUpperCase()===id)){
+  let suffix=2;
+  const original=id;
+  while(state.projects.some(project=>String(project.id).toUpperCase()===`${original}-${suffix}`)){
+    suffix++;
+  }
+  id=`${original}-${suffix}`;
+}
+     const p={
+       id,
+       name:address,
+       address,
+       city,
+       state:stateCode,
+       description,
+       executiveLead:String(obj.executiveLead||"").trim(),
+       seniorProjectManager:String(obj.seniorProjectManager||"").trim(),
+       projectManagerSiteLead:String(obj.projectManagerSiteLead||"").trim(),
+       subtitle:`${city}, ${stateCode}${description?` · ${description}`:""}`,
+       lastActivityDate:String(obj.lastActivityDate||"").trim(),
+       lastActivity:String(obj.lastActivity||"").trim(),
+       progressPlanning:clampPercent(obj.progressPlanning),
+       progressPlanningMode:obj.progressPlanningMode==="auto"?"auto":"manual",
+       progressEngineering:clampPercent(obj.progressEngineering),
+       progressEngineeringMode:obj.progressEngineeringMode==="auto"?"auto":"manual",
+       progressInstallation:clampPercent(obj.progressInstallation),
+       progressInstallationMode:obj.progressInstallationMode==="auto"?"auto":"manual",
+       progressOverallMode:obj.progressOverallMode==="manual"?"manual":"auto",
+       progressOverallOverride:clampPercent(obj.progressOverallOverride),
+       phase:obj.phase,
+       healthMode:obj.healthMode==="manual"?"manual":"auto",
+       healthOverride:obj.healthMode==="manual"?String(obj.healthOverride||"").trim():"",
+       healthOverrideReason:obj.healthMode==="manual"?String(obj.healthOverrideReason||"").trim():"",
+       healthOverrideUntil:obj.healthMode==="manual"?String(obj.healthOverrideUntil||"").trim():"",
+       archived:false,
+       lastUpdatedAt:new Date().toISOString(),
+       lastUpdatedBy:currentUser?.name||"System",
+       updated:new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}),
+       deliverables:[],
+       info:[]
+     };
+     state.projects.push(p);
+     USERS.forEach(u=>{
+       if(u.projects.includes("*"))return;
+       if(assignedUsers.includes(u.id)&&!u.projects.includes(id))u.projects.push(id);
+     });
+     state.currentProjectId=id;
+     logChange("Create",id,"Project",p.name,`Project created in ${p.phase} phase with ${displayedProjectHealth(p)} health (${p.healthMode==="manual"?"manual override":"automatic"}).`);
+   }
+   modalBackdrop.style.display="none";save();return;
+ }
+
+ const obj2=Object.fromEntries(new FormData(editForm).entries()),p=currentProject(),arr=editContext.type==="deliverable"?p.deliverables:p.info;
+ if(editContext.type==="deliverable"){
+   obj2.healthMode=obj2.healthMode==="manual"?"manual":"auto";
+   obj2.healthOverride=obj2.healthMode==="manual"?String(obj2.healthOverride||"").trim():"";
+   obj2.healthOverrideReason=obj2.healthMode==="manual"?String(obj2.healthOverrideReason||"").trim():"";
+   obj2.healthOverrideUntil=obj2.healthMode==="manual"?String(obj2.healthOverrideUntil||"").trim():"";
+   if(obj2.healthMode==="manual"&&!obj2.healthOverride){
+     alert("Choose a manual schedule-health override or return Health Mode to auto.");
+     return;
+   }
+   if(obj2.healthMode==="manual"&&!obj2.healthOverrideReason){
+     alert("Enter the reason for the manual schedule-health override.");
+     return;
+   }
+ }
+ if(editContext.id){
+   const i=arr.findIndex(x=>x.id===editContext.id),before=snapshot(arr[i]);
+   arr[i]={...arr[i],...obj2};
+   logChange("Update",p.id,editContext.type==="deliverable"?"Deliverable":"Information Request",arr[i].deliverable||arr[i].item,summarizeChanges(before,arr[i]));
+ }else{
+   const record={id:Date.now(),...obj2};
+   arr.push(record);
+   logChange("Create",p.id,editContext.type==="deliverable"?"Deliverable":"Information Request",record.deliverable||record.item,`Created with status "${record.status||""}".`);
+ }
+ touchProject(p);
+ modalBackdrop.style.display="none";save();
+};
+
+deleteRecordBtn.onclick=async()=>{
+ if(!editContext?.id)return;
+
+ if(editContext.type==="project"){
+   if(!currentUser?.canAdmin)return;
+
+   const i=state.projects.findIndex(x=>x.id===editContext.id);
+   if(i<0)return;
+
+   const project=state.projects[i];
+   const name=project.name||project.address||project.id;
+
+   if(!confirm(
+     `Permanently delete "${name}"?\n\n`+
+     `This removes the project, its Deliverables, its Information Required records, `+
+     `and explicit user project assignments from Project Control and SharePoint.\n\n`+
+     `This cannot be undone.`
+   ))return;
+
+   const typed=prompt(`Type DELETE to permanently remove "${name}".`);
+   if(String(typed||"").trim().toUpperCase()!=="DELETE")return;
+
+   deleteRecordBtn.disabled=true;
+   deleteRecordBtn.textContent="Deleting...";
+
+   try{
+     if(typeof DataProvider?.deleteProject==="function"){
+       await DataProvider.deleteProject(project);
+     }else{
+       throw new Error("The active data provider does not support project deletion.");
+     }
+
+     // Remove the project from Microsoft sharedProfiles too, so a later
+     // Microsoft Access refresh cannot restore a stale ProjectKey.
+     if(typeof window.MicrosoftAccess?.removeProjectFromProfiles==="function"){
+       await window.MicrosoftAccess.removeProjectFromProfiles(project.id);
+     }
+
+     // Remove explicit local/dashboard assignments. "*" remains all projects.
+     USERS.forEach(user=>{
+       if(user.projects?.includes("*"))return;
+       user.projects=(user.projects||[]).filter(projectId=>projectId!==project.id);
+     });
+
+     logChange(
+       "Delete",
+       project.id,
+       "Project",
+       name,
+       "Project permanently deleted with child records and explicit access assignments."
+     );
+
+     state.projects.splice(i,1);
+
+     if(state.currentProjectId===project.id){
+       state.currentProjectId=state.projects.find(x=>!x.archived)?.id||state.projects[0]?.id||"";
+     }
+
+     modalBackdrop.style.display="none";
+     await save();
+     render();
+     alert(`"${name}" was permanently deleted.`);
+   }catch(error){
+     console.error("Project deletion failed.",error);
+     alert(`Project deletion failed: ${error?.message||error}`);
+     deleteRecordBtn.disabled=false;
+     deleteRecordBtn.textContent="Delete Project";
+   }
+
+   return;
+ }
+
+ if(!currentUser?.canEdit)return;
+
+ const p=currentProject();
+ const arr=editContext.type==="deliverable"?p.deliverables:p.info;
+ const i=arr.findIndex(x=>x.id===editContext.id);
+ if(i<0)return;
+
+ const record=arr[i],name=record.deliverable||record.item;
+ if(!confirm(`Delete "${name}"? This will be recorded in the change log.`))return;
+
+ arr.splice(i,1);
+ touchProject(p);
+ logChange(
+   "Delete",
+   p.id,
+   editContext.type==="deliverable"?"Deliverable":"Information Request",
+   name,
+   "Record deleted."
+ );
+ modalBackdrop.style.display="none";
+ save();
+};
+
+initializeApplication();
+</script>
+<!-- Dedicated low-voltage wall pathway under development with Newbury Engineering to simplify routing, avoid post-tension slab fastening, and reduce conflicts with mechanical, plumbing, and electrical trades. -->
+</body>
+</html>

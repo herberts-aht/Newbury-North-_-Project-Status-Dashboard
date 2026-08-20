@@ -1,0 +1,5 @@
+"ID","Title","RequestedFrom","RequestStatus","Blocking","NeededBy","Notes"
+"1","Current architectural CAD backgrounds","Architectural Team / Jake","Outstanding","Coordinated AV drawings, equipment-room layouts, and technical power planning.",,"AHT has preliminary zoning/marked-up information but needs usable current CAD backgrounds to advance coordinated design."
+"2","Radiance lighting design and fixture direction","Radiance","Outstanding","Lighting-control design, lighting power requirements, and coordinated ceiling/control planning.",,"Tunable-white Lutron fixtures were discussed as a possible direction; final fixture/control direction has not been established."
+"3","CES electrical load calculations / early one-line","CES / Eli","Outstanding","Battery/inverter/load-shedding sizing and confirmation of plant-building equipment-space requirements.",,"Incoming service was discussed as 2,000A and requires verification together with usable preliminary load information."
+"8","Lighting Keypad Review Comments","Russel / Team","Pending","Lighting finalization","08/07/2026 00:00:00","Review comments required to continue keypad layout coordination."
