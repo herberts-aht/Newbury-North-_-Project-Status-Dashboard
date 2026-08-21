@@ -8,8 +8,8 @@
 
 const APP_CONFIG = Object.freeze({
   appName: "AHT Project Control",
-  version: "0.14.44",
-  buildDate: "2026-08-14",
+  version: "0.14.56",
+  buildDate: "2026-08-21",
 
   // Development stays fully local until Entra and hosting are approved.
   environment: "production",
@@ -87,7 +87,10 @@ const APP_CONFIG = Object.freeze({
       deliverables: "Deliverables",
       informationRequired: "Information Required",
       dashboardAccess: "Dashboard Access",
-      changeLog: "Change Log"
+      changeLog: "Change Log",
+      projectActivity: "Project Activity",
+      comments: "Project Comments",
+      commentNotifications: "Project Comment Notifications"
     })
   }),
 

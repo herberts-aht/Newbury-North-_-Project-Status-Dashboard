@@ -88,8 +88,18 @@
         <div class="summary-cell"><div class="label">Access Level</div><div class="value" id="summaryAccess">—</div></div>
       </div>
       <div class="last-activity internal-activity">
-        <div class="activity-date"><span class="activity-label">Project Activity</span><span id="lastActivityDate">—</span></div>
-        <div class="activity-text" id="lastActivityText">No activity recorded.</div>
+        <div class="activity-date">
+          <span class="activity-label">Project Activity</span>
+          <span id="lastActivityDate">—</span>
+        </div>
+        <div class="activity-main">
+          <div class="activity-phase hidden" id="lastActivityPhase"></div>
+          <div class="activity-text" id="lastActivityText">No activity recorded.</div>
+        </div>
+        <div class="activity-actions">
+          <button class="btn project-comment-btn hidden" id="addProjectCommentBtn" type="button" title="General project comments">💬 Project Comment</button>
+          <button class="btn activity-add-btn admin-only" id="addProjectActivityBtn" type="button">Add Activity</button>
+        </div>
       </div>
       <div class="grid-kpi"><div class="kpi"><div class="num" id="kpiTotal">0</div><div class="label">DELIVERABLES</div></div><div class="kpi blue"><div class="num" id="kpiActive">0</div><div class="label">ACTIVE</div></div><div class="kpi orange"><div class="num" id="kpiWaiting">0</div><div class="label">WAITING / REVIEW</div></div><div class="kpi green"><div class="num" id="kpiComplete">0</div><div class="label">COMPLETE</div></div></div>
       <div class="grid-2"><div class="panel"><h3>CURRENT WORK</h3><div class="body" id="currentWork"></div></div><div class="panel orange"><h3>REQUIRED FROM OTHERS</h3><div class="body" id="requiredOthers"></div></div><div class="panel green"><h3>NEXT DELIVERABLES</h3><div class="body" id="nextDeliverables"></div></div><div class="panel red"><h3>PROJECT RISKS</h3><div class="body" id="projectRisks"></div></div></div>
@@ -265,17 +275,65 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="commentsBackdrop">
+  <div class="modal comments-modal">
+    <div class="comments-modal-heading">
+      <div><div class="eyebrow">Record Coordination</div><h3 id="commentsTitle">Comments</h3><div class="small" id="commentsSubtitle"></div></div>
+      <button class="btn" type="button" id="closeCommentsBtn">Close</button>
+    </div>
+    <div class="comments-list" id="commentsList"></div>
+    <div class="comments-resolved-toggle"><label><input type="checkbox" id="showResolvedComments" /> Show resolved</label></div>
+    <form id="commentForm" class="comment-form">
+      <label>Add a quick coordination comment</label>
+      <textarea id="commentText" rows="3" maxlength="1200" placeholder="Example: I think the lighting due date needs to be updated based on Friday's call."></textarea>
+      <details class="comment-mention-picker" id="commentMentionPicker">
+        <summary><span>@ Mention / notify people in Teams</span><span class="comment-mention-count" id="commentMentionCount">Optional</span></summary>
+        <div class="comment-mention-list" id="commentMentionList"></div>
+      </details>
+      <div class="small comment-permission-note" id="commentPermissionNote"></div>
+      <div class="modal-actions"><span style="flex:1"></span><button class="btn primary" type="submit" id="postCommentBtn">Add Comment</button></div>
+    </form>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modalBackdrop"><div class="modal"><h3 id="modalTitle">Edit</h3><form id="editForm"><div class="form-grid" id="formFields"></div><div class="modal-actions"><button type="button" class="btn danger hidden" id="deleteRecordBtn">Delete</button><span style="flex:1"></span><button type="button" class="btn" id="cancelModal">Cancel</button><button class="btn primary" type="submit">Save</button></div></form></div></div>
 
+<div class="modal-backdrop" id="projectActivityModalBackdrop">
+  <div class="modal project-activity-modal">
+    <div class="project-activity-modal-heading">
+      <div><div class="eyebrow">Project Progress</div><h3>Project Activity</h3></div>
+      <button class="btn" id="closeProjectActivityModal" type="button">Close</button>
+    </div>
+    <form id="projectActivityForm">
+      <div class="form-grid">
+        <div class="field"><label>Date</label><input id="projectActivityDate" name="date" type="date" required /></div>
+        <div class="field"><label>Phase / Category <span class="small">(optional)</span></label>
+          <select id="projectActivityPhase" name="phase">
+            <option value="">No category</option>
+            <option>Planning</option><option>Engineering</option><option>Permitting</option><option>Procurement</option>
+            <option>Rough-In</option><option>Trim / Installation</option><option>Programming</option><option>Commissioning</option><option>Closeout</option>
+          </select>
+        </div>
+        <div class="field full"><label>Activity</label><textarea id="projectActivityText" name="activity" rows="3" required placeholder="Example: First-floor rough-in started."></textarea></div>
+      </div>
+      <div class="modal-actions"><span style="flex:1"></span><button class="btn primary" type="submit">Add Activity</button></div>
+    </form>
+    <div class="project-activity-history-section">
+      <div class="project-activity-history-heading"><h4>Activity History</h4><span class="small" id="projectActivityHistoryCount"></span></div>
+      <div class="project-activity-history" id="projectActivityHistory"></div>
+    </div>
+  </div>
+</div>
+
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
-<script src="js/config.js"></script>
+<script src="js/config.js?v=0.14.50"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js"></script>
+<script src="js/data-provider.js?v=0.14.50"></script>
 <script src="js/storage.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/microsoft-access.js"></script>
 <script src="js/permissions.js"></script>
-<script src="js/dashboard.js"></script>
+<script src="js/dashboard.js?v=0.14.50"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js"></script>
@@ -286,6 +344,72 @@
 
 
 
+
+
+function projectActivityToday(){
+ const d=new Date();
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function renderProjectActivityHistory(){
+ const p=currentProject();
+ const list=[...(p?.activities||[])].sort((a,b)=>String(b.date).localeCompare(String(a.date))||Number(b.id||0)-Number(a.id||0));
+ projectActivityHistoryCount.textContent=`${list.length} entr${list.length===1?"y":"ies"}`;
+ projectActivityHistory.innerHTML=list.length?list.map(item=>`<div class="project-activity-history-item">
+   <div class="project-activity-history-meta"><strong>${fmtDate(item.date)}</strong>${item.phase?`<span class="activity-phase-badge">${esc(item.phase)}</span>`:""}</div>
+   <div>${esc(item.activity)}</div>
+   ${item.enteredBy?`<div class="small">Entered by ${esc(item.enteredBy)}</div>`:""}
+ </div>`).join(""):'<div class="small">No project activity has been recorded yet.</div>';
+}
+
+function openProjectActivityModal(){
+ if(!currentUser?.canEdit)return;
+ projectActivityDate.value=projectActivityToday();
+ projectActivityPhase.value="";
+ projectActivityText.value="";
+ renderProjectActivityHistory();
+ projectActivityModalBackdrop.style.display="flex";
+ requestAnimationFrame(()=>projectActivityText.focus());
+}
+
+function closeProjectActivity(){projectActivityModalBackdrop.style.display="none";}
+
+addProjectActivityBtn?.addEventListener("click",openProjectActivityModal);
+closeProjectActivityModal?.addEventListener("click",closeProjectActivity);
+projectActivityModalBackdrop?.addEventListener("click",e=>{if(e.target===projectActivityModalBackdrop)closeProjectActivity();});
+
+projectActivityForm?.addEventListener("submit",async e=>{
+ e.preventDefault();
+ const p=currentProject();
+ const activity=projectActivityText.value.trim();
+ if(!p||!activity)return;
+ const record={
+   date:projectActivityDate.value||projectActivityToday(),
+   phase:projectActivityPhase.value||"",
+   activity,
+   enteredBy:currentUser?.name||""
+ };
+ try{
+   // Write directly to SharePoint using the provider primitives that are already
+   // part of the stable dashboard. This avoids relying on a newly-added helper
+   // method being present in a cached DataProvider object.
+    const savedActivity=await DataProvider.addProjectActivity(p,record);
+   p.activities ||= [];
+   p.activities.unshift(savedActivity);
+   p.activities.sort((a,b)=>String(b.date).localeCompare(String(a.date))||Number(b.id||0)-Number(a.id||0));
+   p.lastActivityDate=savedActivity.date;
+   p.lastActivity=savedActivity.activity;
+   p.lastActivityPhase=savedActivity.phase||"";
+   logChange("Create",p.id,"Project Activity",savedActivity.phase||"Project Activity",`${savedActivity.date}: ${savedActivity.activity}`);
+   await save();
+   projectActivityPhase.value="";
+   projectActivityText.value="";
+   renderProjectActivityHistory();
+ }catch(error){
+   console.error("Project Activity save failed",error);
+   alert(`Project Activity could not be saved: ${error.message}`);
+ }
+});
 
 function scheduleDate(value){
  if(!value)return null;
@@ -630,7 +754,9 @@ function userIdFromInput(name,email){
 function setUserRoleFlags(user){
  user.canAdmin=user.role==="Administrator";
  user.canEdit=user.role==="Administrator"||user.role==="Editor";
- user.isInternal=user.role!=="External Viewer";
+ // Entra guests remain external even when an Administrator grants temporary Editor rights.
+ // This keeps internal-only comments and internal activity hidden from guest accounts.
+ user.isInternal=String(user.entraUserType||"Member").toLowerCase()!=="guest" && user.role!=="External Viewer";
 }
 
 function startNewUser(){
@@ -688,7 +814,8 @@ saveAccessBtn.onclick=async()=>{
  user.company=adminUserCompany.value.trim();
  const previousRole=user.role;
  user.role=adminRoleSelect.value;
- if(user.entraUserType==="Guest") user.role="External Viewer";
+ // Administrators may explicitly grant an Entra guest Editor rights for testing or limited project edits.
+ // Guest identity remains external; comments/internal-only features stay hidden.
  if(user.id===currentUser?.id&&user.role!==previousRole){
    alert("For safety, you cannot change the Administrator role of the account you are currently using. Another Administrator can change it.");
    user.role=previousRole;
@@ -1007,6 +1134,163 @@ deleteRecordBtn.onclick=async()=>{
  );
  modalBackdrop.style.display="none";
  save();
+};
+
+
+let commentsContext=null;
+
+function commentDateTime(value){
+  const d=new Date(value||"");
+  return Number.isNaN(d.getTime())?"":d.toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});
+}
+
+function commentsRecord(){
+  const p=currentProject();
+  if(!commentsContext)return {project:p,record:null};
+  if(commentsContext.type==="Project"){
+    return {
+      project:p,
+      record:{
+        id:Number(p.sharePointId||0),
+        sharePointId:Number(p.sharePointId||0),
+        name:"General Project Comment"
+      }
+    };
+  }
+  const list=commentsContext.type==="Deliverable"?p.deliverables:p.info;
+  return {project:p,record:list.find(x=>Number(x.id)===Number(commentsContext.id))||null};
+}
+
+function commentsForRecord(includeResolved=false){
+  const {project,record}=commentsRecord();
+  if(!record)return [];
+  const recordId=Number(record.sharePointId||record.id||0);
+  return (project.comments||[]).filter(c=>
+    c.recordType===commentsContext.type &&
+    Number(c.recordSharePointId)===recordId &&
+    (includeResolved||c.status!=="Resolved")
+  ).sort((a,b)=>String(b.timestamp||"").localeCompare(String(a.timestamp||"")));
+}
+
+function internalCommentUsers(){
+  return (USERS||[]).filter(u=>u.isInternal&&u.active!==false&&u.email).slice().sort((a,b)=>String(a.name||a.email).localeCompare(String(b.name||b.email)));
+}
+
+function selectedCommentMentions(){
+  const checked=[...(commentMentionList?.querySelectorAll('input[type="checkbox"]:checked')||[])];
+  return checked.map(input=>({email:input.value,name:input.dataset.name||input.value}));
+}
+
+function renderCommentMentionPicker(){
+  if(!commentMentionList)return;
+  const users=internalCommentUsers();
+  commentMentionList.innerHTML=users.length?users.map(u=>`<label class="comment-mention-option"><input type="checkbox" value="${esc(u.email)}" data-name="${esc(u.name||u.email)}" /><span><strong>${esc(u.name||u.email)}</strong><small>${esc(u.email)}</small></span></label>`).join(""):'<div class="small">No internal dashboard users are available.</div>';
+  const update=()=>{
+    const count=selectedCommentMentions().length;
+    commentMentionCount.textContent=count?`${count} selected`:"Optional";
+  };
+  commentMentionList.querySelectorAll('input[type="checkbox"]').forEach(input=>input.addEventListener("change",update));
+  update();
+}
+
+function renderCommentsModal(){
+  const {project,record}=commentsRecord();
+  if(!record)return;
+  const name=commentsContext.type==="Project"?"General Project Comment":(record.deliverable||record.item||"Record");
+  commentsTitle.textContent=name;
+  commentsSubtitle.textContent=commentsContext.type==="Project"?project.name:commentsContext.type;
+  const showResolved=showResolvedComments.checked;
+  const comments=commentsForRecord(showResolved);
+  commentsList.innerHTML=comments.length?comments.map(c=>{
+    const resolved=c.status==="Resolved";
+    const canResolve=!resolved&&Boolean(currentUser?.canEdit);
+    return `<div class="comment-item ${resolved?"resolved":""}">
+      <div class="comment-meta"><strong>${esc(c.authorName||"User")}</strong><span>${esc(commentDateTime(c.timestamp))}</span>${resolved?`<span class="comment-resolved-label">Resolved${c.resolvedBy?` by ${esc(c.resolvedBy)}`:""}</span>`:""}</div>
+      <div class="comment-text">${esc(c.comment)}</div>
+      ${(c.mentionNames||[]).length?`<div class="comment-mentioned">Notified: ${(c.mentionNames||[]).map(name=>`@${esc(name)}`).join(" · ")}</div>`:""}
+      ${canResolve?`<div class="comment-actions"><button class="linkbtn" type="button" onclick="resolveComment(${Number(c.id)})">Resolve</button></div>`:""}
+    </div>`;
+  }).join(""):'<div class="comments-empty">No open comments.</div>';
+  const canComment=Boolean(currentUser?.isInternal);
+  commentText.disabled=!canComment;
+  postCommentBtn.disabled=!canComment;
+  commentMentionPicker.classList.toggle("hidden",!canComment);
+  commentPermissionNote.textContent=canComment?"Use comments for brief coordination only. Optional mentions can notify internal AHT users in Teams once the Power Automate notification flow is enabled.":"";
+}
+
+window.openComments=function(type,id){
+  if(!currentUser?.isInternal)return;
+  commentsContext={type,id:Number(id||0)};
+  showResolvedComments.checked=false;
+  commentText.value="";
+  renderCommentMentionPicker();
+  renderCommentsModal();
+  commentsBackdrop.style.display="flex";
+};
+
+window.openProjectComments=function(){
+  const project=currentProject();
+  if(!currentUser?.isInternal||!project)return;
+  openComments("Project",Number(project.sharePointId||0));
+};
+
+if(addProjectCommentBtn){
+  addProjectCommentBtn.onclick=()=>openProjectComments();
+}
+
+window.resolveComment=async function(id){
+  const {project}=commentsRecord();
+  if(!currentUser?.canEdit||!project)return;
+  const comment=(project.comments||[]).find(x=>Number(x.id)===Number(id));
+  if(!comment)return;
+  try{
+    const updated=await DataProvider.resolveProjectComment(comment,currentUser.name||currentUser.email||"AHT");
+    Object.assign(comment,updated);
+    renderCommentsModal();
+    render();
+  }catch(error){
+    console.error("Comment resolve failed",error);
+    alert(`Comment could not be resolved: ${error.message}`);
+  }
+};
+
+closeCommentsBtn.onclick=()=>commentsBackdrop.style.display="none";
+commentsBackdrop.onclick=e=>{if(e.target===commentsBackdrop)commentsBackdrop.style.display="none"};
+showResolvedComments.onchange=renderCommentsModal;
+commentForm.onsubmit=async e=>{
+  e.preventDefault();
+  if(!currentUser?.isInternal)return;
+  const {project,record}=commentsRecord();
+  const text=commentText.value.trim();
+  if(!project||!record||!text)return;
+  postCommentBtn.disabled=true;
+  try{
+    const mentions=selectedCommentMentions();
+    const saved=await DataProvider.addProjectComment(project,commentsContext.type,record,{
+      comment:text,
+      authorName:currentUser.name||"AHT User",
+      authorEmail:currentUser.email||"",
+      mentionEmails:mentions.map(x=>x.email),
+      mentionNames:mentions.map(x=>x.name),
+      timestamp:new Date().toISOString()
+    });
+    project.comments ||= [];
+    project.comments.unshift(saved);
+    commentText.value="";
+    renderCommentMentionPicker();
+    render();
+    commentsBackdrop.style.display="none";
+    commentsContext=null;
+    const failedNotifications=(saved.notificationResults||[]).filter(x=>!x.ok);
+    if(failedNotifications.length){
+      alert(`Comment saved, but ${failedNotifications.length} Teams notification${failedNotifications.length===1?"":"s"} could not be queued.`);
+    }
+  }catch(error){
+    console.error("Comment save failed",error);
+    alert(`Comment could not be saved: ${error.message}`);
+  }finally{
+    postCommentBtn.disabled=!currentUser?.isInternal;
+  }
 };
 
 initializeApplication();

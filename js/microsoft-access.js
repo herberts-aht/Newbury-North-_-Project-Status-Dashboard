@@ -269,9 +269,10 @@ const MicrosoftAccess = (() => {
     }
 
     if (isGuest) {
-      profile.role = "External Viewer";
+      // Preserve an Administrator-assigned Editor role for a guest while keeping the account external.
+      profile.role = profile.role === "Editor" ? "Editor" : "External Viewer";
       profile.canAdmin = false;
-      profile.canEdit = false;
+      profile.canEdit = profile.role === "Editor";
       profile.isInternal = false;
       profile.projects = Array.isArray(profile.projects) ? profile.projects.filter(x => x !== "*") : [];
       profile.company = profile.company && profile.company !== "AHT Global" ? profile.company : "External";
@@ -336,7 +337,7 @@ const MicrosoftAccess = (() => {
       return `<tr>
         <td><strong>${escText(member.displayName || "Microsoft User")}</strong><div class="small">${escText(email)}</div></td>
         <td><span class="entra-type ${type === "External" ? "external" : "internal"}">${escText(type)}</span></td>
-        <td>${escText(normalizeDashboardRole(profile?.role, type === "External"))}</td>
+        <td>${escText((profile?.role || (type === "External" ? "External Viewer" : "Viewer")))}</td>
         <td>${escText(projects)}</td>
         <td class="entra-row-actions">
           <button class="btn" type="button" data-manage-profile="${escText(profile?.id || "")}">Manage</button>
@@ -775,3 +776,4 @@ const MicrosoftAccess = (() => {
 
 MicrosoftAccess.initialize();
 window.MicrosoftAccess = MicrosoftAccess;
+

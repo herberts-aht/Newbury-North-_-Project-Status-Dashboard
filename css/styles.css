@@ -948,3 +948,86 @@ input:focus,select:focus,textarea:focus{
   border-radius:8px!important;
   transform:none!important;
 }
+
+
+/* v0.14.45 — Project Activity history + status badge alignment */
+.badge{text-align:center;justify-content:center}
+
+.last-activity{align-items:center}
+.last-activity .activity-main{flex:1;min-width:0}
+.last-activity .activity-actions{margin-left:auto;flex:0 0 auto}
+.last-activity .activity-phase{display:inline-block;margin-bottom:4px;border-radius:999px;padding:3px 8px;background:#e8f3fb;color:#135b84;font-size:10px;font-weight:800}
+.activity-add-btn{color:var(--navy);border-color:#80b8d5;background:#fff}
+.activity-add-btn:hover{background:var(--soft-blue);border-color:var(--blue)}
+.project-activity-modal{width:min(720px,calc(100vw - 32px));max-height:88vh;overflow:auto}
+.project-activity-modal-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.project-activity-modal-heading h3{margin:2px 0 0;color:var(--navy)}
+.project-activity-history-section{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+.project-activity-history-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.project-activity-history-heading h4{margin:0;color:var(--navy)}
+.project-activity-history{display:grid;gap:8px;max-height:300px;overflow:auto;padding-right:3px}
+.project-activity-history-item{border:1px solid var(--line);border-radius:8px;padding:10px 11px;background:#fbfdff;line-height:1.4}
+.project-activity-history-meta{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;color:var(--navy)}
+.activity-phase-badge{display:inline-flex;border-radius:999px;padding:2px 7px;background:#e8f3fb;color:#135b84;font-size:9px;font-weight:800}
+
+
+/* v0.14.50 — record comments */
+.record-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;white-space:nowrap}
+.comment-link{color:var(--navy);font-weight:750}
+.comment-link.has-comments{display:inline-flex;align-items:center;justify-content:center;min-width:38px;padding:3px 7px;border:1px solid #b6d7e8;border-radius:999px;background:#eef7fb;color:#075d89}
+.comments-modal{width:min(680px,calc(100vw - 30px));max-height:86vh;overflow:hidden;display:flex;flex-direction:column}
+.comments-modal-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px}
+.comments-modal-heading h3{margin:2px 0 1px;color:var(--navy)}
+.comments-list{overflow:auto;min-height:90px;max-height:390px;border:1px solid var(--line);border-radius:9px;background:#f8fafb;padding:8px}
+.comment-item{background:#fff;border:1px solid #dfe7ed;border-radius:8px;padding:10px 11px;margin-bottom:8px}
+.comment-item:last-child{margin-bottom:0}
+.comment-item.resolved{opacity:.64;background:#f5f6f7}
+.comment-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--muted);margin-bottom:5px}
+.comment-meta strong{color:var(--navy)}
+.comment-resolved-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#52705f;background:#eaf3ed;border-radius:999px;padding:2px 6px}
+.comment-text{font-size:13px;line-height:1.45;color:#334155;white-space:pre-wrap}
+.comment-actions{text-align:right;margin-top:6px}
+.comments-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px}
+.comments-resolved-toggle{font-size:11px;color:var(--muted);padding:8px 2px 3px}
+.comments-resolved-toggle label{display:flex;align-items:center;gap:6px}
+.comment-form{border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
+.comment-form label{display:block;font-size:11px;font-weight:750;color:var(--navy);margin-bottom:5px}
+.comment-form textarea{width:100%;resize:vertical;min-height:76px;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;box-sizing:border-box}
+.comment-permission-note{margin-top:5px}
+#postCommentBtn:disabled{opacity:.45;cursor:not-allowed}
+
+
+/* v0.14.51 — internal comments polish + mention picker */
+.comment-link{
+  display:inline-flex!important;align-items:center;justify-content:center;
+  min-width:34px;min-height:28px;padding:3px 7px!important;
+  border:1px solid #c9dbe6!important;border-radius:999px!important;
+  background:#fff!important;color:#365c74!important;text-decoration:none!important;
+  line-height:1!important;font-size:12px!important;
+}
+.comment-link:hover{background:#f1f7fa!important;border-color:#8fbdd3!important;color:#075d89!important}
+.comment-link.has-comments{background:#eef7fb!important;border-color:#8fc6df!important;color:#075d89!important}
+.record-actions{gap:12px!important}
+.comment-mention-picker{margin-top:10px;border:1px solid var(--line);border-radius:8px;background:#f8fafc}
+.comment-mention-picker summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 10px;color:var(--navy);font-size:12px;font-weight:750}
+.comment-mention-picker summary::-webkit-details-marker{display:none}
+.comment-mention-count{font-size:11px;font-weight:650;color:var(--muted)}
+.comment-mention-list{border-top:1px solid var(--line);padding:6px 9px;max-height:190px;overflow:auto;background:#fff}
+.comment-mention-option{display:flex!important;align-items:center;gap:8px;padding:7px 3px;margin:0!important;cursor:pointer;font-weight:400!important}
+.comment-mention-option input{width:auto!important;margin:0}
+.comment-mention-option span{display:flex;flex-direction:column;min-width:0}
+.comment-mention-option strong{font-size:12px;color:#263c4a}
+.comment-mention-option small{font-size:10px;color:var(--muted)}
+.comment-mentioned{margin-top:7px;font-size:10px;color:#587080;font-weight:650}
+
+
+/* v0.14.52 — general project comments + modal close polish */
+.project-comment-btn{
+  color:var(--navy)!important;
+  border-color:#80b8d5!important;
+  background:#fff!important;
+}
+.project-comment-btn:hover{background:var(--soft-blue)!important;border-color:var(--blue)!important;color:var(--navy)!important}
+.last-activity .activity-actions{display:flex;align-items:center;gap:8px}
+
+/* v0.14.53 — notification queue + aligned project comment action */

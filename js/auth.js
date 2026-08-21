@@ -86,6 +86,8 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
   if (entraUserType === "guest") {
     const externalUser = user && user.isInternal === false ? user : null;
     const projects = Array.isArray(shared?.p) ? shared.p : (externalUser?.projects || []);
+    const storedRole = shared?.r || externalUser?.role || "External Viewer";
+    const role = storedRole === "Editor" ? "Editor" : "External Viewer";
     return {
       ...(externalUser || {}),
       id: externalUser?.id || `entra-${graphUser?.id || account?.localAccountId || "guest"}`,
@@ -94,10 +96,10 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
       name: shared?.n || displayName || externalUser?.name || "External User",
       email: normalizeEmail(shared?.e || graphUser?.mail || graphUser?.userPrincipalName || email),
       company: shared?.c || externalUser?.company || "External",
-      role: "External Viewer",
+      role,
       active: true,
       projects,
-      canEdit: false,
+      canEdit: role === "Editor",
       canAdmin: false,
       isInternal: false,
       authAccount: account?.homeAccountId || ""

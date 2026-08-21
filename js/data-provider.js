@@ -222,6 +222,178 @@ const SharePointDataProvider = {
     };
   },
 
+  mapProjectActivity(item, projects = []) {
+    const fields = item.fields || {};
+    const projectKey = String(fields.ProjectKey || "");
+    const project = projects.find(p => String(p.id) === projectKey);
+    return {
+      id: Number(item.id),
+      sharePointId: Number(item.id),
+      projectId: projectKey || project?.id || "",
+      projectName: fields.ProjectName || project?.name || "",
+      date: this.normalizeDate(fields.ActivityDate || item.createdDateTime || ""),
+      phase: fields.PhaseCategory || "",
+      activity: fields.ActivityText || fields.Title || "",
+      enteredBy: fields.EnteredBy || ""
+    };
+  },
+
+  projectActivityFields(project, record) {
+    return {
+      Title: String(record.activity || "Project activity").slice(0,255),
+      ProjectKey: String(project.id || ""),
+      ProjectName: project.name || "",
+      ActivityDate: this.graphDate(record.date),
+      PhaseCategory: record.phase || "",
+      ActivityText: record.activity || "",
+      EnteredBy: record.enteredBy || ""
+    };
+  },
+
+  async addProjectActivity(project, record) {
+    if (!project?.id) throw new Error("Project was not supplied for Project Activity.");
+    const created = await this.createItem(
+      this.config.lists.projectActivity,
+      this.projectActivityFields(project, record)
+    );
+    return {
+      ...record,
+      id: Number(created.id),
+      sharePointId: Number(created.id),
+      projectId: project.id,
+      projectName: project.name
+    };
+  },
+
+  mapProjectComment(item) {
+    const fields = item.fields || {};
+    return {
+      id: Number(item.id),
+      sharePointId: Number(item.id),
+      projectId: fields.ProjectKey || "",
+      projectName: fields.ProjectName || "",
+      recordType: fields.RecordType || "",
+      recordSharePointId: Number(fields.RecordSharePointId || 0),
+      recordName: fields.RecordName || fields.Title || "",
+      comment: fields.CommentText || "",
+      authorName: fields.AuthorName || "",
+      authorEmail: fields.AuthorEmail || "",
+      mentionEmails: String(fields.MentionEmails || "").split(";").map(x=>x.trim()).filter(Boolean),
+      mentionNames: String(fields.MentionNames || "").split(";").map(x=>x.trim()).filter(Boolean),
+      timestamp: fields.CommentTime || item.createdDateTime || "",
+      status: fields.CommentStatus || "Open",
+      resolvedBy: fields.ResolvedBy || "",
+      resolvedTime: fields.ResolvedTime || ""
+    };
+  },
+
+  projectCommentFields(project, recordType, record, comment) {
+    const recordName = record.deliverable || record.item || record.name || (recordType==="Project" ? "General Project Comment" : "Project record");
+    return {
+      Title: String(recordName).slice(0,255),
+      ProjectKey: String(project.id || ""),
+      ProjectName: project.name || "",
+      RecordType: recordType,
+      RecordSharePointId: Number(record.sharePointId || record.id || 0),
+      RecordName: recordName,
+      CommentText: comment.comment || "",
+      AuthorName: comment.authorName || "",
+      AuthorEmail: comment.authorEmail || "",
+      MentionEmails: (comment.mentionEmails || []).join(";"),
+      MentionNames: (comment.mentionNames || []).join(";"),
+      CommentTime: comment.timestamp || new Date().toISOString(),
+      CommentStatus: "Open"
+    };
+  },
+
+  projectCommentNotificationFields(project, recordType, record, comment, createdCommentId, recipient) {
+    const recordName = record.deliverable || record.item || record.name || (recordType==="Project" ? "General Project Comment" : "Project record");
+    return {
+      Title: String(`${project.name || "Project"} - ${recordName}`).slice(0,255),
+      RecipientName: recipient.name || recipient.email || "",
+      RecipientEmail: recipient.email || "",
+      ProjectKey: String(project.id || ""),
+      ProjectName: project.name || "",
+      RecordType: recordType,
+      RecordSharePointId: Number(record.sharePointId || record.id || 0),
+      RecordName: recordName,
+      CommentText: comment.comment || "",
+      AuthorName: comment.authorName || "",
+      AuthorEmail: comment.authorEmail || "",
+      CommentId: Number(createdCommentId || 0),
+      NotificationTime: comment.timestamp || new Date().toISOString(),
+      DashboardUrl: "https://newburynorth.ahtglobal.com/"
+    };
+  },
+
+  async queueProjectCommentNotifications(project, recordType, record, comment, createdCommentId) {
+    const emails = Array.isArray(comment.mentionEmails) ? comment.mentionEmails : [];
+    const names = Array.isArray(comment.mentionNames) ? comment.mentionNames : [];
+    const seen = new Set();
+    const recipients = [];
+    emails.forEach((rawEmail, index) => {
+      const email = String(rawEmail || "").trim();
+      const key = email.toLowerCase();
+      if (!email || seen.has(key)) return;
+      seen.add(key);
+      recipients.push({ email, name: String(names[index] || email).trim() });
+    });
+    if (!recipients.length) return [];
+
+    const results = await Promise.allSettled(recipients.map(recipient =>
+      this.createItem(
+        this.config.lists.commentNotifications,
+        this.projectCommentNotificationFields(project, recordType, record, comment, createdCommentId, recipient)
+      )
+    ));
+    return results.map((result, index) => ({
+      recipient: recipients[index],
+      ok: result.status === "fulfilled",
+      error: result.status === "rejected" ? String(result.reason?.message || result.reason || "Notification queue failed") : ""
+    }));
+  },
+
+  async addProjectComment(project, recordType, record, comment) {
+    if (!project?.id) throw new Error("Project was not supplied for comment.");
+    if (!record) throw new Error("Record was not supplied for comment.");
+    const created = await this.createItem(
+      this.config.lists.comments,
+      this.projectCommentFields(project, recordType, record, comment)
+    );
+    const notificationResults = await this.queueProjectCommentNotifications(
+      project,
+      recordType,
+      record,
+      comment,
+      Number(created.id)
+    );
+    return {
+      ...comment,
+      id: Number(created.id),
+      sharePointId: Number(created.id),
+      projectId: project.id,
+      projectName: project.name,
+      recordType,
+      recordSharePointId: Number(record.sharePointId || record.id || 0),
+      recordName: record.deliverable || record.item || record.name || (recordType==="Project" ? "General Project Comment" : "Project record"),
+      status: "Open",
+      resolvedBy: "",
+      resolvedTime: "",
+      notificationResults
+    };
+  },
+
+  async resolveProjectComment(comment, resolvedBy) {
+    if (!comment?.sharePointId && !comment?.id) throw new Error("Comment id is missing.");
+    const resolvedTime = new Date().toISOString();
+    await this.updateItem(this.config.lists.comments, comment.sharePointId || comment.id, {
+      CommentStatus: "Resolved",
+      ResolvedBy: resolvedBy || "",
+      ResolvedTime: resolvedTime
+    });
+    return { ...comment, status: "Resolved", resolvedBy: resolvedBy || "", resolvedTime };
+  },
+
   mapChangeLog(item, projects = []) {
     const fields = item.fields || {};
     const projectSharePointId = this.projectLookupId(fields);
@@ -279,6 +451,24 @@ const SharePointDataProvider = {
       console.info(`Loaded ${changeLogItems.length} Change Log entr${changeLogItems.length===1?"y":"ies"} from SharePoint.`);
     } catch (error) {
       console.error("Change Log load failed; core SharePoint project data remains active.", error);
+    }
+
+    // Project Activity is supplemental and should never block the core dashboard.
+    let projectActivityItems = [];
+    try {
+      projectActivityItems = await this.getListRows(this.config.lists.projectActivity);
+      console.info(`Loaded ${projectActivityItems.length} Project Activity entr${projectActivityItems.length===1?"y":"ies"} from SharePoint.`);
+    } catch (error) {
+      console.error("Project Activity load failed; core SharePoint project data remains active.", error);
+    }
+
+    // Record comments are supplemental and must never block core dashboard data.
+    let projectCommentItems = [];
+    try {
+      projectCommentItems = await this.getListRows(this.config.lists.comments);
+      console.info(`Loaded ${projectCommentItems.length} Project Comment entr${projectCommentItems.length===1?"y":"ies"} from SharePoint.`);
+    } catch (error) {
+      console.error("Project Comments load failed; core SharePoint project data remains active.", error);
     }
 
     const deliverables = deliverableItems
@@ -353,10 +543,38 @@ const SharePointDataProvider = {
           healthOverrideReason: fields.HealthOverrideReason || "",
           healthOverrideUntil: this.normalizeDate(fields.HealthOverrideUntil),
           deliverables: deliverables.filter(record => record.projectSharePointId === sharePointId),
-          info: informationRequired.filter(record => record.projectSharePointId === sharePointId)
+          info: informationRequired.filter(record => record.projectSharePointId === sharePointId),
+          activities: [],
+          comments: []
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
+
+    const projectActivities = projectActivityItems
+      .map(item => this.mapProjectActivity(item, projects))
+      .filter(item => item.projectId && item.activity)
+      .sort((a,b) => String(b.date).localeCompare(String(a.date)) || Number(b.id)-Number(a.id));
+
+    for (const project of projects) {
+      project.activities = projectActivities.filter(item => String(item.projectId) === String(project.id));
+      const latest = project.activities[0];
+      if (latest) {
+        project.lastActivityDate = latest.date;
+        project.lastActivity = latest.activity;
+        project.lastActivityPhase = latest.phase || "";
+      } else {
+        project.lastActivityPhase = "";
+      }
+    }
+
+    const projectComments = projectCommentItems
+      .map(item => this.mapProjectComment(item))
+      .filter(item => item.projectId && item.recordSharePointId && item.comment)
+      .sort((a,b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")) || Number(b.id)-Number(a.id));
+
+    for (const project of projects) {
+      project.comments = projectComments.filter(item => String(item.projectId) === String(project.id));
+    }
 
     const savedProjectId = localStorage.getItem("ahtProjectControl.currentProjectId");
     const currentProjectId = projects.some(project => project.id === savedProjectId)
@@ -921,6 +1139,27 @@ const FallbackDataProvider = {
   async getDashboardAccessProfile(graphUser) {
     if (this.fallbackWasUsed) return null;
     return SharePointDataProvider.getDashboardAccessProfile(graphUser);
+  },
+
+  async addProjectActivity(project, record) {
+    if (this.fallbackWasUsed) {
+      throw new Error("Project Activity cannot be saved while SharePoint is unavailable.");
+    }
+    return SharePointDataProvider.addProjectActivity(project, record);
+  },
+
+  async addProjectComment(project, recordType, record, comment) {
+    if (this.fallbackWasUsed) {
+      throw new Error("Comments cannot be saved while SharePoint is unavailable.");
+    }
+    return SharePointDataProvider.addProjectComment(project, recordType, record, comment);
+  },
+
+  async resolveProjectComment(comment, resolvedBy) {
+    if (this.fallbackWasUsed) {
+      throw new Error("Comments cannot be resolved while SharePoint is unavailable.");
+    }
+    return SharePointDataProvider.resolveProjectComment(comment, resolvedBy);
   }
 };
 

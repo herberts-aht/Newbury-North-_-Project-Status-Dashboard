@@ -557,3 +557,37 @@
   .calendar-today-label{display:none!important;}
   .calendar-today-btn{margin-left:auto!important;padding:0 10px!important;}
 }
+
+
+/* v0.14.45 — Project Activity mobile */
+@media(max-width:700px){
+ .last-activity{display:grid!important;grid-template-columns:1fr;gap:8px}
+ .last-activity .activity-actions{margin-left:0}
+ .activity-add-btn{width:100%}
+ .project-activity-modal{width:calc(100vw - 20px);max-height:92vh}
+ .project-activity-history{max-height:36vh}
+}
+
+
+/* v0.14.50 — comments mobile */
+@media(max-width:700px){
+  .mobile-record-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .comments-modal{width:calc(100vw - 20px);max-height:90vh}
+  .comments-list{max-height:45vh}
+  .comments-modal-heading{align-items:center}
+  .comment-meta{gap:6px}
+}
+
+
+/* v0.14.51 — comments / mentions mobile */
+@media(max-width:700px){
+  .mobile-record-actions .comment-link{min-width:38px;min-height:34px}
+  .comment-mention-list{max-height:220px}
+}
+
+
+/* v0.14.52 — project comment action mobile */
+@media (max-width:700px){
+  .last-activity .activity-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .project-comment-btn,.activity-add-btn{min-height:34px}
+}
