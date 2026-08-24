@@ -652,3 +652,30 @@
     line-height:1;
   }
 }
+
+/* v0.14.57 - match Add Activity to Project Comment */
+.mobile-activity-label{
+  display:none;
+}
+
+@media(max-width:700px){
+  .activity-add-btn .desktop-activity-label{
+    display:none;
+  }
+
+  .activity-add-btn .mobile-activity-label{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    width:100%;
+    line-height:1.1;
+    text-align:center;
+  }
+
+  .activity-add-btn .mobile-activity-label span{
+    display:block;
+    width:100%;
+    text-align:center;
+  }
+}
