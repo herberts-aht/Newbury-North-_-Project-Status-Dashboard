@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="css/styles.css" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
+  <link rel="stylesheet" href="css/site-operations.css?v=0.14.58">
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -45,6 +46,7 @@
         <button data-view="dashboard">Executive Summary</button>
         <button data-view="deliverables">Deliverables</button>
         <button data-view="info">Information Required</button>
+        <button data-view="siteOperations">Site Operations</button>
         <button data-view="timeline">Gantt</button>
         <button data-view="calendar">Calendar</button>
         <button class="admin-only" data-view="admin">Administration</button>
@@ -113,6 +115,28 @@
       <div class="page-header"><div><div class="eyebrow">Dependencies</div><h2>Information Required</h2><p>Track missing information and what it is blocking.</p></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary editor-only" id="addInfoBtn">Add Information Request</button></div></div>
       <div class="table-card desktop-table"><div style="overflow:auto"><table><thead><tr><th>Item Needed</th><th>Requested From</th><th>Status</th><th>Blocking</th><th>Notes</th><th></th></tr></thead><tbody id="infoBody"></tbody></table></div></div>
       <div id="infoCards" class="mobile-cards"></div>
+    </section>
+    <section id="siteOperations" class="view">
+      <div class="page-header">
+        <div>
+          <div class="eyebrow">Field Progress</div>
+          <h2>Site Operations</h2>
+          <p>High-level site progress with detailed building and area drill-down.</p>
+        </div>
+
+        <div class="actions">
+          <div class="project-switcher">
+            <span class="small">Project</span>
+            <select class="project-select-clone"></select>
+          </div>
+
+          <button class="btn admin-only hidden" id="addSiteLocationBtn" type="button">Add Location</button>
+          <button class="btn primary admin-only hidden" id="addSiteOperationBtn" type="button">Add Site Item</button>
+        </div>
+      </div>
+
+      <div class="so-breadcrumb" id="siteOperationsBreadcrumb"></div>
+      <div id="siteOperationsContent"></div>
     </section>
     <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Schedule Overview</div><h2>Gantt</h2><p>Simple visual schedule generated from Deliverable start and target dates.</p></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary" type="button" onclick="downloadCurrentGanttPDF()">Download Gantt PDF</button></div></div><div class="timeline"><div id="timelineTrack"></div></div></section>
     <section id="calendar" class="view">
@@ -333,7 +357,8 @@
 <script src="js/auth.js"></script>
 <script src="js/microsoft-access.js"></script>
 <script src="js/permissions.js"></script>
-<script src="js/dashboard.js?v=0.14.50"></script>
+<script src="js/site-operations.js?v=0.14.58"></script>
+  <script src="js/dashboard.js?v=0.14.58"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js"></script>
@@ -564,6 +589,9 @@ function showView(id){
    resetGanttGroups();
    render();
  }
+ if(id==="siteOperations"&&window.SiteOperations){
+   window.SiteOperations.onView();
+ }
  if(id==="admin"&&window.MicrosoftAccess){
    window.MicrosoftAccess.onAdminView();
  }
@@ -573,6 +601,9 @@ function setProject(id){
  state.currentProjectId=id;
  localStorage.setItem("ahtProjectControl.currentProjectId",id);
  render();
+ if(window.SiteOperations){
+   window.SiteOperations.onProjectChanged();
+ }
 }
 function clampPercent(value){
  const n=Number(value);
@@ -892,7 +923,8 @@ importBackupBtn.onclick=()=>{
 importBackupFileInput.onchange=e=>importBackupFile(e.target.files?.[0]);
 
 document.querySelectorAll(".sidebar-nav button").forEach(b=>b.onclick=()=>showView(b.dataset.view));projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
-window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
+window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");addSiteLocationBtn.onclick=()=>SiteOperations.openLocationEditor();
+addSiteOperationBtn.onclick=()=>SiteOperations.openOperationEditor();cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&modalBackdrop.style.display==="flex"){
     e.preventDefault();
