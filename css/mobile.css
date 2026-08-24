@@ -609,3 +609,46 @@
     text-align:center;
   }
 }
+
+/* v0.14.57 - compact mobile Project Comment */
+@media(max-width:700px){
+
+  .project-comment-btn .mobile-project-comment{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    width:100%;
+    line-height:1.1;
+  }
+
+  .project-comment-btn .comment-text-line{
+    display:block;
+    width:100%;
+    text-align:center;
+  }
+
+  .project-comment-btn .comment-icon-wrap{
+    position:absolute;
+    left:14px;
+    top:50%;
+    transform:translateY(-50%);
+    line-height:1;
+  }
+
+  .project-comment-btn .comment-icon{
+    display:block;
+    font-size:22px;
+    line-height:1;
+  }
+
+  .project-comment-btn .comment-count{
+    position:absolute;
+    top:-5px;
+    right:-7px;
+    font-size:11px;
+    font-weight:700;
+    line-height:1;
+  }
+}
