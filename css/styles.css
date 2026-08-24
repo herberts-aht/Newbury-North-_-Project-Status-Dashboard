@@ -1037,3 +1037,383 @@ input:focus,select:focus,textarea:focus{
 .summary-kpi-drilldown{
   cursor:pointer;
 }
+
+
+/* Schedule source toggle: Project / Site / Combined */
+.schedule-mode-toggle{display:inline-flex;gap:3px;margin-top:12px;padding:3px;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.schedule-mode-toggle button{appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;padding:7px 13px;border-radius:7px;cursor:pointer}
+.schedule-mode-toggle button:hover{background:var(--soft)}
+.schedule-mode-toggle button.active{background:var(--blue);color:#fff}
+@media(max-width:700px){.schedule-mode-toggle{width:100%;box-sizing:border-box}.schedule-mode-toggle button{flex:1;padding:8px 6px}.page-header>div:first-child{min-width:0}}
+
+
+/* v0.14.59 — schedule density cleanup */
+.gantt-group-controls{
+  display:inline-flex!important;
+  align-items:center;
+  gap:5px!important;
+  margin-left:4px;
+}
+.gantt-group-controls .linkbtn{
+  font-size:10px;
+  font-weight:750;
+  padding:0;
+}
+.gantt-bar{
+  overflow:hidden;
+  white-space:nowrap;
+}
+.gantt-bar span{
+  display:block;
+  width:100%;
+  overflow:hidden;
+  text-overflow:clip;
+  white-space:nowrap;
+}
+#agendaList{
+  max-height:520px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+@media(max-width:900px){
+  #agendaList{max-height:420px}
+}
+
+
+/* v0.14.59 — collapsed Gantt groups remain a real Gantt */
+.gantt-group-summary{
+  width:100%;
+  min-height:42px;
+  border:0;
+  border-top:1px solid #e1e8ed;
+  border-radius:0;
+  padding:0;
+  display:grid;
+  grid-template-columns:260px minmax(620px,1fr);
+  background:#f1f5f8;
+  color:#314b63;
+  text-align:left;
+  cursor:pointer;
+}
+.gantt-group-summary:hover{background:#e7eef4}
+.gantt-group-summary-label{
+  min-width:0;
+  padding:0 12px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.gantt-group-summary-label strong{
+  min-width:0;
+  font-size:11px;
+  letter-spacing:.055em;
+  text-transform:uppercase;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.gantt-group-summary-lane{
+  position:relative;
+  min-height:42px;
+  border-left:1px solid var(--line);
+  background-image:linear-gradient(to right,rgba(202,214,224,.25) 1px,transparent 1px);
+  background-size:var(--gantt-week,14.2857142857%) 100%;
+}
+.gantt-group-summary-bar{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  height:12px;
+  min-width:4px;
+  border-radius:999px;
+  background:#8b98a3;
+  box-shadow:0 1px 3px rgba(24,45,62,.16);
+}
+.gantt-group-summary-bar.active{background:#3b83bd}
+.gantt-group-summary-bar.waiting{background:#d99022}
+.gantt-group-summary-bar.blocked{background:#b74747}
+.gantt-group-summary-bar.complete{background:#2d8a68}
+.gantt-group-summary-bar.pending{background:#8b98a3}
+
+@media(max-width:900px){
+  .gantt-group-summary{grid-template-columns:225px minmax(535px,1fr)}
+}
+
+
+/* v0.14.59 — Gantt time-axis readability */
+.container:has(#timeline.active){
+  max-width:none;
+}
+
+#timeline.view.active{
+  width:100%;
+}
+
+#timeline .timeline{
+  padding:14px;
+}
+
+.gantt-scroll{
+  overflow-x:auto;
+  overflow-y:visible;
+  overscroll-behavior-x:contain;
+  scrollbar-gutter:stable both-edges;
+  padding-bottom:4px;
+}
+
+.gantt-shell{
+  min-width:calc(220px + var(--gantt-chart-min,900px));
+}
+
+.gantt-head,
+.gantt-row,
+.gantt-group-summary{
+  grid-template-columns:220px minmax(var(--gantt-chart-min,900px),1fr);
+}
+
+.gantt-scale{
+  height:34px;
+  overflow:hidden;
+}
+
+.gantt-scale .gantt-week-label{
+  position:absolute;
+  top:0;
+  height:34px;
+  padding-top:9px;
+  transform:none;
+  text-align:center;
+  white-space:nowrap;
+  font-size:10px;
+  font-weight:800;
+  color:#40566a;
+  border-left:1px solid rgba(137,160,178,.42);
+  box-sizing:border-box;
+}
+
+.gantt-scale .gantt-week-label:first-child{
+  border-left:0;
+}
+
+.gantt-scale,
+.gantt-lane,
+.gantt-group-summary-lane{
+  background-image:linear-gradient(to right,rgba(137,160,178,.30) 1px,transparent 1px);
+}
+
+.gantt-head>div:first-child{
+  position:sticky;
+  left:0;
+  z-index:8;
+  background:#edf3f7;
+  box-shadow:1px 0 0 var(--line);
+}
+
+.gantt-label{
+  position:sticky;
+  left:0;
+  z-index:4;
+  box-shadow:1px 0 0 var(--line);
+}
+
+.gantt-row:nth-child(odd) .gantt-label{
+  background:#fbfcfd;
+}
+
+.gantt-row:nth-child(even) .gantt-label{
+  background:#fff;
+}
+
+.gantt-group-summary-label{
+  position:sticky;
+  left:0;
+  z-index:4;
+  background:#f1f5f8;
+  box-shadow:1px 0 0 var(--line);
+}
+
+.gantt-group-summary:hover .gantt-group-summary-label{
+  background:#e7eef4;
+}
+
+@media(max-width:900px){
+  .gantt-shell{
+    min-width:calc(190px + var(--gantt-chart-min,900px));
+  }
+
+  .gantt-head,
+  .gantt-row,
+  .gantt-group-summary{
+    grid-template-columns:190px minmax(var(--gantt-chart-min,900px),1fr);
+  }
+}
+
+
+/* v0.14.59 — correct Gantt horizontal scrolling */
+.gantt-shell{
+  width:100%;
+  min-width:0!important;
+}
+
+.gantt-scroll{
+  width:100%;
+  max-width:100%;
+  overflow-x:scroll!important;
+  overflow-y:visible;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable;
+}
+
+.gantt-scroll>.gantt-head,
+.gantt-scroll>.gantt-group{
+  min-width:calc(220px + var(--gantt-chart-min,820px));
+}
+
+.gantt-scroll>.gantt-group .gantt-row,
+.gantt-scroll>.gantt-group .gantt-group-summary{
+  min-width:calc(220px + var(--gantt-chart-min,820px));
+}
+
+.gantt-head,
+.gantt-row,
+.gantt-group-summary{
+  grid-template-columns:220px minmax(var(--gantt-chart-min,820px),1fr);
+}
+
+.gantt-scroll-controls{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-left:8px;
+}
+
+.gantt-scroll-controls .linkbtn{
+  font-size:10px;
+  font-weight:800;
+  padding:2px 4px;
+}
+
+/* Make the horizontal track visible where the browser permits custom scrollbars. */
+.gantt-scroll::-webkit-scrollbar{
+  height:12px;
+}
+.gantt-scroll::-webkit-scrollbar-track{
+  background:#eef3f6;
+  border-radius:999px;
+}
+.gantt-scroll::-webkit-scrollbar-thumb{
+  background:#8a949d;
+  border:2px solid #eef3f6;
+  border-radius:999px;
+}
+.gantt-scroll::-webkit-scrollbar-thumb:hover{
+  background:#66727c;
+}
+
+@media(max-width:900px){
+  .gantt-scroll>.gantt-head,
+  .gantt-scroll>.gantt-group,
+  .gantt-scroll>.gantt-group .gantt-row,
+  .gantt-scroll>.gantt-group .gantt-group-summary{
+    min-width:calc(190px + var(--gantt-chart-min,820px));
+  }
+
+  .gantt-head,
+  .gantt-row,
+  .gantt-group-summary{
+    grid-template-columns:190px minmax(var(--gantt-chart-min,820px),1fr);
+  }
+}
+
+
+/* v0.14.59 — current-week Gantt viewport + persistent drag scrollbar */
+.gantt-shell{
+  width:100%;
+  min-width:0!important;
+}
+
+.gantt-scroll{
+  width:100%;
+  max-width:100%;
+  overflow-x:auto!important;
+  overflow-y:visible;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none!important;
+  padding-bottom:0!important;
+}
+
+.gantt-scroll::-webkit-scrollbar{
+  display:none!important;
+}
+
+.gantt-scroll>.gantt-head,
+.gantt-scroll>.gantt-group,
+.gantt-scroll>.gantt-group .gantt-row,
+.gantt-scroll>.gantt-group .gantt-group-summary{
+  min-width:calc(220px + var(--gantt-chart-min,960px));
+}
+
+.gantt-head,
+.gantt-row,
+.gantt-group-summary{
+  grid-template-columns:220px minmax(var(--gantt-chart-min,960px),1fr);
+}
+
+.gantt-bottom-scroll{
+  display:block;
+  width:100%;
+  padding:8px 4px 5px;
+  background:#fff;
+  box-sizing:border-box;
+}
+
+.gantt-bottom-scroll-track{
+  position:relative;
+  width:100%;
+  height:14px;
+  border-radius:999px;
+  background:#d9dee2;
+  box-shadow:inset 0 0 0 1px rgba(79,94,106,.14);
+  cursor:pointer;
+}
+
+.gantt-bottom-scroll-track.disabled{
+  opacity:.32;
+  cursor:default;
+}
+
+.gantt-bottom-scroll-thumb{
+  position:absolute;
+  left:0;
+  top:2px;
+  height:10px;
+  min-width:72px;
+  border-radius:999px;
+  background:#858d94;
+  cursor:grab;
+  will-change:transform,width;
+}
+
+.gantt-bottom-scroll-thumb:hover{background:#69737b}
+.gantt-bottom-scroll-thumb:active{cursor:grabbing;background:#56616a}
+
+@media(max-width:900px){
+  .gantt-scroll>.gantt-head,
+  .gantt-scroll>.gantt-group,
+  .gantt-scroll>.gantt-group .gantt-row,
+  .gantt-scroll>.gantt-group .gantt-group-summary{
+    min-width:calc(190px + var(--gantt-chart-min,960px));
+  }
+
+  .gantt-head,
+  .gantt-row,
+  .gantt-group-summary{
+    grid-template-columns:190px minmax(var(--gantt-chart-min,960px),1fr);
+  }
+}
+
+/* v0.14.59 — hide Today text in Gantt header only */
+.gantt-today.head::before{
+  content:none!important;
+  display:none!important;
+}

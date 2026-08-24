@@ -4,6 +4,117 @@
 // permissions, storage, and project data remain separate.
 
 let calendarViewDate=new Date();
+let calendarScheduleMode="project";
+let ganttScheduleMode="project";
+let siteScheduleSnapshot={locations:[],operations:[],loaded:false,loading:false,projectSharePointId:0};
+
+function scheduleModeLabel(mode){return mode==="site"?"Site":mode==="combined"?"Combined":"Project";}
+function updateScheduleModeButtons(){
+  document.querySelectorAll("[data-schedule-view]").forEach(button=>{
+    const active=(button.dataset.scheduleView==="calendar"?calendarScheduleMode:ganttScheduleMode)===button.dataset.mode;
+    button.classList.toggle("active",active);
+    button.setAttribute("aria-pressed",active?"true":"false");
+  });
+  const cd=document.getElementById("calendarModeDescription");
+  if(cd)cd.textContent=calendarScheduleMode==="project"?"Project dates from Deliverables and Information Required.":calendarScheduleMode==="site"?"Site Operations dates only. Details stay in Site Operations.":"Project and Site dates shown together without linking the underlying records.";
+  const gd=document.getElementById("ganttModeDescription");
+  if(gd)gd.textContent=ganttScheduleMode==="project"?"Project deliverable schedule.":ganttScheduleMode==="site"?"Site Operations schedule only. Details stay in Site Operations.":"Project and Site schedules shown together while remaining independent.";
+}
+async function ensureSiteSchedule(force=false){
+  const projectSharePointId=Number(currentProject()?.sharePointId||0);
+
+  if(
+    siteScheduleSnapshot.loading &&
+    Number(siteScheduleSnapshot.projectSharePointId||0)===projectSharePointId
+  ) return;
+
+  if(
+    siteScheduleSnapshot.loaded &&
+    !force &&
+    Number(siteScheduleSnapshot.projectSharePointId||0)===projectSharePointId
+  ) return;
+
+  if(!window.SiteOperations?.getScheduleData){
+    console.error("Site schedule bridge is unavailable.");
+    siteScheduleSnapshot={
+      locations:[],
+      operations:[],
+      loaded:true,
+      loading:false,
+      projectSharePointId
+    };
+    return;
+  }
+
+  siteScheduleSnapshot={
+    ...siteScheduleSnapshot,
+    loading:true,
+    loaded:false,
+    projectSharePointId
+  };
+
+  try{
+    const data=await window.SiteOperations.getScheduleData(
+      force || Number(siteScheduleSnapshot.projectSharePointId||0)!==projectSharePointId
+    );
+
+    siteScheduleSnapshot={
+      locations:data?.locations||[],
+      operations:data?.operations||[],
+      loaded:true,
+      loading:false,
+      projectSharePointId
+    };
+  }
+  catch(error){
+    console.error("Site schedule load failed",error);
+    siteScheduleSnapshot={
+      locations:[],
+      operations:[],
+      loaded:true,
+      loading:false,
+      projectSharePointId
+    };
+  }
+}
+window.setScheduleMode=async(view,mode)=>{
+  if(!["project","site","combined"].includes(mode))return;
+  if(view==="calendar"){
+    calendarScheduleMode=mode;
+  }else{
+    ganttScheduleMode=mode;
+    resetGanttGroups();
+    resetGanttTimelineWindow();
+  }
+  updateScheduleModeButtons();
+  if(mode!=="project")await ensureSiteSchedule(false);
+  render();
+};
+function siteLocationName(id){return siteScheduleSnapshot.locations.find(x=>Number(x.id)===Number(id))?.name||"Site";}
+function siteScheduleRecords(){
+  return siteScheduleSnapshot.operations.map(op=>({
+    ...op,
+    scheduleKind:"site",
+    deliverable:op.title,
+    discipline:siteLocationName(op.locationId),
+    startDate:op.activityDate||op.targetDate,
+    date:op.targetDate||op.activityDate,
+    waitingOn:op.blockerDependency||""
+  }));
+}
+function projectScheduleRecords(records){return records.map(record=>({...record,scheduleKind:"project"}));}
+function scheduleRecordsForGantt(projectRecords){
+  const project=projectScheduleRecords(projectRecords);const site=siteScheduleRecords();
+  return ganttScheduleMode==="site"?site:ganttScheduleMode==="combined"?[...project,...site]:project;
+}
+function openScheduleSource(kind,id){
+  if(kind==="site"){window.SiteOperations?.openScheduleItem(id);return;}
+  if(currentUser?.canEdit)editDeliverable(id);else{showView("deliverables");}
+}
+window.openScheduleSource=openScheduleSource;
+window.resetSiteScheduleSnapshot=()=>{
+  siteScheduleSnapshot={locations:[],operations:[],loaded:false,loading:false,projectSharePointId:0};
+};
 
 function setCalendarViewDate(value){
   const next=new Date(value);
@@ -224,8 +335,13 @@ filtered=ds.filter(x=>{
  infoBody.innerHTML=infoRecords.map(x=>`<tr><td><strong>${esc(x.item)}</strong>${visBadge(x.visibility)}</td><td>${esc(x.from)}</td><td>${badge(x.status)}</td><td>${esc(x.blocking)}</td><td>${esc(x.notes)}</td><td><div class="record-actions">${commentControl(p,"Information Required",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editInfo(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
  infoCards.innerHTML=infoRecords.map(x=>`<div class="mobile-record mobile-info"><div class="mobile-record-heading"><h4>${esc(x.item)} ${visBadge(x.visibility)}</h4><span>${badge(x.status)}</span></div><div class="row"><span>Requested From</span><strong>${esc(x.from)||"—"}</strong></div><div class="row"><span>Blocking</span><span>${esc(x.blocking)||"—"}</span></div><div class="row"><span>Needed By</span><span>${fmtDate(x.neededBy)}</span></div>${x.notes?`<div class="mobile-record-current">${esc(x.notes)}</div>`:""}<div class="mobile-record-actions">${commentControl(p,"Information Required",x)}${currentUser.canEdit?`<button class="btn" onclick="editInfo(${x.id})">Edit Request</button>`:""}</div></div>`).join("")||'<div class="mobile-empty">No information requests for this project.</div>';
  const statuses=[...new Set(ds.map(x=>x.status))].sort(),disciplines=[...new Set(ds.map(x=>x.discipline))].sort(),oldS=filterStatus.value,oldD=filterDiscipline.value;filterStatus.innerHTML='<option value="">All statuses</option>'+statuses.map(s=>`<option>${esc(s)}</option>`).join("");filterStatus.value=oldS;filterDiscipline.innerHTML='<option value="">All disciplines</option>'+disciplines.map(s=>`<option>${esc(s)}</option>`).join("");filterDiscipline.value=oldD;
- timelineTrack.innerHTML=renderGantt(ds);
- const events=[...ds.filter(x=>x.date).map(x=>({date:x.date,title:x.deliverable,type:x.status==="Complete"?"green":x.status.includes("Waiting")||x.status==="Awaiting Review"?"orange":"",source:"deliverable",sourceId:x.id})),...infoRecords.filter(x=>x.neededBy).map(x=>({date:x.neededBy,title:x.item+" needed",type:"orange",source:"info",sourceId:x.id}))].sort((a,b)=>a.date.localeCompare(b.date)),grouped={};events.forEach(e=>(grouped[e.date]??=[]).push(e));agendaList.innerHTML=Object.entries(grouped).slice(0,8).map(([date,items])=>`<div class="agenda-day"><div class="agenda-date">${fmtDate(date)}</div><div class="agenda-items">${items.map(i=>`<div class="agenda-pill ${i.type}"><span>${esc(i.title)}</span>${currentUser.canEdit?`<button class="linkbtn agenda-edit" onclick="${i.source==="deliverable"?`editDeliverable(${i.sourceId})`:`editInfo(${i.sourceId})`}">Edit source</button>`:""}</div>`).join("")}</div></div>`).join("");
+ updateScheduleModeButtons();
+ if((calendarScheduleMode!=="project"||ganttScheduleMode!=="project")&&!siteScheduleSnapshot.loaded&&!siteScheduleSnapshot.loading){ensureSiteSchedule(false).then(()=>render());}
+ timelineTrack.innerHTML=renderGantt(scheduleRecordsForGantt(ds));
+ requestAnimationFrame(bindGanttBottomScroll);
+ const projectEvents=[...ds.filter(x=>x.date).map(x=>({date:x.date,title:x.deliverable,type:x.status==="Complete"?"green":x.status.includes("Waiting")||x.status==="Awaiting Review"?"orange":"",source:"deliverable",sourceId:x.id,scheduleKind:"project"})),...infoRecords.filter(x=>x.neededBy).map(x=>({date:x.neededBy,title:x.item+" needed",type:"orange",source:"info",sourceId:x.id,scheduleKind:"project"}))];
+ const siteEvents=siteScheduleSnapshot.operations.flatMap(x=>{const dates=[];if(x.activityDate)dates.push({date:x.activityDate,title:x.title,type:x.status==="Complete"?"green":/risk|blocked/i.test(x.status||"")?"orange":"",source:"site",sourceId:x.id,scheduleKind:"site"});if(x.targetDate&&x.targetDate!==x.activityDate)dates.push({date:x.targetDate,title:x.title,type:x.status==="Complete"?"green":/risk|blocked/i.test(x.status||"")?"orange":"",source:"site",sourceId:x.id,scheduleKind:"site"});return dates;});
+ const events=(calendarScheduleMode==="site"?siteEvents:calendarScheduleMode==="combined"?[...projectEvents,...siteEvents]:projectEvents).sort((a,b)=>a.date.localeCompare(b.date)),grouped={};events.forEach(e=>(grouped[e.date]??=[]).push(e));agendaList.innerHTML=Object.entries(grouped).map(([date,items])=>`<div class="agenda-day"><div class="agenda-date">${fmtDate(date)}</div><div class="agenda-items">${items.map(i=>`<div class="agenda-pill ${i.type}"><span>${esc(i.title)}</span>${i.source==="site"?`<button class="linkbtn agenda-edit" onclick="openScheduleSource('site',${i.sourceId})">View</button>`:currentUser.canEdit?`<button class="linkbtn agenda-edit" onclick="${i.source==="deliverable"?`editDeliverable(${i.sourceId})`:`editInfo(${i.sourceId})`}">Edit source</button>`:""}</div>`).join("")}</div></div>`).join("");
  const now=new Date(),
 calendarYear=calendarViewDate.getFullYear(),
 calendarMonth=calendarViewDate.getMonth(),
@@ -271,11 +387,8 @@ for(let day=1;day<=daysInMonth;day++){
   cells+=`<div class="day-cell${todayClass}">
     <div class="day-num">${day}</div>
     ${ev.slice(0,2).map(e=>`<div class="event-dot ${e.type}" ${
-      currentUser.canEdit
-        ?`onclick="${e.source==="deliverable"
-            ?`editDeliverable(${e.sourceId})`
-            :`editInfo(${e.sourceId})`
-          }" style="cursor:pointer" title="Edit source record"`
+      (currentUser.canEdit||e.source==="site")
+        ?`onclick="${e.source==="deliverable"?`editDeliverable(${e.sourceId})`:e.source==="site"?`openScheduleSource('site',${e.sourceId})`:`editInfo(${e.sourceId})`}" style="cursor:pointer" title="Open source record"`
         :""
     }>${esc(e.title)}</div>`).join("")}
   </div>`;
@@ -334,8 +447,26 @@ function formatAuditDetails(details){
 
 function ganttDate(value){
  if(!value)return null;
- const date=new Date(`${value}T12:00:00`);
- return Number.isNaN(date.getTime())?null:date;
+
+ // Accept actual Date objects, plain YYYY-MM-DD values, and full
+ // SharePoint / ISO timestamps without corrupting them.
+ let date;
+
+ if(value instanceof Date){
+   date=new Date(value.getTime());
+ }else{
+   const text=String(value).trim();
+   date=/^\d{4}-\d{2}-\d{2}$/.test(text)
+     ? new Date(`${text}T12:00:00`)
+     : new Date(text);
+ }
+
+ if(Number.isNaN(date.getTime()))return null;
+
+ // Gantt is date-based rather than time-of-day based.
+ // Normalize to local noon to avoid DST / midnight boundary issues.
+ date.setHours(12,0,0,0);
+ return date;
 }
 function ganttIso(date){
  const year=date.getFullYear(),month=String(date.getMonth()+1).padStart(2,"0"),day=String(date.getDate()).padStart(2,"0");
@@ -348,7 +479,21 @@ function ganttShort(iso){
  const month=date.toLocaleString("en-US",{month:"short"});
  return `${day} ${month} ${date.getFullYear()}`;
 }
+
+function ganttAxisLabel(iso,includeYear=false){
+ const date=ganttDate(iso);
+ if(!date)return "";
+ const label=date.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+ return includeYear?`${label} '${String(date.getFullYear()).slice(-2)}`:label;
+}
 function ganttAddDays(date,days){const next=new Date(date);next.setDate(next.getDate()+days);return next}
+function ganttMonday(date){
+ const d=new Date(date);
+ d.setHours(0,0,0,0);
+ const day=d.getDay();
+ d.setDate(d.getDate()+(day===0?-6:1-day));
+ return d;
+}
 function ganttStartFor(record){
  const explicit=ganttDate(record.startDate);if(explicit)return explicit;
  const target=ganttDate(record.date);if(!target)return null;
@@ -361,21 +506,71 @@ function ganttStatusClass(record){
  if(record.status==="In Progress")return "active";
  return "pending";
 }
-let ganttCollapsedGroups=new Set();
+
+function ganttGroupStatusClass(items){
+ const records=items.map(item=>item.record);
+ if(records.some(record=>record.status==="Blocked"))return "blocked";
+ if(records.some(record=>String(record.status||"").includes("Waiting")||record.status==="Awaiting Review"))return "waiting";
+ if(records.some(record=>record.status==="In Progress"))return "active";
+ if(records.length&&records.every(record=>record.status==="Complete"))return "complete";
+ return "pending";
+}
+let ganttExpandedGroups=new Set();
+
+let ganttScrollAnchorDate="";
+
+function resetGanttTimelineWindow(){
+ ganttScrollAnchorDate="";
+}
+
+function rememberGanttScrollAnchor(){
+ const shell=document.querySelector("#timelineTrack .gantt-shell");
+ const scroller=shell?.querySelector(".gantt-scroll");
+ if(!shell||!scroller)return;
+
+ const rangeStart=ganttDate(shell.dataset.rangeStart);
+ const rangeEnd=ganttDate(shell.dataset.rangeEnd);
+ if(!rangeStart||!rangeEnd)return;
+
+ const leftColumn=window.innerWidth<=900?190:220;
+ const chartWidth=Math.max(1,scroller.scrollWidth-leftColumn);
+ const totalDays=Math.max(1,(rangeEnd-rangeStart)/86400000);
+ const dayOffset=(scroller.scrollLeft/chartWidth)*totalDays;
+ ganttScrollAnchorDate=ganttIso(ganttAddDays(rangeStart,dayOffset));
+}
 
 function resetGanttGroups(){
- ganttCollapsedGroups.clear();
+ ganttExpandedGroups.clear();
 }
 
 function toggleGanttGroup(encodedDiscipline){
+ rememberGanttScrollAnchor();
  const discipline=decodeURIComponent(encodedDiscipline);
- if(ganttCollapsedGroups.has(discipline)){
-   ganttCollapsedGroups.delete(discipline);
+ if(ganttExpandedGroups.has(discipline)){
+   ganttExpandedGroups.delete(discipline);
  }else{
-   ganttCollapsedGroups.add(discipline);
+   ganttExpandedGroups.add(discipline);
  }
  render();
 }
+
+function expandAllGanttGroups(){
+ rememberGanttScrollAnchor();
+ document.querySelectorAll(".gantt-group-header[data-group]").forEach(header=>{
+   ganttExpandedGroups.add(decodeURIComponent(header.dataset.group));
+ });
+ render();
+}
+
+function collapseAllGanttGroups(){
+ rememberGanttScrollAnchor();
+ ganttExpandedGroups.clear();
+ render();
+}
+
+window.expandAllGanttGroups=expandAllGanttGroups;
+window.collapseAllGanttGroups=collapseAllGanttGroups;
+
 
 function renderGantt(records){
  const scheduled=records
@@ -389,23 +584,48 @@ function renderGantt(records){
 
  const earliest=new Date(Math.min(...scheduled.map(item=>item.start)));
  const latest=new Date(Math.max(...scheduled.map(item=>item.end)));
- const rangeStart=ganttAddDays(earliest,-3);
- const rangeEnd=ganttAddDays(latest,5);
+ const today=ganttDate(new Date());
+ const currentWeekStart=ganttMonday(today);
+
+ const projectCreated=ganttDate(currentProject()?.createdAt);
+ const rangeStart=projectCreated || ganttMonday(earliest);
+
+ // Fixed interactive range:
+ // left edge = Project record creation date
+ // right edge = latest actual scheduled due date
+ const rangeEnd=new Date(Math.max(latest,rangeStart));
+
  const totalDays=Math.max(1,Math.round((rangeEnd-rangeStart)/86400000));
  const weekGridWidth=(7/totalDays)*100;
- const today=ganttDate(new Date());
+ const weekCount=Math.max(1,Math.ceil(totalDays/7));
+
+ // Do not squeeze long projects. A typical desktop shows roughly 5–7 weeks,
+ // with the rest available through the bottom scrollbar.
+ const ganttChartMinWidth=Math.max(960,weekCount*185);
+
  const todayOffset=((today-rangeStart)/86400000/totalDays)*100;
+ const requestedInitialDate=ganttScrollAnchorDate?ganttDate(ganttScrollAnchorDate):currentWeekStart;
+ const initialDate=requestedInitialDate
+   ? new Date(Math.max(rangeStart,Math.min(requestedInitialDate,rangeEnd)))
+   : rangeStart;
+ const initialScrollDays=Math.max(0,(initialDate-rangeStart)/86400000);
+ const initialScrollRatio=Math.max(0,Math.min(1,initialScrollDays/totalDays));
 
  const weeks=[];
+ let previousYear=null;
  for(let cursor=new Date(rangeStart);cursor<=rangeEnd;cursor=ganttAddDays(cursor,7)){
    const offset=((cursor-rangeStart)/86400000/totalDays)*100;
-   weeks.push(`<span style="left:${offset}%">${fmtDate(ganttIso(cursor))}</span>`);
+   const year=cursor.getFullYear();
+   const showYear=previousYear===null||year!==previousYear;
+   weeks.push(`<span class="gantt-week-label" data-week-date="${ganttIso(cursor)}" style="left:${offset}%;width:${weekGridWidth}%">${ganttAxisLabel(ganttIso(cursor),showYear)}</span>`);
+   previousYear=year;
  }
 
  const disciplineOrder=[];
  const grouped=new Map();
  scheduled.forEach(item=>{
-   const discipline=(item.record.discipline||"Other").trim()||"Other";
+   const baseDiscipline=(item.record.discipline||"Other").trim()||"Other";
+   const discipline=ganttScheduleMode==="combined"?`${item.record.scheduleKind==="site"?"SITE":"PROJECT"} · ${baseDiscipline}`:baseDiscipline;
    if(!grouped.has(discipline)){
      grouped.set(discipline,[]);
      disciplineOrder.push(discipline);
@@ -417,7 +637,7 @@ function renderGantt(records){
    const items=grouped.get(discipline)
      .slice()
      .sort((a,b)=>a.start-b.start||a.end-b.end||a.record.deliverable.localeCompare(b.record.deliverable));
-   const collapsed=ganttCollapsedGroups.has(discipline);
+   const collapsed=!ganttExpandedGroups.has(discipline);
    const encoded=encodeURIComponent(discipline);
 
    const rows=collapsed?"":items.map(({record,start,end})=>{
@@ -429,11 +649,10 @@ function renderGantt(records){
 
      const left=Math.max(0,((start-rangeStart)/86400000/totalDays)*100);
      const width=Math.max(1.5,(((end-start)/86400000+1)/totalDays)*100);
-     const blocked=/blocked|waiting/i.test(record.status||"")||Boolean(record.waitingOn);
      const inferred=!ganttDate(record.startDate);
 
      return `<div class="gantt-row">
-       <div class="gantt-label" ${currentUser.canEdit?`onclick="editDeliverable(${record.id})"`:""}>
+       <div class="gantt-label" onclick="openScheduleSource('${record.scheduleKind||"project"}',${record.id})">
          <strong title="${esc(record.deliverable)}">${esc(record.deliverable)}</strong>
          <span>${badge(record.status)}</span>
        </div>
@@ -441,18 +660,41 @@ function renderGantt(records){
          ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today" style="left:${todayOffset}%" title="Today"></i>`:""}
          <button class="gantt-bar ${ganttStatusClass(record)}"
            style="left:${left}%;width:${width}%"
-           ${currentUser.canEdit?`onclick="editDeliverable(${record.id})"`:""}
+           onclick="openScheduleSource('${record.scheduleKind||"project"}',${record.id})"
            title="${esc(record.deliverable)}: ${fmtDate(ganttIso(start))} – ${fmtDate(ganttIso(end))}${inferred?" (start estimated)":""}">
-           
-           <span>${ganttShort(ganttIso(start))} → ${ganttShort(record.date)}</span>
+           ${width>=9?`<span>${ganttShort(ganttIso(start))} → ${ganttShort(record.date)}</span>`:""}
          </button>
        </div>
      </div>`;
    }).join("");
 
+   const groupStart=new Date(Math.min(...items.map(item=>item.start)));
+   const groupEnd=new Date(Math.max(...items.map(item=>item.end)));
+   const groupLeft=Math.max(0,((groupStart-rangeStart)/86400000/totalDays)*100);
+   const groupWidth=Math.max(1.5,(((groupEnd-groupStart)/86400000+1)/totalDays)*100);
+   const groupStatus=ganttGroupStatusClass(items);
+
+   if(collapsed){
+     return `<section class="gantt-group">
+       <button class="gantt-group-summary" type="button" data-group="${encoded}"
+         onclick="toggleGanttGroup('${encoded}')" aria-expanded="false"
+         title="${esc(discipline)}: ${fmtDate(ganttIso(groupStart))} – ${fmtDate(ganttIso(groupEnd))}">
+         <span class="gantt-group-summary-label">
+           <span class="gantt-group-arrow">▶</span>
+           <strong>${esc(discipline)}</strong>
+           <span class="gantt-group-count">${items.length}</span>
+         </span>
+         <span class="gantt-group-summary-lane" style="--gantt-week:${weekGridWidth}%">
+           ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today" style="left:${todayOffset}%" title="Today"></i>`:""}
+           <i class="gantt-group-summary-bar ${groupStatus}" style="left:${groupLeft}%;width:${groupWidth}%"></i>
+         </span>
+       </button>
+     </section>`;
+   }
+
    return `<section class="gantt-group">
-     <button class="gantt-group-header" type="button" onclick="toggleGanttGroup('${encoded}')" aria-expanded="${collapsed?"false":"true"}">
-       <span class="gantt-group-arrow">${collapsed?"▶":"▼"}</span>
+     <button class="gantt-group-header" type="button" data-group="${encoded}" onclick="toggleGanttGroup('${encoded}')" aria-expanded="true">
+       <span class="gantt-group-arrow">▼</span>
        <strong>${esc(discipline)}</strong>
        <span class="gantt-group-count">${items.length}</span>
      </button>
@@ -460,12 +702,22 @@ function renderGantt(records){
    </section>`;
  }).join("");
 
- return `<div class="gantt-shell">
+ return `<div class="gantt-shell"
+   style="--gantt-chart-min:${ganttChartMinWidth}px"
+   data-initial-scroll-ratio="${initialScrollRatio}"
+   data-range-start="${ganttIso(rangeStart)}"
+   data-range-end="${ganttIso(rangeEnd)}"
+   data-current-week="${ganttIso(currentWeekStart)}">
    <div class="gantt-legend">
      <span><i class="active"></i>In progress</span>
      <span><i class="waiting"></i>Waiting</span>
      <span><i class="blocked"></i>Blocked</span>
      <span><i class="complete"></i>Complete</span>
+     <span class="gantt-group-controls">
+       <button class="linkbtn" type="button" onclick="expandAllGanttGroups()">Expand All</button>
+       <span aria-hidden="true">·</span>
+       <button class="linkbtn" type="button" onclick="collapseAllGanttGroups()">Collapse All</button>
+     </span>
      <span class="gantt-note">Missing start dates use a temporary 14-day estimate until manually entered.</span>
    </div>
    <div class="gantt-scroll">
@@ -478,8 +730,153 @@ function renderGantt(records){
      </div>
      ${groupedRows}
    </div>
+   <div class="gantt-bottom-scroll" aria-label="Scroll Gantt timeline left or right">
+     <div class="gantt-bottom-scroll-track">
+       <div class="gantt-bottom-scroll-thumb"></div>
+     </div>
+   </div>
    ${unscheduled.length?`<div class="gantt-unscheduled"><strong>Unscheduled:</strong> ${unscheduled.map(record=>esc(record.deliverable)).join(", ")}</div>`:""}
  </div>`;
+}
+
+function positionGanttAtDate(targetDate){
+ const shell=document.querySelector("#timelineTrack .gantt-shell");
+ const scroller=shell?.querySelector(".gantt-scroll");
+ if(!shell||!scroller)return false;
+
+ const rangeStart=ganttDate(shell.dataset.rangeStart);
+ const rangeEnd=ganttDate(shell.dataset.rangeEnd);
+ const target=ganttDate(targetDate);
+ if(!rangeStart||!rangeEnd||!target)return false;
+
+ const leftColumn=window.innerWidth<=900?190:220;
+ const chartWidth=Math.max(1,scroller.scrollWidth-leftColumn);
+ const viewportChartWidth=Math.max(0,scroller.clientWidth-leftColumn);
+ const scrollableChartWidth=Math.max(0,chartWidth-viewportChartWidth);
+ const totalDays=Math.max(1,(rangeEnd-rangeStart)/86400000);
+
+ const clamped=new Date(
+   Math.max(rangeStart.getTime(),Math.min(target.getTime(),rangeEnd.getTime()))
+ );
+ const dayOffset=Math.max(0,(clamped-rangeStart)/86400000);
+ const ratio=Math.max(0,Math.min(1,dayOffset/totalDays));
+ const desired=ratio*scrollableChartWidth;
+
+ scroller.scrollLeft=Math.max(0,Math.min(scrollableChartWidth,desired));
+ scroller.dispatchEvent(new Event("scroll"));
+ return true;
+}
+
+function positionGanttAtCurrentWeek(){
+ const today=ganttDate(new Date());
+ if(!today)return false;
+ return positionGanttAtDate(ganttMonday(today));
+}
+
+window.positionGanttAtCurrentWeek=positionGanttAtCurrentWeek;
+
+function bindGanttBottomScroll(){
+ const shell=document.querySelector("#timelineTrack .gantt-shell");
+ const scroller=shell?.querySelector(".gantt-scroll");
+ const track=shell?.querySelector(".gantt-bottom-scroll-track");
+ const thumb=shell?.querySelector(".gantt-bottom-scroll-thumb");
+ if(!shell||!scroller||!track||!thumb)return;
+
+ const leftColumn=window.innerWidth<=900?190:220;
+ let extending=false;
+
+ const metrics=()=>{
+   const maxScroll=Math.max(0,scroller.scrollWidth-scroller.clientWidth);
+   const trackWidth=Math.max(1,track.clientWidth);
+   const visibleRatio=scroller.scrollWidth?Math.min(1,scroller.clientWidth/scroller.scrollWidth):1;
+   const thumbWidth=Math.max(72,Math.round(trackWidth*visibleRatio));
+   const maxThumb=Math.max(0,trackWidth-thumbWidth);
+   return {maxScroll,trackWidth,thumbWidth,maxThumb};
+ };
+
+ const visibleLeftDate=()=>{
+   const rangeStart=ganttDate(shell.dataset.rangeStart);
+   const rangeEnd=ganttDate(shell.dataset.rangeEnd);
+   if(!rangeStart||!rangeEnd)return null;
+
+   const chartWidth=Math.max(1,scroller.scrollWidth-leftColumn);
+   const viewportChartWidth=Math.max(0,scroller.clientWidth-leftColumn);
+   const scrollableChartWidth=Math.max(1,chartWidth-viewportChartWidth);
+   const totalDays=Math.max(1,(rangeEnd-rangeStart)/86400000);
+
+   const ratio=Math.max(0,Math.min(1,scroller.scrollLeft/scrollableChartWidth));
+   const dayOffset=ratio*totalDays;
+   return ganttAddDays(rangeStart,dayOffset);
+ };
+
+ const sync=()=>{
+   const {maxScroll,thumbWidth,maxThumb}=metrics();
+   const left=maxScroll?Math.round((scroller.scrollLeft/maxScroll)*maxThumb):0;
+   thumb.style.width=`${thumbWidth}px`;
+   thumb.style.transform=`translateX(${left}px)`;
+   track.classList.toggle("disabled",maxScroll<=0);
+ };
+
+
+ let dragging=false;
+ let pointerStart=0;
+ let scrollStart=0;
+
+ const move=event=>{
+   if(!dragging)return;
+   const {maxScroll,maxThumb}=metrics();
+   const delta=event.clientX-pointerStart;
+   scroller.scrollLeft=scrollStart+(delta/Math.max(1,maxThumb))*maxScroll;
+ };
+
+ const stop=()=>{
+   dragging=false;
+   document.removeEventListener("pointermove",move);
+   document.removeEventListener("pointerup",stop);
+ };
+
+ thumb.addEventListener("pointerdown",event=>{
+   dragging=true;
+   pointerStart=event.clientX;
+   scrollStart=scroller.scrollLeft;
+   document.addEventListener("pointermove",move);
+   document.addEventListener("pointerup",stop);
+   event.preventDefault();
+ });
+
+ track.addEventListener("pointerdown",event=>{
+   if(event.target===thumb||track.classList.contains("disabled"))return;
+   const rect=track.getBoundingClientRect();
+   const {maxScroll}=metrics();
+   const ratio=Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width)));
+   scroller.scrollLeft=Math.round(maxScroll*ratio);
+   requestAnimationFrame(sync);
+ });
+
+ scroller.addEventListener("scroll",()=>{
+   sync();
+ },{passive:true});
+
+ requestAnimationFrame(()=>{
+   requestAnimationFrame(()=>{
+     const requested=ganttScrollAnchorDate
+       ? ganttDate(ganttScrollAnchorDate)
+       : ganttMonday(ganttDate(new Date()));
+
+     if(!positionGanttAtDate(requested)){
+       const ratio=Number(shell.dataset.initialScrollRatio||0);
+       const chartWidth=Math.max(0,scroller.scrollWidth-leftColumn);
+       const {maxScroll}=metrics();
+       scroller.scrollLeft=Math.min(maxScroll,Math.max(0,ratio*chartWidth));
+       sync();
+     }else{
+       sync();
+     }
+
+     const anchor=visibleLeftDate();
+     if(anchor)ganttScrollAnchorDate=ganttIso(anchor);
+   });
+ });
 }
 
 function renderAdmin(){
@@ -1114,6 +1511,7 @@ async function downloadCurrentCalendarPDF(){
 
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
+  if(calendarScheduleMode!=="project") await ensureSiteSchedule(false);
   const ds=visibleDeliverables(p);
   const infoRecords=visibleInfo(p);
 
@@ -1141,22 +1539,18 @@ async function downloadCurrentCalendarPDF(){
     return soft;
   }
 
-  const events=[
-    ...ds.filter(x=>x.date).map(x=>({
-      date:x.date,
-      title:x.deliverable,
-      status:x.status||"",
-      source:"deliverable",
-      detail:x.status||""
-    })),
-    ...infoRecords.filter(x=>x.neededBy).map(x=>({
-      date:x.neededBy,
-      title:`${x.item} needed`,
-      status:x.status||"Outstanding",
-      source:"info",
-      detail:x.from?`Requested from ${x.from}`:""
-    }))
-  ].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const projectPdfEvents=[
+    ...ds.filter(x=>x.date).map(x=>({date:x.date,title:x.deliverable,status:x.status||"",source:"deliverable",detail:x.status||""})),
+    ...infoRecords.filter(x=>x.neededBy).map(x=>({date:x.neededBy,title:`${x.item} needed`,status:x.status||"Outstanding",source:"info",detail:x.from?`Requested from ${x.from}`:""}))
+  ];
+  const sitePdfEvents=siteScheduleSnapshot.operations.flatMap(x=>{
+    const detail=[siteLocationName(x.locationId),x.sitePhase,x.status].filter(Boolean).join(" · ");
+    const rows=[];
+    if(x.activityDate)rows.push({date:x.activityDate,title:x.title,status:x.status||"Planned",source:"site",detail});
+    if(x.targetDate&&x.targetDate!==x.activityDate)rows.push({date:x.targetDate,title:x.title,status:x.status||"Planned",source:"site",detail});
+    return rows;
+  });
+  const events=(calendarScheduleMode==="site"?sitePdfEvents:calendarScheduleMode==="combined"?[...projectPdfEvents,...sitePdfEvents]:projectPdfEvents).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 
   const grouped={};
   events.forEach(event=>(grouped[event.date]??=[]).push(event));
@@ -1179,7 +1573,7 @@ async function downloadCurrentCalendarPDF(){
     doc.setFontSize(7);
     doc.setTextColor(...muted);
     doc.text("AHT Global · Project Control",margin,footerY);
-    doc.text(`${clean(p.name)} · Calendar · v${APP_CONFIG.version}`,pageWidth-margin,footerY,{align:"right"});
+    doc.text(`${clean(p.name)} · ${scheduleModeLabel(calendarScheduleMode)} Calendar · v${APP_CONFIG.version}`,pageWidth-margin,footerY,{align:"right"});
   }
 
   function header(){
@@ -1189,7 +1583,7 @@ async function downloadCurrentCalendarPDF(){
     doc.text("AHT GLOBAL · PROJECT CONTROL",margin,28);
 
     doc.setFontSize(20);
-    doc.text(`${clean(p.name)} — Calendar & Agenda`,margin,51);
+    doc.text(`${clean(p.name)} — ${scheduleModeLabel(calendarScheduleMode)} Calendar & Agenda`,margin,51);
 
     doc.setFont("helvetica","normal");
     doc.setFontSize(8);
@@ -1390,7 +1784,7 @@ async function downloadCurrentCalendarPDF(){
   footer();
 
   const dateStamp=new Date().toISOString().slice(0,10);
-  const filename=`${projectReportSafeFileName(p.name)}-Calendar-${dateStamp}.pdf`;
+  const filename=`${projectReportSafeFileName(p.name)}-${scheduleModeLabel(calendarScheduleMode)}-Calendar-${dateStamp}.pdf`;
   await saveProjectPdfBlob(doc.output("blob"),filename);
 }
 async function downloadCurrentGanttPDF(){
@@ -1404,7 +1798,8 @@ async function downloadCurrentGanttPDF(){
 
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
-  const records=visibleDeliverables(p);
+  if(ganttScheduleMode!=="project") await ensureSiteSchedule(false);
+  const records=scheduleRecordsForGantt(visibleDeliverables(p));
 
   const scheduled=records
     .map(record=>({record,start:ganttStartFor(record),end:ganttDate(record.date)}))
@@ -1486,7 +1881,7 @@ async function downloadCurrentGanttPDF(){
     doc.text("Add target dates in Deliverables to populate the Gantt schedule.",margin,130);
     footer();
 
-    const filename=`${projectReportSafeFileName(p.name)}-Gantt-${dateStamp}.pdf`;
+    const filename=`${projectReportSafeFileName(p.name)}-${scheduleModeLabel(ganttScheduleMode)}-Gantt-${dateStamp}.pdf`;
     await saveProjectPdfBlob(doc.output("blob"),filename);
     return;
   }
@@ -1618,6 +2013,6 @@ async function downloadCurrentGanttPDF(){
     footer();
   }
 
-  const filename=`${projectReportSafeFileName(p.name)}-Gantt-${dateStamp}.pdf`;
+  const filename=`${projectReportSafeFileName(p.name)}-${scheduleModeLabel(ganttScheduleMode)}-Gantt-${dateStamp}.pdf`;
   await saveProjectPdfBlob(doc.output("blob"),filename);
 }

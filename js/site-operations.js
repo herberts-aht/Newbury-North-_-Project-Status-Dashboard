@@ -4,6 +4,7 @@ const SiteOperations = (() => {
     operations: [],
     projectId: null,
     currentLocationId: null,
+    currentOperationId: null,
     loaded: false,
     loading: false
   };
@@ -341,6 +342,95 @@ const SiteOperations = (() => {
     `;
   }
 
+  function compactOperationRow(op) {
+    const pct = op.trackProgress ? `${clampPercent(op.percentComplete)}%` : "—";
+    const phase = op.sitePhase || op.system || op.entryType || "Site Item";
+    const target = op.targetDate ? displayDate(op.targetDate) : "—";
+
+    return `
+      <button class="so-operation-row" type="button"
+        onclick="SiteOperations.openOperationDetail(${Number(op.id)})">
+        <span class="so-operation-row-main">
+          <strong>${escapeHtml(op.title)}</strong>
+          <span>${escapeHtml(phase)}</span>
+        </span>
+        <span class="so-operation-row-progress">${escapeHtml(pct)}</span>
+        <span class="so-operation-row-status">${escapeHtml(op.status || "Planned")}</span>
+        <span class="so-operation-row-target">${escapeHtml(target)}</span>
+        <span class="so-operation-row-arrow" aria-hidden="true">›</span>
+      </button>
+    `;
+  }
+
+  function renderOperationDetail(root) {
+    const op = state.operations.find(x => Number(x.id) === Number(state.currentOperationId));
+    if (!op) {
+      state.currentOperationId = null;
+      renderLocationDetail(root);
+      return;
+    }
+
+    const location = locationById(op.locationId);
+    const canEdit = Boolean(currentUser?.canAdmin);
+
+    root.innerHTML = `
+      <div class="so-item-detail">
+        <div class="so-item-detail-heading">
+          <div>
+            <div class="eyebrow">${escapeHtml(op.entryType || "Site Item")}</div>
+            <h3>${escapeHtml(op.title)}</h3>
+            <div class="small">${escapeHtml(location?.name || "Site Operations")}</div>
+          </div>
+          <div class="so-item-detail-actions">
+            <span class="so-status">${escapeHtml(op.status || "Planned")}</span>
+            ${canEdit ? `<button class="btn" type="button" onclick="SiteOperations.editOperation(${Number(op.id)})">Edit</button>` : ""}
+            ${canEdit ? `<button class="btn danger" type="button" onclick="SiteOperations.deleteOperation(${Number(op.id)})">Delete</button>` : ""}
+          </div>
+        </div>
+
+        ${op.trackProgress ? `
+          <div class="so-item-progress-panel">
+            ${progressBar("Progress", op.percentComplete)}
+          </div>
+        ` : ""}
+
+        <div class="so-item-detail-grid">
+          <div><span>System</span><strong>${escapeHtml(op.system || "—")}</strong></div>
+          <div><span>Site Phase</span><strong>${escapeHtml(op.sitePhase || "—")}</strong></div>
+          <div><span>Work Stage</span><strong>${escapeHtml(op.workStage || "—")}</strong></div>
+          <div><span>Lead / Responsible</span><strong>${escapeHtml(op.leadResponsible || "—")}</strong></div>
+          <div><span>Activity Date</span><strong>${escapeHtml(displayDate(op.activityDate))}</strong></div>
+          <div><span>Target Date</span><strong>${escapeHtml(displayDate(op.targetDate))}</strong></div>
+          <div><span>Progress Weight</span><strong>${escapeHtml(op.progressWeight || 1)}</strong></div>
+          <div><span>Track Progress</span><strong>${op.trackProgress ? "Yes" : "No"}</strong></div>
+        </div>
+
+        ${op.details ? `
+          <div class="so-item-detail-section">
+            <h4>Details</h4>
+            <div>${escapeHtml(op.details)}</div>
+          </div>
+        ` : ""}
+
+        ${op.blockerDependency ? `
+          <div class="so-item-detail-section so-item-detail-blocker">
+            <h4>Blocker / Dependency</h4>
+            <div>${escapeHtml(op.blockerDependency)}</div>
+          </div>
+        ` : ""}
+
+        <div class="so-item-detail-section">
+          <h4>Dashboard Tie-Ins</h4>
+          <div class="so-item-detail-grid">
+            <div><span>Project Activity</span><strong>${escapeHtml(op.projectActivityMode || "Auto")}</strong></div>
+            <div><span>Risk</span><strong>${escapeHtml(op.riskMode || "Auto")}</strong></div>
+            <div><span>Information Required</span><strong>${escapeHtml(op.informationRequiredMode || "Auto")}</strong></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function breadcrumbs() {
     const items = [];
     let location = state.currentLocationId
@@ -354,11 +444,18 @@ const SiteOperations = (() => {
         : null;
     }
 
+    const currentOperation = state.currentOperationId
+      ? state.operations.find(x => Number(x.id) === Number(state.currentOperationId))
+      : null;
+
     return `
       <button type="button" onclick="SiteOperations.openOverview()">Site Operations</button>
       ${items.map(item =>
         `<span>›</span><button type="button" onclick="SiteOperations.openLocation(${Number(item.id)})">${escapeHtml(item.name)}</button>`
       ).join("")}
+      ${currentOperation
+        ? `<span>›</span><span class="so-breadcrumb-current">${escapeHtml(currentOperation.title)}</span>`
+        : ""}
     `;
   }
 
@@ -418,7 +515,9 @@ const SiteOperations = (() => {
       return;
     }
 
-    if (state.currentLocationId) {
+    if (state.currentOperationId) {
+      renderOperationDetail(root);
+    } else if (state.currentLocationId) {
       renderLocationDetail(root);
     } else {
       renderOverview(root);
@@ -519,16 +618,26 @@ const SiteOperations = (() => {
         </div>
       </div>
 
-      <div class="so-operation-list">
+      <div class="so-operation-list so-operation-list-compact">
         ${directOperations.length
-          ? directOperations
+          ? `
+            <div class="so-operation-row-head">
+              <span>Activity</span>
+              <span>Progress</span>
+              <span>Status</span>
+              <span>Target</span>
+              <span></span>
+            </div>
+            ${directOperations
               .slice()
               .sort((a, b) =>
+                String(a.targetDate || "9999-12-31").localeCompare(String(b.targetDate || "9999-12-31")) ||
                 String(b.activityDate || "").localeCompare(String(a.activityDate || "")) ||
                 Number(b.id) - Number(a.id)
               )
-              .map(operationCard)
-              .join("")
+              .map(compactOperationRow)
+              .join("")}
+          `
           : `<div class="so-empty">
               <strong>No direct Site Operations items here yet.</strong>
               <span>${currentUser?.canAdmin
@@ -666,13 +775,24 @@ const SiteOperations = (() => {
   }
 
   function openOverview() {
+    state.currentOperationId = null;
     state.currentLocationId = null;
     render();
   }
 
   function openLocation(id) {
     if (!locationById(id)) return;
+    state.currentOperationId = null;
     state.currentLocationId = Number(id);
+    render();
+    document.getElementById("siteOperations")?.scrollIntoView({ block: "start" });
+  }
+
+  function openOperationDetail(id) {
+    const record = state.operations.find(x => Number(x.id) === Number(id));
+    if (!record) return;
+    state.currentLocationId = Number(record.locationId || 0);
+    state.currentOperationId = Number(record.id);
     render();
     document.getElementById("siteOperations")?.scrollIntoView({ block: "start" });
   }
@@ -1204,7 +1324,13 @@ const SiteOperations = (() => {
         if (typeof save === "function") await save();
       }
 
+      const parentLocationId = Number(record.locationId || 0);
+      state.currentOperationId = null;
       await load(true);
+      if (parentLocationId && locationById(parentLocationId)) {
+        state.currentLocationId = parentLocationId;
+        render();
+      }
     } catch (error) {
       console.error("Site Operations delete failed", error);
       alert(`Site Operations item could not be deleted: ${error.message}`);
@@ -1275,6 +1401,7 @@ const SiteOperations = (() => {
   function onProjectChanged() {
     state.loaded = false;
     state.currentLocationId = null;
+    state.currentOperationId = null;
 
     const view = document.getElementById("siteOperations");
 
@@ -1287,17 +1414,36 @@ const SiteOperations = (() => {
     await load(false);
   }
 
+  async function getScheduleData(force = false) {
+    await load(force);
+    return {
+      locations: state.locations.map(location => ({ ...location })),
+      operations: state.operations.map(operation => ({ ...operation }))
+    };
+  }
+
+  async function openScheduleItem(id) {
+    await load(false);
+    const record = state.operations.find(x => Number(x.id) === Number(id));
+    if (!record) return;
+    if (typeof showView === "function") showView("siteOperations");
+    openOperationDetail(record.id);
+  }
+
   return {
     onView,
     onProjectChanged,
     openOverview,
     openLocation,
+    openOperationDetail,
     openLocationEditor,
     openOperationEditor,
     editLocation,
     editOperation,
     deleteLocation,
     deleteOperation,
+    getScheduleData,
+    openScheduleItem,
     closeModal,
     refresh: () => load(true)
   };

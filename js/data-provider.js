@@ -513,6 +513,10 @@ const SharePointDataProvider = {
           archived: Boolean(fields.Archived),
           health: this.mapHealth(fields),
 
+          // Built-in SharePoint creation timestamp is the permanent left boundary
+          // for this project's interactive Gantt.
+          createdAt: item.createdDateTime || "",
+
           // SharePoint is the permanent source for project Last Updated.
           lastUpdatedAt: item.lastModifiedDateTime || "",
           lastUpdatedBy:
