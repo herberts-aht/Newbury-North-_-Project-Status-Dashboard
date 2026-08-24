@@ -57,6 +57,92 @@ function commentControl(project,recordType,record){
   return `<button class="linkbtn ${cls}" onclick="openComments('${recordType}',${Number(record.id)})" title="Comments" aria-label="Comments${openCount?` (${openCount} open)`:``}">${label}</button>`;
 }
 
+let summaryDeliverableMode = "";
+
+function summaryRecordDestination(recordType,id){
+  const project=currentProject();
+  if(!project)return null;
+
+  const numericId=Number(id);
+
+  if(recordType==="Deliverable"){
+    const record=visibleDeliverables(project).find(x=>Number(x.id)===numericId);
+    return record ? {view:"deliverables",record} : null;
+  }
+
+  if(recordType==="Information Required"){
+    const record=visibleInfo(project).find(x=>Number(x.id)===numericId);
+    return record ? {view:"info",record} : null;
+  }
+
+  return null;
+}
+
+function summaryClickableAttrs(recordType,id){
+  return summaryRecordDestination(recordType,id)
+    ? ` class="item summary-drilldown" role="button" tabindex="0" data-summary-type="${recordType}" data-summary-id="${Number(id)}"`
+    : ' class="item"';
+}
+
+function openSummaryRecord(recordType,id){
+  const destination=summaryRecordDestination(recordType,id);
+  if(!destination)return;
+
+  summaryDeliverableMode="";
+
+  if(destination.view==="deliverables"){
+    showView("deliverables");
+
+    if(searchDeliverables) searchDeliverables.value=destination.record.deliverable||"";
+    if(filterStatus) filterStatus.value="";
+    if(filterDiscipline) filterDiscipline.value="";
+
+    render();
+    return;
+  }
+
+  if(destination.view==="info"){
+    showView("info");
+    render();
+
+    const cards=[...document.querySelectorAll("#infoCards .mobile-record")];
+    const rows=[...document.querySelectorAll("#infoBody tr")];
+    const records=visibleInfo(currentProject());
+
+    records.forEach((record,index)=>{
+      const show=Number(record.id)===Number(id);
+      if(rows[index]) rows[index].style.display=show?"":"none";
+      if(cards[index]) cards[index].style.display=show?"":"none";
+    });
+  }
+}
+
+function openSummaryDeliverables(mode="all"){
+  summaryDeliverableMode=mode;
+
+  if(searchDeliverables) searchDeliverables.value="";
+  if(filterStatus) filterStatus.value="";
+  if(filterDiscipline) filterDiscipline.value="";
+
+  showView("deliverables");
+  render();
+}
+
+function bindSummaryDrilldowns(){
+  document.querySelectorAll(".summary-drilldown").forEach(el=>{
+    const activate=()=>{
+      openSummaryRecord(el.dataset.summaryType,Number(el.dataset.summaryId));
+    };
+
+    el.onclick=activate;
+    el.onkeydown=event=>{
+      if(event.key==="Enter"||event.key===" "){
+        event.preventDefault();
+        activate();
+      }
+    };
+  });
+}
 function render(){
  document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canEdit));
  document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canAdmin));
@@ -78,11 +164,47 @@ function render(){
  projectGrid.innerHTML=projects.map(pr=>{const waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length,active=Math.max(0,pr.deliverables.length-waiting-complete);const progress=weightedProjectProgress(pr),planning=displayedPhaseProgress(pr,"Planning"),engineering=displayedPhaseProgress(pr,"Engineering"),installation=displayedPhaseProgress(pr,"Installation"),health=displayedProjectHealth(pr);return `<div class="project-card" onclick="setProject('${pr.id}');showView('dashboard')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health"><span class="pulse" style="background:${healthColor(health)}"></span><span>${esc(health)}</span></div><div class="small" style="margin-top:6px">Updated: ${esc(formatLastUpdated(pr))}</div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%${progressModeMark(pr.progressOverallMode||"auto")}</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong><span class="phase-progress-value">${planning}%</span>${progressModeMark(phaseProgressMode(pr,"Planning"))}</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong><span class="phase-progress-value">${engineering}%</span>${progressModeMark(phaseProgressMode(pr,"Engineering"))}</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong><span class="phase-progress-value">${installation}%</span>${progressModeMark(phaseProgressMode(pr,"Installation"))}</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
  const opts=projects.map(pr=>`<option value="${pr.id}" ${pr.id===p.id?"selected":""}>${esc(pr.name)}</option>`).join("");projectSelect.innerHTML=opts;document.querySelectorAll(".project-select-clone").forEach(s=>s.innerHTML=opts);
  const summaryWaiting=ds.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,summaryComplete=ds.filter(x=>x.status==="Complete").length,summaryActive=Math.max(0,ds.length-summaryWaiting-summaryComplete);kpiTotal.textContent=ds.length;kpiActive.textContent=summaryActive;kpiWaiting.textContent=summaryWaiting;kpiComplete.textContent=summaryComplete;
- currentWork.innerHTML=ds.filter(x=>x.status==="In Progress").map(x=>`<div class="item"><span class="dot"></span><div><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></div></div>`).join("")||"<span class='small'>No active items.</span>";
- requiredOthers.innerHTML=infoRecords.filter(x=>x.status!=="Received").map(x=>`<div class="item"><span class="dot" style="background:var(--orange)"></span><div><strong>${esc(x.item)}</strong>${currentUser.canEdit?` <button class="linkbtn agenda-edit" onclick="editInfo(${x.id})">Edit source</button>`:""}<div class="small">${esc(x.from)} · blocks ${esc(x.blocking)}</div></div></div>`).join("")||"<span class='small'>Nothing outstanding.</span>";
- nextDeliverables.innerHTML=ds.filter(x=>x.status==="In Progress").map(x=>`<div class="item"><span class="dot" style="background:var(--green)"></span><div><strong>${esc(x.deliverable)}</strong><div class="small">${esc(x.nextStep)} · ${fmtDate(x.date)}</div></div></div>`).join("")||"<span class='small'>No active deliverables.</span>";
- projectRisks.innerHTML=ds.filter(x=>x.risk).map(x=>`<div class="item"><span class="dot" style="background:var(--red)"></span><div>${esc(x.risk)}</div></div>`).join("")||"<span class='small'>No current risks.</span>";
- const q=searchDeliverables.value.toLowerCase(),fs=filterStatus.value,fd=filterDiscipline.value,filtered=ds.filter(x=>(!q||JSON.stringify(x).toLowerCase().includes(q))&&(!fs||x.status===fs)&&(!fd||x.discipline===fd));
+
+[
+  [kpiTotal,"all"],
+  [kpiActive,"active"],
+  [kpiWaiting,"waiting"],
+  [kpiComplete,"complete"]
+].forEach(([el,mode])=>{
+  const card=el?.closest(".kpi");
+  if(!card)return;
+
+  card.classList.add("summary-kpi-drilldown");
+  card.setAttribute("role","button");
+  card.tabIndex=0;
+  card.onclick=()=>openSummaryDeliverables(mode);
+  card.onkeydown=event=>{
+    if(event.key==="Enter"||event.key===" "){
+      event.preventDefault();
+      openSummaryDeliverables(mode);
+    }
+  };
+});
+ currentWork.innerHTML=ds.filter(x=>x.status==="In Progress").map(x=>`<div${summaryClickableAttrs("Deliverable",x.id)}><span class="dot"></span><div><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></div></div>`).join("")||"<span class='small'>No active items.</span>";
+ requiredOthers.innerHTML=infoRecords.filter(x=>x.status!=="Received").map(x=>`<div${summaryClickableAttrs("Information Required",x.id)}><span class="dot" style="background:var(--orange)"></span><div><strong>${esc(x.item)}</strong>${currentUser.canEdit?` <button class="linkbtn agenda-edit" onclick="editInfo(${x.id})">Edit source</button>`:""}<div class="small">${esc(x.from)} · blocks ${esc(x.blocking)}</div></div></div>`).join("")||"<span class='small'>Nothing outstanding.</span>";
+ nextDeliverables.innerHTML=ds.filter(x=>x.status==="In Progress").map(x=>`<div${summaryClickableAttrs("Deliverable",x.id)}><span class="dot" style="background:var(--green)"></span><div><strong>${esc(x.deliverable)}</strong><div class="small">${esc(x.nextStep)} · ${fmtDate(x.date)}</div></div></div>`).join("")||"<span class='small'>No active deliverables.</span>";
+ projectRisks.innerHTML=ds.filter(x=>x.risk).map(x=>`<div${summaryClickableAttrs("Deliverable",x.id)}><span class="dot" style="background:var(--red)"></span><div>${esc(x.risk)}</div></div>`).join("")||"<span class='small'>No current risks.</span>";
+ bindSummaryDrilldowns();
+  const q=searchDeliverables.value.toLowerCase(),fs=filterStatus.value,fd=filterDiscipline.value,
+filtered=ds.filter(x=>{
+  const normalMatch=
+    (!q||JSON.stringify(x).toLowerCase().includes(q)) &&
+    (!fs||x.status===fs) &&
+    (!fd||x.discipline===fd);
+
+  if(!normalMatch)return false;
+
+  if(summaryDeliverableMode==="active")return x.status==="In Progress";
+  if(summaryDeliverableMode==="waiting")return String(x.status||"").includes("Waiting")||x.status==="Awaiting Review";
+  if(summaryDeliverableMode==="complete")return x.status==="Complete";
+
+  return true;
+});
  deliverablesBody.innerHTML=filtered.map(x=>`<tr><td>${esc(x.discipline)}</td><td><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></td><td>${badge(x.status)}</td><td>${healthBadge(x)}</td><td>${esc(x.owner)}</td><td>${esc(x.waitingOn)}</td><td>${esc(x.nextStep)}</td><td>${fmtDate(x.date)}</td><td><div class="record-actions">${commentControl(p,"Deliverable",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editDeliverable(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
  deliverableCards.innerHTML=filtered.map(x=>`<div class="mobile-record mobile-deliverable"><div class="mobile-record-heading"><div><div class="mobile-record-kicker">${esc(x.discipline)}</div><h4>${esc(x.deliverable)} ${visBadge(x.visibility)}</h4></div><span>${badge(x.status)}</span></div>${x.current?`<div class="mobile-record-current">${esc(x.current)}</div>`:""}<div class="row"><span>Schedule Health</span><span>${healthBadge(x)}</span></div><div class="row"><span>Owner</span><strong>${esc(x.owner)||"—"}</strong></div><div class="row"><span>Waiting On</span><span>${esc(x.waitingOn)||"—"}</span></div><div class="row"><span>Next Step</span><span>${esc(x.nextStep)||"—"}</span></div><div class="row"><span>Target</span><span>${fmtDate(x.date)}</span></div><div class="mobile-record-actions">${commentControl(p,"Deliverable",x)}${currentUser.canEdit?`<button class="btn" onclick="editDeliverable(${x.id})">Edit Deliverable</button>`:""}</div></div>`).join("")||'<div class="mobile-empty">No deliverables match the current filters.</div>';
  infoBody.innerHTML=infoRecords.map(x=>`<tr><td><strong>${esc(x.item)}</strong>${visBadge(x.visibility)}</td><td>${esc(x.from)}</td><td>${badge(x.status)}</td><td>${esc(x.blocking)}</td><td>${esc(x.notes)}</td><td><div class="record-actions">${commentControl(p,"Information Required",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editInfo(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");

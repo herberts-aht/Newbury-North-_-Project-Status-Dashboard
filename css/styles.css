@@ -1031,3 +1031,9 @@ input:focus,select:focus,textarea:focus{
 .last-activity .activity-actions{display:flex;align-items:center;gap:8px}
 
 /* v0.14.53 — notification queue + aligned project comment action */
+
+/* v0.14.57 — seamless Summary drill-down */
+.summary-drilldown,
+.summary-kpi-drilldown{
+  cursor:pointer;
+}
