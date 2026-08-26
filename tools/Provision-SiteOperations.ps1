@@ -163,12 +163,19 @@ Ensure-Field `
         "Building",
         "Level",
         "Wing",
+        "Area",
         "Room",
         "Exterior",
         "Site Zone",
         "Utility",
         "Other"
     )
+
+Ensure-Field `
+    -List "Project Locations" `
+    -DisplayName "Level / Floor" `
+    -InternalName "PlanLevel" `
+    -Type "Text"
 
 Ensure-Field `
     -List "Project Locations" `

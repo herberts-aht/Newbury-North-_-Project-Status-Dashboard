@@ -1417,3 +1417,175 @@ input:focus,select:focus,textarea:focus{
   content:none!important;
   display:none!important;
 }
+
+
+/* v0.14.59 WIP — Calendar visual cleanup */
+#calendar .agenda-grid{
+  grid-template-columns:minmax(300px,1fr) minmax(0,1.65fr);
+  align-items:stretch;
+}
+#calendar .calendar-main-card,
+#calendar .calendar-agenda-card{
+  min-width:0;
+}
+#calendar .calendar-nav{
+  padding:0 10px;
+  margin-bottom:0!important;
+  border-bottom:0;
+}
+#calendar .agenda-date{
+  font-size:12px;
+  line-height:1.2;
+  font-weight:750;
+}
+#calendar .day-cell{
+  min-width:0;
+}
+#calendar .event-dot{
+  line-height:1.2;
+  overflow-wrap:break-word;
+}
+@media(max-width:900px){
+  #calendar .agenda-grid{grid-template-columns:1fr;}
+  #calendar .calendar-agenda-card{order:1;}
+  #calendar .calendar-main-card{order:2;}
+}
+
+/* v0.14.59 WIP — Calendar use available desktop width */
+.container:has(#calendar.active){
+  max-width:none;
+}
+#calendar.view.active{
+  width:100%;
+}
+#calendar .agenda-grid{
+  grid-template-columns:minmax(340px,.72fr) minmax(620px,1.35fr);
+}
+@media(max-width:1100px){
+  #calendar .agenda-grid{
+    grid-template-columns:minmax(300px,.8fr) minmax(520px,1.2fr);
+  }
+}
+@media(max-width:900px){
+  #calendar .agenda-grid{grid-template-columns:1fr;}
+}
+
+
+/* v0.14.59 WIP — Calendar Today marker matches Gantt */
+#calendar .day-cell.today{position:relative;}
+#calendar .calendar-today-marker{
+  position:absolute;
+  top:4px;
+  left:26px;
+  color:#d92d20;
+  font-size:10px;
+  font-weight:700;
+  font-style:italic;
+  line-height:1;
+  background:transparent;
+  border:0;
+  padding:0;
+  pointer-events:none;
+}
+
+/* v0.14.59 WIP — Calendar Today inline white bubble */
+#calendar .calendar-today-marker{
+  top:4px;
+  left:26px;
+  display:inline-flex;
+  align-items:center;
+  min-height:16px;
+  padding:1px 6px;
+  background:#fff;
+  border:1px solid rgba(217,45,32,.18);
+  border-radius:999px;
+  box-shadow:0 1px 2px rgba(15,23,42,.08);
+  line-height:1.1;
+}
+
+/* v0.14.59 Site Operations Pass 14 — balanced project navigation hierarchy */
+.sidebar-nav .nav-root{
+  font-weight:800;
+}
+.sidebar-nav .nav-child{
+  padding-left:24px;
+}
+.sidebar-nav .nav-primary{
+  font-weight:800;
+  color:rgba(255,255,255,.92);
+  font-size:14px;
+}
+.sidebar-nav .nav-group-label{
+  padding:10px 12px 10px 24px;
+  line-height:1.2;
+  user-select:none;
+}
+.sidebar-nav .nav-subchild{
+  padding-left:36px;
+  font-weight:500;
+  font-size:13px;
+  white-space:nowrap;
+}
+.sidebar-nav .nav-root-secondary{
+  margin-top:0;
+}
+
+@media (max-width:900px){
+  .sidebar-nav .nav-child{
+    padding-left:11px;
+  }
+  .sidebar-nav .nav-subchild{
+    padding-left:22px;
+  }
+  .sidebar-nav .nav-group-label{
+    display:block;
+    padding-left:11px;
+  }
+}
+
+/* v0.14.59 WIP — shared desktop content width normalization */
+@media (min-width:981px){
+  .container{
+    width:100%;
+    max-width:1480px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  /* Content-heavy views use the same centered application frame instead of full-bleed desktop width. */
+  .container:has(#timeline.active),
+  .container:has(#calendar.active){
+    max-width:1480px;
+  }
+
+  #timeline.view.active,
+  #calendar.view.active{
+    width:100%;
+  }
+}
+
+/* A wider Projects workspace can carry another card as the portfolio grows. */
+@media (min-width:1320px){
+  .project-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+}
+
+/* v0.14.59 WIP — Pass 18: unify application workspace on white */
+.content-shell{
+  background:#fff;
+}
+
+/* Keep the centered application frame visually continuous with the workspace. */
+main.container{
+  background:#fff;
+}
+
+/* v0.14.59 WIP — Pass 19: restore soft application canvas while keeping normalized widths */
+.content-shell{
+  background:var(--bg);
+}
+
+main.container{
+  background:transparent;
+}

@@ -6,18 +6,32 @@ const SiteOperations = (() => {
     currentLocationId: null,
     currentOperationId: null,
     loaded: false,
-    loading: false
+    loading: false,
+    locationSchemaChecked: false,
+    planLevelSupported: false
   };
 
   const LOCATION_TYPES = [
     "Building",
-    "Level",
     "Wing",
+    "Area",
     "Room",
     "Exterior",
     "Site Zone",
     "Utility",
     "Other"
+  ];
+
+  const COMMON_PLAN_LEVELS = [
+    "Ground Level",
+    "Level 1",
+    "Level 2",
+    "Level 3",
+    "Lower Level",
+    "Basement",
+    "Main Level",
+    "First Floor",
+    "Second Floor"
   ];
 
   const ENTRY_TYPES = [
@@ -100,6 +114,29 @@ const SiteOperations = (() => {
     if (!value) return "—";
     if (typeof fmtDate === "function") return fmtDate(value);
     return graphDate(value);
+  }
+
+  async function ensureLocationSchema() {
+    if (state.locationSchemaChecked) return;
+    state.locationSchemaChecked = true;
+
+    try {
+      const site = await SharePointDataProvider.getSite();
+      const listId = await SharePointDataProvider.getListId(APP_CONFIG.sharePoint.lists.projectLocations);
+      const columnsData = await SharePointDataProvider.graph(
+        `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/columns?$select=name`
+      );
+      state.planLevelSupported = Boolean(
+        (columnsData?.value || []).some(column => column.name === "PlanLevel")
+      );
+      state.locationWeightSupported = Boolean(
+        (columnsData?.value || []).some(column => column.name === "LocationProgressWeight")
+      );
+    } catch (error) {
+      state.planLevelSupported = false;
+      state.locationWeightSupported = false;
+      console.warn("Site Operations could not confirm the location metadata SharePoint fields.", error);
+    }
   }
 
   function locationById(id) {
@@ -185,12 +222,38 @@ const SiteOperations = (() => {
   }
 
   function calculatedLocationProgress(locationId, phase = "") {
-    return weightedProgress(trackedOperations(locationId, phase));
+    const directRecords = operationsForLocation(locationId, false).filter(op =>
+      op.trackProgress && (!phase || op.sitePhase === phase)
+    );
+    const directProgress = directRecords.length ? weightedProgress(directRecords) : null;
+    const childLocations = childrenOf(locationId);
+    const components = [];
+
+    // Activity Progress Weight determines the direct progress for this location first.
+    // Direct work at a location then counts as one component alongside child locations.
+    if (directProgress !== null) {
+      components.push({ percent: directProgress, weight: 1 });
+    }
+
+    for (const child of childLocations) {
+      const childRecords = operationsForLocation(child.id, true).filter(op =>
+        op.trackProgress && (!phase || op.sitePhase === phase)
+      );
+      if (!childRecords.length && !progressIsManual(child, phase)) continue;
+      components.push({
+        percent: displayedLocationProgress(child, phase),
+        weight: Number(child.progressWeight || 1) > 0 ? Number(child.progressWeight) : 1
+      });
+    }
+
+    if (!components.length) return 0;
+    const weightedTotal = components.reduce((sum, component) => sum + component.percent * component.weight, 0);
+    const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
+    return totalWeight ? clampPercent(weightedTotal / totalWeight) : 0;
   }
 
-  function displayedLocationProgress(location, phase = "") {
-    if (!location) return 0;
-
+  function locationProgressOverride(location, phase = "") {
+    if (!location) return null;
     const overrideField = phase === "Rough-In"
       ? "roughInProgressOverride"
       : phase === "Trim"
@@ -198,30 +261,59 @@ const SiteOperations = (() => {
         : phase === "Final"
           ? "finalProgressOverride"
           : "overallProgressOverride";
-
+    const reasonField = phase === "Rough-In"
+      ? "roughInOverrideReason"
+      : phase === "Trim"
+        ? "trimOverrideReason"
+        : phase === "Final"
+          ? "finalOverrideReason"
+          : "overallOverrideReason";
     const override = nullableNumber(location[overrideField]);
+    const reason = String(location[reasonField] || "").trim();
 
-    if (override !== null) {
-      return clampPercent(override);
-    }
+    // SharePoint can surface an untouched Number field as 0. Treat a bare 0 as
+    // automatic so it cannot suppress real child/activity progress. A deliberate
+    // manual 0% remains available by entering an override reason.
+    if (override === null) return null;
+    if (override === 0 && !reason) return null;
+    return clampPercent(override);
+  }
 
-    if (phase) {
-      return calculatedLocationProgress(location.id, phase);
-    }
-
-    return calculatedLocationProgress(location.id);
+  function displayedLocationProgress(location, phase = "") {
+    if (!location) return 0;
+    const override = locationProgressOverride(location, phase);
+    if (override !== null) return override;
+    return calculatedLocationProgress(location.id, phase);
   }
 
   function progressIsManual(location, phase = "") {
-    const field = phase === "Rough-In"
-      ? "roughInProgressOverride"
-      : phase === "Trim"
-        ? "trimProgressOverride"
-        : phase === "Final"
-          ? "finalProgressOverride"
-          : "overallProgressOverride";
+    return locationProgressOverride(location, phase) !== null;
+  }
 
-    return nullableNumber(location?.[field]) !== null;
+  function locationTypeClass(type) {
+    return `so-type-${String(type || "other")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "other"}`;
+  }
+
+  function projectLevelSuggestions() {
+    const projectLevels = state.locations
+      .map(location => String(location.planLevel || "").trim())
+      .filter(Boolean);
+    return Array.from(new Set([...projectLevels, ...COMMON_PLAN_LEVELS]));
+  }
+
+  function planLevelInput(value = "") {
+    const id = `soPlanLevelSuggestions`;
+    return `
+      <input name="planLevel" type="text" value="${escapeHtml(value)}" list="${id}"
+        placeholder="Use the level / floor name shown on the plans" autocomplete="off" maxlength="100">
+      <datalist id="${id}">
+        ${projectLevelSuggestions().map(level => `<option value="${escapeHtml(level)}"></option>`).join("")}
+      </datalist>
+    `;
   }
 
   function progressBar(label, value, manual = false) {
@@ -229,7 +321,7 @@ const SiteOperations = (() => {
 
     return `
       <div class="so-progress-row">
-        <span>${escapeHtml(label)}</span>
+        <span class="so-progress-label">${escapeHtml(label)}</span>
         <div class="so-progress-track">
           <span style="width:${pct}%"></span>
         </div>
@@ -258,13 +350,17 @@ const SiteOperations = (() => {
 
     return `
       <article class="so-location-card"
+        data-so-location-name="${escapeHtml(String(location.name || "").toLowerCase())}"
+        data-so-location-type="${escapeHtml(String(location.locationType || "").toLowerCase())}"
+        data-so-location-level="${escapeHtml(String(location.planLevel || "").toLowerCase())}"
         role="button"
         tabindex="0"
         onclick="SiteOperations.openLocation(${Number(location.id)})"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();SiteOperations.openLocation(${Number(location.id)})}">
         <div class="so-location-heading">
-          <div>
-            <div class="so-location-type">${escapeHtml(location.locationType || "Location")}</div>
+          <div class="so-location-title-line">
+            <span class="so-location-type ${locationTypeClass(location.locationType)}">${escapeHtml(location.locationType || "Location")}</span>
+            <span class="so-location-title-separator">·</span>
             <h3>${escapeHtml(location.name)}</h3>
           </div>
           <div class="so-location-overall">
@@ -282,10 +378,101 @@ const SiteOperations = (() => {
         </div>
 
         <div class="so-location-footer">
-          <span>${records.length} site item${records.length === 1 ? "" : "s"}</span>
+          <span>${location.planLevel ? `${escapeHtml(location.planLevel)} · ` : ""}${records.length} site item${records.length === 1 ? "" : "s"}</span>
           <span>View details ›</span>
         </div>
       </article>
+    `;
+  }
+
+  function childLocationTypeIsCompact(location) {
+    const type = String(location?.locationType || "").trim().toLowerCase();
+    return ["room", "area", "space"].includes(type);
+  }
+
+  function useCompactChildLocations(childLocations) {
+    if (!childLocations?.length) return false;
+    return childLocations.length >= 6 || childLocations.every(childLocationTypeIsCompact);
+  }
+
+  function childLocationRow(location) {
+    const records = operationsForLocation(location.id, true);
+    const overall = displayedLocationProgress(location);
+    const atRisk = riskState(records);
+
+    return `
+      <button class="so-child-location-row" type="button"
+        data-so-child-name="${escapeHtml(String(location.name || "").toLowerCase())}"
+        data-so-child-type="${escapeHtml(String(location.locationType || "").toLowerCase())}"
+        onclick="SiteOperations.openLocation(${Number(location.id)})">
+        <span class="so-child-location-main">
+          <span class="so-location-type">${escapeHtml(location.locationType || "Location")}</span>
+          <strong>${escapeHtml(location.name)}</strong>
+        </span>
+        <span class="so-child-location-progress">
+          <span class="so-mini-progress"><span style="width:${overall}%"></span></span>
+          <strong>${overall}%</strong>
+        </span>
+        <span class="so-child-location-count">${records.length} item${records.length === 1 ? "" : "s"}</span>
+        <span class="so-child-location-risk">${atRisk ? '<span class="so-status so-status-at-risk">At Risk</span>' : '<span class="so-status so-status-on-track">On Track</span>'}</span>
+        <span class="so-child-location-arrow" aria-hidden="true">›</span>
+      </button>
+    `;
+  }
+
+  function applyLocationFilters(scopeId = "") {
+    const scope = scopeId ? document.getElementById(scopeId) : document;
+    if (!scope) return;
+
+    const controls = document.querySelector(`[data-so-filter-scope="${scopeId}"]`);
+    const typeFilter = String(controls?.querySelector('[data-so-filter="type"]')?.value || "").toLowerCase();
+    const levelFilter = String(controls?.querySelector('[data-so-filter="level"]')?.value || "").toLowerCase();
+    const searchFilter = String(controls?.dataset?.searchValue || "").trim().toLowerCase();
+
+    scope.querySelectorAll(".so-location-card").forEach(card => {
+      const name = card.dataset.soLocationName || "";
+      const type = card.dataset.soLocationType || "";
+      const level = card.dataset.soLocationLevel || "";
+      const haystack = `${name} ${type} ${level}`;
+      card.hidden = Boolean(
+        (searchFilter && !haystack.includes(searchFilter)) ||
+        (typeFilter && type !== typeFilter) ||
+        (levelFilter && level !== levelFilter)
+      );
+    });
+  }
+
+  function filterChildLocations(value, scopeId = "") {
+    const controls = document.querySelector(`[data-so-filter-scope="${scopeId}"]`);
+    if (controls) controls.dataset.searchValue = String(value || "");
+    applyLocationFilters(scopeId);
+  }
+
+  function locationFilterChanged(scopeId) {
+    applyLocationFilters(scopeId);
+  }
+
+  function locationNavigationControls(items, { id, placeholder, scopeId }) {
+    const safeItems = items || [];
+    if (safeItems.length < 8) return "";
+
+    const types = Array.from(new Set(safeItems.map(x => String(x.locationType || "").trim()).filter(Boolean))).sort();
+    const levels = Array.from(new Set(safeItems.map(x => String(x.planLevel || "").trim()).filter(Boolean))).sort();
+
+    return `
+      <div class="so-location-nav-controls" data-so-filter-scope="${escapeHtml(scopeId)}" data-search-value="">
+        ${locationPickerMarkup({ id, items:safeItems, placeholder, scopeId })}
+        ${levels.length > 1 ? `
+          <select class="so-location-filter" data-so-filter="level" onchange="SiteOperations.locationFilterChanged('${escapeHtml(scopeId)}')" aria-label="Filter locations by level">
+            <option value="">All Levels</option>
+            ${levels.map(level => `<option value="${escapeHtml(level.toLowerCase())}">${escapeHtml(level)}</option>`).join("")}
+          </select>` : ""}
+        ${types.length > 1 ? `
+          <select class="so-location-filter" data-so-filter="type" onchange="SiteOperations.locationFilterChanged('${escapeHtml(scopeId)}')" aria-label="Filter locations by type">
+            <option value="">All Types</option>
+            ${types.map(type => `<option value="${escapeHtml(type.toLowerCase())}">${escapeHtml(type)}</option>`).join("")}
+          </select>` : ""}
+      </div>
     `;
   }
 
@@ -315,7 +502,7 @@ const SiteOperations = (() => {
             </div>
             <h4>${escapeHtml(op.title)}</h4>
           </div>
-          <span class="so-status">${escapeHtml(op.status || "Planned")}</span>
+          <span class="so-status so-status-${operationStatusClass(op.status || "Planned")}">${escapeHtml(op.status || "Planned")}</span>
         </div>
 
         ${op.details ? `<div class="so-operation-details">${escapeHtml(op.details)}</div>` : ""}
@@ -343,22 +530,39 @@ const SiteOperations = (() => {
   }
 
   function compactOperationRow(op) {
-    const pct = op.trackProgress ? `${clampPercent(op.percentComplete)}%` : "—";
+    const pct = op.trackProgress ? clampPercent(op.percentComplete) : null;
     const phase = op.sitePhase || op.system || op.entryType || "Site Item";
+    const activityDate = op.activityDate ? displayDate(op.activityDate) : "—";
     const target = op.targetDate ? displayDate(op.targetDate) : "—";
+    const status = op.status || "Planned";
+
+    const canDrill = Boolean(currentUser?.canAdmin);
+    const tag = canDrill ? "button" : "div";
+    const action = canDrill
+      ? ` type="button" onclick="SiteOperations.openOperationDetail(${Number(op.id)})"`
+      : ` role="group"`;
 
     return `
-      <button class="so-operation-row" type="button"
-        onclick="SiteOperations.openOperationDetail(${Number(op.id)})">
+      <${tag} class="so-operation-row ${canDrill ? "so-operation-row-drill" : "so-operation-row-readonly"}"${action}>
         <span class="so-operation-row-main">
           <strong>${escapeHtml(op.title)}</strong>
           <span>${escapeHtml(phase)}</span>
         </span>
-        <span class="so-operation-row-progress">${escapeHtml(pct)}</span>
-        <span class="so-operation-row-status">${escapeHtml(op.status || "Planned")}</span>
+        <span class="so-operation-row-details" title="${escapeHtml(op.details || "")}">
+          ${op.details ? escapeHtml(op.details) : '<span class="so-detail-empty">—</span>'}
+        </span>
+        <span class="so-operation-row-progress">
+          ${pct === null
+            ? '<span class="so-progress-na">—</span>'
+            : `<span class="so-mini-progress"><span style="width:${pct}%"></span></span><strong>${pct}%</strong>`}
+        </span>
+        <span class="so-operation-row-status">
+          <span class="so-status so-status-${operationStatusClass(status)}">${escapeHtml(status)}</span>
+        </span>
+        <span class="so-operation-row-activity-date">${escapeHtml(activityDate)}</span>
         <span class="so-operation-row-target">${escapeHtml(target)}</span>
-        <span class="so-operation-row-arrow" aria-hidden="true">›</span>
-      </button>
+        ${canDrill ? '<span class="so-operation-row-arrow" aria-hidden="true">›</span>' : '<span class="so-operation-row-arrow so-operation-row-arrow-hidden" aria-hidden="true"></span>'}
+      </${tag}>
     `;
   }
 
@@ -419,14 +623,20 @@ const SiteOperations = (() => {
           </div>
         ` : ""}
 
-        <div class="so-item-detail-section">
-          <h4>Dashboard Tie-Ins</h4>
-          <div class="so-item-detail-grid">
-            <div><span>Project Activity</span><strong>${escapeHtml(op.projectActivityMode || "Auto")}</strong></div>
-            <div><span>Risk</span><strong>${escapeHtml(op.riskMode || "Auto")}</strong></div>
-            <div><span>Information Required</span><strong>${escapeHtml(op.informationRequiredMode || "Auto")}</strong></div>
-          </div>
-        </div>
+        ${(op.projectActivityMode && op.projectActivityMode !== "Auto") ||
+          (op.riskMode && op.riskMode !== "Auto") ||
+          (op.informationRequiredMode && op.informationRequiredMode !== "Auto")
+          ? `
+            <div class="so-item-detail-section">
+              <h4>Automation Overrides</h4>
+              <div class="so-item-detail-grid so-item-automation-grid">
+                <div><span>Project Activity</span><strong>${escapeHtml(op.projectActivityMode || "Auto")}</strong></div>
+                <div><span>Risk</span><strong>${escapeHtml(op.riskMode || "Auto")}</strong></div>
+                <div><span>Information Required</span><strong>${escapeHtml(op.informationRequiredMode || "Auto")}</strong></div>
+              </div>
+            </div>
+          `
+          : ""}
       </div>
     `;
   }
@@ -459,6 +669,90 @@ const SiteOperations = (() => {
     `;
   }
 
+  function locationOptionLabel(location) {
+    if (!location) return "";
+    const type = String(location.locationType || "Location").trim();
+    const level = String(location.planLevel || "").trim();
+    return `${type} · ${String(location.name || "").trim()}${level ? ` · ${level}` : ""}`;
+  }
+
+  function locationPickerMarkup({
+    id,
+    items,
+    placeholder = "Find a location…",
+    scopeId = "",
+    selectedId = null,
+    fieldName = "",
+    required = false,
+    allowTopLevel = false
+  }) {
+    const safeItems = (items || []).slice().sort((a,b) =>
+      String(a.name || "").localeCompare(String(b.name || ""))
+    );
+    const selected = safeItems.find(x => Number(x.id) === Number(selectedId));
+    const listId = `${id}List`;
+    const hidden = fieldName
+      ? `<input type="hidden" name="${escapeHtml(fieldName)}" value="${selected ? Number(selected.id) : ""}">`
+      : "";
+    const topOption = allowTopLevel ? `<option value="Top Level" data-id=""></option>` : "";
+    return `
+      <div class="so-smart-picker">
+        <input
+          id="${escapeHtml(id)}"
+          class="so-smart-picker-input"
+          type="text"
+          list="${escapeHtml(listId)}"
+          value="${selected ? escapeHtml(locationOptionLabel(selected)) : (allowTopLevel && !selectedId ? "Top Level" : "")}"
+          placeholder="${escapeHtml(placeholder)}"
+          autocomplete="off"
+          ${required ? "required" : ""}
+          data-picker-list="${escapeHtml(listId)}"
+          data-picker-scope="${escapeHtml(scopeId)}"
+          onfocus="this.showPicker?.()"
+          oninput="SiteOperations.locationPickerInput(this)"
+          onchange="SiteOperations.locationPickerCommit(this)">
+        <span class="so-smart-picker-chevron" aria-hidden="true">⌄</span>
+        ${hidden}
+        <datalist id="${escapeHtml(listId)}">
+          ${topOption}
+          ${safeItems.map(location =>
+            `<option value="${escapeHtml(locationOptionLabel(location))}" data-id="${Number(location.id)}"></option>`
+          ).join("")}
+        </datalist>
+      </div>`;
+  }
+
+  function locationPickerMatch(input) {
+    const listId = input?.dataset?.pickerList;
+    const list = listId ? document.getElementById(listId) : null;
+    if (!input || !list) return null;
+    const value = String(input.value || "").trim();
+    return Array.from(list.options).find(option => option.value === value) || null;
+  }
+
+  function locationPickerInput(input) {
+    const target = input.closest('.so-smart-picker')?.querySelector('input[type="hidden"]');
+    const match = locationPickerMatch(input);
+    if (target) target.value = match ? String(match.dataset.id || "") : "";
+    if (input.required) {
+      input.setCustomValidity(match ? "" : "Choose a location from the list.");
+    }
+    const scopeId = input.dataset.pickerScope || "";
+    if (scopeId) {
+      const typed = match ? "" : input.value;
+      filterChildLocations(typed, scopeId);
+    }
+  }
+
+  function locationPickerCommit(input) {
+    const match = locationPickerMatch(input);
+    locationPickerInput(input);
+    if (!match) return;
+    const id = Number(match.dataset.id || 0);
+    const scopeId = input.dataset.pickerScope || "";
+    if (scopeId && id) openLocation(id);
+  }
+
   function summaryStrip(records) {
     const current = records.filter(x => x.status === "In Progress").length;
     const upcoming = records.filter(x =>
@@ -475,10 +769,10 @@ const SiteOperations = (() => {
 
     return `
       <div class="so-summary-strip">
-        <div><strong>${current}</strong><span>Current Work</span></div>
-        <div><strong>${upcoming}</strong><span>Upcoming</span></div>
-        <div class="${atRisk ? "risk" : ""}"><strong>${atRisk}</strong><span>At Risk</span></div>
-        <div><strong>${complete}</strong><span>Completed</span></div>
+        <div class="so-summary-current"><strong>${current}</strong><span>Current Work</span></div>
+        <div class="so-summary-upcoming"><strong>${upcoming}</strong><span>Upcoming</span></div>
+        <div class="so-summary-risk ${atRisk ? "risk" : ""}"><strong>${atRisk}</strong><span>At Risk</span></div>
+        <div class="so-summary-complete"><strong>${complete}</strong><span>Completed</span></div>
       </div>
     `;
   }
@@ -503,7 +797,14 @@ const SiteOperations = (() => {
     addLocationBtn?.classList.toggle("hidden", !currentUser?.canAdmin);
     addOperationBtn?.classList.toggle("hidden", !currentUser?.canAdmin);
 
-    breadcrumb.innerHTML = breadcrumbs();
+    const sitePdfBtn = document.getElementById("downloadSiteOperationsPdfBtn");
+    const locationPdfBtn = document.getElementById("downloadSiteLocationPdfBtn");
+    sitePdfBtn?.classList.toggle("hidden", Boolean(state.currentLocationId || state.currentOperationId));
+    locationPdfBtn?.classList.toggle("hidden", !state.currentLocationId || Boolean(state.currentOperationId));
+
+    const hasDrilldown = Boolean(state.currentLocationId || state.currentOperationId);
+    breadcrumb.classList.toggle("hidden", !hasDrilldown);
+    breadcrumb.innerHTML = hasDrilldown ? breadcrumbs() : "";
 
     if (state.loading) {
       root.innerHTML = `
@@ -531,22 +832,29 @@ const SiteOperations = (() => {
     root.innerHTML = `
       ${summaryStrip(records)}
 
-      <div class="so-section-heading">
+      <div class="so-section-heading so-locations-heading">
         <div>
           <h3>Project Locations</h3>
           <p>Building and site progress. Select a location to view the detailed work driving these numbers.</p>
         </div>
+        ${locationNavigationControls(roots, {
+          id:"soProjectLocationPicker",
+          placeholder:"Find Location…",
+          scopeId:"soProjectLocations"
+        })}
       </div>
 
-      <div class="so-location-grid">
-        ${roots.length
-          ? roots.map(locationCard).join("")
-          : `<div class="so-empty">
-              <strong>No project locations have been added yet.</strong>
-              <span>${currentUser?.canAdmin
-                ? "Use Add Location to create the first building or site area."
-                : "Site Operations locations have not been configured yet."}</span>
-            </div>`}
+      <div class="so-location-scroll" id="soProjectLocations">
+        <div class="so-location-grid">
+          ${roots.length
+            ? roots.map(locationCard).join("")
+            : `<div class="so-empty">
+                <strong>No project locations have been added yet.</strong>
+                <span>${currentUser?.canAdmin
+                  ? "Use Add Location to create the first building or site area."
+                  : "Site Operations locations have not been configured yet."}</span>
+              </div>`}
+        </div>
       </div>
     `;
   }
@@ -570,25 +878,29 @@ const SiteOperations = (() => {
     const final = displayedLocationProgress(location, "Final");
 
     root.innerHTML = `
-      <div class="so-detail-hero">
+      <div class="so-detail-hero ${currentUser?.canAdmin ? "so-detail-hero-admin" : "so-detail-hero-readonly"}">
         <div>
-          <div class="eyebrow">${escapeHtml(location.locationType || "Location")}</div>
-          <h3>${escapeHtml(location.name)}</h3>
-          <div class="small">${allOperations.length} site item${allOperations.length === 1 ? "" : "s"} within this location</div>
+          <div class="so-detail-title-line">
+            <span class="eyebrow so-location-type ${locationTypeClass(location.locationType)}">${escapeHtml(location.locationType || "Location")}</span>
+            <span class="so-location-title-separator">·</span>
+            <h3>${escapeHtml(location.name)}</h3>
+          </div>
+          <div class="small">${allOperations.length} site item${allOperations.length === 1 ? "" : "s"} within this location${location.planLevel ? ` · ${escapeHtml(location.planLevel)}` : ""}</div>
         </div>
 
-        <div class="so-detail-header-actions">
-          <div class="so-detail-overall">
-            <strong>${overall}%</strong>
-            <span>Overall Progress${progressIsManual(location) ? " · Manual" : ""}</span>
+        ${currentUser?.canAdmin ? `
+          <div class="so-detail-header-actions">
+            <div class="so-detail-overall">
+              <strong>${overall}%</strong>
+              <span>Overall Progress${progressIsManual(location) ? " · Manual" : ""}</span>
+            </div>
+            <button class="btn" type="button" onclick="SiteOperations.editLocation(${Number(location.id)})">Edit Location</button>
           </div>
-          ${currentUser?.canAdmin
-            ? `<button class="btn" type="button" onclick="SiteOperations.editLocation(${Number(location.id)})">Edit Location</button>`
-            : ""}
-        </div>
+        ` : ""}
       </div>
 
       <div class="so-detail-progress">
+        ${!currentUser?.canAdmin ? progressBar("Overall", overall, progressIsManual(location)) : ""}
         ${progressBar("Rough-In", rough, progressIsManual(location, "Rough-In"))}
         ${progressBar("Trim", trim, progressIsManual(location, "Trim"))}
         ${progressBar("Final", final, progressIsManual(location, "Final"))}
@@ -596,35 +908,22 @@ const SiteOperations = (() => {
 
       ${summaryStrip(allOperations)}
 
-      ${childLocations.length
-        ? `
-          <div class="so-section-heading">
-            <div>
-              <h3>Areas</h3>
-              <p>Select an area to continue into the project hierarchy.</p>
-            </div>
-          </div>
-
-          <div class="so-location-grid so-child-grid">
-            ${childLocations.map(locationCard).join("")}
-          </div>
-        `
-        : ""}
-
-      <div class="so-section-heading so-work-heading">
+      <div class="so-section-heading so-work-heading so-section-heading-strong">
         <div>
-          <h3>Site Progress & Activity</h3>
-          <p>Detailed items assigned directly to ${escapeHtml(location.name)}.</p>
+          <h3>${escapeHtml(location.name)} Progress & Activity</h3>
+          <p>Activities assigned directly to ${escapeHtml(location.name)}.</p>
         </div>
       </div>
 
-      <div class="so-operation-list so-operation-list-compact">
+      <div class="so-operation-list so-operation-list-compact so-activity-scroll">
         ${directOperations.length
           ? `
             <div class="so-operation-row-head">
               <span>Activity</span>
+              <span>Details</span>
               <span>Progress</span>
               <span>Status</span>
+              <span>Activity Date</span>
               <span>Target</span>
               <span></span>
             </div>
@@ -645,6 +944,28 @@ const SiteOperations = (() => {
                 : "No detailed items have been published for this location."}</span>
             </div>`}
       </div>
+
+      ${childLocations.length
+        ? `
+          <div class="so-section-heading so-child-heading so-section-heading-strong so-areas-heading">
+            <div>
+              <h3>Areas</h3>
+              <p>Select an area to continue into the project hierarchy.</p>
+            </div>
+            ${locationNavigationControls(childLocations, {
+              id:"soChildLocationPicker",
+              placeholder:"Find Location…",
+              scopeId:"soChildLocations"
+            })}
+          </div>
+
+          <div class="so-location-scroll so-child-location-scroll" id="soChildLocations">
+            <div class="so-location-grid so-child-grid">
+              ${childLocations.map(locationCard).join("")}
+            </div>
+          </div>
+        `
+        : ""}
     `;
   }
 
@@ -670,12 +991,21 @@ const SiteOperations = (() => {
       return;
     }
 
+    const sameProject = Number(state.projectId) === Number(project.sharePointId);
+    const restoreLocationId = sameProject ? Number(state.currentLocationId || 0) : 0;
+    const restoreOperationId = sameProject ? Number(state.currentOperationId || 0) : 0;
+
     state.loading = true;
     state.projectId = Number(project.sharePointId);
-    state.currentLocationId = null;
+    if (!sameProject) {
+      state.currentLocationId = null;
+      state.currentOperationId = null;
+    }
     render();
 
     try {
+      await ensureLocationSchema();
+
       const [locationRows, operationRows] = await Promise.all([
         SharePointDataProvider.getListRows(
           APP_CONFIG.sharePoint.lists.projectLocations
@@ -696,6 +1026,8 @@ const SiteOperations = (() => {
             parentLocationId: lookupId(fields, "ParentLocation"),
             name: fields.Title || "Untitled Location",
             locationType: fields.LocationType || "Other",
+            planLevel: fields.PlanLevel || "",
+            progressWeight: Number(fields.LocationProgressWeight || 1) > 0 ? Number(fields.LocationProgressWeight) : 1,
             sortOrder: Number(fields.SortOrder || 0),
             active: fields.Active !== false,
 
@@ -754,6 +1086,24 @@ const SiteOperations = (() => {
           Number(op.projectSharePointId) === Number(project.sharePointId)
         );
 
+      if (restoreOperationId) {
+        const restoredOperation = state.operations.find(
+          x => Number(x.id) === Number(restoreOperationId)
+        );
+        if (restoredOperation) {
+          state.currentOperationId = Number(restoredOperation.id);
+          state.currentLocationId = Number(restoredOperation.locationId || 0) || null;
+        } else {
+          state.currentOperationId = null;
+        }
+      }
+
+      if (!state.currentOperationId && restoreLocationId) {
+        state.currentLocationId = locationById(restoreLocationId)
+          ? restoreLocationId
+          : null;
+      }
+
       state.loaded = true;
     } catch (error) {
       console.error("Site Operations load failed", error);
@@ -792,6 +1142,16 @@ const SiteOperations = (() => {
     const record = state.operations.find(x => Number(x.id) === Number(id));
     if (!record) return;
     state.currentLocationId = Number(record.locationId || 0);
+
+    // Full Site Item detail is an administrator workspace. Other users stop
+    // at the location/room activity page, where the useful summary is shown.
+    if (!currentUser?.canAdmin) {
+      state.currentOperationId = null;
+      render();
+      document.getElementById("siteOperations")?.scrollIntoView({ block: "start" });
+      return;
+    }
+
     state.currentOperationId = Number(record.id);
     render();
     document.getElementById("siteOperations")?.scrollIntoView({ block: "start" });
@@ -880,8 +1240,12 @@ const SiteOperations = (() => {
   }
 
   function locationParentOptions(selectedId = null, excludeId = null) {
+    const excludedIds = excludeId
+      ? descendantIds(excludeId)
+      : new Set();
+
     const sorted = state.locations
-      .filter(location => Number(location.id) !== Number(excludeId || 0))
+      .filter(location => !excludedIds.has(Number(location.id)))
       .slice()
       .sort((a, b) =>
         String(a.name || "").localeCompare(String(b.name || ""))
@@ -924,18 +1288,47 @@ const SiteOperations = (() => {
 
       ${field(
         "Location Type",
-        select("locationType", LOCATION_TYPES, record?.locationType || "Building")
+        select(
+          "locationType",
+          record?.locationType && !LOCATION_TYPES.includes(record.locationType)
+            ? [...LOCATION_TYPES, record.locationType]
+            : LOCATION_TYPES,
+          record?.locationType || "Building"
+        )
+      )}
+
+      ${field(
+        "Level / Floor (from plans)",
+        planLevelInput(record?.planLevel || "")
       )}
 
       ${field(
         "Parent Location",
-        `<select name="parentLocationId">${locationParentOptions(defaultParent, record?.id)}</select>`
+        locationPickerMarkup({
+          id:"soParentLocationPicker",
+          items:state.locations.filter(location => !(record?.id && descendantIds(record.id).has(Number(location.id)))),
+          placeholder:"Choose parent location…",
+          selectedId:defaultParent,
+          fieldName:"parentLocationId",
+          allowTopLevel:true
+        })
       )}
 
       ${field(
         "Sort Order",
         textInput("sortOrder", record?.sortOrder ?? 0, "number", "step='1'")
       )}
+
+      ${field(
+        "Rollup Weight",
+        textInput("progressWeight", record?.progressWeight ?? 1, "number", "min='0.1' step='0.1'")
+      )}
+
+      <div class="field full">
+        <div class="small">
+          Admin rollup weight. Default 1. A higher value makes this room/area/building count more when its parent progress is calculated.
+        </div>
+      </div>
 
       <div class="field full so-form-divider">
         <label>Progress Overrides <span class="small">(optional)</span></label>
@@ -998,9 +1391,14 @@ const SiteOperations = (() => {
 
       ${field(
         "Location",
-        `<select name="locationId" required>
-          ${operationLocationOptions(defaultLocationId)}
-        </select>`
+        locationPickerMarkup({
+          id:"soOperationLocationPicker",
+          items:state.locations,
+          placeholder:"Find / choose a location…",
+          selectedId:defaultLocationId,
+          fieldName:"locationId",
+          required:true
+        })
       )}
 
       ${field(
@@ -1038,14 +1436,6 @@ const SiteOperations = (() => {
         textInput("progressWeight", record?.progressWeight ?? 1, "number", "min='0.01' step='0.01'")
       )}
 
-      <div class="field">
-        <label>Track Progress</label>
-        <label class="so-checkbox">
-          <input name="trackProgress" type="checkbox" ${record?.trackProgress ? "checked" : ""}>
-          Include this item in automatic progress calculations
-        </label>
-      </div>
-
       ${field(
         "Activity Date",
         textInput("activityDate", record?.activityDate || new Date().toISOString().slice(0, 10), "date")
@@ -1056,9 +1446,18 @@ const SiteOperations = (() => {
         textInput("targetDate", record?.targetDate || "", "date")
       )}
 
+      <div class="field full so-track-progress-field">
+        <label>Track Progress</label>
+        <label class="so-checkbox">
+          <input name="trackProgress" type="checkbox" ${record?.trackProgress ? "checked" : ""}>
+          Include this item in automatic progress calculations
+        </label>
+      </div>
+
       ${field(
         "Lead / Responsible",
-        textInput("leadResponsible", record?.leadResponsible || "")
+        textInput("leadResponsible", record?.leadResponsible || ""),
+        true
       )}
 
       ${field(
@@ -1140,6 +1539,22 @@ const SiteOperations = (() => {
       FinalProgressOverride: nullableFormNumber(data.get("finalProgressOverride")),
       FinalOverrideReason: String(data.get("finalOverrideReason") || "").trim()
     };
+
+    const requestedPlanLevel = String(data.get("planLevel") || "").trim();
+    if (state.planLevelSupported) {
+      fields.PlanLevel = requestedPlanLevel;
+    } else if (requestedPlanLevel) {
+      throw new Error("The Level / Floor SharePoint field is not ready yet. Refresh Site Operations as an Administrator and try again.");
+    }
+
+    const requestedLocationWeight = Number(data.get("progressWeight") || 1);
+    if (state.locationWeightSupported) {
+      fields.LocationProgressWeight = Number.isFinite(requestedLocationWeight) && requestedLocationWeight > 0
+        ? requestedLocationWeight
+        : 1;
+    } else if (Math.abs(requestedLocationWeight - 1) > 0.0001) {
+      throw new Error("The Location Rollup Weight SharePoint field is not ready yet. Run the Site Operations location schema upgrade and refresh.");
+    }
 
     const parentId = Number(data.get("parentLocationId") || 0);
 
@@ -1240,7 +1655,22 @@ const SiteOperations = (() => {
       submit.disabled = true;
 
       try {
+        const formData = new FormData(form);
+        const itemName = String(formData.get("name") || record?.name || "Location").trim();
         await saveLocation(record, form);
+
+        const project = currentProject();
+        if (project && typeof logChange === "function") {
+          logChange(
+            record ? "Update" : "Create",
+            project.id,
+            "Project Location",
+            itemName,
+            record ? "Project Location updated." : "Project Location created."
+          );
+          if (typeof save === "function") await save();
+        }
+
         closeModal();
         await load(true);
       } catch (error) {
@@ -1273,7 +1703,22 @@ const SiteOperations = (() => {
       submit.disabled = true;
 
       try {
+        const formData = new FormData(form);
+        const itemName = String(formData.get("title") || record?.title || "Site Item").trim();
         await saveOperation(record, form);
+
+        const project = currentProject();
+        if (project && typeof logChange === "function") {
+          logChange(
+            record ? "Update" : "Create",
+            project.id,
+            "Site Operations",
+            itemName,
+            record ? "Site Operations item updated." : "Site Operations item created."
+          );
+          if (typeof save === "function") await save();
+        }
+
         closeModal();
         await load(true);
       } catch (error) {
@@ -1398,6 +1843,208 @@ const SiteOperations = (() => {
     }
   }
 
+  function safePdfText(value) {
+    return String(value ?? "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function safePdfFileName(value) {
+    return String(value || "site-operations")
+      .replace(/[^a-z0-9._-]+/gi, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
+
+  const SITE_PDF = {
+    navy:[0,78,132], blue:[0,136,199], green:[112,173,71], orange:[237,125,49], red:[192,0,0],
+    muted:[97,113,130], line:[220,228,234], soft:[244,247,249],
+    lightBlue:[228,242,250], lightGreen:[234,245,225], lightOrange:[253,239,222], lightRed:[250,228,228]
+  };
+
+  function pdfStatusCounts(records) {
+    const list = records || [];
+    return {
+      current: list.filter(x => x.status === "In Progress").length,
+      upcoming: list.filter(x => x.entryType === "Lookahead" || x.status === "Planned").length,
+      risk: list.filter(x => x.riskMode === "Force At Risk" || (x.riskMode !== "Force On Track" && ["At Risk", "Blocked"].includes(x.status))).length,
+      complete: list.filter(x => x.status === "Complete").length
+    };
+  }
+
+  function sitePdfStatusStyle(value) {
+    const s = String(value || "").toLowerCase();
+    if (s === "complete" || s === "on track") return {fill:SITE_PDF.lightGreen,text:[55,100,35],accent:SITE_PDF.green};
+    if (s === "at risk" || s === "blocked") return {fill:SITE_PDF.lightRed,text:[150,30,30],accent:SITE_PDF.red};
+    if (s === "planned" || s === "upcoming") return {fill:SITE_PDF.lightOrange,text:[145,84,15],accent:SITE_PDF.orange};
+    if (s === "in progress" || s === "current") return {fill:SITE_PDF.lightBlue,text:[20,80,125],accent:SITE_PDF.blue};
+    return {fill:SITE_PDF.soft,text:SITE_PDF.navy,accent:SITE_PDF.blue};
+  }
+
+  function addSitePdfHeader(doc, title, subtitle = "", reportLabel = "SITE OPERATIONS REPORT") {
+    const project = typeof currentProject === "function" ? currentProject() : null;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 28;
+    const generated = new Date();
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...SITE_PDF.navy);
+    doc.text("AHT GLOBAL · PROJECT CONTROL", margin, 30);
+    doc.setFontSize(23);
+    doc.text(safePdfText(title), margin, 53);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...SITE_PDF.muted);
+    if (subtitle) doc.text(safePdfText(subtitle), margin, 67);
+    doc.setFontSize(7.5);
+    doc.text(reportLabel, pageWidth-margin, 29, {align:"right"});
+    doc.text(`Generated ${generated.toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"})}`, pageWidth-margin, 42, {align:"right"});
+    if (project?.name) doc.text(safePdfText(project.name), pageWidth-margin, 54, {align:"right"});
+    doc.setDrawColor(...SITE_PDF.navy);
+    doc.setLineWidth(2);
+    doc.line(margin,76,pageWidth-margin,76);
+    doc.setLineWidth(.5);
+  }
+
+  function addSitePdfFooters(doc, projectName) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 28;
+    const total = doc.getNumberOfPages();
+    for (let page=1; page<=total; page++) {
+      doc.setPage(page);
+      doc.setDrawColor(...SITE_PDF.line);
+      doc.line(margin,pageHeight-22,pageWidth-margin,pageHeight-22);
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(7);
+      doc.setTextColor(...SITE_PDF.muted);
+      doc.text("AHT Global · Project Control",margin,pageHeight-10);
+      doc.text(`Page ${page} of ${total}`,pageWidth/2,pageHeight-10,{align:"center"});
+      doc.text(`${safePdfText(projectName)} · v${APP_CONFIG.version}`,pageWidth-margin,pageHeight-10,{align:"right"});
+    }
+  }
+
+  function sitePdfSectionTitle(doc, title, y) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 28;
+    if (y > pageHeight-58) { doc.addPage("letter","landscape"); y = 34; }
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...SITE_PDF.navy);
+    doc.text(title,margin,y);
+    doc.setDrawColor(...SITE_PDF.line);
+    doc.line(margin,y+5,pageWidth-margin,y+5);
+    return y+16;
+  }
+
+  function addSitePdfSummary(doc, records, y = 92) {
+    const counts = pdfStatusCounts(records);
+    doc.autoTable({
+      startY:y, margin:{left:28,right:28,bottom:32}, theme:"grid",
+      head:[["Current Work","Upcoming","At Risk","Completed"]],
+      body:[[counts.current,counts.upcoming,counts.risk,counts.complete]],
+      styles:{font:"helvetica",fontSize:8.5,cellPadding:5,halign:"center",textColor:[31,55,78],lineColor:SITE_PDF.line,lineWidth:.4},
+      headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:7}
+    });
+    return doc.lastAutoTable.finalY;
+  }
+
+  function addSiteProgressSummary(doc, location, totalItems, y) {
+    const values = [
+      ["Overall Progress", displayedLocationProgress(location)],
+      ["Rough-In", displayedLocationProgress(location,"Rough-In")],
+      ["Trim", displayedLocationProgress(location,"Trim")],
+      ["Final", displayedLocationProgress(location,"Final")]
+    ];
+    doc.autoTable({
+      startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
+      head:[[...values.map(v=>v[0]),"Total Site Items"]],
+      body:[[...values.map(v=>`${v[1]}%`),totalItems]],
+      styles:{font:"helvetica",fontSize:8.5,cellPadding:5,halign:"center",textColor:[31,55,78],lineColor:SITE_PDF.line,lineWidth:.4},
+      headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:7}
+    });
+    return doc.lastAutoTable.finalY;
+  }
+
+  async function downloadSitePDF() {
+    await load(false);
+    if (!window.jspdf?.jsPDF || typeof window.jspdf.jsPDF !== "function") {
+      alert("PDF export library is not available. Refresh the dashboard and try again."); return;
+    }
+    const project = typeof currentProject === "function" ? currentProject() : null;
+    if (!project) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
+    addSitePdfHeader(doc, project.name || "Project", project.subtitle || "", "SITE OPERATIONS REPORT");
+    let y = addSitePdfSummary(doc,state.operations,92)+18;
+    y = sitePdfSectionTitle(doc,"Project Locations",y);
+    const roots = childrenOf(null);
+    doc.autoTable({
+      startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
+      head:[["Type","Location","Level / Floor","Overall","Rough-In","Trim","Final","Site Items","Risk"]],
+      body:roots.map(location=>{const records=operationsForLocation(location.id,true);return [
+        safePdfText(location.locationType||"Location"),safePdfText(location.name),safePdfText(location.planLevel||"—"),
+        `${displayedLocationProgress(location)}%`,`${displayedLocationProgress(location,"Rough-In")}%`,`${displayedLocationProgress(location,"Trim")}%`,`${displayedLocationProgress(location,"Final")}%`,records.length,riskState(records)?"At Risk":"On Track"
+      ];}),
+      styles:{font:"helvetica",fontSize:7.5,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],valign:"top"},
+      headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
+      didParseCell:data=>{if(data.section==="body"&&data.column.index===8){const look=sitePdfStatusStyle(data.cell.raw);data.cell.styles.fillColor=look.fill;data.cell.styles.textColor=look.text;data.cell.styles.fontStyle="bold";}}
+    });
+    y=doc.lastAutoTable.finalY+22;
+    if(state.operations.length){
+      y=sitePdfSectionTitle(doc,"Site Activity Summary",y);
+      doc.autoTable({
+        startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
+        head:[["Location","Activity","Details","Progress","Status","Activity Date","Target"]],
+        body:state.operations.slice().sort((a,b)=>String(a.targetDate||"9999-12-31").localeCompare(String(b.targetDate||"9999-12-31"))).map(op=>{const loc=locationById(op.locationId);return [safePdfText(loc?.name||"—"),safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${clampPercent(op.percentComplete)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))];}),
+        styles:{font:"helvetica",fontSize:7,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],overflow:"linebreak",valign:"top"},
+        headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
+        columnStyles:{2:{cellWidth:190}},
+        didParseCell:data=>{if(data.section==="body"&&data.column.index===4){const look=sitePdfStatusStyle(data.cell.raw);data.cell.styles.fillColor=look.fill;data.cell.styles.textColor=look.text;data.cell.styles.fontStyle="bold";}}
+      });
+    }
+    addSitePdfFooters(doc,project.name);
+    doc.save(`${safePdfFileName(project.name)}-Site-Operations.pdf`);
+  }
+
+  async function downloadLocationPDF() {
+    await load(false);
+    const location=locationById(state.currentLocationId); if(!location)return;
+    if(!window.jspdf?.jsPDF||typeof window.jspdf.jsPDF!=="function"){alert("PDF export library is not available. Refresh the dashboard and try again.");return;}
+    const project=typeof currentProject==="function"?currentProject():null;
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
+    const allOperations=operationsForLocation(location.id,true);
+    const directOperations=operationsForLocation(location.id,false);
+    const childLocations=childrenOf(location.id);
+    const subtitle=`${location.locationType||"Location"}${location.planLevel?` · ${location.planLevel}`:""} · ${project?.name||""}`;
+    addSitePdfHeader(doc,`${location.name} — Site Operations`,subtitle,"LOCATION REPORT");
+    let y=addSitePdfSummary(doc,allOperations,92)+12;
+    y=addSiteProgressSummary(doc,location,allOperations.length,y)+20;
+    y=sitePdfSectionTitle(doc,`${safePdfText(location.name)} Progress & Activity`,y);
+    doc.autoTable({
+      startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
+      head:[["Activity","Details","Progress","Status","Activity Date","Target"]],
+      body:directOperations.length?directOperations.map(op=>[safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${clampPercent(op.percentComplete)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))]):[["No direct Site Operations items.","—","—","—","—","—"]],
+      styles:{font:"helvetica",fontSize:7.5,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],overflow:"linebreak",valign:"top"},
+      headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
+      columnStyles:{1:{cellWidth:240}},
+      didParseCell:data=>{if(data.section==="body"&&data.column.index===3){const look=sitePdfStatusStyle(data.cell.raw);data.cell.styles.fillColor=look.fill;data.cell.styles.textColor=look.text;data.cell.styles.fontStyle="bold";}}
+    });
+    y=doc.lastAutoTable.finalY+22;
+    if(childLocations.length){
+      y=sitePdfSectionTitle(doc,"Child Locations / Areas",y);
+      doc.autoTable({
+        startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
+        head:[["Type","Location","Level / Floor","Overall","Rough-In","Trim","Final","Site Items"]],
+        body:childLocations.map(child=>{const records=operationsForLocation(child.id,true);return [safePdfText(child.locationType||"Location"),safePdfText(child.name),safePdfText(child.planLevel||"—"),`${displayedLocationProgress(child)}%`,`${displayedLocationProgress(child,"Rough-In")}%`,`${displayedLocationProgress(child,"Trim")}%`,`${displayedLocationProgress(child,"Final")}%`,records.length];}),
+        styles:{font:"helvetica",fontSize:7.5,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],valign:"top"},
+        headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5}
+      });
+    }
+    addSitePdfFooters(doc,project?.name||"Project");
+    doc.save(`${safePdfFileName(project?.name)}-${safePdfFileName(location.name)}-Site-Operations.pdf`);
+  }
+
   function onProjectChanged() {
     state.loaded = false;
     state.currentLocationId = null;
@@ -1444,6 +2091,12 @@ const SiteOperations = (() => {
     deleteOperation,
     getScheduleData,
     openScheduleItem,
+    filterChildLocations,
+    locationFilterChanged,
+    locationPickerInput,
+    locationPickerCommit,
+    downloadSitePDF,
+    downloadLocationPDF,
     closeModal,
     refresh: () => load(true)
   };

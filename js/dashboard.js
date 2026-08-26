@@ -386,6 +386,7 @@ for(let day=1;day<=daysInMonth;day++){
 
   cells+=`<div class="day-cell${todayClass}">
     <div class="day-num">${day}</div>
+    ${todayClass?`<div class="calendar-today-marker">Today</div>`:""}
     ${ev.slice(0,2).map(e=>`<div class="event-dot ${e.type}" ${
       (currentUser.canEdit||e.source==="site")
         ?`onclick="${e.source==="deliverable"?`editDeliverable(${e.sourceId})`:e.source==="site"?`openScheduleSource('site',${e.sourceId})`:`editInfo(${e.sourceId})`}" style="cursor:pointer" title="Open source record"`
@@ -556,7 +557,7 @@ function toggleGanttGroup(encodedDiscipline){
 
 function expandAllGanttGroups(){
  rememberGanttScrollAnchor();
- document.querySelectorAll(".gantt-group-header[data-group]").forEach(header=>{
+ document.querySelectorAll(".gantt-group-header[data-group], .gantt-group-summary[data-group]").forEach(header=>{
    ganttExpandedGroups.add(decodeURIComponent(header.dataset.group));
  });
  render();

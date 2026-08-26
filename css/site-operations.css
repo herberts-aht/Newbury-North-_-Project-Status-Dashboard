@@ -33,7 +33,7 @@
 }
 
 .so-summary-strip > div {
-  background: var(--white);
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 13px 14px;
@@ -83,7 +83,7 @@
 
 .so-location-card {
   position: relative;
-  background: var(--white);
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 15px;
   padding: 16px;
@@ -217,7 +217,7 @@
 }
 
 .so-detail-hero {
-  background: var(--white);
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 15px 15px 0 0;
   padding: 17px;
@@ -251,7 +251,7 @@
 }
 
 .so-detail-progress {
-  background: var(--white);
+  background: var(--card);
   border: 1px solid var(--line);
   border-top: 0;
   border-radius: 0 0 15px 15px;
@@ -279,7 +279,7 @@
 }
 
 .so-operation-card {
-  background: var(--white);
+  background: var(--card);
   border: 1px solid var(--line);
   border-left: 4px solid var(--blue);
   border-radius: 12px;
@@ -352,7 +352,7 @@
 
 .so-empty {
   grid-column: 1 / -1;
-  background: var(--white);
+  background: var(--card);
   border: 1px dashed var(--line);
   border-radius: 12px;
   padding: 22px;
@@ -469,7 +469,7 @@
 
 /* v0.14.59 — compact Site Operations activity overview */
 .so-operation-list-compact{
-  background:var(--white);
+  background:var(--card);
   border:1px solid var(--line);
   border-radius:12px;
   overflow:hidden;
@@ -495,7 +495,7 @@
   width:100%;
   border:0;
   border-top:1px solid var(--line);
-  background:var(--white);
+  background:var(--card);
   padding:10px 12px;
   text-align:left;
   cursor:pointer;
@@ -534,7 +534,7 @@
   font-weight:700;
 }
 .so-item-detail{
-  background:var(--white);
+  background:var(--card);
   border:1px solid var(--line);
   border-radius:14px;
   padding:17px;
@@ -624,5 +624,1020 @@
   }
   .so-item-detail-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+/* v0.14.59 WIP — Site Operations functional + visual alignment pass */
+.container:has(#siteOperations.active){
+  max-width:none;
+}
+#siteOperations.view.active{
+  width:100%;
+}
+#siteOperations .page-header{
+  margin-bottom:14px;
+}
+#siteOperations .page-header > .actions{
+  align-items:flex-end;
+}
+#siteOperations .so-breadcrumb.hidden{
+  display:none!important;
+}
+#siteOperations .so-breadcrumb{
+  margin:2px 0 14px;
+}
+
+/* Summary cards align with the rest of Project Control. */
+.so-summary-strip > div{
+  min-height:58px;
+  justify-content:center;
+  border-radius:10px;
+}
+.so-summary-strip strong{
+  font-size:21px;
+  line-height:1;
+}
+
+/* Keep zero-percent phase tracks visible so every phase reads as a real control. */
+.so-progress-track{
+  background:#e6edf3;
+  box-shadow:inset 0 0 0 1px rgba(31,78,121,.04);
+}
+.so-location-progress .so-progress-track,
+.so-detail-progress .so-progress-track{
+  min-width:120px;
+}
+
+/* Location cards use the available page width without feeling oversized. */
+.so-location-grid{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));
+}
+.so-location-card{
+  border-radius:10px;
+  padding:15px 16px 0;
+  overflow:hidden;
+}
+.so-location-footer{
+  margin-left:-16px;
+  margin-right:-16px;
+  padding:10px 16px;
+  background:#fbfcfd;
+}
+.so-location-footer span:last-child{
+  color:var(--blue);
+  font-weight:700;
+}
+
+/* Location detail mirrors the dashboard card/table language. */
+.so-detail-hero{
+  border-radius:10px 10px 0 0;
+  padding:16px 17px;
+}
+.so-detail-progress{
+  border-radius:0 0 10px 10px;
+  padding:12px 17px 15px;
+}
+.so-detail-overall strong{
+  font-size:29px;
+}
+
+/* Compact activity table: real status pills and a small progress visual. */
+.so-operation-list-compact{
+  border-radius:10px;
+}
+.so-operation-row-head,
+.so-operation-row{
+  grid-template-columns:minmax(260px,1fr) 150px 120px 120px 22px;
+}
+.so-operation-row{
+  min-height:54px;
+  padding:9px 12px;
+}
+.so-operation-row-main strong{
+  font-size:13px;
+}
+.so-operation-row-main > span{
+  margin-top:2px;
+}
+.so-operation-row-progress{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.so-operation-row-progress strong{
+  color:var(--navy);
+  font-size:10px;
+  min-width:30px;
+  text-align:right;
+}
+.so-mini-progress{
+  display:block;
+  flex:1 1 auto;
+  height:6px;
+  min-width:55px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e6edf3;
+}
+.so-mini-progress > span{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:var(--blue);
+}
+.so-progress-na{
+  color:var(--muted);
+}
+.so-operation-row-status{
+  display:flex;
+  align-items:center;
+}
+.so-status{
+  display:inline-flex;
+  align-items:center;
+  min-height:22px;
+  padding:3px 8px;
+  border:1px solid transparent;
+}
+.so-status-planned{
+  background:#eef2f5;
+  color:#536473;
+}
+.so-status-in-progress{
+  background:var(--soft-blue);
+  color:var(--navy);
+  border-color:rgba(0,136,199,.12);
+}
+.so-status-at-risk,
+.so-status-blocked{
+  background:rgba(183,71,71,.08);
+  color:var(--red);
+  border-color:rgba(183,71,71,.14);
+}
+.so-status-complete{
+  background:var(--soft-green);
+  color:#2f6b2f;
+  border-color:rgba(47,107,47,.10);
+}
+
+/* Activity detail is intentionally compact; blank space is kept out of the field view. */
+.so-item-detail{
+  border-radius:10px;
+  padding:16px 17px;
+}
+.so-item-detail-heading{
+  padding-bottom:11px;
+}
+.so-item-progress-panel{
+  padding:11px 0;
+  max-width:760px;
+}
+.so-item-detail-grid{
+  gap:10px 18px;
+  padding:11px 0;
+}
+.so-item-detail-section{
+  padding-top:11px;
+  margin-top:0;
+}
+.so-item-automation-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+@media(max-width:1100px){
+  .so-operation-row-head,
+  .so-operation-row{
+    grid-template-columns:minmax(220px,1fr) 125px 110px 110px 22px;
+  }
+}
+@media(max-width:800px){
+  #siteOperations .page-header > .actions{
+    align-items:stretch;
+  }
+  .so-operation-row{
+    min-height:unset;
+  }
+  .so-operation-row-progress{
+    display:flex;
+    max-width:220px;
+  }
+  .so-operation-row-status{
+    display:block;
+  }
+  .so-item-automation-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:520px){
+  .so-summary-strip{
+    gap:8px;
+  }
+  .so-summary-strip > div{
+    padding:11px 12px;
+  }
+  .so-item-detail-grid,
+  .so-item-automation-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+/* v0.14.59 WIP — Site Operations Pass 2: scalable child locations + form flow */
+.so-track-progress-field {
+  padding: 2px 0 1px;
+}
+
+.so-child-heading {
+  align-items: center;
+}
+
+.so-child-filter {
+  width: min(280px, 100%);
+}
+
+.so-child-filter input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: var(--card);
+  color: var(--navy);
+}
+
+.so-child-location-list {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--card);
+  margin-bottom: 22px;
+}
+
+.so-child-location-head,
+.so-child-location-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 2.2fr) minmax(155px, .9fr) minmax(90px, .65fr) minmax(95px, .7fr) 18px;
+  gap: 14px;
+  align-items: center;
+}
+
+.so-child-location-head {
+  padding: 9px 13px;
+  background: var(--soft);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.so-child-location-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+  padding: 11px 13px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.so-child-location-row:last-child {
+  border-bottom: 0;
+}
+
+.so-child-location-row:hover,
+.so-child-location-row:focus-visible {
+  background: rgba(30, 116, 180, .035);
+  outline: none;
+}
+
+.so-child-location-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.so-child-location-main strong {
+  color: var(--navy);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.so-child-location-progress {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) 38px;
+  gap: 8px;
+  align-items: center;
+}
+
+.so-child-location-progress strong {
+  color: var(--navy);
+  font-size: 11px;
+  text-align: right;
+}
+
+.so-child-location-count {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.so-child-location-risk {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.so-child-location-arrow {
+  color: var(--blue);
+  font-size: 19px;
+  line-height: 1;
+  text-align: right;
+}
+
+.so-status-on-track {
+  color: var(--green);
+  background: rgba(35, 139, 92, .08);
+}
+
+@media (max-width: 850px) {
+  .so-child-location-head {
+    display: none;
+  }
+
+  .so-child-location-row {
+    grid-template-columns: minmax(0, 1fr) 120px 18px;
+    grid-template-areas:
+      "main progress arrow"
+      "main meta arrow";
+    gap: 7px 10px;
+  }
+
+  .so-child-location-main { grid-area: main; }
+  .so-child-location-progress { grid-area: progress; }
+  .so-child-location-count {
+    grid-area: meta;
+    text-align: right;
+  }
+  .so-child-location-risk { display: none; }
+  .so-child-location-arrow { grid-area: arrow; }
+}
+
+@media (max-width: 700px) {
+  .so-child-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .so-child-filter {
+    width: 100%;
+  }
+
+  .so-child-location-row {
+    grid-template-columns: minmax(0, 1fr) 18px;
+    grid-template-areas:
+      "main arrow"
+      "progress arrow"
+      "meta arrow";
+  }
+
+  .so-child-location-count {
+    text-align: left;
+  }
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+
+/* v0.14.59 WIP — Site Operations Pass 3: contextual activity table + local scrolling */
+.so-work-heading{
+  margin-top:18px;
+  margin-bottom:8px;
+}
+.so-work-heading h3{
+  margin-bottom:2px;
+}
+.so-operation-list-compact.so-activity-scroll{
+  max-height:390px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+.so-operation-list-compact.so-activity-scroll .so-operation-row-head{
+  position:sticky;
+  top:0;
+  z-index:3;
+  box-shadow:0 1px 0 var(--line);
+}
+.so-operation-row-head,
+.so-operation-row{
+  grid-template-columns:minmax(300px,2fr) minmax(135px,.8fr) 105px 115px 115px 22px;
+  gap:12px;
+}
+.so-operation-row{
+  min-height:50px;
+  padding:8px 12px;
+}
+.so-operation-row-activity-date,
+.so-operation-row-target{
+  color:var(--muted);
+  font-size:11px;
+  white-space:nowrap;
+}
+@media(max-width:900px){
+  .so-operation-list-compact.so-activity-scroll{
+    max-height:430px;
+  }
+  .so-operation-row-head{display:none}
+  .so-operation-row{
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:5px 12px;
+  }
+  .so-operation-row-main{grid-column:1}
+  .so-operation-row-progress,
+  .so-operation-row-status,
+  .so-operation-row-activity-date,
+  .so-operation-row-target{
+    grid-column:1;
+    display:inline-flex;
+  }
+  .so-operation-row-progress::before{content:"Progress: ";margin-right:4px}
+  .so-operation-row-status::before{content:"Status: ";margin-right:4px}
+  .so-operation-row-activity-date::before{content:"Activity: ";margin-right:4px}
+  .so-operation-row-target::before{content:"Target: ";margin-right:4px}
+  .so-operation-row-arrow{
+    grid-column:2;
+    grid-row:1 / span 5;
+    align-self:center;
+  }
+}
+
+/* v0.14.59 WIP — Site Operations Pass 4: scalable location navigation + dashboard alignment */
+#siteOperations{
+  --so-panel-bg:#fff;
+}
+
+/* Keep drill-down context visible while the working sections scroll. */
+#siteOperations .so-breadcrumb:not(.hidden){
+  position:sticky;
+  top:0;
+  z-index:12;
+  min-height:38px;
+  margin:0 0 12px;
+  padding:7px 10px;
+  background:rgba(255,255,255,.97);
+  border:1px solid var(--line);
+  border-radius:9px;
+  box-shadow:0 2px 8px rgba(21,39,69,.05);
+  backdrop-filter:blur(8px);
+}
+#siteOperations .so-breadcrumb button{
+  font-size:12px;
+}
+#siteOperations .so-breadcrumb-current{
+  font-size:12px;
+  font-weight:700;
+  color:var(--navy);
+}
+
+/* Section controls now match Calendar/Gantt control scale. */
+.so-locations-heading,
+.so-child-heading{
+  align-items:center;
+}
+.so-location-search{
+  display:block;
+  width:min(280px,100%);
+  flex:0 0 auto;
+}
+.so-location-search input{
+  width:100%;
+  height:36px;
+  box-sizing:border-box;
+  border:1px solid #9fc5dc;
+  border-radius:8px;
+  background:#fff;
+  color:var(--navy);
+  padding:0 11px;
+  font:inherit;
+  font-size:12px;
+  font-weight:600;
+  outline:none;
+}
+.so-location-search input:focus{
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(0,136,199,.10);
+}
+
+/* Location cards stay as cards, but the working region scrolls independently. */
+.so-location-scroll{
+  max-height:clamp(330px,52vh,610px);
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  padding:2px 5px 8px 2px;
+}
+.so-child-location-scroll{
+  max-height:clamp(300px,43vh,500px);
+}
+.so-location-scroll .so-location-grid{
+  align-content:start;
+}
+.so-location-card[hidden]{
+  display:none!important;
+}
+
+/* Slightly denser cards preserve the dashboard rhythm when many rooms are present. */
+.so-location-card{
+  min-height:0;
+}
+.so-location-progress{
+  gap:7px;
+}
+.so-location-footer{
+  margin-top:12px;
+}
+
+/* Detail panels read more like the rest of Project Control. */
+.so-detail-hero,
+.so-detail-progress,
+.so-operation-list-compact,
+.so-item-detail{
+  box-shadow:0 1px 2px rgba(21,39,69,.025);
+}
+.so-section-heading h3{
+  color:var(--navy);
+  font-size:15px;
+  letter-spacing:-.01em;
+}
+
+@media(max-width:900px){
+  #siteOperations .so-breadcrumb:not(.hidden){
+    top:0;
+  }
+  .so-location-scroll,
+  .so-child-location-scroll{
+    max-height:none;
+    overflow:visible;
+    padding-right:0;
+  }
+}
+@media(max-width:700px){
+  .so-locations-heading,
+  .so-child-heading{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .so-location-search{
+    width:100%;
+  }
+}
+
+
+/* v0.14.59 WIP — Site Operations Pass 5: searchable pickers + dashboard color alignment */
+.so-smart-picker{
+  position:relative;
+  width:min(320px,100%);
+}
+.field .so-smart-picker{width:100%;}
+.so-smart-picker-input{
+  width:100%;
+  min-height:36px;
+  padding:7px 34px 7px 11px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--card);
+  color:var(--navy);
+  font:inherit;
+  box-sizing:border-box;
+}
+.so-smart-picker-input:hover{border-color:#9fb6c9;}
+.so-smart-picker-input:focus{
+  outline:none;
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(0,136,199,.10);
+}
+.so-smart-picker-chevron{
+  position:absolute;
+  right:11px;
+  top:50%;
+  transform:translateY(-54%);
+  color:var(--blue);
+  font-size:15px;
+  font-weight:800;
+  pointer-events:none;
+}
+
+/* Carry the same restrained KPI color language used by Executive Summary. */
+.so-summary-strip > div{
+  position:relative;
+  overflow:hidden;
+  border-top-width:3px;
+}
+.so-summary-strip .so-summary-current{border-top-color:var(--blue);}
+.so-summary-strip .so-summary-upcoming{border-top-color:var(--orange);}
+.so-summary-strip .so-summary-risk{border-top-color:var(--red);}
+.so-summary-strip .so-summary-complete{border-top-color:var(--green);}
+.so-summary-strip .so-summary-current strong{color:var(--blue);}
+.so-summary-strip .so-summary-upcoming strong{color:#a85a12;}
+.so-summary-strip .so-summary-risk strong{color:var(--red);}
+.so-summary-strip .so-summary-complete strong{color:#4f8732;}
+
+/* Match Project cards with a subtle AHT blue edge instead of adding heavy fills. */
+.so-location-card:before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:3px;
+  background:var(--blue);
+  opacity:.85;
+}
+.so-location-card{position:relative;}
+.so-location-type{color:var(--blue);}
+.so-location-card .so-risk-flag{
+  border-color:rgba(192,0,0,.18);
+  background:rgba(192,0,0,.055);
+}
+
+@media(max-width:800px){
+  .so-smart-picker{width:100%;}
+}
+
+/* v0.14.59 WIP — Site Operations Pass 6: activity-first drill-down + role-safe detail */
+.so-section-heading-strong h3,
+.so-locations-heading h3{
+  font-size:17px;
+  font-weight:800;
+  letter-spacing:-.015em;
+  color:var(--navy);
+}
+.so-section-heading-strong p,
+.so-locations-heading p{
+  margin-top:3px;
+}
+.so-work-heading{
+  margin-top:16px;
+}
+.so-areas-heading{
+  margin-top:18px;
+}
+
+/* Use the available room page width: useful detail sits beside Activity rather than empty space. */
+.so-operation-row-head,
+.so-operation-row{
+  grid-template-columns:minmax(190px,1.15fr) minmax(260px,1.75fr) minmax(125px,.75fr) 105px 112px 112px 22px;
+  gap:12px;
+}
+.so-operation-row-details{
+  min-width:0;
+  color:var(--text);
+  font-size:11px;
+  line-height:1.35;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-align:left;
+}
+.so-detail-empty{color:var(--muted);}
+.so-operation-row-readonly{
+  cursor:default;
+}
+.so-operation-row-readonly:hover{
+  background:inherit;
+}
+.so-operation-row-arrow-hidden{
+  visibility:hidden;
+}
+
+/* The activity table is the work surface; child Areas remain the final drill-down navigator. */
+.so-activity-scroll{
+  margin-bottom:2px;
+}
+.so-child-location-scroll{
+  margin-bottom:4px;
+}
+
+@media(max-width:1150px){
+  .so-operation-row-head,
+  .so-operation-row{
+    grid-template-columns:minmax(170px,1.1fr) minmax(210px,1.4fr) minmax(115px,.7fr) 100px 108px 108px 20px;
+    gap:9px;
+  }
+}
+
+@media(max-width:900px){
+  .so-operation-row-head{display:none}
+  .so-operation-row{
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:5px 12px;
+  }
+  .so-operation-row-main{grid-column:1}
+  .so-operation-row-details{
+    grid-column:1;
+    -webkit-line-clamp:2;
+    margin:2px 0 4px;
+  }
+  .so-operation-row-details::before{
+    content:"Details: ";
+    font-weight:700;
+    color:var(--muted);
+  }
+  .so-operation-row-progress,
+  .so-operation-row-status,
+  .so-operation-row-activity-date,
+  .so-operation-row-target{
+    grid-column:1;
+    display:inline-flex;
+  }
+  .so-operation-row-arrow{
+    grid-column:2;
+    grid-row:1 / span 6;
+    align-self:center;
+  }
+}
+
+
+/* v0.14.59 Site Operations Pass 7 — hierarchy labels + read-only role polish */
+.so-location-title-line,
+.so-detail-title-line{
+  display:flex;
+  align-items:baseline;
+  gap:7px;
+  min-width:0;
+  flex-wrap:wrap;
+}
+.so-location-title-line .so-location-type,
+.so-detail-title-line .eyebrow{
+  flex:0 0 auto;
+  margin:0;
+}
+.so-location-title-line h3,
+.so-detail-title-line h3{
+  margin:0;
+  min-width:0;
+}
+.so-location-title-separator{
+  color:var(--muted);
+  font-weight:700;
+}
+.so-detail-hero-readonly{
+  justify-content:flex-start;
+}
+.so-detail-hero-readonly + .so-detail-progress .so-progress-row:first-child{
+  padding-bottom:2px;
+  margin-bottom:1px;
+  border-bottom:1px solid rgba(31,78,121,.08);
+}
+.so-detail-hero-readonly + .so-detail-progress .so-progress-row:first-child > span:first-child,
+.so-detail-hero-readonly + .so-detail-progress .so-progress-row:first-child strong{
+  color:var(--navy);
+  font-weight:800;
+}
+
+/* v0.14.59 Site Operations Pass 8 — plan levels, type filters + descriptor colors */
+.so-location-nav-controls{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+  max-width:680px;
+}
+.so-location-nav-controls .so-smart-picker{width:min(310px,100%);}
+.so-location-filter{
+  min-height:36px;
+  height:36px;
+  min-width:118px;
+  padding:0 30px 0 10px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:#fff;
+  color:var(--navy);
+  font-size:12px;
+  font-weight:700;
+  box-sizing:border-box;
+}
+.so-location-filter:hover{border-color:#9fb6c9;}
+.so-location-filter:focus{
+  outline:none;
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(0,136,199,.10);
+}
+
+/* Color only the descriptor lettering — no pills, fills or extra chrome. */
+.so-location-type{font-weight:800;}
+.so-location-type.so-type-room{color:#0088c7!important;}
+.so-location-type.so-type-building{color:#1f4e79!important;}
+.so-location-type.so-type-exterior{color:#4f8732!important;}
+.so-location-type.so-type-utility{color:#b86617!important;}
+.so-location-type.so-type-area{color:#7650a6!important;}
+.so-location-type.so-type-wing{color:#277f84!important;}
+.so-location-type.so-type-site-zone{color:#9a6a18!important;}
+.so-location-type.so-type-level{color:#5b6780!important;}
+.so-location-type.so-type-other,
+.so-location-type.so-type-location{color:var(--muted)!important;}
+
+@media(max-width:900px){
+  .so-location-nav-controls{
+    width:100%;
+    max-width:none;
+    justify-content:flex-start;
+  }
+  .so-location-nav-controls .so-smart-picker{width:100%;}
+  .so-location-filter{flex:1 1 145px;}
+}
+
+
+/* v0.14.59 WIP — Site Operations Pass 9: unified location navigation controls */
+.so-location-nav-controls{
+  display:grid;
+  grid-template-columns:minmax(250px,1.55fr) minmax(135px,.72fr) minmax(135px,.72fr);
+  align-items:end;
+  justify-content:stretch;
+  gap:8px;
+  width:min(610px,48vw);
+  max-width:100%;
+  flex:0 1 610px;
+}
+.so-location-nav-controls .so-smart-picker{
+  width:100%;
+  min-width:0;
+}
+.so-location-nav-controls .so-smart-picker-input,
+.so-location-nav-controls .so-location-filter{
+  width:100%;
+  min-width:0;
+  height:36px;
+  min-height:36px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:#fff;
+  color:var(--navy);
+  font-size:12px;
+  font-weight:700;
+  line-height:34px;
+  box-sizing:border-box;
+}
+.so-location-nav-controls .so-smart-picker-input{
+  padding:0 34px 0 10px;
+}
+.so-location-nav-controls .so-location-filter{
+  padding:0 30px 0 10px;
+}
+.so-location-nav-controls .so-smart-picker-input::placeholder{
+  color:var(--muted);
+  opacity:1;
+  font-weight:700;
+}
+@media(max-width:1180px){
+  .so-section-heading{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  .so-location-nav-controls{
+    width:100%;
+    flex-basis:100%;
+    grid-template-columns:minmax(220px,1.5fr) minmax(130px,.75fr) minmax(130px,.75fr);
+  }
+}
+@media(max-width:700px){
+  .so-location-nav-controls{
+    grid-template-columns:1fr;
+  }
+}
+
+
+/* v0.14.59 WIP — Site Operations Pass 10: final UI alignment + phase color cues + PDF controls */
+.so-location-nav-controls{
+  margin-left:auto;
+  margin-right:5px;
+}
+.so-progress-label{
+  font-weight:700;
+}
+.so-progress-label-rough{
+  color:#0088c7!important;
+}
+.so-progress-label-trim{
+  color:#b86617!important;
+}
+.so-progress-label-final{
+  color:#4f8732!important;
+}
+#siteOperations .page-header .actions > #downloadSiteOperationsPdfBtn,
+#siteOperations .page-header .actions > #downloadSiteLocationPdfBtn{
+  white-space:nowrap;
+}
+@media(max-width:1180px){
+  .so-location-nav-controls{
+    margin-left:0;
+    margin-right:0;
+  }
+}
+
+/* Pass 13 — keep Site Operations phase labels visually consistent */
+.so-progress-label,
+.so-progress-label-rough,
+.so-progress-label-trim,
+.so-progress-label-final{
+  color:inherit;
+}
+
+
+/* Pass 15 — Site Operations header action alignment */
+#siteOperations .page-header > .actions{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:10px;
+}
+#siteOperations .page-header > .actions .project-switcher{
+  align-self:flex-end;
+}
+#siteOperations .site-action-buttons{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  width:auto;
+}
+#siteOperations .site-action-buttons .btn{
+  align-self:auto;
+  width:auto;
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+#siteOperations .site-action-buttons #addSiteLocationBtn,
+#siteOperations .site-action-buttons #addSiteOperationBtn{
+  /* Admin actions stay secondary; PDF remains the primary blue action. */
+}
+@media(max-width:800px){
+  #siteOperations .page-header > .actions{
+    width:100%;
+    align-items:stretch;
+  }
+  #siteOperations .page-header > .actions .project-switcher{
+    align-self:flex-end;
+  }
+  #siteOperations .site-action-buttons{
+    width:100%;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+  #siteOperations .site-action-buttons .btn{
+    width:auto;
+    flex:0 0 auto;
+  }
+}
+
+/* v0.14.59 WIP — align Site Operations with the shared desktop application width */
+@media (min-width:981px){
+  .container:has(#siteOperations.active){
+    width:100%;
+    max-width:1480px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+  #siteOperations.view.active{
+    width:100%;
+  }
+}
+
+/* v0.14.59 WIP — Pass 22: match Executive Summary / Projects page treatment.
+   Site Operations uses the shared application canvas; cards and tables use the same white card token as the rest of the app. */
+#siteOperations.view.active{
+  background:transparent;
+  border:0;
+  border-radius:0;
+  padding:0;
+  box-shadow:none;
+}
+
+@media(max-width:800px){
+  #siteOperations.view.active{
+    background:transparent;
+    border:0;
+    border-radius:0;
+    padding:0;
+    box-shadow:none;
   }
 }
