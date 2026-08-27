@@ -394,6 +394,12 @@ const SharePointDataProvider = {
     return { ...comment, status: "Resolved", resolvedBy: resolvedBy || "", resolvedTime };
   },
 
+  async deleteProjectComment(comment) {
+    if (!comment?.sharePointId && !comment?.id) throw new Error("Comment id is missing.");
+    await this.deleteItem(this.config.lists.comments, comment.sharePointId || comment.id);
+    return true;
+  },
+
   mapChangeLog(item, projects = []) {
     const fields = item.fields || {};
     const projectSharePointId = this.projectLookupId(fields);
@@ -1349,6 +1355,13 @@ const FallbackDataProvider = {
       throw new Error("Comments cannot be resolved while SharePoint is unavailable.");
     }
     return SharePointDataProvider.resolveProjectComment(comment, resolvedBy);
+  },
+
+  async deleteProjectComment(comment) {
+    if (this.fallbackWasUsed) {
+      throw new Error("Comments cannot be deleted while SharePoint is unavailable.");
+    }
+    return SharePointDataProvider.deleteProjectComment(comment);
   }
 };
 

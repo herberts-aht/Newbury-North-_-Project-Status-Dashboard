@@ -8,6 +8,30 @@ let calendarScheduleMode="project";
 let ganttScheduleMode="project";
 let siteScheduleSnapshot={locations:[],operations:[],loaded:false,loading:false,projectSharePointId:0};
 
+const projectControlViewModes={
+  deliverables:(()=>{try{return localStorage.getItem("aht-project-control-deliverables-view")||"cards";}catch{return "cards";}})(),
+  info:(()=>{try{return localStorage.getItem("aht-project-control-info-view")||"cards";}catch{return "cards";}})()
+};
+function applyProjectControlViewModes(){
+  ["deliverables","info"].forEach(sectionId=>{
+    const section=document.getElementById(sectionId);
+    if(!section)return;
+    const mode=projectControlViewModes[sectionId]==="list"?"list":"cards";
+    section.dataset.controlView=mode;
+    document.querySelectorAll(`[data-control-view-button="${sectionId}"]`).forEach(button=>{
+      const active=button.dataset.mode===mode;
+      button.classList.toggle("active",active);
+      button.setAttribute("aria-pressed",active?"true":"false");
+    });
+  });
+}
+window.setProjectControlView=(sectionId,mode)=>{
+  if(!["deliverables","info"].includes(sectionId)||!["cards","list"].includes(mode))return;
+  projectControlViewModes[sectionId]=mode;
+  try{localStorage.setItem(`aht-project-control-${sectionId}-view`,mode);}catch{}
+  applyProjectControlViewModes();
+};
+
 function scheduleModeLabel(mode){return mode==="site"?"Site":mode==="combined"?"Combined":"Project";}
 function updateScheduleModeButtons(){
   document.querySelectorAll("[data-schedule-view]").forEach(button=>{
@@ -160,13 +184,101 @@ function projectGeneralComments(project,includeResolved=false){
     (includeResolved||comment.status!=="Resolved")
   );
 }
-function commentControl(project,recordType,record){
+function commentControl(project,recordType,record,{card=false}={}){
   if(!currentUser?.isInternal)return "";
   const openCount=recordComments(project,recordType,record,false).length;
-  const label=openCount?`💬 ${openCount}`:"💬";
+  const iconLabel=card?`💬 <span class="project-control-comment-count">${openCount}</span>`:(openCount?`💬 ${openCount}`:"💬");
   const cls=openCount?"comment-link has-comments":"comment-link";
-  return `<button class="linkbtn ${cls}" onclick="openComments('${recordType}',${Number(record.id)})" title="Comments" aria-label="Comments${openCount?` (${openCount} open)`:``}">${label}</button>`;
+  const visibleLabel=card?`<span class="project-control-comment-label">Comment:</span>`:"";
+  return `<button class="linkbtn ${cls}${card?" project-control-card-comment":""}" type="button" onclick="event.stopPropagation();openComments('${recordType}',${Number(record.id)})" title="Comments" aria-label="Comments (${openCount} open)">${visibleLabel}<span class="project-control-comment-icon" aria-hidden="true">${iconLabel}</span></button>`;
 }
+
+
+function projectControlDetailRow(label,value,raw=false){
+  const content=raw?(value||"—"):esc(value||"—");
+  return `<div class="project-control-detail-row"><span>${esc(label)}</span><div>${content}</div></div>`;
+}
+
+function closeProjectControlDetail(){
+  document.getElementById("projectControlDetailBackdrop")?.remove();
+}
+
+function projectControlMetaItem(label,value,raw=false){
+  const content=raw?(value||"—"):esc(value||"—");
+  return `<div class="project-control-detail-meta-item"><span>${esc(label)}</span><div>${content}</div></div>`;
+}
+
+function openProjectControlDetail(recordType,id){
+  const project=currentProject();
+  if(!project)return;
+  const numericId=Number(id);
+  const deliverable=recordType==="Deliverable"?visibleDeliverables(project).find(x=>Number(x.id)===numericId):null;
+  const info=recordType==="Information Required"?visibleInfo(project).find(x=>Number(x.id)===numericId):null;
+  const record=deliverable||info;
+  if(!record)return;
+
+  closeProjectControlDetail();
+
+  let title="";
+  let kicker="";
+  let rows="";
+  let metaHtml="";
+  let editAction="";
+
+  if(deliverable){
+    title=deliverable.deliverable||"Deliverable";
+    kicker=deliverable.discipline||"Deliverable";
+    metaHtml=[
+      projectControlMetaItem("Status",badge(deliverable.status),true),
+      projectControlMetaItem("Health",healthBadge(deliverable),true),
+      projectControlMetaItem("Viewable By",visBadge(deliverable.visibility),true)
+    ].join("");
+    rows=[
+      projectControlDetailRow("Current Activity",deliverable.current),
+      projectControlDetailRow("Owner",deliverable.owner),
+      projectControlDetailRow("Waiting On",deliverable.waitingOn),
+      projectControlDetailRow("Next Step",deliverable.nextStep),
+      projectControlDetailRow("Target",fmtDate(deliverable.date)),
+      projectControlDetailRow("Risk",deliverable.risk)
+    ].join("");
+    editAction=currentUser.canEdit?`<button class="btn primary" type="button" onclick="closeProjectControlDetail();editDeliverable(${deliverable.id})">Edit Deliverable</button>`:"";
+  }else{
+    title=info.item||"Information Required";
+    kicker="Information Required";
+    metaHtml=[
+      projectControlMetaItem("Status",badge(info.status),true),
+      projectControlMetaItem("Viewable By",visBadge(info.visibility),true)
+    ].join("");
+    rows=[
+      projectControlDetailRow("Requested From",info.from),
+      projectControlDetailRow("Blocking",info.blocking),
+      projectControlDetailRow("Needed By",fmtDate(info.neededBy)),
+      projectControlDetailRow("Notes",info.notes)
+    ].join("");
+    editAction=currentUser.canEdit?`<button class="btn primary" type="button" onclick="closeProjectControlDetail();editInfo(${info.id})">Edit Request</button>`:"";
+  }
+
+  const backdrop=document.createElement("div");
+  backdrop.id="projectControlDetailBackdrop";
+  backdrop.className="modal-backdrop project-control-detail-backdrop";
+  backdrop.innerHTML=`<div class="modal project-control-detail-modal" role="dialog" aria-modal="true" aria-label="${esc(title)} details">
+    <div class="project-control-detail-head">
+      <div>
+        <div class="eyebrow">${esc(kicker)}</div>
+        <h3>${esc(title)}</h3>
+      </div>
+      <button class="project-control-detail-close" type="button" onclick="closeProjectControlDetail()" aria-label="Close">×</button>
+    </div>
+    <div class="project-control-detail-meta">${metaHtml}</div>
+    <div class="project-control-detail-body">${rows}</div>
+    <div class="modal-actions project-control-detail-actions"><span style="flex:1"></span><button class="btn" type="button" onclick="closeProjectControlDetail()">Close</button>${editAction}</div>
+  </div>`;
+  backdrop.addEventListener("click",event=>{if(event.target===backdrop)closeProjectControlDetail();});
+  document.body.appendChild(backdrop);
+}
+
+window.openProjectControlDetail=openProjectControlDetail;
+window.closeProjectControlDetail=closeProjectControlDetail;
 
 let summaryDeliverableMode = "";
 
@@ -331,9 +443,10 @@ filtered=ds.filter(x=>{
   return true;
 });
  deliverablesBody.innerHTML=filtered.map(x=>`<tr><td>${esc(x.discipline)}</td><td><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></td><td>${badge(x.status)}</td><td>${healthBadge(x)}</td><td>${esc(x.owner)}</td><td>${esc(x.waitingOn)}</td><td>${esc(x.nextStep)}</td><td>${fmtDate(x.date)}</td><td><div class="record-actions">${commentControl(p,"Deliverable",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editDeliverable(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
- deliverableCards.innerHTML=filtered.map(x=>`<div class="mobile-record mobile-deliverable"><div class="mobile-record-heading"><div><div class="mobile-record-kicker">${esc(x.discipline)}</div><h4>${esc(x.deliverable)} ${visBadge(x.visibility)}</h4></div><span>${badge(x.status)}</span></div>${x.current?`<div class="mobile-record-current">${esc(x.current)}</div>`:""}<div class="row"><span>Schedule Health</span><span>${healthBadge(x)}</span></div><div class="row"><span>Owner</span><strong>${esc(x.owner)||"—"}</strong></div><div class="row"><span>Waiting On</span><span>${esc(x.waitingOn)||"—"}</span></div><div class="row"><span>Next Step</span><span>${esc(x.nextStep)||"—"}</span></div><div class="row"><span>Target</span><span>${fmtDate(x.date)}</span></div><div class="mobile-record-actions">${commentControl(p,"Deliverable",x)}${currentUser.canEdit?`<button class="btn" onclick="editDeliverable(${x.id})">Edit Deliverable</button>`:""}</div></div>`).join("")||'<div class="mobile-empty">No deliverables match the current filters.</div>';
+ deliverableCards.innerHTML=filtered.map(x=>`<article class="project-control-card deliverable-summary-card" role="button" tabindex="0" onclick="openProjectControlDetail('Deliverable',${x.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProjectControlDetail('Deliverable',${x.id});}"><div class="project-control-card-top"><div><div class="mobile-record-kicker">${esc(x.discipline)}</div><h3>${esc(x.deliverable)}</h3></div><div class="project-control-badges">${badge(x.status)}</div></div><div class="project-control-card-meta"><span><small>Owner</small><strong>${esc(x.owner)||"—"}</strong></span><span><small>Target</small><strong>${fmtDate(x.date)}</strong></span></div><div class="project-control-card-footer"><span class="project-control-card-comment-wrap">${commentControl(p,"Deliverable",x,{card:true})}</span><span class="project-control-view-details"><span>View details</span><span aria-hidden="true">›</span></span></div></article>`).join("")||'<div class="mobile-empty">No deliverables match the current filters.</div>';
  infoBody.innerHTML=infoRecords.map(x=>`<tr><td><strong>${esc(x.item)}</strong>${visBadge(x.visibility)}</td><td>${esc(x.from)}</td><td>${badge(x.status)}</td><td>${esc(x.blocking)}</td><td>${esc(x.notes)}</td><td><div class="record-actions">${commentControl(p,"Information Required",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editInfo(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
- infoCards.innerHTML=infoRecords.map(x=>`<div class="mobile-record mobile-info"><div class="mobile-record-heading"><h4>${esc(x.item)} ${visBadge(x.visibility)}</h4><span>${badge(x.status)}</span></div><div class="row"><span>Requested From</span><strong>${esc(x.from)||"—"}</strong></div><div class="row"><span>Blocking</span><span>${esc(x.blocking)||"—"}</span></div><div class="row"><span>Needed By</span><span>${fmtDate(x.neededBy)}</span></div>${x.notes?`<div class="mobile-record-current">${esc(x.notes)}</div>`:""}<div class="mobile-record-actions">${commentControl(p,"Information Required",x)}${currentUser.canEdit?`<button class="btn" onclick="editInfo(${x.id})">Edit Request</button>`:""}</div></div>`).join("")||'<div class="mobile-empty">No information requests for this project.</div>';
+ infoCards.innerHTML=infoRecords.map(x=>`<article class="project-control-card info-summary-card" role="button" tabindex="0" onclick="openProjectControlDetail('Information Required',${x.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProjectControlDetail('Information Required',${x.id});}"><div class="project-control-card-top"><div><div class="mobile-record-kicker">Dependency</div><h3>${esc(x.item)}</h3></div><div class="project-control-badges">${badge(x.status)}</div></div><div class="project-control-card-meta"><span><small>Requested From</small><strong>${esc(x.from)||"—"}</strong></span><span><small>Needed By</small><strong>${fmtDate(x.neededBy)}</strong></span></div>${x.blocking?`<div class="project-control-card-block"><small>Blocking</small><span>${esc(x.blocking)}</span></div>`:""}<div class="project-control-card-footer"><span class="project-control-card-comment-wrap">${commentControl(p,"Information Required",x,{card:true})}</span><span class="project-control-view-details"><span>View details</span><span aria-hidden="true">›</span></span></div></article>`).join("")||'<div class="mobile-empty">No information requests for this project.</div>';
+ applyProjectControlViewModes();
  const statuses=[...new Set(ds.map(x=>x.status))].sort(),disciplines=[...new Set(ds.map(x=>x.discipline))].sort(),oldS=filterStatus.value,oldD=filterDiscipline.value;filterStatus.innerHTML='<option value="">All statuses</option>'+statuses.map(s=>`<option>${esc(s)}</option>`).join("");filterStatus.value=oldS;filterDiscipline.innerHTML='<option value="">All disciplines</option>'+disciplines.map(s=>`<option>${esc(s)}</option>`).join("");filterDiscipline.value=oldD;
  updateScheduleModeButtons();
  if((calendarScheduleMode!=="project"||ganttScheduleMode!=="project")&&!siteScheduleSnapshot.loaded&&!siteScheduleSnapshot.loading){ensureSiteSchedule(false).then(()=>render());}

@@ -173,6 +173,12 @@ Ensure-Field `
 
 Ensure-Field `
     -List "Project Locations" `
+    -DisplayName "Location Number" `
+    -InternalName "LocationNumber" `
+    -Type "Text"
+
+Ensure-Field `
+    -List "Project Locations" `
     -DisplayName "Level / Floor" `
     -InternalName "PlanLevel" `
     -Type "Text"

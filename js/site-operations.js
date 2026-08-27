@@ -8,7 +8,8 @@ const SiteOperations = (() => {
     loaded: false,
     loading: false,
     locationSchemaChecked: false,
-    planLevelSupported: false
+    planLevelSupported: false,
+    locationNumberSupported: false
   };
 
   const LOCATION_TYPES = [
@@ -129,11 +130,15 @@ const SiteOperations = (() => {
       state.planLevelSupported = Boolean(
         (columnsData?.value || []).some(column => column.name === "PlanLevel")
       );
+      state.locationNumberSupported = Boolean(
+        (columnsData?.value || []).some(column => column.name === "LocationNumber")
+      );
       state.locationWeightSupported = Boolean(
         (columnsData?.value || []).some(column => column.name === "LocationProgressWeight")
       );
     } catch (error) {
       state.planLevelSupported = false;
+      state.locationNumberSupported = false;
       state.locationWeightSupported = false;
       console.warn("Site Operations could not confirm the location metadata SharePoint fields.", error);
     }
@@ -141,6 +146,13 @@ const SiteOperations = (() => {
 
   function locationById(id) {
     return state.locations.find(x => Number(x.id) === Number(id)) || null;
+  }
+
+  function locationDisplayName(location) {
+    if (!location) return "";
+    const number = String(location.locationNumber || "").trim();
+    const name = String(location.name || "").trim();
+    return number ? `${number} · ${name}` : name;
   }
 
   function childrenOf(parentId) {
@@ -350,7 +362,7 @@ const SiteOperations = (() => {
 
     return `
       <article class="so-location-card"
-        data-so-location-name="${escapeHtml(String(location.name || "").toLowerCase())}"
+        data-so-location-name="${escapeHtml(`${String(location.locationNumber || "")} ${String(location.name || "")}`.toLowerCase())}"
         data-so-location-type="${escapeHtml(String(location.locationType || "").toLowerCase())}"
         data-so-location-level="${escapeHtml(String(location.planLevel || "").toLowerCase())}"
         role="button"
@@ -361,7 +373,7 @@ const SiteOperations = (() => {
           <div class="so-location-title-line">
             <span class="so-location-type ${locationTypeClass(location.locationType)}">${escapeHtml(location.locationType || "Location")}</span>
             <span class="so-location-title-separator">·</span>
-            <h3>${escapeHtml(location.name)}</h3>
+            <h3>${escapeHtml(locationDisplayName(location))}</h3>
           </div>
           <div class="so-location-overall">
             <strong>${overall}%</strong>
@@ -402,12 +414,12 @@ const SiteOperations = (() => {
 
     return `
       <button class="so-child-location-row" type="button"
-        data-so-child-name="${escapeHtml(String(location.name || "").toLowerCase())}"
+        data-so-child-name="${escapeHtml(`${String(location.locationNumber || "")} ${String(location.name || "")}`.toLowerCase())}"
         data-so-child-type="${escapeHtml(String(location.locationType || "").toLowerCase())}"
         onclick="SiteOperations.openLocation(${Number(location.id)})">
         <span class="so-child-location-main">
           <span class="so-location-type">${escapeHtml(location.locationType || "Location")}</span>
-          <strong>${escapeHtml(location.name)}</strong>
+          <strong>${escapeHtml(locationDisplayName(location))}</strong>
         </span>
         <span class="so-child-location-progress">
           <span class="so-mini-progress"><span style="width:${overall}%"></span></span>
@@ -661,7 +673,7 @@ const SiteOperations = (() => {
     return `
       <button type="button" onclick="SiteOperations.openOverview()">Site Operations</button>
       ${items.map(item =>
-        `<span>›</span><button type="button" onclick="SiteOperations.openLocation(${Number(item.id)})">${escapeHtml(item.name)}</button>`
+        `<span>›</span><button type="button" onclick="SiteOperations.openLocation(${Number(item.id)})">${escapeHtml(locationDisplayName(item))}</button>`
       ).join("")}
       ${currentOperation
         ? `<span>›</span><span class="so-breadcrumb-current">${escapeHtml(currentOperation.title)}</span>`
@@ -673,7 +685,7 @@ const SiteOperations = (() => {
     if (!location) return "";
     const type = String(location.locationType || "Location").trim();
     const level = String(location.planLevel || "").trim();
-    return `${type} · ${String(location.name || "").trim()}${level ? ` · ${level}` : ""}`;
+    return `${type} · ${locationDisplayName(location)}${level ? ` · ${level}` : ""}`;
   }
 
   function locationPickerMarkup({
@@ -883,7 +895,7 @@ const SiteOperations = (() => {
           <div class="so-detail-title-line">
             <span class="eyebrow so-location-type ${locationTypeClass(location.locationType)}">${escapeHtml(location.locationType || "Location")}</span>
             <span class="so-location-title-separator">·</span>
-            <h3>${escapeHtml(location.name)}</h3>
+            <h3>${escapeHtml(locationDisplayName(location))}</h3>
           </div>
           <div class="small">${allOperations.length} site item${allOperations.length === 1 ? "" : "s"} within this location${location.planLevel ? ` · ${escapeHtml(location.planLevel)}` : ""}</div>
         </div>
@@ -910,8 +922,8 @@ const SiteOperations = (() => {
 
       <div class="so-section-heading so-work-heading so-section-heading-strong">
         <div>
-          <h3>${escapeHtml(location.name)} Progress & Activity</h3>
-          <p>Activities assigned directly to ${escapeHtml(location.name)}.</p>
+          <h3>${escapeHtml(locationDisplayName(location))} Progress & Activity</h3>
+          <p>Activities assigned directly to ${escapeHtml(locationDisplayName(location))}.</p>
         </div>
       </div>
 
@@ -1025,6 +1037,7 @@ const SiteOperations = (() => {
             projectSharePointId: lookupId(fields, "Project"),
             parentLocationId: lookupId(fields, "ParentLocation"),
             name: fields.Title || "Untitled Location",
+            locationNumber: fields.LocationNumber || "",
             locationType: fields.LocationType || "Other",
             planLevel: fields.PlanLevel || "",
             progressWeight: Number(fields.LocationProgressWeight || 1) > 0 ? Number(fields.LocationProgressWeight) : 1,
@@ -1255,7 +1268,7 @@ const SiteOperations = (() => {
       <option value="">Top Level</option>
       ${sorted.map(location =>
         `<option value="${Number(location.id)}" ${Number(selectedId) === Number(location.id) ? "selected" : ""}>
-          ${escapeHtml(location.name)}
+          ${escapeHtml(locationDisplayName(location))}
         </option>`
       ).join("")}
     `;
@@ -1269,7 +1282,7 @@ const SiteOperations = (() => {
       )
       .map(location =>
         `<option value="${Number(location.id)}" ${Number(selectedId) === Number(location.id) ? "selected" : ""}>
-          ${escapeHtml(location.name)}
+          ${escapeHtml(locationDisplayName(location))}
         </option>`
       )
       .join("");
@@ -1284,6 +1297,11 @@ const SiteOperations = (() => {
       ${field(
         "Location Name",
         textInput("name", record?.name || "", "text", "required maxlength='255'")
+      )}
+
+      ${field(
+        "Location Number",
+        textInput("locationNumber", record?.locationNumber || "", "text", "maxlength='50' placeholder='e.g. 118 or 001'")
       )}
 
       ${field(
@@ -1539,6 +1557,13 @@ const SiteOperations = (() => {
       FinalProgressOverride: nullableFormNumber(data.get("finalProgressOverride")),
       FinalOverrideReason: String(data.get("finalOverrideReason") || "").trim()
     };
+
+    const requestedLocationNumber = String(data.get("locationNumber") || "").trim();
+    if (state.locationNumberSupported) {
+      fields.LocationNumber = requestedLocationNumber;
+    } else if (requestedLocationNumber) {
+      throw new Error("The Location Number SharePoint field is not ready yet. Run the Site Operations location schema upgrade and refresh.");
+    }
 
     const requestedPlanLevel = String(data.get("planLevel") || "").trim();
     if (state.planLevelSupported) {
@@ -1936,33 +1961,60 @@ const SiteOperations = (() => {
     return y+16;
   }
 
+  function sitePdfMetricCard(doc, x, y, w, h, label, value, accent, options = {}) {
+    doc.setDrawColor(...SITE_PDF.line);
+    doc.roundedRect(x,y,w,h,5,5,"S");
+    doc.setFillColor(...accent);
+    doc.roundedRect(x,y,w,4,2,2,"F");
+
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(options.valueSize || 16);
+    doc.setTextColor(...SITE_PDF.navy);
+    doc.text(String(value),x+w/2,y+22,{align:"center"});
+
+    doc.setFontSize(6.4);
+    doc.setTextColor(...SITE_PDF.muted);
+    doc.text(String(label).toUpperCase(),x+w/2,y+35,{align:"center"});
+
+    if (Number.isFinite(options.progress)) {
+      const pct = Math.max(0,Math.min(100,Number(options.progress)));
+      doc.setFillColor(232,237,241);
+      doc.roundedRect(x+8,y+h-10,w-16,4,2,2,"F");
+      doc.setFillColor(...accent);
+      if (pct > 0) doc.roundedRect(x+8,y+h-10,(w-16)*(pct/100),4,2,2,"F");
+    }
+  }
+
   function addSitePdfSummary(doc, records, y = 92) {
     const counts = pdfStatusCounts(records);
-    doc.autoTable({
-      startY:y, margin:{left:28,right:28,bottom:32}, theme:"grid",
-      head:[["Current Work","Upcoming","At Risk","Completed"]],
-      body:[[counts.current,counts.upcoming,counts.risk,counts.complete]],
-      styles:{font:"helvetica",fontSize:8.5,cellPadding:5,halign:"center",textColor:[31,55,78],lineColor:SITE_PDF.line,lineWidth:.4},
-      headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:7}
-    });
-    return doc.lastAutoTable.finalY;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 28;
+    const gap = 8;
+    const cardW = (pageWidth - margin*2 - gap*3) / 4;
+    const cards = [
+      ["Current Work",counts.current,SITE_PDF.blue],
+      ["Upcoming",counts.upcoming,SITE_PDF.orange],
+      ["At Risk",counts.risk,SITE_PDF.red],
+      ["Completed",counts.complete,SITE_PDF.green]
+    ];
+    cards.forEach(([label,value,accent],i)=>sitePdfMetricCard(doc,margin+i*(cardW+gap),y,cardW,42,label,value,accent));
+    return y+42;
   }
 
   function addSiteProgressSummary(doc, location, totalItems, y) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 28;
+    const gap = 8;
+    const cardW = (pageWidth - margin*2 - gap*4) / 5;
     const values = [
-      ["Overall Progress", displayedLocationProgress(location)],
-      ["Rough-In", displayedLocationProgress(location,"Rough-In")],
-      ["Trim", displayedLocationProgress(location,"Trim")],
-      ["Final", displayedLocationProgress(location,"Final")]
+      ["Overall Progress", displayedLocationProgress(location), SITE_PDF.blue],
+      ["Rough-In", displayedLocationProgress(location,"Rough-In"), SITE_PDF.blue],
+      ["Trim", displayedLocationProgress(location,"Trim"), SITE_PDF.blue],
+      ["Final", displayedLocationProgress(location,"Final"), SITE_PDF.blue]
     ];
-    doc.autoTable({
-      startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
-      head:[[...values.map(v=>v[0]),"Total Site Items"]],
-      body:[[...values.map(v=>`${v[1]}%`),totalItems]],
-      styles:{font:"helvetica",fontSize:8.5,cellPadding:5,halign:"center",textColor:[31,55,78],lineColor:SITE_PDF.line,lineWidth:.4},
-      headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:7}
-    });
-    return doc.lastAutoTable.finalY;
+    values.forEach(([label,value,accent],i)=>sitePdfMetricCard(doc,margin+i*(cardW+gap),y,cardW,54,label,`${value}%`,accent,{progress:value}));
+    sitePdfMetricCard(doc,margin+4*(cardW+gap),y,cardW,54,"Total Site Items",totalItems,SITE_PDF.blue);
+    return y+54;
   }
 
   async function downloadSitePDF() {
@@ -1980,14 +2032,14 @@ const SiteOperations = (() => {
     const roots = childrenOf(null);
     doc.autoTable({
       startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
-      head:[["Type","Location","Level / Floor","Overall","Rough-In","Trim","Final","Site Items","Risk"]],
+      head:[["Type","No.","Location","Level / Floor","Overall","Rough-In","Trim","Final","Site Items","Risk"]],
       body:roots.map(location=>{const records=operationsForLocation(location.id,true);return [
-        safePdfText(location.locationType||"Location"),safePdfText(location.name),safePdfText(location.planLevel||"—"),
+        safePdfText(location.locationType||"Location"),safePdfText(location.locationNumber||"—"),safePdfText(location.name),safePdfText(location.planLevel||"—"),
         `${displayedLocationProgress(location)}%`,`${displayedLocationProgress(location,"Rough-In")}%`,`${displayedLocationProgress(location,"Trim")}%`,`${displayedLocationProgress(location,"Final")}%`,records.length,riskState(records)?"At Risk":"On Track"
       ];}),
       styles:{font:"helvetica",fontSize:7.5,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],valign:"top"},
-      headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
-      didParseCell:data=>{if(data.section==="body"&&data.column.index===8){const look=sitePdfStatusStyle(data.cell.raw);data.cell.styles.fillColor=look.fill;data.cell.styles.textColor=look.text;data.cell.styles.fontStyle="bold";}}
+      headStyles:{fillColor:SITE_PDF.lightBlue,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
+      didParseCell:data=>{if(data.section==="body"&&data.column.index===9){const look=sitePdfStatusStyle(data.cell.raw);data.cell.styles.fillColor=look.fill;data.cell.styles.textColor=look.text;data.cell.styles.fontStyle="bold";}}
     });
     y=doc.lastAutoTable.finalY+22;
     if(state.operations.length){
@@ -1995,9 +2047,9 @@ const SiteOperations = (() => {
       doc.autoTable({
         startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
         head:[["Location","Activity","Details","Progress","Status","Activity Date","Target"]],
-        body:state.operations.slice().sort((a,b)=>String(a.targetDate||"9999-12-31").localeCompare(String(b.targetDate||"9999-12-31"))).map(op=>{const loc=locationById(op.locationId);return [safePdfText(loc?.name||"—"),safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${clampPercent(op.percentComplete)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))];}),
+        body:state.operations.slice().sort((a,b)=>String(a.targetDate||"9999-12-31").localeCompare(String(b.targetDate||"9999-12-31"))).map(op=>{const loc=locationById(op.locationId);return [safePdfText(loc ? locationDisplayName(loc) : "—"),safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${clampPercent(op.percentComplete)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))];}),
         styles:{font:"helvetica",fontSize:7,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],overflow:"linebreak",valign:"top"},
-        headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
+        headStyles:{fillColor:SITE_PDF.lightBlue,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
         columnStyles:{2:{cellWidth:190}},
         didParseCell:data=>{if(data.section==="body"&&data.column.index===4){const look=sitePdfStatusStyle(data.cell.raw);data.cell.styles.fillColor=look.fill;data.cell.styles.textColor=look.text;data.cell.styles.fontStyle="bold";}}
       });
@@ -2016,17 +2068,17 @@ const SiteOperations = (() => {
     const allOperations=operationsForLocation(location.id,true);
     const directOperations=operationsForLocation(location.id,false);
     const childLocations=childrenOf(location.id);
-    const subtitle=`${location.locationType||"Location"}${location.planLevel?` · ${location.planLevel}`:""} · ${project?.name||""}`;
-    addSitePdfHeader(doc,`${location.name} — Site Operations`,subtitle,"LOCATION REPORT");
+    const subtitle=`${location.locationType||"Location"}${location.locationNumber?` · No. ${location.locationNumber}`:""}${location.planLevel?` · ${location.planLevel}`:""} · ${project?.name||""}`;
+    addSitePdfHeader(doc,`${locationDisplayName(location)} — Site Operations`,subtitle,"LOCATION REPORT");
     let y=addSitePdfSummary(doc,allOperations,92)+12;
     y=addSiteProgressSummary(doc,location,allOperations.length,y)+20;
-    y=sitePdfSectionTitle(doc,`${safePdfText(location.name)} Progress & Activity`,y);
+    y=sitePdfSectionTitle(doc,`${safePdfText(locationDisplayName(location))} Progress & Activity`,y);
     doc.autoTable({
       startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
       head:[["Activity","Details","Progress","Status","Activity Date","Target"]],
       body:directOperations.length?directOperations.map(op=>[safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${clampPercent(op.percentComplete)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))]):[["No direct Site Operations items.","—","—","—","—","—"]],
       styles:{font:"helvetica",fontSize:7.5,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],overflow:"linebreak",valign:"top"},
-      headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
+      headStyles:{fillColor:SITE_PDF.lightBlue,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
       columnStyles:{1:{cellWidth:240}},
       didParseCell:data=>{if(data.section==="body"&&data.column.index===3){const look=sitePdfStatusStyle(data.cell.raw);data.cell.styles.fillColor=look.fill;data.cell.styles.textColor=look.text;data.cell.styles.fontStyle="bold";}}
     });
@@ -2035,10 +2087,10 @@ const SiteOperations = (() => {
       y=sitePdfSectionTitle(doc,"Child Locations / Areas",y);
       doc.autoTable({
         startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
-        head:[["Type","Location","Level / Floor","Overall","Rough-In","Trim","Final","Site Items"]],
-        body:childLocations.map(child=>{const records=operationsForLocation(child.id,true);return [safePdfText(child.locationType||"Location"),safePdfText(child.name),safePdfText(child.planLevel||"—"),`${displayedLocationProgress(child)}%`,`${displayedLocationProgress(child,"Rough-In")}%`,`${displayedLocationProgress(child,"Trim")}%`,`${displayedLocationProgress(child,"Final")}%`,records.length];}),
+        head:[["Type","No.","Location","Level / Floor","Overall","Rough-In","Trim","Final","Site Items"]],
+        body:childLocations.map(child=>{const records=operationsForLocation(child.id,true);return [safePdfText(child.locationType||"Location"),safePdfText(child.locationNumber||"—"),safePdfText(child.name),safePdfText(child.planLevel||"—"),`${displayedLocationProgress(child)}%`,`${displayedLocationProgress(child,"Rough-In")}%`,`${displayedLocationProgress(child,"Trim")}%`,`${displayedLocationProgress(child,"Final")}%`,records.length];}),
         styles:{font:"helvetica",fontSize:7.5,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],valign:"top"},
-        headStyles:{fillColor:SITE_PDF.soft,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5}
+        headStyles:{fillColor:SITE_PDF.lightBlue,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5}
       });
     }
     addSitePdfFooters(doc,project?.name||"Project");

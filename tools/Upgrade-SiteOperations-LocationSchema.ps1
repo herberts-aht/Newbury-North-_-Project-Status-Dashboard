@@ -10,6 +10,21 @@ Write-Host "----------------------------------------------------------------"
 
 $listName = "Project Locations"
 
+
+$numberField = Get-PnPField -List $listName -Identity "LocationNumber" -ErrorAction SilentlyContinue
+if (-not $numberField) {
+    Write-Host "Adding Location Number field..." -ForegroundColor Yellow
+    Add-PnPField `
+        -List $listName `
+        -DisplayName "Location Number" `
+        -InternalName "LocationNumber" `
+        -Type Text `
+        -AddToDefaultView | Out-Null
+    Write-Host "Location Number field added." -ForegroundColor Green
+} else {
+    Write-Host "Location Number field already exists." -ForegroundColor DarkGray
+}
+
 $field = Get-PnPField -List $listName -Identity "PlanLevel" -ErrorAction SilentlyContinue
 if (-not $field) {
     Write-Host "Adding Level / Floor field..." -ForegroundColor Yellow

@@ -1589,3 +1589,620 @@ main.container{
 main.container{
   background:transparent;
 }
+
+
+/* v0.14.59 Pass 26 — Project Controls summary cards + drill-down */
+#deliverables .desktop-table,
+#info .desktop-table{
+  background:transparent;
+  border:0;
+  box-shadow:none;
+  overflow:visible;
+}
+#deliverables .desktop-table > div[style*="overflow:auto"],
+#info .desktop-table > div[style*="overflow:auto"]{
+  display:none!important;
+}
+#deliverables .desktop-table .table-tools{
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+  margin-bottom:14px;
+}
+#deliverableCards,
+#infoCards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:9px;
+}
+.project-control-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:13px 14px 11px;
+  box-shadow:0 2px 8px rgba(15,23,42,.035);
+  cursor:pointer;
+  transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease;
+  min-width:0;
+}
+.project-control-card:hover,
+.project-control-card:focus-visible{
+  border-color:#9ec8e7;
+  box-shadow:0 6px 18px rgba(15,23,42,.08);
+  transform:translateY(-1px);
+  outline:none;
+}
+.project-control-card-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:9px;
+}
+.project-control-card-top>div:first-child{min-width:0}
+.project-control-card h3{
+  margin:2px 0 0;
+  font-size:15px;
+  line-height:1.32;
+  color:#173653;
+}
+.project-control-badges{
+  display:flex;
+  align-items:flex-start;
+  justify-content:flex-end;
+  gap:5px;
+  flex-wrap:wrap;
+  flex:0 0 auto;
+  max-width:45%;
+}
+.project-control-card-meta{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:11px;
+  padding-top:10px;
+  border-top:1px solid #edf1f5;
+}
+.project-control-card-meta span,
+.project-control-card-block{min-width:0}
+.project-control-card-meta small,
+.project-control-card-block small{
+  display:block;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:750;
+  text-transform:uppercase;
+  letter-spacing:.045em;
+  margin-bottom:3px;
+}
+.project-control-card-meta strong,
+.project-control-card-block span{
+  display:block;
+  color:#2c3f52;
+  font-size:12px;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.project-control-card-block{
+  margin-top:8px;
+  padding:8px 9px;
+  border-radius:8px;
+  background:#f7f9fb;
+}
+.project-control-card-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:9px;
+  padding-top:8px;
+  border-top:1px solid #edf1f5;
+  color:var(--blue);
+  font-size:11px;
+  font-weight:750;
+}
+.project-control-card-footer span:last-child{font-size:20px;line-height:12px}
+.project-control-detail-modal{
+  width:min(720px,calc(100vw - 30px));
+  max-height:min(82vh,760px);
+  overflow:auto;
+}
+.project-control-detail-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+}
+.project-control-detail-head h3{
+  margin:3px 0 8px;
+  font-size:21px;
+  color:#163954;
+}
+.project-control-detail-status{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.project-control-detail-close{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#64748b;
+  font-size:28px;
+  line-height:1;
+  cursor:pointer;
+  padding:0 3px;
+}
+.project-control-detail-body{
+  border:1px solid var(--line);
+  border-radius:10px;
+  overflow:hidden;
+  background:#fff;
+}
+.project-control-detail-row{
+  display:grid;
+  grid-template-columns:145px minmax(0,1fr);
+  gap:14px;
+  padding:11px 13px;
+  border-bottom:1px solid #edf1f5;
+  font-size:12px;
+  line-height:1.45;
+}
+.project-control-detail-row:last-child{border-bottom:0}
+.project-control-detail-row>span{
+  color:var(--muted);
+  font-weight:750;
+}
+.project-control-detail-row>div{color:#263b4f;white-space:pre-wrap;overflow-wrap:anywhere}
+.project-control-detail-actions{align-items:center}
+
+@media(max-width:700px){
+  #deliverableCards,#infoCards{display:grid!important;grid-template-columns:1fr;gap:10px}
+  #info .desktop-table{display:none!important}
+  .project-control-card{padding:14px}
+  .project-control-badges{max-width:48%}
+  .project-control-detail-row{grid-template-columns:1fr;gap:4px}
+}
+
+/* v0.14.59 WIP — Pass 28: Project Controls Cards/List view toggle + action alignment */
+#deliverables .page-header>.actions,
+#info .page-header>.actions{
+  justify-content:flex-end;
+}
+#deliverables .page-header>.actions .btn.primary,
+#info .page-header>.actions .btn.primary{
+  order:3;
+}
+#deliverables .page-header>.actions .editor-only,
+#info .page-header>.actions .editor-only{
+  order:2;
+}
+#deliverables .page-header>.actions .project-switcher,
+#info .page-header>.actions .project-switcher{
+  order:1;
+}
+.project-control-tools{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.project-control-filters{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  min-width:0;
+}
+.project-control-filters-empty{flex:1 1 auto;min-height:34px}
+.project-control-view-control{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:0 0 auto;
+}
+.project-control-view-label{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:750;
+  text-transform:uppercase;
+  letter-spacing:.045em;
+}
+.project-control-view-toggle{
+  display:inline-flex;
+  align-items:center;
+  padding:2px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#f4f7fa;
+}
+.project-control-view-toggle button{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#526578;
+  min-width:58px;
+  padding:6px 10px;
+  border-radius:6px;
+  font:inherit;
+  font-size:11px;
+  font-weight:750;
+  cursor:pointer;
+}
+.project-control-view-toggle button.active{
+  background:var(--blue);
+  color:#fff;
+  box-shadow:0 1px 3px rgba(15,23,42,.16);
+}
+.project-control-view-toggle button:focus-visible{
+  outline:2px solid #8fc5e9;
+  outline-offset:1px;
+}
+
+/* Keep the toolbar visible in both modes; only swap cards vs. table body. */
+#deliverables[data-control-view="cards"] .project-control-list-wrap,
+#info[data-control-view="cards"] .project-control-list-wrap{
+  display:none!important;
+}
+#deliverables[data-control-view="cards"] #deliverableCards,
+#info[data-control-view="cards"] #infoCards{
+  display:grid!important;
+}
+#deliverables[data-control-view="list"] #deliverableCards,
+#info[data-control-view="list"] #infoCards{
+  display:none!important;
+}
+#deliverables[data-control-view="list"] .project-control-list-wrap,
+#info[data-control-view="list"] .project-control-list-wrap{
+  display:block!important;
+}
+#deliverables[data-control-view="list"] .desktop-table,
+#info[data-control-view="list"] .desktop-table{
+  background:#fff;
+  border:1px solid var(--line);
+  box-shadow:none;
+  overflow:hidden;
+}
+#deliverables[data-control-view="list"] .desktop-table .table-tools,
+#info[data-control-view="list"] .desktop-table .table-tools{
+  margin-bottom:0;
+  border:0;
+  border-bottom:1px solid var(--line);
+  border-radius:0;
+}
+
+@media(max-width:700px){
+  .project-control-tools{align-items:stretch}
+  .project-control-filters{width:100%}
+  .project-control-filters input,
+  .project-control-filters select{flex:1 1 150px;min-width:0}
+  .project-control-filters-empty{display:none}
+  .project-control-view-control{margin-left:auto}
+  #deliverables[data-control-view="list"] .desktop-table,
+  #info[data-control-view="list"] .desktop-table{display:block!important}
+  #deliverables[data-control-view="list"] .project-control-list-wrap,
+  #info[data-control-view="list"] .project-control-list-wrap{overflow:auto!important}
+}
+
+/* v0.14.59 WIP — Pass 30: Project Controls repair + cleaner summary cards */
+/* Detail drill-down must override the shared modal backdrop's default display:none. */
+.project-control-detail-backdrop{
+  display:flex!important;
+}
+
+/* Keep the View toolbar shell visually identical in Cards and List modes. */
+#deliverables .desktop-table .table-tools,
+#info .desktop-table .table-tools{
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+  margin-bottom:14px;
+}
+
+/* Restore the original list body when List is selected. This intentionally
+   outranks the older Pass 26 rule that hid the overflow wrapper. */
+#deliverables[data-control-view="list"] .desktop-table > .project-control-list-wrap,
+#info[data-control-view="list"] .desktop-table > .project-control-list-wrap{
+  display:block!important;
+}
+
+/* In List mode the toolbar and table read as one report-like shell. */
+#deliverables[data-control-view="list"] .desktop-table,
+#info[data-control-view="list"] .desktop-table{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:10px;
+  overflow:hidden;
+}
+#deliverables[data-control-view="list"] .desktop-table .table-tools,
+#info[data-control-view="list"] .desktop-table .table-tools{
+  margin-bottom:0;
+  border:0;
+  border-bottom:1px solid var(--line);
+  border-radius:0;
+}
+
+/* Header actions: selector first; Add + blue PDF together on one row beneath it. */
+#deliverables .page-header>.actions,
+#info .page-header>.actions{
+  display:grid;
+  grid-template-columns:auto auto;
+  justify-content:end;
+  align-items:center;
+  gap:8px;
+}
+#deliverables .page-header>.actions .project-switcher,
+#info .page-header>.actions .project-switcher{
+  grid-column:1 / -1;
+  justify-self:end;
+}
+#deliverables .page-header>.actions .editor-only,
+#info .page-header>.actions .editor-only{
+  grid-column:1;
+  grid-row:2;
+  justify-self:end;
+}
+#deliverables .page-header>.actions .btn.primary,
+#info .page-header>.actions .btn.primary{
+  grid-column:2;
+  grid-row:2;
+  justify-self:end;
+}
+
+/* Summary cards intentionally show only one status system. Schedule Health and
+   Visibility remain available in the full detail drill-down. */
+.project-control-card-top{min-height:48px}
+.project-control-badges{max-width:42%}
+
+@media(max-width:700px){
+  #deliverables .page-header>.actions,
+  #info .page-header>.actions{
+    width:100%;
+    grid-template-columns:auto auto;
+  }
+  #deliverables .page-header>.actions .project-switcher,
+  #info .page-header>.actions .project-switcher{
+    width:100%;
+  }
+}
+
+/* v0.14.59 WIP — Pass 31: Project Controls detail polish + card comments */
+.project-control-detail-meta{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+  gap:8px;
+  margin:0 0 12px;
+  padding:10px;
+  border:1px solid #d7e5ef;
+  border-radius:10px;
+  background:#f5f9fc;
+}
+.project-control-detail-meta-item{
+  min-width:0;
+  padding:2px 5px;
+}
+.project-control-detail-meta-item>span{
+  display:block;
+  margin-bottom:5px;
+  color:var(--blue);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.055em;
+  text-transform:uppercase;
+}
+.project-control-detail-meta-item>div{
+  min-height:21px;
+  display:flex;
+  align-items:center;
+  color:#263b4f;
+  font-size:12px;
+  font-weight:700;
+}
+.project-control-detail-row>span{
+  color:var(--blue)!important;
+  font-weight:800;
+}
+.project-control-card-footer{
+  gap:10px;
+}
+.project-control-card-comment-wrap{
+  display:flex;
+  align-items:center;
+  min-width:0;
+}
+.project-control-card-comment{
+  display:inline-flex!important;
+  align-items:center;
+  gap:5px;
+  padding:2px 5px!important;
+  min-width:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:#1877b8!important;
+  font-size:11px!important;
+  font-weight:750!important;
+}
+.project-control-card-comment:hover{
+  background:#eef7fb!important;
+  border-radius:6px;
+}
+.project-control-comment-label{
+  color:#1877b8;
+}
+.project-control-view-details{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  color:var(--blue);
+  white-space:nowrap;
+}
+.project-control-view-details>span:last-child{
+  font-size:20px;
+  line-height:12px;
+}
+.comment-actions{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:10px;
+}
+.comment-delete-btn{
+  color:#b42318!important;
+}
+.comment-delete-btn:hover{
+  color:#8f1d14!important;
+  text-decoration:underline;
+}
+
+@media(max-width:700px){
+  .project-control-detail-meta{grid-template-columns:1fr 1fr}
+  .project-control-card-footer{align-items:center}
+}
+
+/* Pass 32 — keep quick-glance status pills to a single consistent line. */
+.project-control-card .project-control-badges .badge{
+  white-space:nowrap;
+  max-width:none;
+}
+
+/* v0.14.59 WIP — Pass 33: Project Controls detail/card polish */
+/* Keep card footer actions balanced and compact. */
+.project-control-view-details{
+  font-size:11px!important;
+  font-weight:750!important;
+  line-height:1.2!important;
+}
+.project-control-view-details>span:last-child{
+  font-size:16px!important;
+  line-height:1!important;
+}
+
+/* Center summary labels directly above their pills. */
+.project-control-detail-meta-item{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  text-align:center;
+}
+.project-control-detail-meta-item>span{
+  width:100%;
+  text-align:center;
+}
+.project-control-detail-meta-item>div{
+  width:100%;
+  justify-content:center;
+  text-align:center;
+}
+
+/* Give the detail body a clear label/value structure instead of a flat gray table. */
+.project-control-detail-row{
+  grid-template-columns:145px minmax(0,1fr);
+  gap:0;
+  padding:0;
+  align-items:stretch;
+}
+.project-control-detail-row>span{
+  display:flex;
+  align-items:center;
+  padding:11px 13px;
+  background:#f5f9fc;
+  border-right:1px solid #dbe7f0;
+  color:var(--blue)!important;
+  font-weight:800;
+}
+.project-control-detail-row>div{
+  padding:11px 14px;
+  display:flex;
+  align-items:center;
+  min-width:0;
+}
+
+/* Make Admin comment deletion unmistakable but still secondary. */
+.comment-delete-btn{
+  display:inline-flex!important;
+  align-items:center;
+  padding:4px 8px!important;
+  border:1px solid #f0b8b3!important;
+  border-radius:6px!important;
+  background:#fff7f6!important;
+  color:#b42318!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  text-decoration:none!important;
+}
+.comment-delete-btn:hover{
+  background:#fff0ee!important;
+  color:#8f1d14!important;
+  text-decoration:none!important;
+}
+
+@media(max-width:700px){
+  .project-control-detail-row{
+    grid-template-columns:1fr;
+  }
+  .project-control-detail-row>span{
+    border-right:0;
+    border-bottom:1px solid #e4edf4;
+    padding-bottom:7px;
+  }
+  .project-control-detail-row>div{
+    padding-top:8px;
+  }
+}
+
+
+/* v0.14.59 WIP — Pass 34: consistent comment pill */
+.project-control-card-comment{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  padding:4px 9px!important;
+  border:1px solid #b9dff5!important;
+  border-radius:999px!important;
+  background:#eaf6fd!important;
+  color:#0b72b9!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+.project-control-card-comment:hover{
+  background:#dff1fb!important;
+  border-color:#8fcbea!important;
+}
+.project-control-comment-label,
+.project-control-comment-icon,
+.project-control-comment-count{
+  font-size:11px!important;
+  line-height:1!important;
+  font-weight:800!important;
+}
+.project-control-comment-icon{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+}
+.project-control-comment-count{
+  display:inline-block;
+  min-width:10px;
+  text-align:center;
+}
+.project-control-view-details{
+  font-size:11px!important;
+  font-weight:750!important;
+  line-height:1!important;
+}
+.project-control-view-details>span:last-child{
+  font-size:14px!important;
+  line-height:1!important;
+}
+
+
+/* Pass 35 — comment footer delete action */
+.comment-footer-actions{align-items:center}
+.comment-footer-delete{background:#fff!important;border:1px solid #cf4a4a!important;color:#b42318!important;font-weight:750!important}
+.comment-footer-delete:hover{background:#fff5f5!important;border-color:#b42318!important;color:#8f1d16!important}
+.comment-delete-btn{color:#b42318!important}
