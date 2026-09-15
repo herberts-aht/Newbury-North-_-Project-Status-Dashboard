@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="css/styles.css" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
-  <link rel="stylesheet" href="css/site-operations.css?v=0.14.59">
+  <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -100,6 +100,7 @@
           <div class="activity-text" id="lastActivityText">No activity recorded.</div>
         </div>
         <div class="activity-actions">
+          <button class="btn" id="viewProjectActivityHistoryBtn" type="button">View Activity History</button>
           <button class="btn project-comment-btn hidden" id="addProjectCommentBtn" type="button" title="General project comments">💬 Project Comment</button>
           <button class="btn activity-add-btn admin-only" id="addProjectActivityBtn" type="button"><span class="desktop-activity-label">Add Activity</span><span class="mobile-activity-label"><span>Add</span><span>Activity</span></span></button>
         </div>
@@ -356,15 +357,15 @@
 </div>
 
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
-<script src="js/config.js?v=0.14.59"></script>
+<script src="js/config.js?v=0.14.60"></script>
 <script src="data/projects.js"></script>
 <script src="js/data-provider.js?v=0.14.50"></script>
 <script src="js/storage.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/microsoft-access.js"></script>
 <script src="js/permissions.js"></script>
-<script src="js/site-operations.js?v=0.14.59"></script>
-  <script src="js/dashboard.js?v=0.14.59"></script>
+<script src="js/site-operations.js?v=0.14.60"></script>
+  <script src="js/dashboard.js?v=0.14.60"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js"></script>
@@ -395,6 +396,7 @@ function renderProjectActivityHistory(){
 
 function openProjectActivityModal(){
  if(!currentUser?.canEdit)return;
+ projectActivityForm.style.display="";
  projectActivityDate.value=projectActivityToday();
  projectActivityPhase.value="";
  projectActivityText.value="";
@@ -403,9 +405,22 @@ function openProjectActivityModal(){
  requestAnimationFrame(()=>projectActivityText.focus());
 }
 
-function closeProjectActivity(){projectActivityModalBackdrop.style.display="none";}
+function openProjectActivityHistory(){
+ // History is read-only and available to anyone who can see the
+ // Project Activity card. Reuse the existing modal/history renderer,
+ // but hide the activity-entry form.
+ projectActivityForm.style.display="none";
+ renderProjectActivityHistory();
+ projectActivityModalBackdrop.style.display="flex";
+}
+
+function closeProjectActivity(){
+ projectActivityModalBackdrop.style.display="none";
+ projectActivityForm.style.display="";
+}
 
 addProjectActivityBtn?.addEventListener("click",openProjectActivityModal);
+viewProjectActivityHistoryBtn?.addEventListener("click",openProjectActivityHistory);
 closeProjectActivityModal?.addEventListener("click",closeProjectActivity);
 projectActivityModalBackdrop?.addEventListener("click",e=>{if(e.target===projectActivityModalBackdrop)closeProjectActivity();});
 

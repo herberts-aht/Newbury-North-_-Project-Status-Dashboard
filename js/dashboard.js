@@ -702,14 +702,26 @@ function renderGantt(records){
  const currentWeekStart=ganttMonday(today);
 
  const projectCreated=ganttDate(currentProject()?.createdAt);
- const rangeStart=projectCreated || ganttMonday(earliest);
+
+ // Gantt calendar weeks always run Monday through Sunday.
+ // Anchor the entire timeline to the Monday of the first visible week
+ // so weekly headers and grid columns follow normal project workweeks.
+ const rangeStart=ganttMonday(projectCreated || earliest);
 
  // Fixed interactive range:
  // left edge = Project record creation date
- // right edge = latest actual scheduled due date
- const rangeEnd=new Date(Math.max(latest,rangeStart));
+ // right edge = one display week beyond latest actual scheduled due date.
+ // The extra week is visual padding only; it does not alter any task due date.
+ // It ensures the final partial week receives a full header/grid column.
+ const latestScheduledEnd=new Date(Math.max(latest,rangeStart));
 
- const totalDays=Math.max(1,Math.round((rangeEnd-rangeStart)/86400000));
+ // Extend the visible Gantt through one complete calendar week
+ // after the week containing the latest scheduled due date.
+ // Task bars still end on their actual Target Dates.
+ const latestWeekStart=ganttMonday(latestScheduledEnd);
+ const rangeEnd=ganttAddDays(latestWeekStart,13);
+
+ const totalDays=Math.max(1,Math.ceil((rangeEnd-rangeStart)/86400000));
  const weekGridWidth=(7/totalDays)*100;
  const weekCount=Math.max(1,Math.ceil(totalDays/7));
 
@@ -761,8 +773,20 @@ function renderGantt(records){
        end=swap;
      }
 
-     const left=Math.max(0,((start-rangeStart)/86400000/totalDays)*100);
-     const width=Math.max(1.5,(((end-start)/86400000+1)/totalDays)*100);
+     // Clamp expanded task geometry to the visible Gantt timeline.
+     // Original start/end dates remain unchanged for labels and tooltips.
+     const visibleStart=new Date(Math.max(start,rangeStart));
+     const visibleEnd=new Date(Math.min(end,rangeEnd));
+
+     const left=Math.max(0,Math.min(100,
+       ((visibleStart-rangeStart)/86400000/totalDays)*100
+     ));
+
+     const right=Math.max(left,Math.min(100,
+       (((visibleEnd-rangeStart)/86400000+1)/totalDays)*100
+     ));
+
+     const width=Math.max(1.5,Math.min(100-left,right-left));
      const inferred=!ganttDate(record.startDate);
 
      return `<div class="gantt-row">
@@ -784,8 +808,18 @@ function renderGantt(records){
 
    const groupStart=new Date(Math.min(...items.map(item=>item.start)));
    const groupEnd=new Date(Math.max(...items.map(item=>item.end)));
-   const groupLeft=Math.max(0,((groupStart-rangeStart)/86400000/totalDays)*100);
-   const groupWidth=Math.max(1.5,(((groupEnd-groupStart)/86400000+1)/totalDays)*100);
+   // Clamp collapsed group summaries to the visible Gantt date range.
+   // Some inferred task starts can precede rangeStart, which previously
+   // allowed summary bars to exceed 100% and create a large white scroll tail.
+   const visibleGroupStart=new Date(Math.max(groupStart,rangeStart));
+   const visibleGroupEnd=new Date(Math.min(groupEnd,rangeEnd));
+   const groupLeft=Math.max(0,Math.min(100,
+     ((visibleGroupStart-rangeStart)/86400000/totalDays)*100
+   ));
+   const groupRight=Math.max(groupLeft,Math.min(100,
+     (((visibleGroupEnd-rangeStart)/86400000+1)/totalDays)*100
+   ));
+   const groupWidth=Math.max(1.5,Math.min(100-groupLeft,groupRight-groupLeft));
    const groupStatus=ganttGroupStatusClass(items);
 
    if(collapsed){

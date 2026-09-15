@@ -2206,3 +2206,62 @@ main.container{
 .comment-footer-delete{background:#fff!important;border:1px solid #cf4a4a!important;color:#b42318!important;font-weight:750!important}
 .comment-footer-delete:hover{background:#fff5f5!important;border-color:#b42318!important;color:#8f1d16!important}
 .comment-delete-btn{color:#b42318!important}
+
+/* ==========================================================
+   v0.14.59 — FINAL Gantt timeline width alignment
+   Header, grid, group summaries and task lanes must all use
+   the exact same calculated timeline width.
+   ========================================================== */
+
+.gantt-scroll > .gantt-head,
+.gantt-scroll > .gantt-group{
+  width:calc(220px + var(--gantt-chart-min,960px));
+  min-width:calc(220px + var(--gantt-chart-min,960px));
+  max-width:none;
+  box-sizing:border-box;
+}
+
+.gantt-scroll > .gantt-group .gantt-row,
+.gantt-scroll > .gantt-group .gantt-group-summary{
+  width:100%;
+  min-width:0;
+  max-width:none;
+  box-sizing:border-box;
+}
+
+.gantt-head,
+.gantt-row,
+.gantt-group-summary{
+  grid-template-columns:220px var(--gantt-chart-min,960px);
+}
+
+.gantt-scale,
+.gantt-lane,
+.gantt-group-summary-lane{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  overflow:hidden;
+}
+
+/* Task bars must remain contained by the full calculated lane. */
+.gantt-lane,
+.gantt-group-summary-lane{
+  position:relative;
+}
+
+/* Keep the same geometry on smaller screens. */
+@media(max-width:900px){
+  .gantt-scroll > .gantt-head,
+  .gantt-scroll > .gantt-group{
+    width:calc(190px + var(--gantt-chart-min,960px));
+    min-width:calc(190px + var(--gantt-chart-min,960px));
+  }
+
+  .gantt-head,
+  .gantt-row,
+  .gantt-group-summary{
+    grid-template-columns:190px var(--gantt-chart-min,960px);
+  }
+}
+
