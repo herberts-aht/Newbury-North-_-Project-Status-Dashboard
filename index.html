@@ -7,7 +7,7 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/styles.css?v=0.14.61i" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
@@ -100,7 +100,18 @@
           <div class="activity-text" id="lastActivityText">No activity recorded.</div>
         </div>
         <div class="activity-actions">
-          <button class="btn" id="viewProjectActivityHistoryBtn" type="button">View Activity History</button>
+          <button class="btn activity-history-btn" id="viewProjectActivityHistoryBtn" type="button"><span class="activity-history-icon" aria-hidden="true">
+<svg viewBox="0 0 24 24" fill="none">
+  <!-- circular arc: connected to arrow at upper-left, gap at lower-left -->
+  <path d="M7.3 6.1A8 8 0 1 1 4.7 14.3" />
+  
+  <!-- arrowhead connected directly to beginning of arc -->
+  <path d="M7.3 6.1H3.8V2.7" />
+
+  <!-- clock hands -->
+  <path d="M12 7.8v4.4l3 1.8" />
+</svg>
+</span><span>View Activity History</span></button>
           <button class="btn project-comment-btn hidden" id="addProjectCommentBtn" type="button" title="General project comments">💬 Project Comment</button>
           <button class="btn activity-add-btn admin-only" id="addProjectActivityBtn" type="button"><span class="desktop-activity-label">Add Activity</span><span class="mobile-activity-label"><span>Add</span><span>Activity</span></span></button>
         </div>
