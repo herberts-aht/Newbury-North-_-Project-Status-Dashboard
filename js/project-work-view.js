@@ -1,0 +1,1322 @@
+/*
+ * Project Work prototype UI
+ *
+ * Local-only visual proof of the recursive ProjectWorkItems engine.
+ * No SharePoint reads/writes occur here.
+ */
+
+const ProjectWorkView = (() => {
+  let currentWorkItemId = null;
+  let seededProjectKey = null;
+  let projectWorkMode = "hierarchy";
+  let actionDisplayMode = "cards";
+  let actionWaitingOnFilter = "all";
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function projectKey() {
+    const project = typeof currentProject === "function"
+      ? currentProject()
+      : null;
+
+    if (!project) return "";
+
+    return String(project.id || project.sharePointId || "");
+  }
+
+  function dateLabel(value) {
+    if (!value) return "—";
+
+    const date = new Date(
+      /^\d{4}-\d{2}-\d{2}$/.test(String(value))
+        ? `${value}T12:00:00`
+        : value
+    );
+
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric"
+    });
+  }
+
+  function progressBar(value) {
+    const pct = value == null
+      ? 0
+      : Math.max(0, Math.min(100, Math.round(Number(value))));
+
+    return `
+      <div class="pw-progress">
+        <div class="pw-progress-track">
+          <span style="width:${pct}%"></span>
+        </div>
+        <strong>${pct}%</strong>
+      </div>
+    `;
+  }
+
+  function seedPrototypeData() {
+    const key = projectKey();
+
+    if (!key) return;
+
+    /*
+     * Do not continually reseed when navigating.
+     * Switching projects creates a fresh local prototype for that project.
+     */
+    if (seededProjectKey === key &&
+        ProjectWorkItems.getItems().some(
+          item => String(item.projectId) === key
+        )) {
+      return;
+    }
+
+    seededProjectKey = key;
+    currentWorkItemId = null;
+
+    ProjectWorkItems.setItems([
+      {
+        id: `${key}-engineering`,
+        projectId: key,
+        title: "Engineering & Design",
+        itemType: "Workstream",
+        workstream: "Engineering & Design",
+        progressWeight: 5,
+        sortOrder: 10
+      },
+
+      {
+        id: `${key}-speaker`,
+        projectId: key,
+        parentWorkItemId: `${key}-engineering`,
+        title: "Speaker Design",
+        itemType: "Deliverable",
+        workstream: "Engineering & Design",
+        system: "Audio",
+        owner: "AHT",
+        status: "In Progress",
+        startDate: "2026-09-14",
+        targetDate: "2026-10-08",
+        progressWeight: 5,
+        sortOrder: 10
+      },
+
+      {
+        id: `${key}-speaker-layout`,
+        projectId: key,
+        parentWorkItemId: `${key}-speaker`,
+        title: "Preliminary Speaker Layout",
+        itemType: "Task",
+        owner: "AHT",
+        status: "Complete",
+        startDate: "2026-09-14",
+        targetDate: "2026-09-18",
+        percentComplete: 100,
+        progressWeight: 3,
+        sortOrder: 10
+      },
+
+      {
+        id: `${key}-speaker-review`,
+        projectId: key,
+        parentWorkItemId: `${key}-speaker`,
+        title: "Consultant Review",
+        itemType: "Task Group",
+        owner: "Russell Edwards",
+        status: "Awaiting Review",
+        waitingOn: "Russell Edwards",
+        informationRequired: "Review revised speaker locations and return comments.",
+        requiredBy: "2026-09-23",
+        startDate: "2026-09-18",
+        targetDate: "2026-09-25",
+        progressWeight: 2,
+        sortOrder: 20
+      },
+
+      {
+        id: `${key}-speaker-send`,
+        projectId: key,
+        parentWorkItemId: `${key}-speaker-review`,
+        title: "Send Revised Speaker Markup",
+        owner: "AHT",
+        status: "Complete",
+        targetDate: "2026-09-18",
+        percentComplete: 100,
+        progressWeight: 1,
+        sortOrder: 10
+      },
+
+      {
+        id: `${key}-speaker-comments`,
+        projectId: key,
+        parentWorkItemId: `${key}-speaker-review`,
+        title: "Receive Consultant Comments",
+        owner: "Russell Edwards",
+        status: "Waiting",
+        waitingOn: "Russell Edwards",
+        informationRequired: "Speaker layout review and comments.",
+        requiredBy: "2026-09-23",
+        targetDate: "2026-09-23",
+        percentComplete: 0,
+        progressWeight: 1,
+        sortOrder: 20
+      },
+
+      {
+        id: `${key}-speaker-resolve`,
+        projectId: key,
+        parentWorkItemId: `${key}-speaker-review`,
+        title: "Resolve Review Comments",
+        owner: "AHT",
+        status: "Not Started",
+        predecessorId: `${key}-speaker-comments`,
+        targetDate: "2026-09-25",
+        percentComplete: 0,
+        progressWeight: 1,
+        sortOrder: 30
+      },
+
+      {
+        id: `${key}-speaker-final`,
+        projectId: key,
+        parentWorkItemId: `${key}-speaker`,
+        title: "Final Speaker Drawing Issue",
+        owner: "AHT",
+        status: "Not Started",
+        predecessorId: `${key}-speaker-review`,
+        targetDate: "2026-10-08",
+        percentComplete: 0,
+        progressWeight: 2,
+        sortOrder: 30
+      },
+
+      {
+        id: `${key}-pir`,
+        projectId: key,
+        parentWorkItemId: `${key}-engineering`,
+        title: "KP / PIR Design",
+        itemType: "Deliverable",
+        workstream: "Engineering & Design",
+        system: "Lighting Controls",
+        owner: "AHT",
+        status: "In Progress",
+        startDate: "2026-09-10",
+        targetDate: "2026-10-08",
+        percentComplete: 75,
+        progressWeight: 4,
+        sortOrder: 20
+      },
+
+      {
+        id: `${key}-access`,
+        projectId: key,
+        parentWorkItemId: `${key}-engineering`,
+        title: "Access Control Design",
+        itemType: "Deliverable",
+        workstream: "Engineering & Design",
+        system: "Access Control",
+        owner: "AHT",
+        status: "In Progress",
+        startDate: "2026-09-12",
+        targetDate: "2026-10-08",
+        percentComplete: 60,
+        progressWeight: 4,
+        sortOrder: 30
+      },
+
+      {
+        id: `${key}-cctv`,
+        projectId: key,
+        parentWorkItemId: `${key}-engineering`,
+        title: "CCTV / LiDAR Design",
+        itemType: "Deliverable",
+        workstream: "Engineering & Design",
+        system: "Security",
+        owner: "AHT",
+        status: "In Progress",
+        waitingOn: "Landscape / Builder",
+        informationRequired: "Landscape and fence information required to finalize CCTV / LiDAR coverage and device locations.",
+        startDate: "2026-09-18",
+        targetDate: "2026-10-08",
+        percentComplete: 20,
+        progressWeight: 4,
+        sortOrder: 40
+      },
+
+      {
+        id: `${key}-power`,
+        projectId: key,
+        parentWorkItemId: `${key}-engineering`,
+        title: "Technical Power Plan",
+        itemType: "Deliverable",
+        workstream: "Engineering & Design",
+        system: "Technical Power",
+        owner: "AHT",
+        status: "Waiting",
+        waitingOn: "AHT / Project Team",
+        informationRequired: "Final system loads, lighting/shade quantities and centralized equipment requirements.",
+        requiredBy: "2026-09-30",
+        targetDate: "2026-10-08",
+        percentComplete: 10,
+        progressWeight: 5,
+        sortOrder: 50
+      },
+
+      {
+        id: `${key}-external`,
+        projectId: key,
+        title: "External Coordination",
+        itemType: "Workstream",
+        workstream: "Coordination",
+        progressWeight: 2,
+        sortOrder: 20
+      },
+
+      {
+        id: `${key}-aquatics`,
+        projectId: key,
+        parentWorkItemId: `${key}-external`,
+        title: "Martin Aquatics Drawings",
+        itemType: "Dependency",
+        owner: "External",
+        status: "Waiting",
+        waitingOn: "Martin Aquatics",
+        informationRequired: "Current aquatics drawings required for auxiliary building coordination.",
+        requiredBy: "2026-09-23",
+        targetDate: "2026-09-23",
+        percentComplete: 0,
+        progressWeight: 1,
+        sortOrder: 10
+      }
+    ]);
+  }
+
+  function itemSecondaryText(item) {
+    const parts = [];
+
+    if (item.itemType) parts.push(item.itemType);
+    if (item.system) parts.push(item.system);
+
+    const children = ProjectWorkItems.childrenOf(item.id);
+
+    if (children.length) {
+      parts.push(
+        `${children.length} child item${children.length === 1 ? "" : "s"}`
+      );
+    }
+
+    return parts.join(" · ");
+  }
+
+  function workItemRow(item) {
+    const progress = ProjectWorkItems.displayedProgress(item.id);
+    const children = ProjectWorkItems.childrenOf(item.id);
+
+    return `
+      <div
+        class="pw-row pw-row-clickable"
+        role="button"
+        tabindex="0"
+        data-project-work-item-id="${escapeHtml(item.id)}"
+      >
+        <div class="pw-title">
+          <strong>${escapeHtml(item.title)}</strong>
+          <div class="small">${escapeHtml(itemSecondaryText(item))}</div>
+        </div>
+
+        ${progressBar(progress)}
+
+        <div class="pw-status">${escapeHtml(item.status || "—")}</div>
+
+        <div class="pw-meta pw-owner">
+          ${escapeHtml(item.owner || "—")}
+        </div>
+
+        <div class="pw-meta pw-target">
+          ${dateLabel(item.targetDate)}
+        </div>
+
+        <div
+          class="pw-open"
+          aria-hidden="true"
+          title="${children.length ? "Open child work" : "View details"}"
+        >›</div>
+      </div>
+    `;
+  }
+
+  function renderBreadcrumb() {
+    const root = document.getElementById("projectWorkBreadcrumb");
+    if (!root) return;
+
+    if (currentWorkItemId == null) {
+      root.innerHTML = `<strong>Project Work</strong>`;
+      return;
+    }
+
+    const path = ProjectWorkItems.pathFor(currentWorkItemId);
+
+    root.innerHTML = `
+      <button type="button" onclick="ProjectWorkView.openOverview()">
+        Project Work
+      </button>
+      ${path.map((item, index) => `
+        <span>›</span>
+        ${
+          index === path.length - 1
+            ? `<strong>${escapeHtml(item.title)}</strong>`
+            : `<button type="button" onclick="ProjectWorkView.openItem('${String(item.id).replaceAll("'", "\\'")}')">${escapeHtml(item.title)}</button>`
+        }
+      `).join("")}
+    `;
+  }
+
+  function isActionableItem(item) {
+    if (!item || item.archived) return false;
+
+    const status = String(item.status || "");
+
+    return Boolean(
+      item.waitingOn ||
+      item.informationRequired ||
+      item.blockerDependency ||
+      status === "Waiting" ||
+      status === "Awaiting Review" ||
+      status === "Blocked"
+    );
+  }
+
+  function actionRequiredItems() {
+    const key = projectKey();
+
+    const candidates = ProjectWorkItems.getItems()
+      .filter(item =>
+        String(item.projectId) === key &&
+        isActionableItem(item)
+      );
+
+    const filtered = candidates.filter(item => {
+      const actionableDescendants =
+        ProjectWorkItems
+          .descendantsOf(item.id)
+          .filter(isActionableItem);
+
+      if (!actionableDescendants.length) {
+        return true;
+      }
+
+      /*
+       * When actionable child work exists, the child is normally the
+       * real thing somebody needs to act on. Do not also show its parent
+       * container unless that parent carries a distinct blocker of its own.
+       */
+      if (item.blockerDependency) {
+        const duplicateBlocker = actionableDescendants.some(
+          child =>
+            String(child.blockerDependency || "").trim() ===
+            String(item.blockerDependency || "").trim()
+        );
+
+        return !duplicateBlocker;
+      }
+
+      return false;
+    });
+
+    return filtered.sort((a, b) => {
+      const aDate = String(a.requiredBy || a.targetDate || "9999-12-31");
+      const bDate = String(b.requiredBy || b.targetDate || "9999-12-31");
+
+      return (
+        aDate.localeCompare(bDate) ||
+        String(a.waitingOn || "").localeCompare(String(b.waitingOn || "")) ||
+        String(a.title || "").localeCompare(String(b.title || ""))
+      );
+    });
+  }
+
+  function actionWaitingOnName(item) {
+    return String(
+      item.waitingOn ||
+      item.owner ||
+      "Unassigned"
+    ).trim() || "Unassigned";
+  }
+
+  function actionWaitingOnOptions() {
+    return [...new Set(
+      actionRequiredItems().map(actionWaitingOnName)
+    )].sort((a, b) => a.localeCompare(b));
+  }
+
+  function visibleActionRequiredItems() {
+    const records = actionRequiredItems();
+
+    if (actionWaitingOnFilter === "all") {
+      return records;
+    }
+
+    return records.filter(
+      item => actionWaitingOnName(item) === actionWaitingOnFilter
+    );
+  }
+
+  function actionWaitingOnFilterControl() {
+    const options = actionWaitingOnOptions();
+
+    return `
+      <div class="pw-action-filter-control">
+        <span>Waiting On</span>
+
+        <select
+          onchange="ProjectWorkView.setActionWaitingOnFilter(this.value)"
+          aria-label="Filter actions by Waiting On"
+        >
+          <option value="all" ${actionWaitingOnFilter === "all" ? "selected" : ""}>
+            All
+          </option>
+
+          ${options.map(name => `
+            <option
+              value="${escapeHtml(name)}"
+              ${actionWaitingOnFilter === name ? "selected" : ""}
+            >
+              ${escapeHtml(name)}
+            </option>
+          `).join("")}
+        </select>
+      </div>
+    `;
+  }
+
+  function actionPath(item) {
+    return ProjectWorkItems
+      .pathFor(item.id)
+      .map(node => node.title)
+      .join(" › ");
+  }
+
+  function relatedWorkLabel(item) {
+    if (item.blockerDependency) return item.blockerDependency;
+
+    const path = ProjectWorkItems.pathFor(item.id);
+
+    if (path.length >= 2) {
+      return path[path.length - 2]?.title || item.title;
+    }
+
+    return item.title;
+  }
+
+  function renderModeToggle() {
+    const count = actionRequiredItems().length;
+
+    return `
+      <div class="pw-mode-toggle" role="group" aria-label="Project Work view">
+
+        <button
+          type="button"
+          class="${projectWorkMode === "hierarchy" ? "active" : ""}"
+          onclick="ProjectWorkView.setMode('hierarchy')"
+        >
+          Hierarchy
+        </button>
+
+        <button
+          type="button"
+          class="${projectWorkMode === "actions" ? "active" : ""}"
+          onclick="ProjectWorkView.setMode('actions')"
+        >
+          Action Required
+          <span>${count}</span>
+        </button>
+
+      </div>
+    `;
+  }
+
+  function actionStatusLabel(item) {
+    const status = String(item.status || "").trim();
+
+    if (status === "Blocked") return "Blocked";
+    if (status === "Awaiting Review") return "Awaiting Review";
+    if (status === "Waiting") return "Waiting";
+    if (item.waitingOn || item.informationRequired) return "Outstanding";
+
+    return status || "Outstanding";
+  }
+
+  function actionStatusClass(item) {
+    const label = actionStatusLabel(item).toLowerCase();
+
+    if (label.includes("blocked")) return "blocked";
+    if (label.includes("review")) return "review";
+    if (label.includes("waiting")) return "waiting";
+    if (label.includes("complete") || label.includes("received")) return "complete";
+
+    return "outstanding";
+  }
+
+  function blockingLabel(item) {
+    if (item.blockerDependency) return item.blockerDependency;
+
+    const path = ProjectWorkItems.pathFor(item.id);
+
+    if (path.length >= 2) {
+      const parent = path[path.length - 2];
+      return parent?.title || item.title;
+    }
+
+    return item.title;
+  }
+
+  function actionViewToggle() {
+    return `
+      <div class="pw-action-view-control">
+        <span>View</span>
+
+        <div class="pw-action-view-toggle">
+          <button
+            type="button"
+            class="${actionDisplayMode === "cards" ? "active" : ""}"
+            onclick="ProjectWorkView.setActionDisplayMode('cards')"
+          >
+            Cards
+          </button>
+
+          <button
+            type="button"
+            class="${actionDisplayMode === "list" ? "active" : ""}"
+            onclick="ProjectWorkView.setActionDisplayMode('list')"
+          >
+            List
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function actionRequiredCard(item) {
+    const needed =
+      item.informationRequired ||
+      item.blockerDependency ||
+      item.title ||
+      "Action required";
+
+    const waitingOn =
+      item.waitingOn ||
+      item.owner ||
+      "Unassigned";
+
+    const due =
+      item.requiredBy ||
+      item.targetDate;
+
+    return `
+      <article
+        class="pw-action-card" role="button" tabindex="0" data-project-work-item-id="${escapeHtml(item.id)}"
+        role="button"
+        tabindex="0"
+        data-project-work-item-id="${escapeHtml(item.id)}"
+      >
+        <div class="pw-action-card-top">
+          <div>
+            <div class="pw-action-card-type">Action Required</div>
+            <h3>${escapeHtml(item.title)}</h3>
+          </div>
+
+          <span class="pw-action-status ${actionStatusClass(item)}">
+            ${escapeHtml(actionStatusLabel(item))}
+          </span>
+        </div>
+
+        <div class="pw-action-card-rule"></div>
+
+        <div class="pw-action-card-meta">
+
+          <div>
+            <span>Waiting On</span>
+            <strong>${escapeHtml(waitingOn)}</strong>
+          </div>
+
+          <div>
+            <span>Required By</span>
+            <strong>${dateLabel(due)}</strong>
+          </div>
+
+        </div>
+
+        <div class="pw-action-card-block">
+          <span>What We Need</span>
+          <strong>${escapeHtml(needed)}</strong>
+        </div>
+
+        <div class="pw-action-card-block">
+          <span>Blocking / Related Work</span>
+          <strong>${escapeHtml(blockingLabel(item))}</strong>
+        </div>
+
+        <div class="pw-action-card-owner">
+          <span>Owner</span>
+          <strong>${escapeHtml(item.owner || "—")}</strong>
+        </div>
+
+        <div class="pw-action-card-path">
+          ${escapeHtml(actionPath(item))}
+        </div>
+
+        <div class="pw-action-card-footer">
+          <span>View details</span>
+          <strong>›</strong>
+        </div>
+      </article>
+    `;
+  }
+
+  function actionRequiredRow(item) {
+    const needed =
+      item.informationRequired ||
+      item.blockerDependency ||
+      item.title ||
+      "Action required";
+
+    const due = item.requiredBy || item.targetDate;
+
+    return `
+      <div
+        class="pw-action-row" role="button" tabindex="0" data-project-work-item-id="${escapeHtml(item.id)}"
+        role="button"
+        tabindex="0"
+        data-project-work-item-id="${escapeHtml(item.id)}"
+      >
+
+        <div class="pw-action-who">
+          <strong>${escapeHtml(item.waitingOn || item.owner || "Unassigned")}</strong>
+          <span>${escapeHtml(item.status || "—")}</span>
+        </div>
+
+        <div class="pw-action-needed">
+          <strong>${escapeHtml(needed)}</strong>
+          <span>${escapeHtml(actionPath(item))}</span>
+        </div>
+
+        <div class="pw-action-date">
+          ${dateLabel(due)}
+        </div>
+
+        <div class="pw-action-related">
+          ${escapeHtml(relatedWorkLabel(item))}
+        </div>
+
+        <div class="pw-action-owner">
+          ${escapeHtml(item.owner || "—")}
+        </div>
+
+        <div class="pw-action-chevron">›</div>
+
+      </div>
+    `;
+  }
+
+  function renderActionRequired(root) {
+    const allRecords = actionRequiredItems();
+    const records = visibleActionRequiredItems();
+
+    root.innerHTML = `
+      <div class="pw-action-view">
+
+        ${renderModeToggle()}
+
+        <div class="pw-action-toolbar">
+          <div class="pw-action-toolbar-left">
+            <h3>Action Required</h3>
+            <p>
+              Items from anywhere in the project currently waiting on a person,
+              review, decision, or required information.
+            </p>
+
+          </div>
+
+          <div class="pw-action-toolbar-right">
+            ${actionWaitingOnFilterControl()}
+            ${actionViewToggle()}
+          </div>
+        </div>
+
+        ${
+          actionDisplayMode === "cards"
+            ? `
+              <div class="pw-action-card-grid">
+                ${
+                  records.length
+                    ? records.map(actionRequiredCard).join("")
+                    : `
+                      <div class="pw-empty">
+                        No outstanding project actions are currently identified.
+                      </div>
+                    `
+                }
+              </div>
+            `
+            : `
+              <div class="pw-action-list">
+
+                <div class="pw-action-row pw-action-head">
+                  <div>Waiting On</div>
+                  <div>What We Need</div>
+                  <div>Required By</div>
+                  <div>Blocking / Related Work</div>
+                  <div>Owner</div>
+                  <div></div>
+                </div>
+
+                ${
+                  records.length
+                    ? records.map(actionRequiredRow).join("")
+                    : `
+                      <div class="pw-empty">
+                        No outstanding project actions are currently identified.
+                      </div>
+                    `
+                }
+
+              </div>
+            `
+        }
+
+      </div>
+    `;
+  }
+
+  function renderOverview(root) {
+    const key = projectKey();
+    const roots = ProjectWorkItems.rootsForProject(key);
+    const overall = ProjectWorkItems.projectProgress(key);
+
+    const all = ProjectWorkItems.getItems().filter(
+      item => String(item.projectId) === key && !item.archived
+    );
+
+    const waiting = all.filter(
+      item =>
+        String(item.status).includes("Waiting") ||
+        item.status === "Awaiting Review"
+    ).length;
+
+    const blocked = all.filter(
+      item => item.status === "Blocked" || item.blockerDependency
+    ).length;
+
+    root.innerHTML = `
+      <div class="pw-overview">
+
+        ${renderModeToggle()}
+
+        <div class="pw-summary">
+          <div class="pw-summary-card">
+            <span>Project Work Progress</span>
+            <strong>${overall == null ? "—" : `${overall}%`}</strong>
+          </div>
+
+          <div class="pw-summary-card">
+            <span>Tasks</span>
+            <strong>${all.length}</strong>
+          </div>
+
+          <div
+            class="pw-summary-card pw-summary-clickable"
+            role="button"
+            tabindex="0"
+            onclick="ProjectWorkView.setMode('actions')"
+          >
+            <span>Waiting / Review</span>
+            <strong>${waiting}</strong>
+            <small>View actions ›</small>
+          </div>
+
+          <div class="pw-summary-card">
+            <span>Blocked</span>
+            <strong>${blocked}</strong>
+          </div>
+        </div>
+
+        <div>
+          <div class="pw-section-head">
+            <div>
+              <h3>Project Workstreams</h3>
+              <div class="small">
+                Select a workstream to drill into the work driving its progress.
+              </div>
+            </div>
+          </div>
+
+          <div class="pw-list">
+            ${
+              roots.length
+                ? roots.map(workItemRow).join("")
+                : `<div class="pw-empty">No Project Work items have been created yet.</div>`
+            }
+          </div>
+        </div>
+
+      </div>
+    `;
+  }
+
+  function renderItem(root, item) {
+    const progress = ProjectWorkItems.displayedProgress(item.id);
+    const children = ProjectWorkItems.childrenOf(item.id);
+
+    const predecessor = item.predecessorId
+      ? ProjectWorkItems.getItem(item.predecessorId)
+      : null;
+
+    const waitingChildren = children.filter(child =>
+      String(child.status || "").includes("Waiting") ||
+      child.status === "Awaiting Review" ||
+      child.status === "Blocked" ||
+      child.waitingOn
+    );
+
+    const completeChildren = children.filter(
+      child => child.status === "Complete" ||
+      ProjectWorkItems.displayedProgress(child.id) === 100
+    );
+
+    const hasDependencyDetail =
+      item.waitingOn ||
+      item.informationRequired ||
+      item.requiredBy ||
+      item.blockerDependency ||
+      predecessor;
+
+    root.innerHTML = `
+      <div class="pw-detail-banner">
+
+        <div class="pw-detail-box pw-detail-title">
+          <span>Task</span>
+          <strong>${escapeHtml(item.title)}</strong>
+          <div class="small">
+            ${escapeHtml(
+              [item.itemType, item.system, item.workstream]
+                .filter(Boolean)
+                .join(" · ")
+            )}
+          </div>
+        </div>
+
+        <div class="pw-detail-box">
+          <span>Progress</span>
+          <strong>${progress == null ? "—" : `${progress}%`}</strong>
+        </div>
+
+        <div class="pw-detail-box">
+          <span>Status</span>
+          <strong>${escapeHtml(item.status || "—")}</strong>
+        </div>
+
+        <div class="pw-detail-box">
+          <span>Owner / Responsible</span>
+          <strong>${escapeHtml(item.owner || "—")}</strong>
+        </div>
+
+        <div class="pw-detail-box">
+          <span>Target</span>
+          <strong>${dateLabel(item.targetDate)}</strong>
+        </div>
+
+      </div>
+
+      <div class="pw-detail-secondary">
+
+        <div class="pw-detail-box">
+          <span>Start</span>
+          <strong>${dateLabel(item.startDate)}</strong>
+        </div>
+
+        <div class="pw-detail-box">
+          <span>Subtasks</span>
+          <strong>${children.length}</strong>
+        </div>
+
+        <div class="pw-detail-box">
+          <span>Waiting / Blocked</span>
+          <strong>${waitingChildren.length}</strong>
+        </div>
+
+        <div class="pw-detail-box">
+          <span>Completed</span>
+          <strong>${completeChildren.length}</strong>
+        </div>
+
+      </div>
+
+      ${
+        hasDependencyDetail
+          ? `
+            <div class="pw-dependency-panel">
+              <div class="pw-dependency-title">
+                Dependency / Required Input
+              </div>
+
+              <div class="pw-dependency-grid">
+
+                <div>
+                  <span>Waiting On</span>
+                  <strong>${escapeHtml(item.waitingOn || "—")}</strong>
+                </div>
+
+                <div>
+                  <span>Required By</span>
+                  <strong>${dateLabel(item.requiredBy)}</strong>
+                </div>
+
+                <div>
+                  <span>Predecessor</span>
+                  <strong>${escapeHtml(predecessor?.title || "—")}</strong>
+                </div>
+
+                <div>
+                  <span>Blocking / Dependency</span>
+                  <strong>${escapeHtml(item.blockerDependency || "—")}</strong>
+                </div>
+
+              </div>
+
+              ${
+                item.informationRequired
+                  ? `
+                    <div class="pw-required-input">
+                      <span>Information Required</span>
+                      <strong>${escapeHtml(item.informationRequired)}</strong>
+                    </div>
+                  `
+                  : ""
+              }
+            </div>
+          `
+          : ""
+      }
+
+      <div class="pw-work-section">
+
+        <div class="pw-section-head">
+          <div>
+            <h3>${children.length ? "Subtasks" : "Task Details"}</h3>
+
+            <div class="small">
+              ${
+                children.length
+                  ? "Child work rolls up automatically into this work item's progress."
+                  : "This is a leaf work item. Its entered progress drives the hierarchy above it."
+              }
+            </div>
+          </div>
+
+          ${
+            children.length
+              ? `
+                <button
+                  class="btn admin-only"
+                  type="button"
+                  onclick=""
+                >
+                  Add Subtask
+                </button>
+              `
+              : ""
+          }
+        </div>
+
+        ${
+          children.length
+            ? `
+              <div class="pw-list">
+                <div class="pw-row pw-row-head">
+                  <div>Task</div>
+                  <div>Progress</div>
+                  <div>Status</div>
+                  <div class="pw-owner">Owner</div>
+                  <div class="pw-target">Target</div>
+                  <div></div>
+                </div>
+
+                ${children.map(workItemRow).join("")}
+              </div>
+            `
+            : `
+              <div class="pw-leaf-detail">
+
+                <div class="pw-leaf-progress">
+                  <span>Entered Progress</span>
+                  ${progressBar(item.percentComplete)}
+                </div>
+
+                ${
+                  item.waitingOn ||
+                  item.informationRequired ||
+                  item.blockerDependency
+                    ? `
+                      <div class="pw-leaf-note">
+                        This task currently has an active dependency or required input.
+                      </div>
+                    `
+                    : ""
+                }
+
+              </div>
+            `
+        }
+
+      </div>
+    `;
+  }
+
+  function render() {
+    const view = document.getElementById("projectWork");
+    const root = document.getElementById("projectWorkContent");
+
+    if (!view || !root) return;
+
+    seedPrototypeData();
+
+    if (projectWorkMode === "actions") {
+      const breadcrumb = document.getElementById("projectWorkBreadcrumb");
+
+      if (breadcrumb) {
+        breadcrumb.innerHTML = "";
+      }
+
+      renderActionRequired(root);
+      return;
+    }
+
+    renderBreadcrumb();
+
+    if (currentWorkItemId == null) {
+      renderOverview(root);
+      return;
+    }
+
+    const item = ProjectWorkItems.getItem(currentWorkItemId);
+
+    if (!item) {
+      currentWorkItemId = null;
+      renderBreadcrumb();
+      renderOverview(root);
+      return;
+    }
+
+    renderItem(root, item);
+  }
+
+  function setActionWaitingOnFilter(value) {
+    actionWaitingOnFilter = value || "all";
+    render();
+  }
+
+  function setActionDisplayMode(mode) {
+    if (!["cards", "list"].includes(mode)) return;
+
+    actionDisplayMode = mode;
+    render();
+  }
+
+  function setMode(mode) {
+    if (!["hierarchy", "actions"].includes(mode)) return;
+
+    projectWorkMode = mode;
+    currentWorkItemId = null;
+    render();
+  }
+
+  function openOverview() {
+    projectWorkMode = "hierarchy";
+    currentWorkItemId = null;
+    render();
+  }
+
+  function openItem(id) {
+    
+    window.__projectPlanSelectedTaskId = id;
+projectWorkMode = "hierarchy";
+currentWorkItemId = id;
+    render();
+  }
+
+  function onProjectChanged() {
+    currentWorkItemId = null;
+    seededProjectKey = null;
+    projectWorkMode = "hierarchy";
+    actionWaitingOnFilter = "all";
+    render();
+  }
+
+  function watchViewActivation() {
+    const view = document.getElementById("projectWork");
+    if (!view) return;
+
+    const observer = new MutationObserver(() => {
+      if (view.classList.contains("active")) render();
+    });
+
+    observer.observe(view, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+  }
+
+  document.addEventListener("change", event => {
+    if (!event.target.matches("#projectWork .project-select-clone")) return;
+
+    setTimeout(() => {
+      onProjectChanged();
+    }, 0);
+  });
+
+  document.addEventListener("click", event => {
+    const row = event.target.closest(".pw-row-clickable, .pw-action-row:not(.pw-action-head), .pw-action-card");
+    if (!row) return;
+
+    const id = row.dataset.projectWorkItemId;
+    if (!id) return;
+
+    openItem(id);
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    const row = event.target.closest(".pw-row-clickable, .pw-action-row:not(.pw-action-head), .pw-action-card");
+    if (!row) return;
+
+    const id = row.dataset.projectWorkItemId;
+    if (!id) return;
+
+    event.preventDefault();
+    openItem(id);
+  });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    watchViewActivation();
+
+    const addButton = document.getElementById("addProjectWorkItemBtn");
+
+    if (addButton) {
+      addButton.addEventListener("click", () => {
+        window.ProjectTaskEditor?.open();
+      });
+    }
+  });
+
+  return {
+    render,
+    setMode,
+    setActionDisplayMode,
+    setActionWaitingOnFilter,
+    openOverview,
+    openItem,
+    onProjectChanged
+  };
+})();
+
+window.ProjectWorkView = ProjectWorkView;
+
+/* ---------------------------------------------------------
+   Project Plan universal task navigation
+   ---------------------------------------------------------
+   Keeps cards, list rows and hierarchy rows consistently
+   clickable regardless of which render mode created them.
+--------------------------------------------------------- */
+
+(function bindProjectPlanTaskNavigation(){
+
+  function taskTarget(event){
+    return event.target.closest(
+      "#projectWork " +
+      "[data-project-work-item-id], " +
+      "#projectWork .pw-action-card, " +
+      "#projectWork .pw-action-row:not(.pw-action-head), " +
+      "#projectWork .pw-row-clickable"
+    );
+  }
+
+  function targetId(target){
+    if (!target) return "";
+
+    return (
+      target.dataset.projectWorkItemId ||
+      target.getAttribute("data-item-id") ||
+      target.getAttribute("data-id") ||
+      ""
+    );
+  }
+
+  function openTarget(target){
+    const id = targetId(target);
+
+    if (!id) {
+      console.warn(
+        "Project Plan: clicked task does not have a project work item id.",
+        target
+      );
+      return;
+    }
+
+    if (
+      window.ProjectWorkView &&
+      typeof window.ProjectWorkView.openItem === "function"
+    ) {
+      window.ProjectWorkView.openItem(id);
+      return;
+    }
+
+    console.warn(
+      "Project Plan: ProjectWorkView.openItem is not available.",
+      id
+    );
+  }
+
+  document.addEventListener("click", event => {
+    const target = taskTarget(event);
+    if (!target) return;
+
+    /*
+     * Allow actual form controls/buttons inside cards to perform
+     * their own action. "View details" links/buttons are intentionally
+     * allowed through if they do not have their own handler.
+     */
+    const interactive = event.target.closest(
+      "input, select, textarea"
+    );
+
+    if (interactive) return;
+
+    event.preventDefault();
+    openTarget(target);
+  });
+
+  document.addEventListener("keydown", event => {
+    if (
+      event.key !== "Enter" &&
+      event.key !== " "
+    ) {
+      return;
+    }
+
+    const target = taskTarget(event);
+    if (!target) return;
+
+    event.preventDefault();
+    openTarget(target);
+  });
+
+})();

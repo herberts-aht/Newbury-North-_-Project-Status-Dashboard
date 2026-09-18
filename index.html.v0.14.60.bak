@@ -7,13 +7,10 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css?v=0.14.61i" />
+<link rel="stylesheet" href="css/styles.css" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
-  <link rel="stylesheet" href="css/project-work.css?v=0.14.70" />
-  <link rel="stylesheet" href="css/project-contacts.css?v=0.14.72" />
-  <link rel="stylesheet" href="css/project-task-editor.css?v=0.14.88" />
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -50,8 +47,6 @@
         <div class="nav-primary nav-child nav-group-label">Project Controls</div>
         <button class="nav-subchild" data-view="deliverables">Deliverables</button>
         <button class="nav-subchild" data-view="info">Information Required</button>
-        <button class="admin-only nav-subchild" data-view="projectWork">Project Plan</button>
-        <button class="nav-subchild" data-view="projectContacts">Project Contacts</button>
         <button class="admin-only nav-subchild" data-view="audit">Change Log</button>
         <button class="nav-primary nav-child" data-view="siteOperations">Site Operations</button>
         <button class="nav-primary nav-child" data-view="timeline">Gantt</button>
@@ -105,18 +100,7 @@
           <div class="activity-text" id="lastActivityText">No activity recorded.</div>
         </div>
         <div class="activity-actions">
-          <button class="btn activity-history-btn" id="viewProjectActivityHistoryBtn" type="button"><span class="activity-history-icon" aria-hidden="true">
-<svg viewBox="0 0 24 24" fill="none">
-  <!-- circular arc: connected to arrow at upper-left, gap at lower-left -->
-  <path d="M7.3 6.1A8 8 0 1 1 4.7 14.3" />
-  
-  <!-- arrowhead connected directly to beginning of arc -->
-  <path d="M7.3 6.1H3.8V2.7" />
-
-  <!-- clock hands -->
-  <path d="M12 7.8v4.4l3 1.8" />
-</svg>
-</span><span>View Activity History</span></button>
+          <button class="btn activity-history-btn" id="viewProjectActivityHistoryBtn" type="button">View Activity History</button>
           <button class="btn project-comment-btn hidden" id="addProjectCommentBtn" type="button" title="General project comments">💬 Project Comment</button>
           <button class="btn activity-add-btn admin-only" id="addProjectActivityBtn" type="button"><span class="desktop-activity-label">Add Activity</span><span class="mobile-activity-label"><span>Add</span><span>Activity</span></span></button>
         </div>
@@ -134,59 +118,6 @@
       <div class="table-card desktop-table project-control-shell"><div class="table-tools project-control-tools"><div class="project-control-filters project-control-filters-empty" aria-hidden="true"></div><div class="project-control-view-control"><span class="project-control-view-label">View</span><div class="project-control-view-toggle" role="group" aria-label="Information Required view"><button type="button" data-control-view-button="info" data-mode="cards" onclick="setProjectControlView('info','cards')">Cards</button><button type="button" data-control-view-button="info" data-mode="list" onclick="setProjectControlView('info','list')">List</button></div></div></div><div class="project-control-list-wrap" style="overflow:auto"><table><thead><tr><th>Item Needed</th><th>Requested From</th><th>Status</th><th>Blocking</th><th>Notes</th><th></th></tr></thead><tbody id="infoBody"></tbody></table></div></div>
       <div id="infoCards" class="mobile-cards"></div>
     </section>
-    <section id="projectWork" class="view">
-      <div class="page-header">
-        <div>
-          <div class="eyebrow">Project Planning</div>
-          <h2>Project Plan</h2>
-          <p>Hierarchical project tasks, ownership, dependencies, schedule, and progress.</p>
-        </div>
-
-        <div class="actions">
-          <div class="project-switcher">
-            <span class="small">Project</span>
-            <select class="project-select-clone"></select>
-          </div>
-
-          <button class="btn admin-only" id="addProjectTaskBtn" type="button">Add Task</button>
-        </div>
-      </div>
-
-      <div class="pw-prototype-note admin-only">
-        Prototype view — data on this screen is local only and is not yet stored in SharePoint.
-      </div>
-
-      <div class="pw-breadcrumb" id="projectWorkBreadcrumb"></div>
-      <div id="projectWorkContent"></div>
-    </section>
-
-    <section id="projectContacts" class="view">
-      <div class="page-header">
-        <div>
-          <div class="eyebrow">Project Resources</div>
-          <h2>Project Contacts</h2>
-          <p>People, companies, consultants, trades, and teams referenced by this project.</p>
-        </div>
-
-        <div class="actions">
-          <div class="project-switcher">
-            <span class="small">Project</span>
-            <select class="project-select-clone"></select>
-          </div>
-
-          <button class="btn admin-only" id="addProjectContactBtn" type="button">
-            Add Contact
-          </button>
-        </div>
-      </div>
-
-      <div class="pw-prototype-note admin-only">
-        Prototype view — Project Contacts are local only and are not yet stored in SharePoint.
-      </div>
-
-      <div id="projectContactsContent"></div>
-    </section>
-
     <section id="siteOperations" class="view">
       <div class="page-header">
         <div>
@@ -433,11 +364,6 @@
 <script src="js/auth.js"></script>
 <script src="js/microsoft-access.js"></script>
 <script src="js/permissions.js"></script>
-<script src="js/project-contacts.js?v=0.14.71"></script>
-<script src="js/project-contacts-view.js?v=0.14.72"></script>
-<script src="js/project-work-items.js?v=0.14.61"></script>
-<script src="js/project-work-view.js?v=0.14.80"></script>
-<script src="js/project-task-editor.js?v=0.14.87"></script>
 <script src="js/site-operations.js?v=0.14.60"></script>
   <script src="js/dashboard.js?v=0.14.60"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>

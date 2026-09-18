@@ -1,0 +1,233 @@
+/*
+ * Project Plan Task Editor
+ * ------------------------
+ * Uses the dashboard's shared:
+ *
+ *   .modal
+ *   .form-grid
+ *   .field
+ *   .field.full
+ *   .modal-actions
+ *
+ * Only Task-specific behavior/layout belongs here.
+ */
+
+.pte-modal{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  box-sizing:border-box;
+}
+
+.pte-modal.hidden{
+  display:none;
+}
+
+.pte-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(15,23,42,.48);
+}
+
+.pte-dialog{
+  position:relative;
+  z-index:1;
+}
+
+/* Header follows normal modal proportions */
+.pte-dialog-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+  margin-bottom:16px;
+}
+
+.pte-dialog-header h2{
+  margin:0;
+  font-size:20px;
+  line-height:1.2;
+}
+
+.pte-dialog-header p,
+.pte-eyebrow{
+  display:none;
+}
+
+.pte-close{
+  border:0;
+  background:transparent;
+  color:#60717e;
+  font-size:22px;
+  line-height:1;
+  cursor:pointer;
+}
+
+/*
+ * The shared .form-grid provides:
+ * display:grid;
+ * grid-template-columns:1fr 1fr;
+ * gap:12px;
+ */
+.pte-deliverable-grid{
+  margin:0;
+}
+
+/*
+ * Task labels are wrapped slightly differently from the older forms.
+ * Match the shared .field label appearance exactly.
+ */
+.pte-field > span{
+  font-size:12px;
+  font-weight:700;
+  color:#465466;
+}
+
+/*
+ * Inputs/selects/textareas now inherit the shared .field controls.
+ * Keep only sizing that is unique to textarea/progress composition.
+ */
+.pte-field textarea{
+  min-height:82px;
+}
+
+.pte-progress-field{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.pte-progress-field input{
+  flex:1;
+  min-width:0;
+}
+
+.pte-progress-field > span{
+  font-size:14px;
+}
+
+/* Optional organization section */
+.pte-advanced{
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid var(--line);
+}
+
+.pte-advanced summary{
+  font-size:12px;
+  font-weight:700;
+  color:#465466;
+  cursor:pointer;
+}
+
+.pte-advanced[open] summary{
+  margin-bottom:12px;
+}
+
+.pte-org-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+/*
+ * Keep Task footer consistent with standard modal-actions.
+ * Shared CSS owns the main spacing/alignment.
+ */
+.pte-actions{
+  border-top:1px solid var(--line);
+  padding-top:14px;
+}
+
+/* Detail page Edit Task control */
+.pte-detail-actions,
+.pte-stable-edit-actions{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  margin:0 0 10px;
+}
+
+@media(max-width:700px){
+
+  .pte-modal{
+    align-items:flex-end;
+    padding:0;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+
+  /*
+   * Let the application's mobile .modal and .form-grid rules
+   * control the actual sheet dimensions and one-column layout.
+   */
+  .pte-org-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+/* ==========================================================
+   v0.14.88 — Prevent Task editor grid overflow
+   ========================================================== */
+
+/* Grid columns must be allowed to shrink inside the modal */
+.pte-dialog .form-grid,
+.pte-deliverable-grid{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  grid-template-columns:
+    minmax(0,1fr)
+    minmax(0,1fr);
+}
+
+/* A grid child with a long select value must not widen its column */
+.pte-field,
+.pte-dialog .field{
+  min-width:0;
+  max-width:100%;
+}
+
+/* Keep every form control contained by its grid cell */
+.pte-field input,
+.pte-field select,
+.pte-field textarea,
+.pte-dialog .field input,
+.pte-dialog .field select,
+.pte-dialog .field textarea{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+
+/* Progress input is a flex child, so explicitly allow shrinking */
+.pte-progress-field{
+  width:100%;
+  min-width:0;
+}
+
+.pte-progress-field input{
+  width:auto;
+  min-width:0;
+}
+
+/* The dialog itself should never scroll horizontally */
+.pte-dialog{
+  overflow-x:hidden;
+}
+
+/* Organization can still use 3 columns when expanded */
+.pte-org-grid{
+  grid-template-columns:
+    repeat(3,minmax(0,1fr));
+}
+
+@media(max-width:700px){
+  .pte-dialog .form-grid,
+  .pte-deliverable-grid,
+  .pte-org-grid{
+    grid-template-columns:1fr;
+  }
+}

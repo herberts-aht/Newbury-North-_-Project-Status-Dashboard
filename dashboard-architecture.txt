@@ -1,0 +1,974 @@
+]633;E;echo "=== REPO TREE ===";13602670-8856-4d2d-a9ff-d8645b55cd59]633;C=== REPO TREE ===
+./.devcontainer/devcontainer.json
+./.git
+./.github/workflows/main.yml
+./.gitignore
+./AHT-Project-Control-v0.14.57-STABLE.zip
+./AHT-Project-Control-v0.14.59-STABLE.zip
+./README.md
+./_archive-pre-v0.14.44/2200-current-sharepoint.json
+./_archive-pre-v0.14.44/ADMIN-ENTRA-UPDATE.txt
+./_archive-pre-v0.14.44/AHT-Project-Control-v0.14.25.zip
+./_archive-pre-v0.14.44/Deliverables_PRE_REFRESH_20260820-175348.csv
+./_archive-pre-v0.14.44/ENTRA-TEST-README.txt
+./_archive-pre-v0.14.44/InformationRequired_PRE_REFRESH_20260820-175348.csv
+./_archive-pre-v0.14.44/backup-v0.14.10-20260815-002239/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.10-20260815-002239/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.10-20260815-002239/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.11-20260815-005052/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.11-20260815-005052/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.11-20260815-005052/index.html
+./_archive-pre-v0.14.44/backup-v0.14.11-20260815-005052/js/auth.js
+./_archive-pre-v0.14.44/backup-v0.14.11-20260815-005052/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.11-20260815-005052/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.12-20260815-005707/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.12-20260815-005707/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.12-20260815-005707/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.13-20260815-010237/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.13-20260815-010237/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.13-20260815-010237/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.14-20260815-010824/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.14-20260815-010824/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.14-20260815-010824/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.15-20260815-131445/index.html
+./_archive-pre-v0.14.44/backup-v0.14.15-20260815-131445/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.15-20260815-131445/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.16-20260815-132440/index.html
+./_archive-pre-v0.14.44/backup-v0.14.16-20260815-132440/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.16-20260815-132440/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.17-20260815-133708/index.html
+./_archive-pre-v0.14.44/backup-v0.14.17-20260815-133829/index.html
+./_archive-pre-v0.14.44/backup-v0.14.17-20260815-133829/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.18-20260815-134112/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.18-20260815-134112/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.19-20260815-134656/index.html
+./_archive-pre-v0.14.44/backup-v0.14.19-20260815-134656/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.19-20260815-134656/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.20-20260817-095714/js/auth.js
+./_archive-pre-v0.14.44/backup-v0.14.20-20260817-095714/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.20-20260817-095714/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.20-final-20260817-100920/js/auth.js
+./_archive-pre-v0.14.44/backup-v0.14.20-final-20260817-100920/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.20-final-20260817-100920/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.20-fixed-20260817-100003/js/auth.js
+./_archive-pre-v0.14.44/backup-v0.14.20-fixed-20260817-100003/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.20-fixed-20260817-100003/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.20-recovered-20260817-101133/js/auth.js
+./_archive-pre-v0.14.44/backup-v0.14.20-recovered-20260817-101133/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.20-recovered-20260817-101133/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.21-20260817-110018/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.21-20260817-110018/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.22-20260817-121138/index.html
+./_archive-pre-v0.14.44/backup-v0.14.22-20260817-121138/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.22-delete-20260817-123551/index.html
+./_archive-pre-v0.14.44/backup-v0.14.22-delete-20260817-123551/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.22-delete-style-20260817-124443/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.23-final-access-20260817-142038/index.html
+./_archive-pre-v0.14.44/backup-v0.14.23-final-access-20260817-142038/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.23-final-access-20260817-142038/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.25-last-updated-20260817-162022/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.26-calendar-export-20260819-145028/index.html
+./_archive-pre-v0.14.44/backup-v0.14.26-calendar-export-20260819-145028/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.26-calendar-export-20260819-145028/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.26-calendar-pill-centering-20260819-151242/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.26-calendar-style-20260819-150212/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.27-outlook-invite-20260819-212107/index.html
+./_archive-pre-v0.14.44/backup-v0.14.27-outlook-invite-20260819-212107/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.27-outlook-invite-20260819-212107/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.28-entra-guest-retry-20260820-133235/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.28-entra-guest-retry-20260820-133235/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.29-existing-guest-20260820-134051/index.html
+./_archive-pre-v0.14.44/backup-v0.14.29-existing-guest-20260820-134051/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.29-existing-guest-20260820-134051/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.30-outlook-web-20260820-134503/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.30-outlook-web-20260820-134503/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.31-idempotent-membership-20260820-135128/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.31-idempotent-membership-20260820-135128/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.32-native-outlook-20260820-140006/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.32-native-outlook-20260820-140006/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.33-native-outlook-uri-20260820-140724/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.33-native-outlook-uri-20260820-140724/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.34-outlook-mailto-20260820-142016/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.34-outlook-mailto-20260820-142016/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.35-draft-visible-fields-20260820-142616/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.35-draft-visible-fields-20260820-142616/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.36-repair-20260820-143644/index.html
+./_archive-pre-v0.14.44/backup-v0.14.36-repair-20260820-143644/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.36-repair-20260820-143644/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.36-restore-invite-20260820-144506/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.36-restore-invite-20260820-144506/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.36-two-step-outlook-20260820-143315/index.html
+./_archive-pre-v0.14.44/backup-v0.14.36-two-step-outlook-20260820-143315/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.36-two-step-outlook-20260820-143315/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.37-invite-cleanup-20260820-150012/index.html
+./_archive-pre-v0.14.44/backup-v0.14.37-invite-cleanup-20260820-150012/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.37-invite-cleanup-20260820-150012/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.38-auth-note-20260820-150455/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.38-auth-note-20260820-150455/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.39-20260820-190531/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.39-20260820-190531/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.39-20260820-190531/index.html
+./_archive-pre-v0.14.44/backup-v0.14.39-20260820-190531/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.39-20260820-190531/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.39-20260820-190531/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.39-20260820-190531/js/storage.js
+./_archive-pre-v0.14.44/backup-v0.14.39-ui-20260820-184054/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.39-ui-20260820-184054/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.39-ui-20260820-184054/index.html
+./_archive-pre-v0.14.44/backup-v0.14.39-ui-20260820-184054/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.39-ui-20260820-184054/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.39-ui-20260820-184054/js/microsoft-access.js
+./_archive-pre-v0.14.44/backup-v0.14.40-save-hotfix-20260820-191205/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.40-save-hotfix-20260820-191205/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.41-20260820-192108/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.41-20260820-192108/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.41-20260820-192108/index.html
+./_archive-pre-v0.14.44/backup-v0.14.41-20260820-192108/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.41-20260820-192108/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.41-20260820-192108/js/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.41-20260820-192108/js/storage.js
+./_archive-pre-v0.14.44/backup-v0.14.42-20260820-192838/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.42-20260820-192838/css/styles.css
+./_archive-pre-v0.14.44/backup-v0.14.42-20260820-192838/index.html
+./_archive-pre-v0.14.44/backup-v0.14.42-20260820-192838/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.42-20260820-192838/js/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.8-20260814-185626/config.js
+./_archive-pre-v0.14.44/backup-v0.14.8-20260814-185626/dashboard.js
+./_archive-pre-v0.14.44/backup-v0.14.8-20260814-185626/data-provider.js
+./_archive-pre-v0.14.44/backup-v0.14.8-20260814-185626/index.html
+./_archive-pre-v0.14.44/backup-v0.14.9-mobile-20260815-000155/css/mobile.css
+./_archive-pre-v0.14.44/backup-v0.14.9-mobile-20260815-000155/index.html
+./_archive-pre-v0.14.44/backup-v0.14.9-mobile-20260815-000155/js/app.js
+./_archive-pre-v0.14.44/backup-v0.14.9-mobile-20260815-000155/js/config.js
+./_archive-pre-v0.14.44/backup-v0.14.9-mobile-20260815-000155/js/dashboard.js
+./_archive-pre-v0.14.44/dashboard-current-live.zip
+./_archive-pre-v0.14.44/dashboard-live-files.zip
+./_archive-pre-v0.14.44/dashboard-v0.14.40-patch.zip
+./_archive-pre-v0.14.44/dashboard-v0.14.41-live.zip
+./_archive-pre-v0.14.44/dashboard-v0.14.41-save-hotfix.zip
+./_archive-pre-v0.14.44/dashboard-v0.14.42-calendar-audit-fix.zip
+./_archive-pre-v0.14.44/dashboard-v0.14.43-calendar-nav.zip
+./_archive-pre-v0.14.44/dashboard-v0.14.44-change-log-schema-fix.zip
+./_archive-pre-v0.14.44/patch-v0.14.39-ui-fixed.py
+./_archive-pre-v0.14.44/patch-v0.14.39-ui.py
+./_archive-pre-v0.14.44/tools-historical/Import-2200-AutoPopulate-Batch2.ps1
+./_archive-pre-v0.14.44/tools-historical/Import-2200-AutoPopulate-Batch3.ps1
+./_archive-pre-v0.14.44/tools-historical/Import-2200-AutoPopulate.ps1
+./_archive-pre-v0.14.44/tools-historical/Import-2340-AutoPopulate-Batch2.ps1
+./_archive-pre-v0.14.44/tools-historical/Import-2340-Consolidated-Commitments.ps1
+./_archive-pre-v0.14.44/tools-historical/Repair-v0.14.36-Restore-InviteExternal.ps1
+./_archive-pre-v0.14.44/tools-historical/Repair-v0.14.36-Two-Step-Outlook-Invite.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.0.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.10-MobilePolishAndCounts.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.11-UserAdministration.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.12-AccessListScroll.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.13-AccessListScrollFix.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.14-AccessListFixedViewport.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.15-ProjectPrintReport.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.16-DownloadProjectPDF.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.17-SiteTitleCleanup-FIXED.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.17-SiteTitleCleanup.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.18-PDFDashboardStyling.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.19-GanttPDFAndPrimaryButton.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.20-SharePointDashboardAccess-FINAL.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.20-SharePointDashboardAccess-FIXED.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.20-SharePointDashboardAccess-RECOVER-AND-FIX.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.20-SharePointDashboardAccess.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.21-StableUserIdentityMatching.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.22-DeleteProject-RedStyle-FIXED.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.22-ProjectDelete.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.22-ReadableProjectKeys.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.23-FinalAccessProvisioning.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.25-LastUpdatedPersistence.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.26-Calendar-PDF-Styling.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.26-Calendar-Pill-Centering.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.26-Gantt-Calendar-Exports.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.27-Outlook-External-Invite.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.28-Entra-Guest-Retry.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.29-Recover-Existing-External-Guest.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.30-Outlook-Web-Compose.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.31-Idempotent-Group-Membership.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.32-Native-Outlook-Invite.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.33-Native-Outlook-URI.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.34-Outlook-Mailto.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.35-Draft-From-Visible-Fields.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.36-Two-Step-Outlook-Invite.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.37-Invite-Cleanup.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.38-Invite-Authentication-Note.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.8-ProjectTeam.ps1
+./_archive-pre-v0.14.44/tools-historical/Upgrade-v0.14.9-MobileParity.ps1
+./_archive-pre-v0.14.44/v0.14.4-NOTES.txt
+./_archive-pre-v0.14.44/v0.14.5-NOTES.txt
+./_archive-pre-v0.14.44/v0.14.6-NOTES.txt
+./_archive-pre-v0.14.44/v01440/Provision-ChangeLog.ps1
+./_archive-pre-v0.14.44/v01440/css/mobile.css
+./_archive-pre-v0.14.44/v01440/css/styles.css
+./_archive-pre-v0.14.44/v01440/index.html
+./_archive-pre-v0.14.44/v01440/js/config.js
+./_archive-pre-v0.14.44/v01440/js/dashboard.js
+./_archive-pre-v0.14.44/v01440/js/data-provider.js
+./_archive-pre-v0.14.44/v01440/js/storage.js
+./_archive-pre-v0.14.44/v01441/Install-Hotfix.ps1
+./_archive-pre-v0.14.44/v01441/js/config.js
+./_archive-pre-v0.14.44/v01441/js/data-provider.js
+./_archive-pre-v0.14.44/v01442/Install-v0.14.42.ps1
+./_archive-pre-v0.14.44/v01442/config.js
+./_archive-pre-v0.14.44/v01442/dashboard.js
+./_archive-pre-v0.14.44/v01442/data-provider.js
+./_archive-pre-v0.14.44/v01442/index.html
+./_archive-pre-v0.14.44/v01442/mobile.css
+./_archive-pre-v0.14.44/v01442/storage.js
+./_archive-pre-v0.14.44/v01442/styles.css
+./_archive-pre-v0.14.44/v01443/Install-v0.14.43.ps1
+./_archive-pre-v0.14.44/v01443/config.js
+./_archive-pre-v0.14.44/v01443/dashboard.js
+./_archive-pre-v0.14.44/v01443/index.html
+./_archive-pre-v0.14.44/v01443/mobile.css
+./_archive-pre-v0.14.44/v01443/styles.css
+./_archive-pre-v0.14.44/v01444/Install-v0.14.44.ps1
+./_archive-pre-v0.14.44/v01444/config.js
+./_archive-pre-v0.14.44/v01444/data-provider.js
+./assets/aht-global-logo.svg
+./backup-v0.14.43-20260820-193231/js/config.js
+./backup-v0.14.43-20260820-193231/js/data-provider.js
+./css/branding.css
+./css/mobile.css
+./css/site-operations.css
+./css/styles.css
+./css/styles.css.v0.14.60.bak
+./dashboard-architecture.txt
+./data/2200-pre-security-update-20260911-151627.json
+./data/2200-sharepoint-export.json
+./data/projects.js
+./docs/database-schema.md
+./docs/deployment-checklist.md
+./docs/entra-hosting-handoff.md
+./docs/sharepoint-schema.md
+./index.html
+./index.html.v0.14.60.bak
+./js/app.js
+./js/auth.js
+./js/config.js
+./js/dashboard.js
+./js/data-provider.js
+./js/entra-admin.js
+./js/microsoft-access.js
+./js/permissions.js
+./js/site-operations.js
+./js/storage.js
+./tools/Create-AHTDashboard.ps1
+./tools/Import-2200-MainHouse-Locations.ps1
+./tools/Import-2340-MainHouse-Locations.ps1
+./tools/Provision-SiteOperations.ps1
+./tools/SHAREPOINT-SETUP.md
+./tools/SampleData.json
+./tools/Upgrade-SiteOperations-LocationSchema.ps1
+./tools/sharepoint-explorer.css
+./tools/sharepoint-explorer.html
+./tools/sharepoint-explorer.js
+
+=== SITE OPERATIONS ===
+./css/site-operations.css:1:#siteOperations .page-header {
+./css/site-operations.css:447:  #siteOperations .page-header .actions {
+./css/site-operations.css:470:/* v0.14.59 — compact Site Operations activity overview */
+./css/site-operations.css:630:/* v0.14.59 WIP — Site Operations functional + visual alignment pass */
+./css/site-operations.css:631:.container:has(#siteOperations.active){
+./css/site-operations.css:634:#siteOperations.view.active{
+./css/site-operations.css:637:#siteOperations .page-header{
+./css/site-operations.css:640:#siteOperations .page-header > .actions{
+./css/site-operations.css:643:#siteOperations .so-breadcrumb.hidden{
+./css/site-operations.css:646:#siteOperations .so-breadcrumb{
+./css/site-operations.css:815:  #siteOperations .page-header > .actions{
+./css/site-operations.css:845:/* v0.14.59 WIP — Site Operations Pass 2: scalable child locations + form flow */
+./css/site-operations.css:1024:/* v0.14.59 WIP — Site Operations Pass 3: contextual activity table + local scrolling */
+./css/site-operations.css:1088:/* v0.14.59 WIP — Site Operations Pass 4: scalable location navigation + dashboard alignment */
+./css/site-operations.css:1089:#siteOperations{
+./css/site-operations.css:1094:#siteOperations .so-breadcrumb:not(.hidden){
+./css/site-operations.css:1107:#siteOperations .so-breadcrumb button{
+./css/site-operations.css:1110:#siteOperations .so-breadcrumb-current{
+./css/site-operations.css:1189:  #siteOperations .so-breadcrumb:not(.hidden){
+./css/site-operations.css:1211:/* v0.14.59 WIP — Site Operations Pass 5: searchable pickers + dashboard color alignment */
+./css/site-operations.css:1282:/* v0.14.59 WIP — Site Operations Pass 6: activity-first drill-down + role-safe detail */
+./css/site-operations.css:1378:/* v0.14.59 Site Operations Pass 7 — hierarchy labels + read-only role polish */
+./css/site-operations.css:1415:/* v0.14.59 Site Operations Pass 8 — plan levels, type filters + descriptor colors */
+./css/site-operations.css:1469:/* v0.14.59 WIP — Site Operations Pass 9: unified location navigation controls */
+./css/site-operations.css:1528:/* v0.14.59 WIP — Site Operations Pass 10: final UI alignment + phase color cues + PDF controls */
+./css/site-operations.css:1545:#siteOperations .page-header .actions > #downloadSiteOperationsPdfBtn,
+./css/site-operations.css:1546:#siteOperations .page-header .actions > #downloadSiteLocationPdfBtn{
+./css/site-operations.css:1556:/* Pass 13 — keep Site Operations phase labels visually consistent */
+./css/site-operations.css:1565:/* Pass 15 — Site Operations header action alignment */
+./css/site-operations.css:1566:#siteOperations .page-header > .actions{
+./css/site-operations.css:1572:#siteOperations .page-header > .actions .project-switcher{
+./css/site-operations.css:1575:#siteOperations .site-action-buttons{
+./css/site-operations.css:1583:#siteOperations .site-action-buttons .btn{
+./css/site-operations.css:1589:#siteOperations .site-action-buttons #addSiteLocationBtn,
+./css/site-operations.css:1590:#siteOperations .site-action-buttons #addSiteOperationBtn{
+./css/site-operations.css:1594:  #siteOperations .page-header > .actions{
+./css/site-operations.css:1598:  #siteOperations .page-header > .actions .project-switcher{
+./css/site-operations.css:1601:  #siteOperations .site-action-buttons{
+./css/site-operations.css:1606:  #siteOperations .site-action-buttons .btn{
+./css/site-operations.css:1612:/* v0.14.59 WIP — align Site Operations with the shared desktop application width */
+./css/site-operations.css:1614:  .container:has(#siteOperations.active){
+./css/site-operations.css:1620:  #siteOperations.view.active{
+./css/site-operations.css:1626:   Site Operations uses the shared application canvas; cards and tables use the same white card token as the rest of the app. */
+./css/site-operations.css:1627:#siteOperations.view.active{
+./css/site-operations.css:1636:  #siteOperations.view.active{
+./css/styles.css.v0.14.60.bak:1506:/* v0.14.59 Site Operations Pass 14 — balanced project navigation hierarchy */
+./css/styles.css:1506:/* v0.14.59 Site Operations Pass 14 — balanced project navigation hierarchy */
+./index.html.v0.14.60.bak:51:        <button class="nav-primary nav-child" data-view="siteOperations">Site Operations</button>
+./index.html.v0.14.60.bak:121:    <section id="siteOperations" class="view">
+./index.html.v0.14.60.bak:125:          <h2>Site Operations</h2>
+./index.html.v0.14.60.bak:138:            <button class="btn primary" id="downloadSiteOperationsPdfBtn" type="button" onclick="SiteOperations.downloadSitePDF()">Download Site PDF</button>
+./index.html.v0.14.60.bak:139:            <button class="btn primary hidden" id="downloadSiteLocationPdfBtn" type="button" onclick="SiteOperations.downloadLocationPDF()">Download Location PDF</button>
+./index.html.v0.14.60.bak:144:      <div class="so-breadcrumb" id="siteOperationsBreadcrumb"></div>
+./index.html.v0.14.60.bak:145:      <div id="siteOperationsContent"></div>
+./index.html.v0.14.60.bak:616: if(id==="siteOperations"&&window.SiteOperations){
+./index.html.v0.14.60.bak:617:   window.SiteOperations.onView();
+./index.html.v0.14.60.bak:631: if(window.SiteOperations){
+./index.html.v0.14.60.bak:632:   window.SiteOperations.onProjectChanged();
+./index.html.v0.14.60.bak:650: // Installation Auto is driven by weighted Site Operations items marked Track Progress.
+./index.html.v0.14.60.bak:703:      <div class="automatic-health-preview">Automatic phase results: Planning <strong>${autoPhaseProgress(d,"Planning")}%</strong> · Engineering <strong>${autoPhaseProgress(d,"Engineering")}%</strong> from Deliverables · Installation <strong>${autoPhaseProgress(d,"Installation")}%</strong> from ${d.siteInstallationTrackedItems||0} tracked Site Operations item${(d.siteInstallationTrackedItems||0)===1?"":"s"}</div>
+./index.html.v0.14.60.bak:710:      <div class="phase-progress-note">Auto uses Deliverable status for Planning/Engineering and hierarchical Site Operations progress for Installation (Activity Weight → Location Rollup Weight → Project). Overall Auto remains weighted Planning 15% + Engineering 35% + Installation 50%. Manual values are retained and can be used at any time.</div></div>`:""}
+./index.html.v0.14.60.bak:958:window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");addSiteLocationBtn.onclick=()=>SiteOperations.openLocationEditor();
+./index.html.v0.14.60.bak:959:addSiteOperationBtn.onclick=()=>SiteOperations.openOperationEditor();cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
+./js/data-provider.js:451:    // Site Operations is the source of truth for automatic Installation progress.
+./js/data-provider.js:452:    // Keep this supplemental so a Site Operations list/schema issue cannot block the
+./js/data-provider.js:458:        this.getListRows(this.config.lists.siteOperations),
+./js/data-provider.js:461:      console.info(`Loaded ${siteOperationItems.length} Site Operations item${siteOperationItems.length===1?"":"s"} and ${projectLocationItems.length} project location${projectLocationItems.length===1?"":"s"} for hierarchical installation progress.`);
+./js/data-provider.js:463:      console.error("Site Operations/location progress load failed; project data remains active.", error);
+./js/data-provider.js:465:        siteOperationItems = await this.getListRows(this.config.lists.siteOperations);
+./js/data-provider.js:716:          // Site Operations existed. Once tracked Site items exist, treat that untouched
+./js/dashboard.js:43:  if(cd)cd.textContent=calendarScheduleMode==="project"?"Project dates from Deliverables and Information Required.":calendarScheduleMode==="site"?"Site Operations dates only. Details stay in Site Operations.":"Project and Site dates shown together without linking the underlying records.";
+./js/dashboard.js:45:  if(gd)gd.textContent=ganttScheduleMode==="project"?"Project deliverable schedule.":ganttScheduleMode==="site"?"Site Operations schedule only. Details stay in Site Operations.":"Project and Site schedules shown together while remaining independent.";
+./js/dashboard.js:61:  if(!window.SiteOperations?.getScheduleData){
+./js/dashboard.js:81:    const data=await window.SiteOperations.getScheduleData(
+./js/dashboard.js:135:  if(kind==="site"){window.SiteOperations?.openScheduleItem(id);return;}
+./js/config.js:93:      siteOperations: "Site Operations",
+./js/site-operations.js:1:const SiteOperations = (() => {
+./js/site-operations.js:143:      console.warn("Site Operations could not confirm the location metadata SharePoint fields.", error);
+./js/site-operations.js:370:        onclick="SiteOperations.openLocation(${Number(location.id)})"
+./js/site-operations.js:371:        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();SiteOperations.openLocation(${Number(location.id)})}">
+./js/site-operations.js:419:        onclick="SiteOperations.openLocation(${Number(location.id)})">
+./js/site-operations.js:478:          <select class="so-location-filter" data-so-filter="level" onchange="SiteOperations.locationFilterChanged('${escapeHtml(scopeId)}')" aria-label="Filter locations by level">
+./js/site-operations.js:483:          <select class="so-location-filter" data-so-filter="type" onchange="SiteOperations.locationFilterChanged('${escapeHtml(scopeId)}')" aria-label="Filter locations by type">
+./js/site-operations.js:536:              <button class="btn" type="button" onclick="event.stopPropagation();SiteOperations.editOperation(${Number(op.id)})">Edit</button>
+./js/site-operations.js:537:              <button class="btn danger" type="button" onclick="event.stopPropagation();SiteOperations.deleteOperation(${Number(op.id)})">Delete</button>
+./js/site-operations.js:554:      ? ` type="button" onclick="SiteOperations.openOperationDetail(${Number(op.id)})"`
+./js/site-operations.js:598:            <div class="small">${escapeHtml(location?.name || "Site Operations")}</div>
+./js/site-operations.js:602:            ${canEdit ? `<button class="btn" type="button" onclick="SiteOperations.editOperation(${Number(op.id)})">Edit</button>` : ""}
+./js/site-operations.js:603:            ${canEdit ? `<button class="btn danger" type="button" onclick="SiteOperations.deleteOperation(${Number(op.id)})">Delete</button>` : ""}
+./js/site-operations.js:674:      <button type="button" onclick="SiteOperations.openOverview()">Site Operations</button>
+./js/site-operations.js:676:        `<span>›</span><button type="button" onclick="SiteOperations.openLocation(${Number(item.id)})">${escapeHtml(locationDisplayName(item))}</button>`
+./js/site-operations.js:724:          oninput="SiteOperations.locationPickerInput(this)"
+./js/site-operations.js:725:          onchange="SiteOperations.locationPickerCommit(this)">
+./js/site-operations.js:793:    const root = document.getElementById("siteOperationsContent");
+./js/site-operations.js:794:    const breadcrumb = document.getElementById("siteOperationsBreadcrumb");
+./js/site-operations.js:812:    const sitePdfBtn = document.getElementById("downloadSiteOperationsPdfBtn");
+./js/site-operations.js:825:          <span>Loading Site Operations…</span>
+./js/site-operations.js:867:                  : "Site Operations locations have not been configured yet."}</span>
+./js/site-operations.js:909:            <button class="btn" type="button" onclick="SiteOperations.editLocation(${Number(location.id)})">Edit Location</button>
+./js/site-operations.js:953:              <strong>No direct Site Operations items here yet.</strong>
+./js/site-operations.js:1026:          APP_CONFIG.sharePoint.lists.siteOperations
+./js/site-operations.js:1122:      console.error("Site Operations load failed", error);
+./js/site-operations.js:1124:      const root = document.getElementById("siteOperationsContent");
+./js/site-operations.js:1129:            <h3>Site Operations could not be loaded</h3>
+./js/site-operations.js:1151:    document.getElementById("siteOperations")?.scrollIntoView({ block: "start" });
+./js/site-operations.js:1164:      document.getElementById("siteOperations")?.scrollIntoView({ block: "start" });
+./js/site-operations.js:1170:    document.getElementById("siteOperations")?.scrollIntoView({ block: "start" });
+./js/site-operations.js:1183:    let backdrop = document.getElementById("siteOperationsModalBackdrop");
+./js/site-operations.js:1187:      backdrop.id = "siteOperationsModalBackdrop";
+./js/site-operations.js:1196:            <div class="eyebrow">Site Operations</div>
+./js/site-operations.js:1199:          <button class="btn" type="button" onclick="SiteOperations.closeModal()">Close</button>
+./js/site-operations.js:1202:        <form id="siteOperationsModalForm">
+./js/site-operations.js:1209:            <button class="btn" type="button" onclick="SiteOperations.closeModal()">Cancel</button>
+./js/site-operations.js:1222:    return backdrop.querySelector("#siteOperationsModalForm");
+./js/site-operations.js:1226:    const backdrop = document.getElementById("siteOperationsModalBackdrop");
+./js/site-operations.js:1354:          Leave blank to use automatic weighted progress from Site Operations items.
+./js/site-operations.js:1565:      throw new Error("The Location Number SharePoint field is not ready yet. Run the Site Operations location schema upgrade and refresh.");
+./js/site-operations.js:1572:      throw new Error("The Level / Floor SharePoint field is not ready yet. Refresh Site Operations as an Administrator and try again.");
+./js/site-operations.js:1581:      throw new Error("The Location Rollup Weight SharePoint field is not ready yet. Run the Site Operations location schema upgrade and refresh.");
+./js/site-operations.js:1640:        APP_CONFIG.sharePoint.lists.siteOperations,
+./js/site-operations.js:1646:        APP_CONFIG.sharePoint.lists.siteOperations,
+./js/site-operations.js:1714:      alert("Add at least one Project Location before creating a Site Operations item.");
+./js/site-operations.js:1740:            "Site Operations",
+./js/site-operations.js:1742:            record ? "Site Operations item updated." : "Site Operations item created."
+./js/site-operations.js:1750:        console.error("Site Operations save failed", error);
+./js/site-operations.js:1751:        alert(`Site Operations item could not be saved: ${error.message}`);
+./js/site-operations.js:1776:      `This Site Operations item will be removed from SharePoint and cannot be undone.`
+./js/site-operations.js:1781:        APP_CONFIG.sharePoint.lists.siteOperations,
+./js/site-operations.js:1790:          "Site Operations",
+./js/site-operations.js:1792:          "Site Operations item permanently deleted."
+./js/site-operations.js:1805:      console.error("Site Operations delete failed", error);
+./js/site-operations.js:1806:      alert(`Site Operations item could not be deleted: ${error.message}`);
+./js/site-operations.js:1827:        blockers.push(`${attachedOperations.length} Site Operations item${attachedOperations.length === 1 ? "" : "s"}`);
+./js/site-operations.js:1907:  function addSitePdfHeader(doc, title, subtitle = "", reportLabel = "SITE OPERATIONS REPORT") {
+./js/site-operations.js:2029:    addSitePdfHeader(doc, project.name || "Project", project.subtitle || "", "SITE OPERATIONS REPORT");
+./js/site-operations.js:2072:    addSitePdfHeader(doc,`${locationDisplayName(location)} — Site Operations`,subtitle,"LOCATION REPORT");
+./js/site-operations.js:2079:      body:directOperations.length?directOperations.map(op=>[safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${clampPercent(op.percentComplete)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))]):[["No direct Site Operations items.","—","—","—","—","—"]],
+./js/site-operations.js:2105:    const view = document.getElementById("siteOperations");
+./js/site-operations.js:2128:    if (typeof showView === "function") showView("siteOperations");
+./js/site-operations.js:2157:window.SiteOperations = SiteOperations;
+./tools/Upgrade-SiteOperations-LocationSchema.ps1:1:# Upgrade-SiteOperations-LocationSchema.ps1
+./tools/Upgrade-SiteOperations-LocationSchema.ps1:8:Write-Host "AHT Project Control - Site Operations Location Schema Upgrade" -ForegroundColor Cyan
+./tools/Provision-SiteOperations.ps1:1:# Provision-SiteOperations.ps1
+./tools/Provision-SiteOperations.ps1:8:Write-Host "AHT Project Control - Site Operations Provisioning" -ForegroundColor Cyan
+./tools/Provision-SiteOperations.ps1:137:    -Description "Hierarchical project buildings, levels, areas, rooms, exterior zones and supporting locations used by Site Operations."
+./tools/Provision-SiteOperations.ps1:250:# SITE OPERATIONS
+./tools/Provision-SiteOperations.ps1:254:    -Title "Site Operations" `
+./tools/Provision-SiteOperations.ps1:258:Write-Host "Site Operations fields" -ForegroundColor Cyan
+./tools/Provision-SiteOperations.ps1:261:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:267:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:273:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:285:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:300:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:311:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:326:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:339:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:345:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:351:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:357:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:363:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:369:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:375:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:381:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:392:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:403:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:414:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:425:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:441:    -List "Site Operations" `
+./tools/Provision-SiteOperations.ps1:451:Write-Host "  - Site Operations"
+./index.html:51:        <button class="nav-primary nav-child" data-view="siteOperations">Site Operations</button>
+./index.html:132:    <section id="siteOperations" class="view">
+./index.html:136:          <h2>Site Operations</h2>
+./index.html:149:            <button class="btn primary" id="downloadSiteOperationsPdfBtn" type="button" onclick="SiteOperations.downloadSitePDF()">Download Site PDF</button>
+./index.html:150:            <button class="btn primary hidden" id="downloadSiteLocationPdfBtn" type="button" onclick="SiteOperations.downloadLocationPDF()">Download Location PDF</button>
+./index.html:155:      <div class="so-breadcrumb" id="siteOperationsBreadcrumb"></div>
+./index.html:156:      <div id="siteOperationsContent"></div>
+./index.html:627: if(id==="siteOperations"&&window.SiteOperations){
+./index.html:628:   window.SiteOperations.onView();
+./index.html:642: if(window.SiteOperations){
+./index.html:643:   window.SiteOperations.onProjectChanged();
+./index.html:661: // Installation Auto is driven by weighted Site Operations items marked Track Progress.
+./index.html:714:      <div class="automatic-health-preview">Automatic phase results: Planning <strong>${autoPhaseProgress(d,"Planning")}%</strong> · Engineering <strong>${autoPhaseProgress(d,"Engineering")}%</strong> from Deliverables · Installation <strong>${autoPhaseProgress(d,"Installation")}%</strong> from ${d.siteInstallationTrackedItems||0} tracked Site Operations item${(d.siteInstallationTrackedItems||0)===1?"":"s"}</div>
+./index.html:721:      <div class="phase-progress-note">Auto uses Deliverable status for Planning/Engineering and hierarchical Site Operations progress for Installation (Activity Weight → Location Rollup Weight → Project). Overall Auto remains weighted Planning 15% + Engineering 35% + Installation 50%. Manual values are retained and can be used at any time.</div></div>`:""}
+./index.html:969:window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");addSiteLocationBtn.onclick=()=>SiteOperations.openLocationEditor();
+./index.html:970:addSiteOperationBtn.onclick=()=>SiteOperations.openOperationEditor();cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
+./dashboard-architecture.txt:262:./tools/Provision-SiteOperations.ps1
+./dashboard-architecture.txt:265:./tools/Upgrade-SiteOperations-LocationSchema.ps1
+./dashboard-architecture.txt:270:=== SITE OPERATIONS ===
+./dashboard-architecture.txt:271:./css/site-operations.css:1:#siteOperations .page-header {
+./dashboard-architecture.txt:272:./css/site-operations.css:447:  #siteOperations .page-header .actions {
+./dashboard-architecture.txt:273:./css/site-operations.css:470:/* v0.14.59 — compact Site Operations activity overview */
+./dashboard-architecture.txt:274:./css/site-operations.css:630:/* v0.14.59 WIP — Site Operations functional + visual alignment pass */
+./dashboard-architecture.txt:275:./css/site-operations.css:631:.container:has(#siteOperations.active){
+./dashboard-architecture.txt:276:./css/site-operations.css:634:#siteOperations.view.active{
+./dashboard-architecture.txt:277:./css/site-operations.css:637:#siteOperations .page-header{
+./dashboard-architecture.txt:278:./css/site-operations.css:640:#siteOperations .page-header > .actions{
+./dashboard-architecture.txt:279:./css/site-operations.css:643:#siteOperations .so-breadcrumb.hidden{
+./dashboard-architecture.txt:280:./css/site-operations.css:646:#siteOperations .so-breadcrumb{
+./dashboard-architecture.txt:281:./css/site-operations.css:815:  #siteOperations .page-header > .actions{
+./dashboard-architecture.txt:282:./css/site-operations.css:845:/* v0.14.59 WIP — Site Operations Pass 2: scalable child locations + form flow */
+
+=== GANTT / CALENDAR ===
+./css/site-operations.css:1116:/* Section controls now match Calendar/Gantt control scale. */
+./css/mobile.css:69:  /* Gantt stays a real timeline and scrolls horizontally on small screens. */
+./css/mobile.css:70:  .timeline{overflow:visible}
+./css/mobile.css:71:  .gantt-scroll{
+./css/mobile.css:77:  .gantt-shell{min-width:800px}
+./css/mobile.css:78:  .gantt-head,.gantt-row{grid-template-columns:230px minmax(570px,1fr)}
+./css/mobile.css:79:  .gantt-head>div:first-child,
+./css/mobile.css:80:  .gantt-label{
+./css/mobile.css:87:  .gantt-head>div:first-child{z-index:6;background:#edf3f7}
+./css/mobile.css:88:  .gantt-row:nth-child(odd) .gantt-label{background:#fbfcfd}
+./css/mobile.css:175:  /* Calendar: preserve the real seven-day month grid and let it swipe. */
+./css/mobile.css:176:  .calendar-card{max-width:100%;overflow:hidden}
+./css/mobile.css:177:  .calendar-card:has(.month-grid){overflow-x:auto;-webkit-overflow-scrolling:touch}
+./css/mobile.css:186:  /* Gantt */
+./css/mobile.css:187:  .timeline{padding:10px;border-radius:9px}
+./css/mobile.css:188:  .gantt-shell{min-width:720px}
+./css/mobile.css:189:  .gantt-head,.gantt-row{grid-template-columns:205px minmax(515px,1fr)}
+./css/mobile.css:190:  .gantt-head>div,.gantt-label{padding-left:9px;padding-right:9px}
+./css/mobile.css:191:  .gantt-label strong{font-size:11px}
+./css/mobile.css:192:  .gantt-group-header{min-height:40px}
+./css/mobile.css:193:  .gantt-legend{gap:8px}
+./css/mobile.css:194:  .gantt-legend .gantt-note{width:100%;margin-left:0}
+./css/mobile.css:453:  .calendar-nav{
+./css/mobile.css:459:  .calendar-nav-center{
+./css/mobile.css:464:  .calendar-nav-center h3{
+./css/mobile.css:469:  .calendar-month-picker{
+./css/mobile.css:474:  .calendar-today-btn{
+./css/mobile.css:534:/* v0.14.40 — compact calendar jump control */
+./css/mobile.css:536: .calendar-month-picker{height:34px!important;width:108px!important;max-width:108px!important;font-size:12px!important;}
+./css/mobile.css:537: .calendar-nav-btn{height:34px!important;min-height:34px!important;min-width:34px!important;}
+./css/mobile.css:540:/* v0.14.42 mobile calendar cleanup */
+./css/mobile.css:541:@media(max-width:700px){.calendar-today-label{display:none}.calendar-nav-center{justify-content:center!important}.calendar-month-picker{max-width:125px!important}}
+./css/mobile.css:544:/* v0.14.43 — compact calendar month/year navigation on mobile */
+./css/mobile.css:546:  .calendar-nav{
+./css/mobile.css:553:  .calendar-month-stepper{height:34px;flex:0 0 auto;}
+./css/mobile.css:554:  .calendar-month-name{min-width:70px;padding:0 6px;font-size:11px;}
+./css/mobile.css:555:  .calendar-year-picker{width:76px!important;flex:0 0 76px!important;}
+./css/mobile.css:556:  .calendar-nav-spacer{display:none!important;}
+./css/mobile.css:557:  .calendar-today-label{display:none!important;}
+./css/mobile.css:558:  .calendar-today-btn{margin-left:auto!important;padding:0 10px!important;}
+./css/styles.css.v0.14.60.bak:100:.timeline{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px}
+./css/styles.css.v0.14.60.bak:101:.timeline-track{position:relative;margin-left:18px;padding-left:28px}
+./css/styles.css.v0.14.60.bak:102:.timeline-track:before{content:"";position:absolute;left:4px;top:4px;bottom:4px;width:2px;background:#dbe4ed}
+./css/styles.css.v0.14.60.bak:103:.timeline-entry{position:relative;padding:0 0 22px}.timeline-entry:last-child{padding-bottom:0}
+./css/styles.css.v0.14.60.bak:104:.timeline-entry:before{content:"";position:absolute;left:-29px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--blue);border:3px solid #fff;box-shadow:0 0 0 1px #b8c7d6}
+./css/styles.css.v0.14.60.bak:105:.timeline-entry.complete:before{background:var(--green)}.timeline-entry.waiting:before{background:var(--orange)}.timeline-entry.blocked:before{background:var(--red)}
+./css/styles.css.v0.14.60.bak:106:.timeline-entry h4{margin:0 0 3px;font-size:14px}.timeline-entry p{margin:0;color:var(--muted);font-size:12px}.timeline-edit{margin-left:8px;font-size:11px}.agenda-pill{display:flex;justify-content:space-between;gap:8px;align-items:center}.agenda-edit{font-size:10px;white-space:nowrap}
+./css/styles.css.v0.14.60.bak:108:.calendar-card{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+./css/styles.css.v0.14.60.bak:109:.calendar-card h3{margin:0;padding:12px 15px;background:var(--navy);color:#fff;font-size:13px}
+./css/styles.css.v0.14.60.bak:189:.table-card,.panel,.timeline,.calendar-card,.admin-panel,.audit-card{box-shadow:0 4px 18px rgba(15,23,42,.04)}
+./css/styles.css.v0.14.60.bak:251:/* Simple Gantt schedule overview */
+./css/styles.css.v0.14.60.bak:252:.gantt-shell{min-width:820px}
+./css/styles.css.v0.14.60.bak:253:.gantt-scroll{overflow:auto;border:1px solid var(--line);border-radius:9px;background:#fff}
+./css/styles.css.v0.14.60.bak:254:.gantt-head,.gantt-row{display:grid;grid-template-columns:260px minmax(620px,1fr)}
+./css/styles.css.v0.14.60.bak:255:.gantt-head{position:sticky;top:0;z-index:4;background:#edf3f7;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;color:#44596d}
+./css/styles.css.v0.14.60.bak:256:.gantt-head>div,.gantt-label{padding:10px 12px}
+./css/styles.css.v0.14.60.bak:257:.gantt-scale,.gantt-lane{position:relative;background-image:linear-gradient(to right,rgba(202,214,224,.25) 1px,transparent 1px);background-size:var(--gantt-week,14.2857142857%) 100%}
+./css/styles.css.v0.14.60.bak:258:.gantt-scale{height:30px;border-left:1px solid var(--line)}
+./css/styles.css.v0.14.60.bak:259:.gantt-scale span{position:absolute;top:7px;transform:translateX(-50%);white-space:nowrap;font-weight:700}
+./css/styles.css.v0.14.60.bak:260:.gantt-group{border-bottom:1px solid #dfe6ec}
+./css/styles.css.v0.14.60.bak:261:.gantt-group:last-child{border-bottom:0}
+./css/styles.css.v0.14.60.bak:262:.gantt-group-header{width:100%;height:35px;border:0;border-radius:0;background:#f1f5f8;color:#314b63;padding:0 12px;display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer}
+./css/styles.css.v0.14.60.bak:263:.gantt-group-header:hover{background:#e7eef4}
+./css/styles.css.v0.14.60.bak:264:.gantt-group-arrow{width:13px;font-size:10px;color:#60778b}
+./css/styles.css.v0.14.60.bak:265:.gantt-group-header strong{font-size:11px;letter-spacing:.055em;text-transform:uppercase}
+./css/styles.css.v0.14.60.bak:266:.gantt-group-count{min-width:22px;height:20px;border-radius:999px;background:#dce6ee;color:#40576b;display:inline-grid;place-items:center;font-size:10px;font-weight:800}
+./css/styles.css.v0.14.60.bak:267:.gantt-row{min-height:60px;border-top:1px solid #e6ebef}
+./css/styles.css.v0.14.60.bak:268:.gantt-row:nth-child(odd){background:#fbfcfd}
+./css/styles.css.v0.14.60.bak:269:.gantt-label{display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0}
+./css/styles.css.v0.14.60.bak:270:.gantt-label[onclick]{cursor:pointer}
+./css/styles.css.v0.14.60.bak:271:.gantt-label[onclick]:hover{background:#f0f5f8}
+./css/styles.css.v0.14.60.bak:272:.gantt-label strong{font-size:12px;line-height:1.25;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+./css/styles.css.v0.14.60.bak:273:.gantt-label span{font-size:10px;color:var(--muted)}
+./css/styles.css.v0.14.60.bak:274:.gantt-lane{border-left:1px solid var(--line);min-height:60px}
+./css/styles.css.v0.14.60.bak:275:.gantt-bar{position:absolute;top:16px;height:28px;min-width:12px;border:0;border-radius:6px;padding:0 7px;display:flex;align-items:center;justify-content:flex-end;gap:5px;color:#fff;font-size:10px;font-weight:800;overflow:visible;box-shadow:0 2px 5px rgba(15,35,55,.14);cursor:default}
+./css/styles.css.v0.14.60.bak:276:.gantt-bar.active{background:#2f79b9}
+./css/styles.css.v0.14.60.bak:277:.gantt-bar.waiting{background:#d58a24}
+./css/styles.css.v0.14.60.bak:278:.gantt-bar.blocked{background:#b8443c}
+./css/styles.css.v0.14.60.bak:279:.gantt-bar.complete{background:#2f8a63}
+./css/styles.css.v0.14.60.bak:280:.gantt-bar.pending{background:#7b8793}
+./css/styles.css.v0.14.60.bak:281:.gantt-bar[onclick]{cursor:pointer}
+./css/styles.css.v0.14.60.bak:282:.gantt-bar[onclick]:hover{filter:brightness(.94);transform:translateY(-1px)}
+./css/styles.css.v0.14.60.bak:283:.gantt-today{position:absolute;top:0;bottom:0;width:2px;background:#d64045;z-index:2;pointer-events:none}
+./css/styles.css.v0.14.60.bak:284:.gantt-today:before{content:"Today";position:absolute;top:2px;left:4px;background:#fff;color:#b52e33;font-size:9px;font-weight:800;padding:1px 3px;border-radius:3px;white-space:nowrap}
+./css/styles.css.v0.14.60.bak:285:.gantt-legend{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px;font-size:11px;color:#536577}
+./css/styles.css.v0.14.60.bak:286:.gantt-legend>span{display:flex;align-items:center;gap:5px}
+./css/styles.css.v0.14.60.bak:287:.gantt-legend i{width:10px;height:10px;border-radius:3px}
+./css/styles.css.v0.14.60.bak:288:.gantt-legend i.active{background:#2f79b9}
+./css/styles.css.v0.14.60.bak:289:.gantt-legend i.waiting{background:#d58a24}
+./css/styles.css.v0.14.60.bak:290:.gantt-legend i.blocked{background:#b8443c}
+./css/styles.css.v0.14.60.bak:291:.gantt-legend i.complete{background:#2f8a63}
+./css/styles.css.v0.14.60.bak:292:.gantt-legend .gantt-note{margin-left:auto;color:var(--muted);font-style:italic}
+./css/styles.css.v0.14.60.bak:293:.gantt-unscheduled,.gantt-empty{margin-top:12px;padding:11px 12px;border-radius:8px;background:#f4f7f9;color:#5a6b7b;font-size:12px}
+./css/styles.css.v0.14.60.bak:295: .timeline{overflow:auto;padding:12px}
+./css/styles.css.v0.14.60.bak:296: .gantt-shell{min-width:760px}
+./css/styles.css.v0.14.60.bak:297: .gantt-head,.gantt-row{grid-template-columns:225px minmax(535px,1fr)}
+./css/styles.css.v0.14.60.bak:298: .gantt-legend .gantt-note{width:100%;margin-left:0}
+./css/styles.css.v0.14.60.bak:708:/* Calendar navigation */
+./css/styles.css.v0.14.60.bak:709:.calendar-nav{
+./css/styles.css.v0.14.60.bak:717:.calendar-nav-center{
+./css/styles.css.v0.14.60.bak:725:.calendar-nav-center h3{margin:0}
+./css/styles.css.v0.14.60.bak:727:.calendar-nav-actions{
+./css/styles.css.v0.14.60.bak:733:.calendar-nav-btn{
+./css/styles.css.v0.14.60.bak:740:.calendar-today-btn{
+./css/styles.css.v0.14.60.bak:745:.calendar-month-picker{
+./css/styles.css.v0.14.60.bak:854:/* v0.14.40 — calendar, Information Required, and audit refinements */
+./css/styles.css.v0.14.60.bak:857:.calendar-month-picker{height:34px!important;width:112px!important;max-width:112px!important;padding:0 26px 0 10px!important;border:1px solid #9fc5dc!important;border-radius:8px!important;background-color:#fff!important;color:var(--navy)!important;font-size:12px!important;font-weight:700!important;line-height:32px!important;box-sizing:border-box!important;}
+./css/styles.css.v0.14.60.bak:858:.calendar-nav-btn,.calendar-today-btn{height:34px!important;min-height:34px!important;border-radius:8px!important;box-sizing:border-box!important;}
+./css/styles.css.v0.14.60.bak:859:.calendar-nav-center{gap:8px!important;}
+./css/styles.css.v0.14.60.bak:861:/* v0.14.42 calendar + audit cleanup */
+./css/styles.css.v0.14.60.bak:862:.calendar-nav-center{justify-content:flex-start!important;flex:0 1 auto!important;}
+./css/styles.css.v0.14.60.bak:863:.calendar-month-picker{height:34px!important;border-radius:8px!important;padding:5px 28px 5px 10px!important;font-size:12px!important;}
+./css/styles.css.v0.14.60.bak:864:.calendar-today-label{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;}
+./css/styles.css.v0.14.60.bak:868:/* v0.14.43 — unified calendar month/year navigation */
+./css/styles.css.v0.14.60.bak:869:.calendar-nav{
+./css/styles.css.v0.14.60.bak:877:.calendar-month-stepper{
+./css/styles.css.v0.14.60.bak:886:.calendar-month-stepper .calendar-nav-btn{
+./css/styles.css.v0.14.60.bak:902:.calendar-month-stepper .calendar-nav-btn:hover{background:var(--soft-blue)!important;}
+./css/styles.css.v0.14.60.bak:903:.calendar-month-name{
+./css/styles.css.v0.14.60.bak:915:.calendar-year-picker{
+./css/styles.css.v0.14.60.bak:928:.calendar-nav-spacer{flex:1 1 auto;min-width:8px;}
+./css/styles.css.v0.14.60.bak:929:.calendar-today-label{
+./css/styles.css.v0.14.60.bak:940:.calendar-today-btn{
+./css/styles.css.v0.14.60.bak:1051:.gantt-group-controls{
+./css/styles.css.v0.14.60.bak:1057:.gantt-group-controls .linkbtn{
+./css/styles.css.v0.14.60.bak:1062:.gantt-bar{
+./css/styles.css.v0.14.60.bak:1066:.gantt-bar span{
+./css/styles.css.v0.14.60.bak:1083:/* v0.14.59 — collapsed Gantt groups remain a real Gantt */
+./css/styles.css.v0.14.60.bak:1084:.gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1098:.gantt-group-summary:hover{background:#e7eef4}
+./css/styles.css.v0.14.60.bak:1099:.gantt-group-summary-label{
+./css/styles.css.v0.14.60.bak:1106:.gantt-group-summary-label strong{
+./css/styles.css.v0.14.60.bak:1115:.gantt-group-summary-lane{
+./css/styles.css.v0.14.60.bak:1120:  background-size:var(--gantt-week,14.2857142857%) 100%;
+./css/styles.css.v0.14.60.bak:1122:.gantt-group-summary-bar{
+./css/styles.css.v0.14.60.bak:1132:.gantt-group-summary-bar.active{background:#3b83bd}
+./css/styles.css.v0.14.60.bak:1133:.gantt-group-summary-bar.waiting{background:#d99022}
+./css/styles.css.v0.14.60.bak:1134:.gantt-group-summary-bar.blocked{background:#b74747}
+./css/styles.css.v0.14.60.bak:1135:.gantt-group-summary-bar.complete{background:#2d8a68}
+./css/styles.css.v0.14.60.bak:1136:.gantt-group-summary-bar.pending{background:#8b98a3}
+./css/styles.css.v0.14.60.bak:1139:  .gantt-group-summary{grid-template-columns:225px minmax(535px,1fr)}
+./css/styles.css.v0.14.60.bak:1143:/* v0.14.59 — Gantt time-axis readability */
+./css/styles.css.v0.14.60.bak:1144:.container:has(#timeline.active){
+./css/styles.css.v0.14.60.bak:1148:#timeline.view.active{
+./css/styles.css.v0.14.60.bak:1152:#timeline .timeline{
+./css/styles.css.v0.14.60.bak:1156:.gantt-scroll{
+./css/styles.css.v0.14.60.bak:1164:.gantt-shell{
+./css/styles.css.v0.14.60.bak:1165:  min-width:calc(220px + var(--gantt-chart-min,900px));
+./css/styles.css.v0.14.60.bak:1168:.gantt-head,
+./css/styles.css.v0.14.60.bak:1169:.gantt-row,
+./css/styles.css.v0.14.60.bak:1170:.gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1171:  grid-template-columns:220px minmax(var(--gantt-chart-min,900px),1fr);
+./css/styles.css.v0.14.60.bak:1174:.gantt-scale{
+./css/styles.css.v0.14.60.bak:1179:.gantt-scale .gantt-week-label{
+./css/styles.css.v0.14.60.bak:1194:.gantt-scale .gantt-week-label:first-child{
+./css/styles.css.v0.14.60.bak:1198:.gantt-scale,
+./css/styles.css.v0.14.60.bak:1199:.gantt-lane,
+./css/styles.css.v0.14.60.bak:1200:.gantt-group-summary-lane{
+./css/styles.css.v0.14.60.bak:1204:.gantt-head>div:first-child{
+./css/styles.css.v0.14.60.bak:1212:.gantt-label{
+./css/styles.css.v0.14.60.bak:1219:.gantt-row:nth-child(odd) .gantt-label{
+./css/styles.css.v0.14.60.bak:1223:.gantt-row:nth-child(even) .gantt-label{
+./css/styles.css.v0.14.60.bak:1227:.gantt-group-summary-label{
+./css/styles.css.v0.14.60.bak:1235:.gantt-group-summary:hover .gantt-group-summary-label{
+./css/styles.css.v0.14.60.bak:1240:  .gantt-shell{
+./css/styles.css.v0.14.60.bak:1241:    min-width:calc(190px + var(--gantt-chart-min,900px));
+./css/styles.css.v0.14.60.bak:1244:  .gantt-head,
+./css/styles.css.v0.14.60.bak:1245:  .gantt-row,
+./css/styles.css.v0.14.60.bak:1246:  .gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1247:    grid-template-columns:190px minmax(var(--gantt-chart-min,900px),1fr);
+./css/styles.css.v0.14.60.bak:1252:/* v0.14.59 — correct Gantt horizontal scrolling */
+./css/styles.css.v0.14.60.bak:1253:.gantt-shell{
+./css/styles.css.v0.14.60.bak:1258:.gantt-scroll{
+./css/styles.css.v0.14.60.bak:1267:.gantt-scroll>.gantt-head,
+./css/styles.css.v0.14.60.bak:1268:.gantt-scroll>.gantt-group{
+./css/styles.css.v0.14.60.bak:1269:  min-width:calc(220px + var(--gantt-chart-min,820px));
+./css/styles.css.v0.14.60.bak:1272:.gantt-scroll>.gantt-group .gantt-row,
+./css/styles.css.v0.14.60.bak:1273:.gantt-scroll>.gantt-group .gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1274:  min-width:calc(220px + var(--gantt-chart-min,820px));
+./css/styles.css.v0.14.60.bak:1277:.gantt-head,
+./css/styles.css.v0.14.60.bak:1278:.gantt-row,
+./css/styles.css.v0.14.60.bak:1279:.gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1280:  grid-template-columns:220px minmax(var(--gantt-chart-min,820px),1fr);
+./css/styles.css.v0.14.60.bak:1283:.gantt-scroll-controls{
+./css/styles.css.v0.14.60.bak:1290:.gantt-scroll-controls .linkbtn{
+./css/styles.css.v0.14.60.bak:1297:.gantt-scroll::-webkit-scrollbar{
+./css/styles.css.v0.14.60.bak:1300:.gantt-scroll::-webkit-scrollbar-track{
+./css/styles.css.v0.14.60.bak:1304:.gantt-scroll::-webkit-scrollbar-thumb{
+./css/styles.css.v0.14.60.bak:1309:.gantt-scroll::-webkit-scrollbar-thumb:hover{
+./css/styles.css.v0.14.60.bak:1314:  .gantt-scroll>.gantt-head,
+./css/styles.css.v0.14.60.bak:1315:  .gantt-scroll>.gantt-group,
+./css/styles.css.v0.14.60.bak:1316:  .gantt-scroll>.gantt-group .gantt-row,
+./css/styles.css.v0.14.60.bak:1317:  .gantt-scroll>.gantt-group .gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1318:    min-width:calc(190px + var(--gantt-chart-min,820px));
+./css/styles.css.v0.14.60.bak:1321:  .gantt-head,
+./css/styles.css.v0.14.60.bak:1322:  .gantt-row,
+./css/styles.css.v0.14.60.bak:1323:  .gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1324:    grid-template-columns:190px minmax(var(--gantt-chart-min,820px),1fr);
+./css/styles.css.v0.14.60.bak:1329:/* v0.14.59 — current-week Gantt viewport + persistent drag scrollbar */
+./css/styles.css.v0.14.60.bak:1330:.gantt-shell{
+./css/styles.css.v0.14.60.bak:1335:.gantt-scroll{
+./css/styles.css.v0.14.60.bak:1345:.gantt-scroll::-webkit-scrollbar{
+./css/styles.css.v0.14.60.bak:1349:.gantt-scroll>.gantt-head,
+./css/styles.css.v0.14.60.bak:1350:.gantt-scroll>.gantt-group,
+./css/styles.css.v0.14.60.bak:1351:.gantt-scroll>.gantt-group .gantt-row,
+./css/styles.css.v0.14.60.bak:1352:.gantt-scroll>.gantt-group .gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1353:  min-width:calc(220px + var(--gantt-chart-min,960px));
+./css/styles.css.v0.14.60.bak:1356:.gantt-head,
+./css/styles.css.v0.14.60.bak:1357:.gantt-row,
+./css/styles.css.v0.14.60.bak:1358:.gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1359:  grid-template-columns:220px minmax(var(--gantt-chart-min,960px),1fr);
+./css/styles.css.v0.14.60.bak:1362:.gantt-bottom-scroll{
+./css/styles.css.v0.14.60.bak:1370:.gantt-bottom-scroll-track{
+./css/styles.css.v0.14.60.bak:1380:.gantt-bottom-scroll-track.disabled{
+./css/styles.css.v0.14.60.bak:1385:.gantt-bottom-scroll-thumb{
+./css/styles.css.v0.14.60.bak:1397:.gantt-bottom-scroll-thumb:hover{background:#69737b}
+./css/styles.css.v0.14.60.bak:1398:.gantt-bottom-scroll-thumb:active{cursor:grabbing;background:#56616a}
+./css/styles.css.v0.14.60.bak:1401:  .gantt-scroll>.gantt-head,
+./css/styles.css.v0.14.60.bak:1402:  .gantt-scroll>.gantt-group,
+./css/styles.css.v0.14.60.bak:1403:  .gantt-scroll>.gantt-group .gantt-row,
+./css/styles.css.v0.14.60.bak:1404:  .gantt-scroll>.gantt-group .gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1405:    min-width:calc(190px + var(--gantt-chart-min,960px));
+./css/styles.css.v0.14.60.bak:1408:  .gantt-head,
+./css/styles.css.v0.14.60.bak:1409:  .gantt-row,
+./css/styles.css.v0.14.60.bak:1410:  .gantt-group-summary{
+./css/styles.css.v0.14.60.bak:1411:    grid-template-columns:190px minmax(var(--gantt-chart-min,960px),1fr);
+./css/styles.css.v0.14.60.bak:1415:/* v0.14.59 — hide Today text in Gantt header only */
+./css/styles.css.v0.14.60.bak:1416:.gantt-today.head::before{
+./css/styles.css.v0.14.60.bak:1422:/* v0.14.59 WIP — Calendar visual cleanup */
+./css/styles.css.v0.14.60.bak:1423:#calendar .agenda-grid{
+./css/styles.css.v0.14.60.bak:1427:#calendar .calendar-main-card,
+./css/styles.css.v0.14.60.bak:1428:#calendar .calendar-agenda-card{
+./css/styles.css.v0.14.60.bak:1431:#calendar .calendar-nav{
+./css/styles.css.v0.14.60.bak:1436:#calendar .agenda-date{
+./css/styles.css.v0.14.60.bak:1441:#calendar .day-cell{
+./css/styles.css.v0.14.60.bak:1444:#calendar .event-dot{
+./css/styles.css.v0.14.60.bak:1449:  #calendar .agenda-grid{grid-template-columns:1fr;}
+./css/styles.css.v0.14.60.bak:1450:  #calendar .calendar-agenda-card{order:1;}
+./css/styles.css.v0.14.60.bak:1451:  #calendar .calendar-main-card{order:2;}
+./css/styles.css.v0.14.60.bak:1454:/* v0.14.59 WIP — Calendar use available desktop width */
+./css/styles.css.v0.14.60.bak:1455:.container:has(#calendar.active){
+./css/styles.css.v0.14.60.bak:1458:#calendar.view.active{
+./css/styles.css.v0.14.60.bak:1461:#calendar .agenda-grid{
+./css/styles.css.v0.14.60.bak:1465:  #calendar .agenda-grid{
+./css/styles.css.v0.14.60.bak:1470:  #calendar .agenda-grid{grid-template-columns:1fr;}
+./css/styles.css.v0.14.60.bak:1474:/* v0.14.59 WIP — Calendar Today marker matches Gantt */
+./css/styles.css.v0.14.60.bak:1475:#calendar .day-cell.today{position:relative;}
+./css/styles.css.v0.14.60.bak:1476:#calendar .calendar-today-marker{
+./css/styles.css.v0.14.60.bak:1491:/* v0.14.59 WIP — Calendar Today inline white bubble */
+./css/styles.css.v0.14.60.bak:1492:#calendar .calendar-today-marker{
+
+=== SHAREPOINT / GRAPH ===
+./index.html.v0.14.60.bak:228:            <p class="small">Creates an Entra B2B guest and grants access to this dashboard group only. This does not add the guest to SharePoint.</p>
+./index.html.v0.14.60.bak:359:<script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+./index.html.v0.14.60.bak:439:   // Write directly to SharePoint using the provider primitives that are already
+./index.html.v0.14.60.bak:530: const skip=["id","sharePointId","legacyId","projectSharePointId"];
+./index.html.v0.14.60.bak:1123:     `and explicit user project assignments from Project Control and SharePoint.\n\n`+
+./index.html.v0.14.60.bak:1218:        id:Number(p.sharePointId||0),
+./index.html.v0.14.60.bak:1219:        sharePointId:Number(p.sharePointId||0),
+./index.html.v0.14.60.bak:1231:  const recordId=Number(record.sharePointId||record.id||0);
+./index.html.v0.14.60.bak:1234:    Number(c.recordSharePointId)===recordId &&
+./index.html.v0.14.60.bak:1315:  openComments("Project",Number(project.sharePointId||0));
+./backup-v0.14.43-20260820-193231/js/data-provider.js:4:// APP_CONFIG.dataProvider is changed to "sharePoint". SharePointDataProvider
+./backup-v0.14.43-20260820-193231/js/data-provider.js:5:// maps the four SharePoint Lists back into the same state shape already used
+./backup-v0.14.43-20260820-193231/js/data-provider.js:32:const SharePointDataProvider = {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:33:  name: "sharePoint",
+./backup-v0.14.43-20260820-193231/js/data-provider.js:36:    return APP_CONFIG.sharePoint;
+./backup-v0.14.43-20260820-193231/js/data-provider.js:49:      path.startsWith("http") ? path : `https://graph.microsoft.com/v1.0${path}`,
+./backup-v0.14.43-20260820-193231/js/data-provider.js:101:  async getListId(displayName) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:102:    this._listIds ||= {};
+./backup-v0.14.43-20260820-193231/js/data-provider.js:103:    if (this._listIds[displayName]) return this._listIds[displayName];
+./backup-v0.14.43-20260820-193231/js/data-provider.js:110:        this._listIds[list.displayName] = list.id;
+./backup-v0.14.43-20260820-193231/js/data-provider.js:115:    const id = this._listIds[displayName];
+./backup-v0.14.43-20260820-193231/js/data-provider.js:116:    if (!id) throw new Error(`SharePoint list not found: ${displayName}`);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:122:    const listId = await this.getListId(this.config.lists.projects);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:125:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+./backup-v0.14.43-20260820-193231/js/data-provider.js:139:    const listId = await this.getListId(displayName);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:146:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+./backup-v0.14.43-20260820-193231/js/data-provider.js:179:      sharePointId: Number(item.id),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:181:      projectSharePointId: this.projectLookupId(fields),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:210:      sharePointId: Number(item.id),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:212:      projectSharePointId: this.projectLookupId(fields),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:229:      sharePointId: Number(item.id),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:273:    // if SharePoint internal column names differ from their display names.
+./backup-v0.14.43-20260820-193231/js/data-provider.js:277:      console.info(`Loaded ${changeLogItems.length} Change Log entr${changeLogItems.length===1?"y":"ies"} from SharePoint.`);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:279:      console.error("Change Log load failed; core SharePoint project data remains active.", error);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:296:          projectSharePointId: item.projectSharePointId,
+./backup-v0.14.43-20260820-193231/js/data-provider.js:306:        const sharePointId = Number(item.id);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:310:          sharePointId,
+./backup-v0.14.43-20260820-193231/js/data-provider.js:324:          // SharePoint is the permanent source for project Last Updated.
+./backup-v0.14.43-20260820-193231/js/data-provider.js:353:          deliverables: deliverables.filter(record => record.projectSharePointId === sharePointId),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:354:          info: informationRequired.filter(record => record.projectSharePointId === sharePointId)
+./backup-v0.14.43-20260820-193231/js/data-provider.js:382:    const listId = await this.getListId(displayName);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:384:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items`,
+./backup-v0.14.43-20260820-193231/js/data-provider.js:391:    const listId = await this.getListId(displayName);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:393:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}/fields`,
+./backup-v0.14.43-20260820-193231/js/data-provider.js:401:    const listId = await this.getListId(displayName);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:403:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}`,
+./backup-v0.14.43-20260820-193231/js/data-provider.js:439:  deliverableFields(record, projectSharePointId) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:442:      ProjectLookupId: String(projectSharePointId),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:463:  informationFields(record, projectSharePointId) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:466:      ProjectLookupId: String(projectSharePointId),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:486:    // Projects are updated first so newly-created projects have a SharePoint lookup ID
+./backup-v0.14.43-20260820-193231/js/data-provider.js:495:      if (!project.sharePointId) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:497:        project.sharePointId = Number(created.id);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:505:          project.sharePointId,
+./backup-v0.14.43-20260820-193231/js/data-provider.js:515:        if (!record.sharePointId) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:516:          const created = await this.createItem(this.config.lists.deliverables, this.deliverableFields(record, project.sharePointId));
+./backup-v0.14.43-20260820-193231/js/data-provider.js:517:          record.sharePointId = Number(created.id);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:519:        } else if (!prior || this.comparable(this.deliverableFields(prior, project.sharePointId)) !== this.comparable(this.deliverableFields(record, project.sharePointId))) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:520:          await this.updateItem(this.config.lists.deliverables, record.sharePointId, this.deliverableFields(record, project.sharePointId));
+./backup-v0.14.43-20260820-193231/js/data-provider.js:522:        currentDeliverableIds.add(String(record.sharePointId || record.id));
+./backup-v0.14.43-20260820-193231/js/data-provider.js:525:        const priorId = prior.sharePointId || prior.id;
+./backup-v0.14.43-20260820-193231/js/data-provider.js:536:        if (!record.sharePointId) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:537:          const created = await this.createItem(this.config.lists.informationRequired, this.informationFields(record, project.sharePointId));
+./backup-v0.14.43-20260820-193231/js/data-provider.js:538:          record.sharePointId = Number(created.id);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:540:        } else if (!prior || this.comparable(this.informationFields(prior, project.sharePointId)) !== this.comparable(this.informationFields(record, project.sharePointId))) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:541:          await this.updateItem(this.config.lists.informationRequired, record.sharePointId, this.informationFields(record, project.sharePointId));
+./backup-v0.14.43-20260820-193231/js/data-provider.js:543:        currentInfoIds.add(String(record.sharePointId || record.id));
+./backup-v0.14.43-20260820-193231/js/data-provider.js:546:        const priorId = prior.sharePointId || prior.id;
+./backup-v0.14.43-20260820-193231/js/data-provider.js:555:    const previousAuditIds = new Set((previous.auditLog || []).map(record => String(record.sharePointId || record.id)));
+./backup-v0.14.43-20260820-193231/js/data-provider.js:557:      const existingId = record.sharePointId || (Number.isInteger(record.id) && record.id < 1000000000 ? record.id : null);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:559:      if (record.sharePointId) continue;
+./backup-v0.14.43-20260820-193231/js/data-provider.js:562:        record.sharePointId = Number(created.id);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:575:    // Delete child records first so SharePoint lookup relationships cannot
+./backup-v0.14.43-20260820-193231/js/data-provider.js:578:      const itemId = record.sharePointId || record.id;
+./backup-v0.14.43-20260820-193231/js/data-provider.js:585:      const itemId = record.sharePointId || record.id;
+./backup-v0.14.43-20260820-193231/js/data-provider.js:592:    if (project.sharePointId) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:593:      await this.deleteItem(this.config.lists.projects, project.sharePointId);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:649:      id: fields.ProfileKey || `sharepoint-user-${row.id}`,
+./backup-v0.14.43-20260820-193231/js/data-provider.js:650:      sharePointAccessId: Number(row.id),
+./backup-v0.14.43-20260820-193231/js/data-provider.js:712:      const sharePointUsers = rows
+./backup-v0.14.43-20260820-193231/js/data-provider.js:718:      for (const spUser of sharePointUsers) {
+./backup-v0.14.43-20260820-193231/js/data-provider.js:749:      console.warn("Could not load Dashboard Access from SharePoint; using cached users.", error);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:761:    const bySharePointId = new Map();
+./backup-v0.14.43-20260820-193231/js/data-provider.js:775:      if (row.id != null) bySharePointId.set(String(row.id), row);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:818:      const sharePointAccessId = String(user.sharePointAccessId || "").trim();
+./backup-v0.14.43-20260820-193231/js/data-provider.js:823:        (sharePointAccessId && bySharePointId.get(sharePointAccessId)) ||
+./backup-v0.14.43-20260820-193231/js/data-provider.js:830:        !sharePointAccessId &&
+./backup-v0.14.43-20260820-193231/js/data-provider.js:848:        user.sharePointAccessId = Number(existing.id);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:860:        user.sharePointAccessId = Number(created.id);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:864:        if (created.id != null) bySharePointId.set(String(created.id), row);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:874:  name: "sharePointWithLocalFallback",
+./backup-v0.14.43-20260820-193231/js/data-provider.js:880:      return await SharePointDataProvider.loadState();
+./backup-v0.14.43-20260820-193231/js/data-provider.js:884:      console.warn("SharePoint unavailable; using LocalStorage data.", error);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:893:    return SharePointDataProvider.saveState(nextState);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:898:    return SharePointDataProvider.deleteProject(project);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:905:    return SharePointDataProvider.loadUsers();
+./backup-v0.14.43-20260820-193231/js/data-provider.js:912:    return SharePointDataProvider.saveUsers(nextUsers);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:917:    return SharePointDataProvider.getDashboardAccessProfile(graphUser);
+./backup-v0.14.43-20260820-193231/js/data-provider.js:923:    case "sharePoint":
+./backup-v0.14.43-20260820-193231/js/data-provider.js:926:        : SharePointDataProvider;
+./backup-v0.14.43-20260820-193231/js/config.js:19:  //   "microsoft" = reserved for Entra/MSAL integration
+./backup-v0.14.43-20260820-193231/js/config.js:23:  // Change to "sharePoint" only after Microsoft authentication is configured
+./backup-v0.14.43-20260820-193231/js/config.js:24:  // and the SharePoint read-only connection test passes.
+./backup-v0.14.43-20260820-193231/js/config.js:25:  dataProvider: "sharePoint",
+./backup-v0.14.43-20260820-193231/js/config.js:27:  // During the first SharePoint tests, a failed SharePoint load can fall back
+./backup-v0.14.43-20260820-193231/js/config.js:63:    // Existing Entra group already nested in "Newbury North Members" in SharePoint.
+./backup-v0.14.43-20260820-193231/js/config.js:77:    // external users out of SharePoint while making assignments available on
+./backup-v0.14.43-20260820-193231/js/config.js:83:  sharePoint: Object.freeze({
+./backup-v0.14.43-20260820-193231/js/config.js:84:    siteUrl: "https://ahtglobalteam.sharepoint.com/sites/NewburyNorth",
+./js/entra-admin.js:28:  const response = await fetch(`https://graph.microsoft.com/v1.0${path}`, { ...options, headers });
+./js/entra-admin.js:92:    body: JSON.stringify({ "@odata.id": `https://graph.microsoft.com/v1.0/directoryObjects/${userId}` })
+./js/entra-admin.js:100:  if (!confirm(`Invite ${name} (${email}) and grant access to Project Control?\n\nThis does not add them to SharePoint.`)) return;
+./js/app.js:35:    // User profiles remain local during this read-only SharePoint phase.
+./js/app.js:41:    // Initialize Microsoft authentication first. SharePoint cannot be queried
+./js/app.js:42:    // until MSAL has restored (or completed) the signed-in account.
+./js/app.js:55:      // No SharePoint request is made until the user signs in.
+./js/microsoft-access.js:7:  const GRAPH = "https://graph.microsoft.com/v1.0";
+./js/microsoft-access.js:166:      await syncSharePointEditAccess(objectId, profile.role);
+./js/microsoft-access.js:402:  async function syncSharePointEditAccess(objectId, role) {
+./js/microsoft-access.js:488:      await syncSharePointEditAccess(user.id, role);
+./js/data-provider.js:4:// APP_CONFIG.dataProvider is changed to "sharePoint". SharePointDataProvider
+./js/data-provider.js:5:// maps the four SharePoint Lists back into the same state shape already used
+./js/data-provider.js:32:const SharePointDataProvider = {
+./js/data-provider.js:33:  name: "sharePoint",
+./js/data-provider.js:36:    return APP_CONFIG.sharePoint;
+./js/data-provider.js:49:      path.startsWith("http") ? path : `https://graph.microsoft.com/v1.0${path}`,
+./js/data-provider.js:101:  async getListId(displayName) {
+./js/data-provider.js:102:    this._listIds ||= {};
+./js/data-provider.js:103:    if (this._listIds[displayName]) return this._listIds[displayName];
+./js/data-provider.js:110:        this._listIds[list.displayName] = list.id;
+./js/data-provider.js:115:    const id = this._listIds[displayName];
+./js/data-provider.js:116:    if (!id) throw new Error(`SharePoint list not found: ${displayName}`);
+./js/data-provider.js:122:    const listId = await this.getListId(this.config.lists.projects);
+./js/data-provider.js:125:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+./js/data-provider.js:139:    const listId = await this.getListId(displayName);
+./js/data-provider.js:146:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+./js/data-provider.js:179:      sharePointId: Number(item.id),
+./js/data-provider.js:181:      projectSharePointId: this.projectLookupId(fields),
+./js/data-provider.js:210:      sharePointId: Number(item.id),
+./js/data-provider.js:212:      projectSharePointId: this.projectLookupId(fields),
+./js/data-provider.js:231:      sharePointId: Number(item.id),
+./js/data-provider.js:262:      sharePointId: Number(created.id),
+./js/data-provider.js:272:      sharePointId: Number(item.id),
+./js/data-provider.js:276:      recordSharePointId: Number(fields.RecordSharePointId || 0),
+./js/data-provider.js:297:      RecordSharePointId: Number(record.sharePointId || record.id || 0),
+./js/data-provider.js:318:      RecordSharePointId: Number(record.sharePointId || record.id || 0),
+./js/data-provider.js:373:      sharePointId: Number(created.id),
+./js/data-provider.js:377:      recordSharePointId: Number(record.sharePointId || record.id || 0),
+./js/data-provider.js:387:    if (!comment?.sharePointId && !comment?.id) throw new Error("Comment id is missing.");
+./js/data-provider.js:389:    await this.updateItem(this.config.lists.comments, comment.sharePointId || comment.id, {
+./js/data-provider.js:398:    if (!comment?.sharePointId && !comment?.id) throw new Error("Comment id is missing.");
+./js/data-provider.js:399:    await this.deleteItem(this.config.lists.comments, comment.sharePointId || comment.id);
+./js/data-provider.js:405:    const projectSharePointId = this.projectLookupId(fields);
+./js/data-provider.js:406:    const project = projects.find(p => Number(p.sharePointId) === Number(projectSharePointId));
+./js/data-provider.js:409:      sharePointId: Number(item.id),
+./js/data-provider.js:422:  changeLogFields(record, projectSharePointId = 0) {
+./js/data-provider.js:432:    if (projectSharePointId) fields.ProjectLookupId = String(projectSharePointId);
+./js/data-provider.js:471:    // if SharePoint internal column names differ from their display names.
+./js/data-provider.js:475:      console.info(`Loaded ${changeLogItems.length} Change Log entr${changeLogItems.length===1?"y":"ies"} from SharePoint.`);
+./js/data-provider.js:477:      console.error("Change Log load failed; core SharePoint project data remains active.", error);
+./js/data-provider.js:484:      console.info(`Loaded ${projectActivityItems.length} Project Activity entr${projectActivityItems.length===1?"y":"ies"} from SharePoint.`);
+./js/data-provider.js:486:      console.error("Project Activity load failed; core SharePoint project data remains active.", error);
+./js/data-provider.js:493:      console.info(`Loaded ${projectCommentItems.length} Project Comment entr${projectCommentItems.length===1?"y":"ies"} from SharePoint.`);
+./js/data-provider.js:495:      console.error("Project Comments load failed; core SharePoint project data remains active.", error);
+./js/data-provider.js:512:          projectSharePointId: item.projectSharePointId,
+./js/data-provider.js:547:      const projectSharePointId = this.projectLookupId(fields);
+./js/data-provider.js:548:      if (!id || !projectSharePointId) continue;
+./js/data-provider.js:553:      const location = { id, projectSharePointId, parentId, progressWeight };
+./js/data-provider.js:560:        const roots = rootsByProject.get(projectSharePointId) || [];
+./js/data-provider.js:562:        rootsByProject.set(projectSharePointId, roots);
+./js/data-provider.js:570:      const projectSharePointId = this.projectLookupId(fields);
+./js/data-provider.js:571:      if (!projectSharePointId || !Boolean(fields.TrackProgress)) continue;
+./js/data-provider.js:586:      const fallback = flatFallbackByProject.get(projectSharePointId) || { weightedTotal: 0, totalWeight: 0, count: 0 };
+./js/data-provider.js:590:      flatFallbackByProject.set(projectSharePointId, fallback);
+./js/data-provider.js:671:        const sharePointId = Number(item.id);
+./js/data-provider.js:675:          sharePointId,
+./js/data-provider.js:689:          // Built-in SharePoint creation timestamp is the permanent left boundary
+./js/data-provider.js:693:          // SharePoint is the permanent source for project Last Updated.
+./js/data-provider.js:720:            const tracked = siteProgressByProject.get(sharePointId)?.count || 0;
+./js/data-provider.js:728:            const site = siteProgressByProject.get(sharePointId);
+./js/data-provider.js:733:          siteInstallationTrackedItems: siteProgressByProject.get(sharePointId)?.count || 0,
+./js/data-provider.js:740:          deliverables: deliverables.filter(record => record.projectSharePointId === sharePointId),
+./js/data-provider.js:741:          info: informationRequired.filter(record => record.projectSharePointId === sharePointId),
+./js/data-provider.js:767:      .filter(item => item.projectId && item.recordSharePointId && item.comment)
+./js/data-provider.js:797:    const listId = await this.getListId(displayName);
+./js/data-provider.js:799:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items`,
+./js/data-provider.js:806:    const listId = await this.getListId(displayName);
+./js/data-provider.js:808:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}/fields`,
+./js/data-provider.js:816:    const listId = await this.getListId(displayName);
+./js/data-provider.js:818:      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}`,
+./js/data-provider.js:854:  deliverableFields(record, projectSharePointId) {
+./js/data-provider.js:857:      ProjectLookupId: String(projectSharePointId),
+./js/data-provider.js:878:  informationFields(record, projectSharePointId) {
+./js/data-provider.js:881:      ProjectLookupId: String(projectSharePointId),
+./js/data-provider.js:901:    // Projects are updated first so newly-created projects have a SharePoint lookup ID
+./js/data-provider.js:910:      if (!project.sharePointId) {
+./js/data-provider.js:912:        project.sharePointId = Number(created.id);
+./js/data-provider.js:920:          project.sharePointId,
+./js/data-provider.js:930:        if (!record.sharePointId) {
+./js/data-provider.js:931:          const created = await this.createItem(this.config.lists.deliverables, this.deliverableFields(record, project.sharePointId));
+./js/data-provider.js:932:          record.sharePointId = Number(created.id);
+./js/data-provider.js:934:        } else if (!prior || this.comparable(this.deliverableFields(prior, project.sharePointId)) !== this.comparable(this.deliverableFields(record, project.sharePointId))) {
+./js/data-provider.js:935:          await this.updateItem(this.config.lists.deliverables, record.sharePointId, this.deliverableFields(record, project.sharePointId));
+./js/data-provider.js:937:        currentDeliverableIds.add(String(record.sharePointId || record.id));
+./js/data-provider.js:940:        const priorId = prior.sharePointId || prior.id;
+./js/data-provider.js:951:        if (!record.sharePointId) {
+./js/data-provider.js:952:          const created = await this.createItem(this.config.lists.informationRequired, this.informationFields(record, project.sharePointId));
+./js/data-provider.js:953:          record.sharePointId = Number(created.id);
+./js/data-provider.js:955:        } else if (!prior || this.comparable(this.informationFields(prior, project.sharePointId)) !== this.comparable(this.informationFields(record, project.sharePointId))) {
+./js/data-provider.js:956:          await this.updateItem(this.config.lists.informationRequired, record.sharePointId, this.informationFields(record, project.sharePointId));
+./js/data-provider.js:958:        currentInfoIds.add(String(record.sharePointId || record.id));
+./js/data-provider.js:961:        const priorId = prior.sharePointId || prior.id;
+./js/data-provider.js:970:    const previousAuditIds = new Set((previous.auditLog || []).map(record => String(record.sharePointId || record.id)));
+./js/data-provider.js:972:      const existingId = record.sharePointId || (Number.isInteger(record.id) && record.id < 1000000000 ? record.id : null);
+./js/data-provider.js:974:      if (record.sharePointId) continue;
+./js/data-provider.js:979:          this.changeLogFields(record, auditProject?.sharePointId || 0)
+./js/data-provider.js:981:        record.sharePointId = Number(created.id);
+./js/data-provider.js:994:    // Delete child records first so SharePoint lookup relationships cannot
+./js/data-provider.js:997:      const itemId = record.sharePointId || record.id;
+./js/data-provider.js:1004:      const itemId = record.sharePointId || record.id;
+./js/data-provider.js:1011:    if (project.sharePointId) {
+./js/data-provider.js:1012:      await this.deleteItem(this.config.lists.projects, project.sharePointId);
+./js/data-provider.js:1068:      id: fields.ProfileKey || `sharepoint-user-${row.id}`,
+./js/data-provider.js:1069:      sharePointAccessId: Number(row.id),
+./js/data-provider.js:1131:      const sharePointUsers = rows
+./js/data-provider.js:1137:      for (const spUser of sharePointUsers) {
+./js/data-provider.js:1168:      console.warn("Could not load Dashboard Access from SharePoint; using cached users.", error);
+./js/data-provider.js:1180:    const bySharePointId = new Map();
+./js/data-provider.js:1194:      if (row.id != null) bySharePointId.set(String(row.id), row);
+./js/data-provider.js:1237:      const sharePointAccessId = String(user.sharePointAccessId || "").trim();
+./js/data-provider.js:1242:        (sharePointAccessId && bySharePointId.get(sharePointAccessId)) ||
+./js/data-provider.js:1249:        !sharePointAccessId &&
+./js/data-provider.js:1267:        user.sharePointAccessId = Number(existing.id);
+./js/data-provider.js:1279:        user.sharePointAccessId = Number(created.id);
+./js/data-provider.js:1283:        if (created.id != null) bySharePointId.set(String(created.id), row);
+./js/data-provider.js:1293:  name: "sharePointWithLocalFallback",
+./js/data-provider.js:1299:      return await SharePointDataProvider.loadState();
+./js/data-provider.js:1303:      console.warn("SharePoint unavailable; using LocalStorage data.", error);
+./js/data-provider.js:1312:    return SharePointDataProvider.saveState(nextState);
+./js/data-provider.js:1317:    return SharePointDataProvider.deleteProject(project);
+./js/data-provider.js:1324:    return SharePointDataProvider.loadUsers();
+./js/data-provider.js:1331:    return SharePointDataProvider.saveUsers(nextUsers);
+./js/data-provider.js:1336:    return SharePointDataProvider.getDashboardAccessProfile(graphUser);
+./js/data-provider.js:1341:      throw new Error("Project Activity cannot be saved while SharePoint is unavailable.");
+./js/data-provider.js:1343:    return SharePointDataProvider.addProjectActivity(project, record);
+./js/data-provider.js:1348:      throw new Error("Comments cannot be saved while SharePoint is unavailable.");
+./js/data-provider.js:1350:    return SharePointDataProvider.addProjectComment(project, recordType, record, comment);
+./js/data-provider.js:1355:      throw new Error("Comments cannot be resolved while SharePoint is unavailable.");
+./js/data-provider.js:1357:    return SharePointDataProvider.resolveProjectComment(comment, resolvedBy);
+./js/data-provider.js:1362:      throw new Error("Comments cannot be deleted while SharePoint is unavailable.");
