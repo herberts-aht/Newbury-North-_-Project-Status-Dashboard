@@ -5,26 +5,6 @@
 
 let calendarViewDate=new Date();
 let calendarScheduleMode="project";
-
-/*
- * Calendar Agenda hierarchy expansion is separate from Gantt expansion.
- * Only same-date descendants are hidden beneath their Higher-Level Task.
- */
-let calendarExpandedAgendaTasks=new Set();
-
-function toggleCalendarAgendaTask(encodedId){
-  const id=decodeURIComponent(encodedId);
-
-  if(calendarExpandedAgendaTasks.has(id)){
-    calendarExpandedAgendaTasks.delete(id);
-  }else{
-    calendarExpandedAgendaTasks.add(id);
-  }
-
-  render();
-}
-
-window.toggleCalendarAgendaTask=toggleCalendarAgendaTask;
 let ganttScheduleMode="project";
 let siteScheduleSnapshot={locations:[],operations:[],loaded:false,loading:false,projectSharePointId:0};
 
@@ -60,9 +40,9 @@ function updateScheduleModeButtons(){
     button.setAttribute("aria-pressed",active?"true":"false");
   });
   const cd=document.getElementById("calendarModeDescription");
-  if(cd)cd.textContent=calendarScheduleMode==="project"?"Project dates from Project Plan.":calendarScheduleMode==="site"?"Site Operations dates only. Details stay in Site Operations.":"Project and Site dates shown together without linking the underlying records.";
+  if(cd)cd.textContent=calendarScheduleMode==="project"?"Project dates from Deliverables and Information Required.":calendarScheduleMode==="site"?"Site Operations dates only. Details stay in Site Operations.":"Project and Site dates shown together without linking the underlying records.";
   const gd=document.getElementById("ganttModeDescription");
-  if(gd)gd.textContent=ganttScheduleMode==="project"?"Project Plan schedule.":ganttScheduleMode==="site"?"Site Operations schedule only. Details stay in Site Operations.":"Project and Site schedules shown together while remaining independent.";
+  if(gd)gd.textContent=ganttScheduleMode==="project"?"Project deliverable schedule.":ganttScheduleMode==="site"?"Site Operations schedule only. Details stay in Site Operations.":"Project and Site schedules shown together while remaining independent.";
 }
 async function ensureSiteSchedule(force=false){
   const projectSharePointId=Number(currentProject()?.sharePointId||0);
@@ -146,77 +126,14 @@ function siteScheduleRecords(){
     waitingOn:op.blockerDependency||""
   }));
 }
-function projectScheduleRecords(fallbackRecords=[]){
-  /*
-   * Project Plan is now the Project-side schedule source.
-   * Keep the old Deliverables records only as a temporary fallback
-   * if Project Plan has not loaded yet.
-   */
-  const project=currentProject();
-  const projectKey=String(
-    project?.id ||
-    project?.sharePointId ||
-    ""
-  );
-
-  if(
-    projectKey &&
-    window.ProjectWorkItems?.getScheduleData
-  ){
-    return window.ProjectWorkItems
-      .getScheduleData(projectKey,{includeParents:true})
-      .map(record=>({
-        ...record,
-        scheduleKind:"projectPlan",
-        discipline:
-          record.discipline ||
-          record.workstream ||
-          record.phase ||
-          "Project Plan"
-      }));
-  }
-
-  return (fallbackRecords||[]).map(record=>({
-    ...record,
-    scheduleKind:"project"
-  }));
-}
-
+function projectScheduleRecords(records){return records.map(record=>({...record,scheduleKind:"project"}));}
 function scheduleRecordsForGantt(projectRecords){
-  const project=projectScheduleRecords(projectRecords);
-  const site=siteScheduleRecords();
-
-  return ganttScheduleMode==="site"
-    ? site
-    : ganttScheduleMode==="combined"
-      ? [...project,...site]
-      : project;
+  const project=projectScheduleRecords(projectRecords);const site=siteScheduleRecords();
+  return ganttScheduleMode==="site"?site:ganttScheduleMode==="combined"?[...project,...site]:project;
 }
-
 function openScheduleSource(kind,id){
-  if(kind==="site"){
-    window.SiteOperations?.openScheduleItem(id);
-    return;
-  }
-
-  if(kind==="projectPlan"){
-    showView("projectWork");
-
-    setTimeout(()=>{
-      window.ProjectWorkView?.openItem?.(id);
-    },0);
-
-    return;
-  }
-
-  /*
-   * Temporary fallback for legacy Deliverable schedule records.
-   */
-  if(currentUser?.canEdit){
-    editDeliverable(id);
-  }else{
-    showView("deliverables");
-  }
+  if(kind==="site"){window.SiteOperations?.openScheduleItem(id);return;}
+  if(currentUser?.canEdit)editDeliverable(id);else{showView("deliverables");}
 }
 window.openScheduleSource=openScheduleSource;
 window.resetSiteScheduleSnapshot=()=>{
@@ -535,218 +452,9 @@ filtered=ds.filter(x=>{
  if((calendarScheduleMode!=="project"||ganttScheduleMode!=="project")&&!siteScheduleSnapshot.loaded&&!siteScheduleSnapshot.loading){ensureSiteSchedule(false).then(()=>render());}
  timelineTrack.innerHTML=renderGantt(scheduleRecordsForGantt(ds));
  requestAnimationFrame(bindGanttBottomScroll);
-  const projectCalendarRecords=projectScheduleRecords(ds);
-
-  const projectEvents=projectCalendarRecords
-    .filter(record=>record.date)
-    .map(record=>({
-      date:record.date,
-      title:record.deliverable,
-      type:
-        record.status==="Complete"
-          ?"green"
-          :String(record.status||"").includes("Waiting")||
-           record.status==="Awaiting Review"
-            ?"orange"
-            :"",
-      source:"projectPlan",
-      sourceId:record.id,
-      scheduleKind:"project",
-      level:Number(record.level||0),
-      path:Array.isArray(record.path)?record.path:[]
-    }));
+ const projectEvents=[...ds.filter(x=>x.date).map(x=>({date:x.date,title:x.deliverable,type:x.status==="Complete"?"green":x.status.includes("Waiting")||x.status==="Awaiting Review"?"orange":"",source:"deliverable",sourceId:x.id,scheduleKind:"project"})),...infoRecords.filter(x=>x.neededBy).map(x=>({date:x.neededBy,title:x.item+" needed",type:"orange",source:"info",sourceId:x.id,scheduleKind:"project"}))];
  const siteEvents=siteScheduleSnapshot.operations.flatMap(x=>{const dates=[];if(x.activityDate)dates.push({date:x.activityDate,title:x.title,type:x.status==="Complete"?"green":/risk|blocked/i.test(x.status||"")?"orange":"",source:"site",sourceId:x.id,scheduleKind:"site"});if(x.targetDate&&x.targetDate!==x.activityDate)dates.push({date:x.targetDate,title:x.title,type:x.status==="Complete"?"green":/risk|blocked/i.test(x.status||"")?"orange":"",source:"site",sourceId:x.id,scheduleKind:"site"});return dates;});
- const events=(
-   calendarScheduleMode==="site"
-     ?siteEvents
-     :calendarScheduleMode==="combined"
-       ?[...projectEvents,...siteEvents]
-       :projectEvents
- ).sort((a,b)=>
-   a.date.localeCompare(b.date) ||
-   Number(a.level||0)-Number(b.level||0) ||
-   String(a.title||"").localeCompare(String(b.title||""))
- );
-
- const grouped={};
-
- events.forEach(event=>{
-   (grouped[event.date]??=[]).push(event);
- });
-
- agendaList.innerHTML=Object.entries(grouped)
-   .map(([date,items])=>{
-     const projectItems=items.filter(
-       item=>item.source==="projectPlan"
-     );
-
-     const projectById=new Map(
-       projectItems.map(item=>[
-         String(item.sourceId),
-         item
-       ])
-     );
-
-     /*
-      * Only treat a child as nested when its Higher-Level Task
-      * is also present on this same agenda date.
-      *
-      * If the dates differ, the child remains visible on its
-      * own actual scheduled date.
-      */
-     const sameDateChildren=new Map();
-
-     projectItems.forEach(item=>{
-       const scheduleRecord=
-         projectCalendarRecords.find(
-           record=>
-             String(record.id)===
-             String(item.sourceId)
-         );
-
-       const parentId=String(
-         scheduleRecord?.parentWorkItemId??""
-       );
-
-       if(
-         parentId &&
-         projectById.has(parentId)
-       ){
-         if(!sameDateChildren.has(parentId)){
-           sameDateChildren.set(parentId,[]);
-         }
-
-         sameDateChildren
-           .get(parentId)
-           .push(item);
-       }
-     });
-
-     const nestedIds=new Set();
-
-     sameDateChildren.forEach(children=>{
-       children.forEach(child=>
-         nestedIds.add(
-           String(child.sourceId)
-         )
-       );
-     });
-
-     const rootItems=items.filter(item=>
-       item.source!=="projectPlan" ||
-       !nestedIds.has(String(item.sourceId))
-     );
-
-     const renderAgendaItem=(item,depth=0)=>{
-       if(item.source==="projectPlan"){
-         const safeId=ganttJsString(item.sourceId);
-         const children=
-           sameDateChildren.get(
-             String(item.sourceId)
-           )||[];
-
-         const hasChildren=
-           children.length>0;
-
-         const expanded=
-           hasChildren &&
-           calendarExpandedAgendaTasks.has(
-             String(item.sourceId)
-           );
-
-         const childLabel=
-           hasChildren
-             ? `<span class="calendar-agenda-child-count">
-                  ${children.length} subtask${children.length===1?"":"s"}
-                </span>`
-             : "";
-
-         let html=`
-           <div
-             class="agenda-pill ${item.type} calendar-project-event"
-             style="--calendar-task-depth:${depth}"
-             title="${esc((item.path||[]).join(" › "))}"
-           >
-             <span
-               class="calendar-event-title ${hasChildren?"calendar-agenda-expandable":""}"
-               ${
-                 hasChildren
-                   ? `role="button"
-                      tabindex="0"
-                      onclick="toggleCalendarAgendaTask('${encodeURIComponent(String(item.sourceId))}')"
-                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCalendarAgendaTask('${encodeURIComponent(String(item.sourceId))}')}" `
-                   : ""
-               }
-             >
-               ${
-                 hasChildren
-                   ? `<span class="calendar-agenda-toggle">${expanded?"▼":"▶"}</span>`
-                   : `<span class="calendar-agenda-toggle-spacer"></span>`
-               }
-
-               <span class="calendar-agenda-title-text">
-                 ${esc(item.title)}
-               </span>
-
-               ${childLabel}
-             </span>
-
-             <button
-               class="linkbtn agenda-edit"
-               type="button"
-               onclick="event.stopPropagation();openScheduleSource('projectPlan','${safeId}')"
-             >
-               View task
-             </button>
-           </div>
-         `;
-
-         if(expanded){
-           html+=children
-             .map(child=>
-               renderAgendaItem(
-                 child,
-                 depth+1
-               )
-             )
-             .join("");
-         }
-
-         return html;
-       }
-
-       return `
-         <div class="agenda-pill ${item.type}">
-           <span>${esc(item.title)}</span>
-
-           ${
-             item.source==="site"
-               ? `<button
-                    class="linkbtn agenda-edit"
-                    type="button"
-                    onclick="openScheduleSource('site',${item.sourceId})"
-                  >View</button>`
-               : ""
-           }
-         </div>
-       `;
-     };
-
-     return `
-       <div class="agenda-day">
-         <div class="agenda-date">${fmtDate(date)}</div>
-
-         <div class="agenda-items">
-           ${rootItems
-             .map(item=>
-               renderAgendaItem(item,0)
-             )
-             .join("")}
-         </div>
-       </div>
-     `;
-   })
-   .join("");
+ const events=(calendarScheduleMode==="site"?siteEvents:calendarScheduleMode==="combined"?[...projectEvents,...siteEvents]:projectEvents).sort((a,b)=>a.date.localeCompare(b.date)),grouped={};events.forEach(e=>(grouped[e.date]??=[]).push(e));agendaList.innerHTML=Object.entries(grouped).map(([date,items])=>`<div class="agenda-day"><div class="agenda-date">${fmtDate(date)}</div><div class="agenda-items">${items.map(i=>`<div class="agenda-pill ${i.type}"><span>${esc(i.title)}</span>${i.source==="site"?`<button class="linkbtn agenda-edit" onclick="openScheduleSource('site',${i.sourceId})">View</button>`:currentUser.canEdit?`<button class="linkbtn agenda-edit" onclick="${i.source==="deliverable"?`editDeliverable(${i.sourceId})`:`editInfo(${i.sourceId})`}">Edit source</button>`:""}</div>`).join("")}</div></div>`).join("");
  const now=new Date(),
 calendarYear=calendarViewDate.getFullYear(),
 calendarMonth=calendarViewDate.getMonth(),
@@ -923,28 +631,6 @@ function ganttGroupStatusClass(items){
 }
 let ganttExpandedGroups=new Set();
 
-/*
- * Separate expansion state for Project Plan Tasks inside a
- * Workstream. Site Operations continues using only the normal
- * Gantt group expansion behavior.
- */
-let ganttExpandedProjectTasks=new Set();
-
-function toggleGanttProjectTask(encodedId){
-  const id=decodeURIComponent(encodedId);
-
-  if(ganttExpandedProjectTasks.has(id)){
-    ganttExpandedProjectTasks.delete(id);
-  }else{
-    ganttExpandedProjectTasks.add(id);
-  }
-
-  rememberGanttScrollAnchor();
-  render();
-}
-
-window.toggleGanttProjectTask=toggleGanttProjectTask;
-
 let ganttScrollAnchorDate="";
 
 function resetGanttTimelineWindow(){
@@ -960,7 +646,7 @@ function rememberGanttScrollAnchor(){
  const rangeEnd=ganttDate(shell.dataset.rangeEnd);
  if(!rangeStart||!rangeEnd)return;
 
- const leftColumn=window.innerWidth<=900?240:300;
+ const leftColumn=window.innerWidth<=900?190:220;
  const chartWidth=Math.max(1,scroller.scrollWidth-leftColumn);
  const totalDays=Math.max(1,(rangeEnd-rangeStart)/86400000);
  const dayOffset=(scroller.scrollLeft/chartWidth)*totalDays;
@@ -1000,12 +686,6 @@ window.expandAllGanttGroups=expandAllGanttGroups;
 window.collapseAllGanttGroups=collapseAllGanttGroups;
 
 
-function ganttJsString(value){
- return String(value??"")
-   .replaceAll("\\","\\\\")
-   .replaceAll("'","\\'");
-}
-
 function renderGantt(records){
  const scheduled=records
    .map(record=>({record,start:ganttStartFor(record),end:ganttDate(record.date)}))
@@ -1013,7 +693,7 @@ function renderGantt(records){
  const unscheduled=records.filter(record=>!ganttDate(record.date));
 
  if(!scheduled.length){
-   return `<div class="gantt-empty">No Project Plan tasks currently have schedule dates.${currentUser.canEdit?" Add Start and Target dates in Project Plan to build the schedule.":""}</div>`;
+   return `<div class="gantt-empty">No deliverables currently have target dates.${currentUser.canEdit?" Add dates from the Deliverables view to build the schedule.":""}</div>`;
  }
 
  const earliest=new Date(Math.min(...scheduled.map(item=>item.start)));
@@ -1050,10 +730,7 @@ function renderGantt(records){
  const ganttChartMinWidth=Math.max(960,weekCount*185);
 
  const todayOffset=((today-rangeStart)/86400000/totalDays)*100;
- const requestedInitialDate=
-   ganttScrollAnchorDate
-     ? ganttDate(ganttScrollAnchorDate)
-     : ganttAddDays(today,-7);
+ const requestedInitialDate=ganttScrollAnchorDate?ganttDate(ganttScrollAnchorDate):currentWeekStart;
  const initialDate=requestedInitialDate
    ? new Date(Math.max(rangeStart,Math.min(requestedInitialDate,rangeEnd)))
    : rangeStart;
@@ -1089,15 +766,15 @@ function renderGantt(records){
    const collapsed=!ganttExpandedGroups.has(discipline);
    const encoded=encodeURIComponent(discipline);
 
-   const renderScheduleRow=(entry,depth=0)=>{
-     let {record,start,end}=entry;
-
+   const rows=collapsed?"":items.map(({record,start,end})=>{
      if(start>end){
        const swap=start;
        start=end;
        end=swap;
      }
 
+     // Clamp expanded task geometry to the visible Gantt timeline.
+     // Original start/end dates remain unchanged for labels and tooltips.
      const visibleStart=new Date(Math.max(start,rangeStart));
      const visibleEnd=new Date(Math.min(end,rangeEnd));
 
@@ -1112,179 +789,22 @@ function renderGantt(records){
      const width=Math.max(1.5,Math.min(100-left,right-left));
      const inferred=!ganttDate(record.startDate);
 
-     const kind=record.scheduleKind||"project";
-     const safeKind=ganttJsString(kind);
-     const safeId=ganttJsString(record.id);
-
-     const isProjectPlan=kind==="projectPlan";
-     const hasProjectChildren=Boolean(
-       isProjectPlan &&
-       items.some(
-         candidate =>
-           String(candidate.record.parentWorkItemId??"")===
-           String(record.id??"")
-       )
-     );
-
-     const taskExpanded=
-       hasProjectChildren &&
-       ganttExpandedProjectTasks.has(String(record.id));
-
-     const childCount=
-       isProjectPlan
-         ? items.filter(
-             candidate =>
-               String(candidate.record.parentWorkItemId??"")===
-               String(record.id??"")
-           ).length
-         : 0;
-
-     const hierarchyToggle=
-       hasProjectChildren
-         ? `<button
-              class="gantt-task-toggle"
-              type="button"
-              aria-label="${taskExpanded?"Collapse":"Expand"} ${esc(record.deliverable)}"
-              aria-expanded="${taskExpanded?"true":"false"}"
-              onclick="event.stopPropagation();toggleGanttProjectTask('${encodeURIComponent(String(record.id))}')"
-            >${taskExpanded?"▼":"▶"}</button>`
-         : `<span class="gantt-task-toggle-spacer"></span>`;
-
-     const projectLabelAction=
-       hasProjectChildren
-         ? `toggleGanttProjectTask('${encodeURIComponent(String(record.id))}')`
-         : `openScheduleSource('${safeKind}','${safeId}')`;
-
-     return `<div class="gantt-row ${isProjectPlan?"gantt-project-plan-row":""}">
-       <div
-         class="gantt-label"
-         style="${isProjectPlan?`--gantt-task-depth:${depth}`:""}"
-         onclick="${isProjectPlan?projectLabelAction:`openScheduleSource('${safeKind}','${safeId}')`}"
-       >
-         <span class="gantt-task-label-main">
-           ${isProjectPlan?hierarchyToggle:""}
-           <strong title="${esc(record.deliverable)}">${esc(record.deliverable)}</strong>
-           ${
-             hasProjectChildren
-               ? `<span class="gantt-task-child-count">${childCount} subtask${childCount===1?"":"s"}</span>`
-               : ""
-           }
-         </span>
+     return `<div class="gantt-row">
+       <div class="gantt-label" onclick="openScheduleSource('${record.scheduleKind||"project"}',${record.id})">
+         <strong title="${esc(record.deliverable)}">${esc(record.deliverable)}</strong>
          <span>${badge(record.status)}</span>
        </div>
-
        <div class="gantt-lane" style="--gantt-week:${weekGridWidth}%">
          ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today" style="left:${todayOffset}%" title="Today"></i>`:""}
-
-         <button
-           class="gantt-bar ${ganttStatusClass(record)}"
+         <button class="gantt-bar ${ganttStatusClass(record)}"
            style="left:${left}%;width:${width}%"
-           onclick="openScheduleSource('${safeKind}','${safeId}')"
-           title="${esc(record.deliverable)}: ${fmtDate(ganttIso(start))} – ${fmtDate(ganttIso(end))}${inferred?" (start estimated)":""}"
-         >
+           onclick="openScheduleSource('${record.scheduleKind||"project"}',${record.id})"
+           title="${esc(record.deliverable)}: ${fmtDate(ganttIso(start))} – ${fmtDate(ganttIso(end))}${inferred?" (start estimated)":""}">
            ${width>=9?`<span>${ganttShort(ganttIso(start))} → ${ganttShort(record.date)}</span>`:""}
          </button>
        </div>
      </div>`;
-   };
-
-   let rows="";
-
-   if(!collapsed){
-     const projectPlanGroup=
-       items.length>0 &&
-       items.every(
-         item => item.record.scheduleKind==="projectPlan"
-       );
-
-     if(projectPlanGroup){
-       const byId=new Map(
-         items.map(item=>[
-           String(item.record.id),
-           item
-         ])
-       );
-
-       const childrenByParent=new Map();
-
-       items.forEach(item=>{
-         const parentId=
-           String(
-             item.record.parentWorkItemId??""
-           );
-
-         if(
-           parentId &&
-           byId.has(parentId)
-         ){
-           if(!childrenByParent.has(parentId)){
-             childrenByParent.set(parentId,[]);
-           }
-
-           childrenByParent
-             .get(parentId)
-             .push(item);
-         }
-       });
-
-       const sortHierarchy=(a,b)=>
-         Number(a.record.sortOrder||0)-
-         Number(b.record.sortOrder||0) ||
-         a.start-b.start ||
-         a.end-b.end ||
-         String(a.record.deliverable||"")
-           .localeCompare(
-             String(b.record.deliverable||"")
-           );
-
-       const roots=items
-         .filter(item=>{
-           const parentId=
-             String(
-               item.record.parentWorkItemId??""
-             );
-
-           return !parentId || !byId.has(parentId);
-         })
-         .sort(sortHierarchy);
-
-       const renderBranch=(entry,depth=0)=>{
-         const id=String(entry.record.id);
-         let html=renderScheduleRow(entry,depth);
-
-         if(
-           ganttExpandedProjectTasks.has(id)
-         ){
-           const children=
-             (childrenByParent.get(id)||[])
-               .slice()
-               .sort(sortHierarchy);
-
-           html+=children
-             .map(child=>
-               renderBranch(
-                 child,
-                 depth+1
-               )
-             )
-             .join("");
-         }
-
-         return html;
-       };
-
-       rows=roots
-         .map(root=>renderBranch(root,0))
-         .join("");
-     }else{
-       /*
-        * Site Operations retains the existing flat row behavior.
-        */
-       rows=items
-         .map(item=>renderScheduleRow(item,0))
-         .join("");
-     }
-   }
+   }).join("");
 
    const groupStart=new Date(Math.min(...items.map(item=>item.start)));
    const groupEnd=new Date(Math.max(...items.map(item=>item.end)));
@@ -1350,7 +870,7 @@ function renderGantt(records){
    </div>
    <div class="gantt-scroll">
      <div class="gantt-head">
-       <div>Task</div>
+       <div>Deliverable</div>
        <div class="gantt-scale" style="--gantt-week:${weekGridWidth}%">
          ${weeks.join("")}
          ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today head" style="left:${todayOffset}%"></i>`:""}
@@ -1377,7 +897,7 @@ function positionGanttAtDate(targetDate){
  const target=ganttDate(targetDate);
  if(!rangeStart||!rangeEnd||!target)return false;
 
- const leftColumn=window.innerWidth<=900?240:300;
+ const leftColumn=window.innerWidth<=900?190:220;
  const chartWidth=Math.max(1,scroller.scrollWidth-leftColumn);
  const viewportChartWidth=Math.max(0,scroller.clientWidth-leftColumn);
  const scrollableChartWidth=Math.max(0,chartWidth-viewportChartWidth);
@@ -1388,24 +908,9 @@ function positionGanttAtDate(targetDate){
  );
  const dayOffset=Math.max(0,(clamped-rangeStart)/86400000);
  const ratio=Math.max(0,Math.min(1,dayOffset/totalDays));
+ const desired=ratio*scrollableChartWidth;
 
- /*
-  * Position the requested date at the left edge of the visible
-  * timeline area. Use the full chart width for date geometry,
-  * then clamp to the actual scrollable range.
-  *
-  * With the default target set to Today - 7 days, this leaves
-  * about one week of context before the Today marker.
-  */
- const desired=ratio*chartWidth;
-
- scroller.scrollLeft=Math.max(
-   0,
-   Math.min(
-     scrollableChartWidth,
-     desired
-   )
- );
+ scroller.scrollLeft=Math.max(0,Math.min(scrollableChartWidth,desired));
  scroller.dispatchEvent(new Event("scroll"));
  return true;
 }
@@ -1425,7 +930,7 @@ function bindGanttBottomScroll(){
  const thumb=shell?.querySelector(".gantt-bottom-scroll-thumb");
  if(!shell||!scroller||!track||!thumb)return;
 
- const leftColumn=window.innerWidth<=900?240:300;
+ const leftColumn=window.innerWidth<=900?190:220;
  let extending=false;
 
  const metrics=()=>{
@@ -1502,11 +1007,9 @@ function bindGanttBottomScroll(){
 
  requestAnimationFrame(()=>{
    requestAnimationFrame(()=>{
-     const today=ganttDate(new Date());
-
      const requested=ganttScrollAnchorDate
        ? ganttDate(ganttScrollAnchorDate)
-       : ganttAddDays(today,-7);
+       : ganttMonday(ganttDate(new Date()));
 
      if(!positionGanttAtDate(requested)){
        const ratio=Number(shell.dataset.initialScrollRatio||0);

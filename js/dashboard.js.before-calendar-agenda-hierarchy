@@ -5,26 +5,6 @@
 
 let calendarViewDate=new Date();
 let calendarScheduleMode="project";
-
-/*
- * Calendar Agenda hierarchy expansion is separate from Gantt expansion.
- * Only same-date descendants are hidden beneath their Higher-Level Task.
- */
-let calendarExpandedAgendaTasks=new Set();
-
-function toggleCalendarAgendaTask(encodedId){
-  const id=decodeURIComponent(encodedId);
-
-  if(calendarExpandedAgendaTasks.has(id)){
-    calendarExpandedAgendaTasks.delete(id);
-  }else{
-    calendarExpandedAgendaTasks.add(id);
-  }
-
-  render();
-}
-
-window.toggleCalendarAgendaTask=toggleCalendarAgendaTask;
 let ganttScheduleMode="project";
 let siteScheduleSnapshot={locations:[],operations:[],loaded:false,loading:false,projectSharePointId:0};
 
@@ -575,177 +555,50 @@ filtered=ds.filter(x=>{
  });
 
  agendaList.innerHTML=Object.entries(grouped)
-   .map(([date,items])=>{
-     const projectItems=items.filter(
-       item=>item.source==="projectPlan"
-     );
+   .map(([date,items])=>`
+     <div class="agenda-day">
+       <div class="agenda-date">${fmtDate(date)}</div>
 
-     const projectById=new Map(
-       projectItems.map(item=>[
-         String(item.sourceId),
-         item
-       ])
-     );
+       <div class="agenda-items">
+         ${items.map(item=>{
+           if(item.source==="projectPlan"){
+             const safeId=ganttJsString(item.sourceId);
+             const depth=Number(item.level||0);
 
-     /*
-      * Only treat a child as nested when its Higher-Level Task
-      * is also present on this same agenda date.
-      *
-      * If the dates differ, the child remains visible on its
-      * own actual scheduled date.
-      */
-     const sameDateChildren=new Map();
+             return `
+               <div
+                 class="agenda-pill ${item.type} calendar-project-event"
+                 style="--calendar-task-depth:${depth}"
+                 role="button"
+                 tabindex="0"
+                 onclick="openScheduleSource('projectPlan','${safeId}')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openScheduleSource('projectPlan','${safeId}')}"
+                 title="${esc((item.path||[]).join(" › "))}"
+               >
+                 <span class="calendar-event-title">
+                   ${depth>0?`<span class="calendar-hierarchy-mark">↳</span>`:""}
+                   ${esc(item.title)}
+                 </span>
 
-     projectItems.forEach(item=>{
-       const scheduleRecord=
-         projectCalendarRecords.find(
-           record=>
-             String(record.id)===
-             String(item.sourceId)
-         );
-
-       const parentId=String(
-         scheduleRecord?.parentWorkItemId??""
-       );
-
-       if(
-         parentId &&
-         projectById.has(parentId)
-       ){
-         if(!sameDateChildren.has(parentId)){
-           sameDateChildren.set(parentId,[]);
-         }
-
-         sameDateChildren
-           .get(parentId)
-           .push(item);
-       }
-     });
-
-     const nestedIds=new Set();
-
-     sameDateChildren.forEach(children=>{
-       children.forEach(child=>
-         nestedIds.add(
-           String(child.sourceId)
-         )
-       );
-     });
-
-     const rootItems=items.filter(item=>
-       item.source!=="projectPlan" ||
-       !nestedIds.has(String(item.sourceId))
-     );
-
-     const renderAgendaItem=(item,depth=0)=>{
-       if(item.source==="projectPlan"){
-         const safeId=ganttJsString(item.sourceId);
-         const children=
-           sameDateChildren.get(
-             String(item.sourceId)
-           )||[];
-
-         const hasChildren=
-           children.length>0;
-
-         const expanded=
-           hasChildren &&
-           calendarExpandedAgendaTasks.has(
-             String(item.sourceId)
-           );
-
-         const childLabel=
-           hasChildren
-             ? `<span class="calendar-agenda-child-count">
-                  ${children.length} subtask${children.length===1?"":"s"}
-                </span>`
-             : "";
-
-         let html=`
-           <div
-             class="agenda-pill ${item.type} calendar-project-event"
-             style="--calendar-task-depth:${depth}"
-             title="${esc((item.path||[]).join(" › "))}"
-           >
-             <span
-               class="calendar-event-title ${hasChildren?"calendar-agenda-expandable":""}"
-               ${
-                 hasChildren
-                   ? `role="button"
-                      tabindex="0"
-                      onclick="toggleCalendarAgendaTask('${encodeURIComponent(String(item.sourceId))}')"
-                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCalendarAgendaTask('${encodeURIComponent(String(item.sourceId))}')}" `
-                   : ""
-               }
-             >
-               ${
-                 hasChildren
-                   ? `<span class="calendar-agenda-toggle">${expanded?"▼":"▶"}</span>`
-                   : `<span class="calendar-agenda-toggle-spacer"></span>`
-               }
-
-               <span class="calendar-agenda-title-text">
-                 ${esc(item.title)}
-               </span>
-
-               ${childLabel}
-             </span>
-
-             <button
-               class="linkbtn agenda-edit"
-               type="button"
-               onclick="event.stopPropagation();openScheduleSource('projectPlan','${safeId}')"
-             >
-               View task
-             </button>
-           </div>
-         `;
-
-         if(expanded){
-           html+=children
-             .map(child=>
-               renderAgendaItem(
-                 child,
-                 depth+1
-               )
-             )
-             .join("");
-         }
-
-         return html;
-       }
-
-       return `
-         <div class="agenda-pill ${item.type}">
-           <span>${esc(item.title)}</span>
-
-           ${
-             item.source==="site"
-               ? `<button
-                    class="linkbtn agenda-edit"
-                    type="button"
-                    onclick="openScheduleSource('site',${item.sourceId})"
-                  >View</button>`
-               : ""
+                 <span class="agenda-edit">View task</span>
+               </div>
+             `;
            }
-         </div>
-       `;
-     };
 
-     return `
-       <div class="agenda-day">
-         <div class="agenda-date">${fmtDate(date)}</div>
-
-         <div class="agenda-items">
-           ${rootItems
-             .map(item=>
-               renderAgendaItem(item,0)
-             )
-             .join("")}
-         </div>
+           return `
+             <div class="agenda-pill ${item.type}">
+               <span>${esc(item.title)}</span>
+               ${
+                 item.source==="site"
+                   ?`<button class="linkbtn agenda-edit" onclick="openScheduleSource('site',${item.sourceId})">View</button>`
+                   :""
+               }
+             </div>
+           `;
+         }).join("")}
        </div>
-     `;
-   })
+     </div>
+   `)
    .join("");
  const now=new Date(),
 calendarYear=calendarViewDate.getFullYear(),

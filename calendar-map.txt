@@ -1,0 +1,18 @@
+7:let calendarScheduleMode="project";
+38:    const active=(button.dataset.scheduleView==="calendar"?calendarScheduleMode:ganttScheduleMode)===button.dataset.mode;
+43:  if(cd)cd.textContent=calendarScheduleMode==="project"?"Project dates from Deliverables and Information Required.":calendarScheduleMode==="site"?"Site Operations dates only. Details stay in Site Operations.":"Project and Site dates shown together without linking the underlying records.";
+107:    calendarScheduleMode=mode;
+206:function setCalendarViewDate(value){
+446: if(!projects.some(p=>p.id===state.currentProjectId))state.currentProjectId=projects[0].id;const p=currentProject(),ds=visibleDeliverables(p),infoRecords=visibleInfo(p);
+515: if((calendarScheduleMode!=="project"||ganttScheduleMode!=="project")&&!siteScheduleSnapshot.loaded&&!siteScheduleSnapshot.loading){ensureSiteSchedule(false).then(()=>render());}
+520: const events=(calendarScheduleMode==="site"?siteEvents:calendarScheduleMode==="combined"?[...projectEvents,...siteEvents]:projectEvents).sort((a,b)=>a.date.localeCompare(b.date)),grouped={};events.forEach(e=>(grouped[e.date]??=[]).push(e));agendaList.innerHTML=Object.entries(grouped).map(([date,items])=>`<div class="agenda-day"><div class="agenda-date">${fmtDate(date)}</div><div class="agenda-items">${items.map(i=>`<div class="agenda-pill ${i.type}"><span>${esc(i.title)}</span>${i.source==="site"?`<button class="linkbtn agenda-edit" onclick="openScheduleSource('site',${i.sourceId})">View</button>`:currentUser.canEdit?`<button class="linkbtn agenda-edit" onclick="${i.source==="deliverable"?`editDeliverable(${i.sourceId})`:`editInfo(${i.sourceId})`}">Edit source</button>`:""}</div>`).join("")}</div></div>`).join("");
+1365: const ds=visibleDeliverables(p);
+1611:  const ds=visibleDeliverables(p);
+1919:async function downloadCurrentCalendarPDF(){
+1930:  if(calendarScheduleMode!=="project") await ensureSiteSchedule(false);
+1931:  const ds=visibleDeliverables(p);
+1969:  const events=(calendarScheduleMode==="site"?sitePdfEvents:calendarScheduleMode==="combined"?[...projectPdfEvents,...sitePdfEvents]:projectPdfEvents).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+1992:    doc.text(`${clean(p.name)} · ${scheduleModeLabel(calendarScheduleMode)} Calendar · v${APP_CONFIG.version}`,pageWidth-margin,footerY,{align:"right"});
+2002:    doc.text(`${clean(p.name)} — ${scheduleModeLabel(calendarScheduleMode)} Calendar & Agenda`,margin,51);
+2203:  const filename=`${projectReportSafeFileName(p.name)}-${scheduleModeLabel(calendarScheduleMode)}-Calendar-${dateStamp}.pdf`;
+2218:  const records=scheduleRecordsForGantt(visibleDeliverables(p));

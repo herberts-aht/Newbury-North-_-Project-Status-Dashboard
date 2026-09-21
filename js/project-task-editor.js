@@ -20,11 +20,42 @@ const ProjectTaskEditor = (() => {
   }
 
   function projectId() {
+    /*
+     * Use the dashboard's canonical project key everywhere in Project Plan.
+     * The project selector may contain a SharePoint numeric ID, which is not
+     * necessarily the same value used by currentProject().id.
+     */
+    try {
+      if (typeof currentProject === "function") {
+        const project = currentProject();
+
+        if (project) {
+          return String(
+            project.id ||
+            project.sharePointId ||
+            ""
+          );
+        }
+      }
+    } catch {}
+
     const select = document.querySelector(
       "#projectWork .project-select-clone"
     );
 
     return String(select?.value || "");
+  }
+
+  function projectSharePointId() {
+    try {
+      if (typeof currentProject === "function") {
+        return Number(
+          currentProject()?.sharePointId || 0
+        );
+      }
+    } catch {}
+
+    return 0;
   }
 
   function projectItems() {
@@ -38,23 +69,59 @@ const ProjectTaskEditor = (() => {
       );
   }
 
+  function contactProjectId() {
+    /*
+     * Project Contacts use the dashboard's actual project key.
+     * Fall back to the Project Plan selector only if currentProject()
+     * is unavailable.
+     */
+    try {
+      if (typeof currentProject === "function") {
+        const project = currentProject();
+
+        if (project) {
+          return String(
+            project.id ||
+            project.sharePointId ||
+            projectId()
+          );
+        }
+      }
+    } catch {}
+
+    return projectId();
+  }
+
+
   function seedContactsIfNeeded() {
     if (!window.ProjectContacts) return;
 
-    const id = projectId();
+    const id = contactProjectId();
 
-    if (ProjectContacts.forProject(id).length) {
+    /*
+     * Include inactive here only to determine whether the project
+     * already has a contact list. We do NOT want archived contacts
+     * returned as normal Task selections.
+     */
+    if (
+      ProjectContacts.forProject(
+        id,
+        { includeInactive: true }
+      ).length
+    ) {
       return;
     }
 
     /*
-     * The Contacts prototype currently creates its local sample
-     * records when the Contacts view renders.
+     * During the local prototype the Contacts view seeds the initial
+     * project contact list. Once SharePoint persistence is added this
+     * fallback can disappear.
      */
     if (window.ProjectContactsView?.render) {
       ProjectContactsView.render();
     }
   }
+
 
   function contactNames(existing = "") {
     seedContactsIfNeeded();
@@ -63,31 +130,37 @@ const ProjectTaskEditor = (() => {
 
     if (window.ProjectContacts) {
       ProjectContacts
-        .forProject(projectId())
+        .forProject(contactProjectId())
         .forEach(contact => {
           const value =
             contact.name ||
             contact.contactPerson ||
             "";
 
-          if (value) names.push(value);
+          if (value) {
+            names.push(value);
+          }
         });
     }
 
     /*
-     * Preserve values already present in prototype tasks.
+     * An archived contact should not be offered on NEW Tasks.
+     *
+     * But if an existing Task already references that person/company,
+     * preserve its current value so editing the Task does not silently
+     * remove or replace the historical assignment.
      */
-    projectItems().forEach(item => {
-      if (item.owner) names.push(item.owner);
-      if (item.waitingOn) names.push(item.waitingOn);
-    });
-
-    if (existing) names.push(existing);
+    if (existing) {
+      names.push(existing);
+    }
 
     return [...new Set(names)]
       .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
+      .sort((a, b) =>
+        a.localeCompare(b)
+      );
   }
+
 
   function selectOptions(
     values,
@@ -252,7 +325,7 @@ const ProjectTaskEditor = (() => {
           </div>
 
 
-          <form id="projectTaskEditorForm">
+          <form id="projectTaskEditorForm" novalidate>
 
             <div class="form-grid pte-deliverable-grid">
 
@@ -652,6 +725,143 @@ const ProjectTaskEditor = (() => {
   }
 
 
+  function clearValidationState() {
+    document
+      .querySelectorAll(".pte-invalid")
+      .forEach(element =>
+        element.classList.remove("pte-invalid")
+      );
+  }
+
+  function showValidationToast(message) {
+    let toast =
+      document.getElementById(
+        "projectTaskValidationToast"
+      );
+
+    if (!toast) {
+      toast = document.createElement("div");
+
+      toast.id =
+        "projectTaskValidationToast";
+
+      toast.className =
+        "pte-validation-toast";
+
+      toast.setAttribute(
+        "role",
+        "alert"
+      );
+
+      toast.setAttribute(
+        "aria-live",
+        "assertive"
+      );
+
+      const actions =
+        document.querySelector(
+          "#projectTaskEditorModal .pte-actions"
+        );
+
+      if (actions?.parentNode) {
+        actions.parentNode.insertBefore(
+          toast,
+          actions
+        );
+      } else {
+        document.body.appendChild(toast);
+      }
+    }
+
+    toast.textContent = message;
+    toast.classList.add("show");
+
+    clearTimeout(
+      showValidationToast.timer
+    );
+
+    showValidationToast.timer =
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 3500);
+  }
+
+  function failValidation(
+    message,
+    fieldId
+  ) {
+    const field =
+      document.getElementById(fieldId);
+
+    field?.classList.add(
+      "pte-invalid"
+    );
+
+    field?.focus();
+
+    showValidationToast(message);
+
+    return false;
+  }
+
+  function validateTaskForm() {
+    clearValidationState();
+
+    const title =
+      value("pteTitle");
+
+    const startDate =
+      value("pteStartDate");
+
+    const targetDate =
+      value("pteTargetDate");
+
+    const requiredBy =
+      value("pteRequiredBy");
+
+    if (!title) {
+      return failValidation(
+        "Can't save Task — Task Name is required.",
+        "pteTitle"
+      );
+    }
+
+    if (!targetDate) {
+      return failValidation(
+        "Can't save Task — Target Date is required.",
+        "pteTargetDate"
+      );
+    }
+
+    if (!requiredBy) {
+      return failValidation(
+        "Can't save Task — Required By is required.",
+        "pteRequiredBy"
+      );
+    }
+
+    if (
+      startDate &&
+      startDate > targetDate
+    ) {
+      return failValidation(
+        "Can't save Task — Start Date cannot be after Target Date.",
+        "pteStartDate"
+      );
+    }
+
+    if (
+      requiredBy > targetDate
+    ) {
+      return failValidation(
+        "Can't save Task — Required By must be on or before Target Date.",
+        "pteRequiredBy"
+      );
+    }
+
+    return true;
+  }
+
   function save(event) {
 
     event.preventDefault();
@@ -660,12 +870,12 @@ const ProjectTaskEditor = (() => {
       return;
     }
 
-    const title =
-      value("pteTitle");
-
-    if (!title) {
+    if (!validateTaskForm()) {
       return;
     }
+
+    const title =
+      value("pteTitle");
 
 
     const all =
@@ -706,7 +916,8 @@ const ProjectTaskEditor = (() => {
 
       projectSharePointId:
         existing?.projectSharePointId ||
-        "",
+        projectSharePointId() ||
+        0,
 
       title,
 

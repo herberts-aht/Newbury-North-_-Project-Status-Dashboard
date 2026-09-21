@@ -328,14 +328,9 @@ const ProjectWorkView = (() => {
     return parts.join(" · ");
   }
 
-  function workItemRow(item, options = {}) {
+  function workItemRow(item) {
     const progress = ProjectWorkItems.displayedProgress(item.id);
     const children = ProjectWorkItems.childrenOf(item.id);
-
-    const showWarning = Boolean(options.showWarning);
-    const warning = showWarning
-      ? warningLabel(item)
-      : "";
 
     return `
       <div
@@ -351,19 +346,7 @@ const ProjectWorkView = (() => {
 
         ${progressBar(progress)}
 
-        <div class="pw-status pw-status-with-warning">
-          <span>${escapeHtml(item.status || "—")}</span>
-
-          ${
-            warning
-              ? `
-                <span class="pw-warning-inline ${warningClass(item)}">
-                  ${escapeHtml(warning)}
-                </span>
-              `
-              : ""
-          }
-        </div>
+        <div class="pw-status">${escapeHtml(item.status || "—")}</div>
 
         <div class="pw-meta pw-owner">
           ${escapeHtml(item.owner || "—")}
@@ -523,10 +506,6 @@ const ProjectWorkView = (() => {
   }
 
   function warningState(item) {
-    if (item?.__actionState) {
-      return item.__actionState;
-    }
-
     const ownState =
       baseWarningState(item);
 
@@ -569,7 +548,7 @@ const ProjectWorkView = (() => {
         return "Due Soon";
 
       case "parent-at-risk":
-        return "At Risk";
+        return "Higher-Level Task At Risk";
 
       default:
         return "";
@@ -675,267 +654,6 @@ const ProjectWorkView = (() => {
     });
   }
 
-  function actionGroupRoot(item) {
-    if (!item) return null;
-
-    let current = item;
-    let parent = current.parentWorkItemId
-      ? ProjectWorkItems.getItem(current.parentWorkItemId)
-      : null;
-
-    /*
-     * Walk upward until the next parent is the Workstream.
-     * That gives us the meaningful top-level Task underneath the
-     * Workstream rather than rolling warnings all the way up.
-     */
-    while (
-      parent &&
-      String(parent.itemType || "") !== "Workstream"
-    ) {
-      current = parent;
-
-      parent = current.parentWorkItemId
-        ? ProjectWorkItems.getItem(current.parentWorkItemId)
-        : null;
-    }
-
-    return current;
-  }
-
-  function actionSummaryState(members) {
-    const states = members.map(item => {
-      const state = warningState(item);
-
-      return state === "parent-at-risk"
-        ? "at-risk"
-        : state;
-    });
-
-    if (states.includes("overdue")) {
-      return "overdue";
-    }
-
-    if (states.includes("at-risk")) {
-      return "at-risk";
-    }
-
-    if (states.includes("due-soon")) {
-      return "due-soon";
-    }
-
-    return "on-track";
-  }
-
-  function earliestActionDate(members) {
-    const dates = members
-      .map(actionDueDate)
-      .filter(Boolean)
-      .sort();
-
-    return dates[0] || "";
-  }
-
-  function actionSummaryItems() {
-    const raw = actionRequiredItems();
-    const groups = new Map();
-
-    raw.forEach(item => {
-      /*
-       * Workstreams are organizational containers. They should not
-       * become duplicate Action Required cards when useful Tasks
-       * underneath them already explain the problem.
-       */
-      if (String(item.itemType || "") === "Workstream") {
-        return;
-      }
-
-      const root = actionGroupRoot(item) || item;
-      const id = String(root.id);
-
-      if (!groups.has(id)) {
-        groups.set(id, {
-          root,
-          members: []
-        });
-      }
-
-      const group = groups.get(id);
-
-      if (
-        !group.members.some(
-          member => String(member.id) === String(item.id)
-        )
-      ) {
-        group.members.push(item);
-      }
-    });
-
-    const summaries = [...groups.values()].map(group => {
-      const root = group.root;
-      const members = group.members;
-
-      /*
-       * Make sure the root's own actionable condition is represented
-       * when it is meaningful in addition to descendant conditions.
-       */
-      if (
-        isActionableItem(root) &&
-        !members.some(
-          member => String(member.id) === String(root.id)
-        )
-      ) {
-        members.push(root);
-      }
-
-      const waitingNames = [...new Set(
-        members
-          .map(member => String(member.waitingOn || "").trim())
-          .filter(Boolean)
-      )];
-
-      const earliest = earliestActionDate(members);
-
-      return {
-        ...root,
-
-        __actionGrouped: members.some(
-          member => String(member.id) !== String(root.id)
-        ),
-
-        __actionMembers: members,
-
-        __actionState: actionSummaryState(members),
-
-        waitingOn:
-          waitingNames.length === 1
-            ? waitingNames[0]
-            : waitingNames.length > 1
-              ? "Multiple"
-              : root.waitingOn,
-
-        requiredBy:
-          earliest ||
-          root.requiredBy ||
-          ""
-      };
-    });
-
-    return summaries.sort((a, b) => {
-      const aDate = String(
-        a.requiredBy ||
-        a.targetDate ||
-        "9999-12-31"
-      );
-
-      const bDate = String(
-        b.requiredBy ||
-        b.targetDate ||
-        "9999-12-31"
-      );
-
-      return (
-        warningRank(a) - warningRank(b) ||
-        aDate.localeCompare(bDate) ||
-        String(a.title || "").localeCompare(
-          String(b.title || "")
-        )
-      );
-    });
-  }
-
-  function actionAttentionSummary(item) {
-    const members =
-      Array.isArray(item?.__actionMembers)
-        ? item.__actionMembers
-        : [item];
-
-    const descendants = members.filter(
-      member =>
-        String(member.id) !== String(item.id)
-    );
-
-    /*
-     * When descendants are driving the warning, summarize those.
-     * Otherwise this is a directly actionable Task and we retain its
-     * normal "what we need" wording.
-     */
-    if (!descendants.length) {
-      return (
-        item.informationRequired ||
-        item.blockerDependency ||
-        item.title ||
-        "Action required"
-      );
-    }
-
-    const counts = {
-      overdue: 0,
-      "at-risk": 0,
-      "due-soon": 0,
-      waiting: 0
-    };
-
-    descendants.forEach(member => {
-      let state = warningState(member);
-
-      if (state === "parent-at-risk") {
-        state = "at-risk";
-      }
-
-      if (state === "overdue") {
-        counts.overdue += 1;
-      } else if (state === "at-risk") {
-        counts["at-risk"] += 1;
-      } else if (state === "due-soon") {
-        counts["due-soon"] += 1;
-      } else if (
-        member.waitingOn ||
-        String(member.status || "") === "Waiting" ||
-        String(member.status || "") === "Awaiting Review" ||
-        String(member.status || "") === "Blocked"
-      ) {
-        counts.waiting += 1;
-      }
-    });
-
-    const details = [];
-
-    if (counts.overdue) {
-      details.push(
-        `${counts.overdue} overdue`
-      );
-    }
-
-    if (counts["at-risk"]) {
-      details.push(
-        `${counts["at-risk"]} at risk`
-      );
-    }
-
-    if (counts["due-soon"]) {
-      details.push(
-        `${counts["due-soon"]} due soon`
-      );
-    }
-
-    if (counts.waiting) {
-      details.push(
-        `${counts.waiting} waiting`
-      );
-    }
-
-    const count = descendants.length;
-
-    return (
-      `${count} subtask${count === 1 ? "" : "s"} need attention` +
-      (
-        details.length
-          ? ` · ${details.join(" · ")}`
-          : ""
-      )
-    );
-  }
-
   function actionWaitingOnName(item) {
     return String(
       item.waitingOn ||
@@ -946,12 +664,12 @@ const ProjectWorkView = (() => {
 
   function actionWaitingOnOptions() {
     return [...new Set(
-      actionSummaryItems().map(actionWaitingOnName)
+      actionRequiredItems().map(actionWaitingOnName)
     )].sort((a, b) => a.localeCompare(b));
   }
 
   function visibleActionRequiredItems() {
-    const records = actionSummaryItems();
+    const records = actionRequiredItems();
 
     if (actionWaitingOnFilter === "all") {
       return records;
@@ -1010,7 +728,7 @@ const ProjectWorkView = (() => {
   }
 
   function renderModeToggle() {
-    const count = actionSummaryItems().length;
+    const count = actionRequiredItems().length;
 
     return `
       <div class="pw-mode-toggle" role="group" aria-label="Project Plan view">
@@ -1042,10 +760,9 @@ const ProjectWorkView = (() => {
     if (status === "Blocked") return "Blocked";
     if (status === "Awaiting Review") return "Awaiting Review";
     if (status === "Waiting") return "Waiting";
-    if (status) return status;
-    if (item.waitingOn) return "Waiting";
+    if (item.waitingOn || item.informationRequired) return "Outstanding";
 
-    return "Not Started";
+    return status || "Outstanding";
   }
 
   function actionStatusClass(item) {
@@ -1100,12 +817,10 @@ const ProjectWorkView = (() => {
 
   function actionRequiredCard(item) {
     const needed =
-      actionAttentionSummary(item);
-
-    const neededLabel =
-      item.__actionGrouped
-        ? "Attention Summary"
-        : "What We Need";
+      item.informationRequired ||
+      item.blockerDependency ||
+      item.title ||
+      "Action required";
 
     const waitingOn =
       item.waitingOn ||
@@ -1163,7 +878,7 @@ const ProjectWorkView = (() => {
         </div>
 
         <div class="pw-action-card-block">
-          <span>${escapeHtml(neededLabel)}</span>
+          <span>What We Need</span>
           <strong>${escapeHtml(needed)}</strong>
         </div>
 
@@ -1191,12 +906,10 @@ const ProjectWorkView = (() => {
 
   function actionRequiredRow(item) {
     const needed =
-      actionAttentionSummary(item);
-
-    const neededLabel =
-      item.__actionGrouped
-        ? "Attention Summary"
-        : "What We Need";
+      item.informationRequired ||
+      item.blockerDependency ||
+      item.title ||
+      "Action required";
 
     const due = item.requiredBy || item.targetDate;
 
@@ -1246,7 +959,7 @@ const ProjectWorkView = (() => {
   }
 
   function renderActionRequired(root) {
-    const allRecords = actionSummaryItems();
+    const allRecords = actionRequiredItems();
     const records = visibleActionRequiredItems();
 
     root.innerHTML = `
@@ -1562,14 +1275,7 @@ const ProjectWorkView = (() => {
                   <div></div>
                 </div>
 
-                ${children
-                  .map(child =>
-                    workItemRow(
-                      child,
-                      { showWarning: true }
-                    )
-                  )
-                  .join("")}
+                ${children.map(workItemRow).join("")}
               </div>
             `
             : `

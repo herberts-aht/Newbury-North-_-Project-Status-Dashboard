@@ -1,6 +1,8 @@
 const ProjectContactsView = (() => {
-  let seededProjectKey = null;
+  let seededProjects = new Set();
   let displayMode = "cards";
+  let showArchived = false;
+  let editingId = null;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -11,6 +13,21 @@ const ProjectContactsView = (() => {
       .replaceAll("'", "&#039;");
   }
 
+  function isAdmin() {
+    try {
+      if (
+        typeof currentUser !== "undefined" &&
+        currentUser?.canAdmin
+      ) {
+        return true;
+      }
+    } catch {}
+
+    return String(
+      document.getElementById("roleLabel")?.textContent || ""
+    ).trim().toLowerCase() === "administrator";
+  }
+
   function projectKey() {
     const project =
       typeof currentProject === "function"
@@ -19,85 +36,96 @@ const ProjectContactsView = (() => {
 
     if (!project) return "";
 
-    return String(project.id || project.sharePointId || "");
+    return String(
+      project.id ||
+      project.sharePointId ||
+      ""
+    );
   }
 
   function seedPrototypeContacts() {
     const key = projectKey();
     if (!key) return;
 
-    if (
-      seededProjectKey === key &&
-      ProjectContacts.forProject(key).length
-    ) {
+    const existing = ProjectContacts.forProject(
+      key,
+      { includeInactive: true }
+    );
+
+    if (existing.length) {
+      seededProjects.add(key);
       return;
     }
 
-    seededProjectKey = key;
+    if (seededProjects.has(key)) {
+      return;
+    }
 
-    ProjectContacts.setContacts([
+    seededProjects.add(key);
+
+    ProjectContacts.setProjectContacts(key, [
       {
         id: `${key}-aht`,
-        projectId: key,
         name: "AHT Global",
         type: "Internal",
         role: "Technology Integrator",
         dashboardUser: true,
+        active: true,
         sortOrder: 10
       },
       {
         id: `${key}-newbury`,
-        projectId: key,
         name: "Newbury North",
         type: "Builder",
         role: "Builder / Project Team",
         dashboardUser: false,
+        active: true,
         sortOrder: 20
       },
       {
         id: `${key}-russell`,
-        projectId: key,
         name: "Russell Edwards",
         type: "Consultant",
         role: "AV Consultant",
         dashboardUser: false,
+        active: true,
         sortOrder: 30
       },
       {
         id: `${key}-ces`,
-        projectId: key,
         name: "CES",
         contactPerson: "Eli",
         type: "Engineer / Trade",
         role: "Electrical Engineer",
         dashboardUser: false,
+        active: true,
         sortOrder: 40
       },
       {
         id: `${key}-cmea`,
-        projectId: key,
         name: "CMEA",
         type: "Engineer",
         role: "MEP / Engineering Coordination",
         dashboardUser: false,
+        active: true,
         sortOrder: 50
       },
       {
         id: `${key}-aquatics`,
-        projectId: key,
         name: "Martin Aquatics",
         type: "Consultant",
         role: "Aquatics Design",
         dashboardUser: false,
+        active: true,
         sortOrder: 60
       },
       {
         id: `${key}-landscape`,
-        projectId: key,
         name: "Landscape / Builder",
         type: "Project Team",
         role: "Landscape / Exterior Coordination",
         dashboardUser: false,
+        active: true,
         sortOrder: 70
       }
     ]);
@@ -105,11 +133,16 @@ const ProjectContactsView = (() => {
 
   function contactCard(contact) {
     return `
-      <article class="pc-card">
+      <article class="pc-card ${contact.active ? "" : "pc-inactive"}">
         <div class="pc-card-top">
           <div>
-            <div class="pc-type">${escapeHtml(contact.type || "Contact")}</div>
-            <h3>${escapeHtml(contact.name)}</h3>
+            <div class="pc-type">
+              ${escapeHtml(contact.type || "Contact")}
+            </div>
+
+            <h3>
+              ${escapeHtml(contact.name || contact.contactPerson)}
+            </h3>
           </div>
 
           ${
@@ -124,12 +157,16 @@ const ProjectContactsView = (() => {
         <div class="pc-meta">
           <div>
             <span>Contact</span>
-            <strong>${escapeHtml(contact.contactPerson || "—")}</strong>
+            <strong>
+              ${escapeHtml(contact.contactPerson || "—")}
+            </strong>
           </div>
 
           <div>
             <span>Role</span>
-            <strong>${escapeHtml(contact.role || "—")}</strong>
+            <strong>
+              ${escapeHtml(contact.role || "—")}
+            </strong>
           </div>
         </div>
 
@@ -154,14 +191,23 @@ const ProjectContactsView = (() => {
         }
 
         <div class="pc-footer">
-          <span>${contact.active ? "Active" : "Inactive"}</span>
-          <button
-            class="btn admin-only"
-            type="button"
-            onclick="ProjectContactsView.editContact('${String(contact.id).replaceAll("'", "\\'")}')"
-          >
-            Edit
-          </button>
+          <span class="${contact.active ? "" : "pc-archived-label"}">
+            ${contact.active ? "Active" : "Archived"}
+          </span>
+
+          ${
+            isAdmin()
+              ? `
+                <button
+                  class="btn"
+                  type="button"
+                  onclick="ProjectContactsView.editContact('${String(contact.id).replaceAll("'", "\\'")}')"
+                >
+                  Edit
+                </button>
+              `
+              : ""
+          }
         </div>
       </article>
     `;
@@ -169,10 +215,15 @@ const ProjectContactsView = (() => {
 
   function contactRow(contact) {
     return `
-      <div class="pc-row">
+      <div class="pc-row ${contact.active ? "" : "pc-inactive"}">
         <div>
-          <strong>${escapeHtml(contact.name)}</strong>
-          <span>${escapeHtml(contact.type || "Contact")}</span>
+          <strong>
+            ${escapeHtml(contact.name || contact.contactPerson)}
+          </strong>
+
+          <span>
+            ${escapeHtml(contact.type || "Contact")}
+          </span>
         </div>
 
         <div>
@@ -184,24 +235,28 @@ const ProjectContactsView = (() => {
         </div>
 
         <div>
-          ${
-            contact.dashboardUser
-              ? "Yes"
-              : "No"
-          }
+          ${contact.dashboardUser ? "Yes" : "No"}
         </div>
 
         <div>
-          ${contact.active ? "Active" : "Inactive"}
+          ${contact.active ? "Active" : "Archived"}
         </div>
 
-        <button
-          class="btn admin-only"
-          type="button"
-          onclick="ProjectContactsView.editContact('${String(contact.id).replaceAll("'", "\\'")}')"
-        >
-          Edit
-        </button>
+        <div>
+          ${
+            isAdmin()
+              ? `
+                <button
+                  class="btn"
+                  type="button"
+                  onclick="ProjectContactsView.editContact('${String(contact.id).replaceAll("'", "\\'")}')"
+                >
+                  Edit
+                </button>
+              `
+              : ""
+          }
+        </div>
       </div>
     `;
   }
@@ -232,52 +287,86 @@ const ProjectContactsView = (() => {
     `;
   }
 
+  function archivedControl() {
+    if (!isAdmin()) return "";
+
+    return `
+      <label class="pc-show-archived">
+        <input
+          type="checkbox"
+          ${showArchived ? "checked" : ""}
+          onchange="ProjectContactsView.setShowArchived(this.checked)"
+        >
+        Show archived
+      </label>
+    `;
+  }
+
   function render() {
-    const root = document.getElementById("projectContactsContent");
+    const root =
+      document.getElementById("projectContactsContent");
+
     if (!root) return;
 
     seedPrototypeContacts();
 
-    const contacts = ProjectContacts.forProject(projectKey());
+    const contacts =
+      ProjectContacts.forProject(
+        projectKey(),
+        {
+          includeInactive:
+            isAdmin() && showArchived
+        }
+      );
 
     root.innerHTML = `
       <div class="pc-toolbar">
 
         <div>
           <h3>Project Contact List</h3>
+
           <p>
-            Contacts can be referenced by Project Work and Information Required
+            Contacts can be referenced by Project Plan and Information Required
             without needing dashboard access.
           </p>
         </div>
 
         <div class="pc-toolbar-right">
+          ${archivedControl()}
           ${viewToggle()}
         </div>
 
       </div>
 
       ${
-        displayMode === "cards"
-          ? `
-            <div class="pc-card-grid">
-              ${contacts.map(contactCard).join("")}
-            </div>
-          `
+        contacts.length
+          ? (
+              displayMode === "cards"
+                ? `
+                  <div class="pc-card-grid">
+                    ${contacts.map(contactCard).join("")}
+                  </div>
+                `
+                : `
+                  <div class="pc-list">
+
+                    <div class="pc-row pc-row-head">
+                      <div>Company / Name</div>
+                      <div>Contact</div>
+                      <div>Role</div>
+                      <div>Dashboard User</div>
+                      <div>Status</div>
+                      <div></div>
+                    </div>
+
+                    ${contacts.map(contactRow).join("")}
+
+                  </div>
+                `
+            )
           : `
-            <div class="pc-list">
-
-              <div class="pc-row pc-row-head">
-                <div>Company / Name</div>
-                <div>Contact</div>
-                <div>Role</div>
-                <div>Dashboard User</div>
-                <div>Status</div>
-                <div></div>
-              </div>
-
-              ${contacts.map(contactRow).join("")}
-
+            <div class="pc-empty">
+              No project contacts have been added yet.
             </div>
           `
       }
@@ -291,69 +380,544 @@ const ProjectContactsView = (() => {
     render();
   }
 
-  function editContact(id) {
-    const contact = ProjectContacts.getContact(id);
+  function setShowArchived(value) {
+    showArchived = Boolean(value);
+    render();
+  }
+
+  function ensureEditor() {
+    if (
+      document.getElementById("projectContactEditorBackdrop")
+    ) {
+      return;
+    }
+
+    const backdrop =
+      document.createElement("div");
+
+    backdrop.id =
+      "projectContactEditorBackdrop";
+
+    backdrop.className =
+      "modal-backdrop pc-editor-backdrop";
+
+    backdrop.innerHTML = `
+      <div
+        class="modal pc-editor-modal"
+        role="dialog"
+        aria-modal="true"
+      >
+        <h3 id="pcEditorTitle">
+          Add Contact
+        </h3>
+
+        <form id="pcEditorForm">
+
+          <div class="form-grid">
+
+            <div class="field full">
+              <label for="pcName">
+                Company / Name *
+              </label>
+
+              <input
+                id="pcName"
+                name="name"
+                required
+                autocomplete="off"
+              >
+            </div>
+
+
+            <div class="field">
+              <label for="pcContactPerson">
+                Contact Person
+              </label>
+
+              <input
+                id="pcContactPerson"
+                name="contactPerson"
+                autocomplete="off"
+              >
+            </div>
+
+
+            <div class="field">
+              <label for="pcType">
+                Type
+              </label>
+
+              <select
+                id="pcType"
+                name="type"
+              >
+                <option value="">Select type…</option>
+                <option>Internal</option>
+                <option>Builder</option>
+                <option>Architect</option>
+                <option>Engineer</option>
+                <option>Engineer / Trade</option>
+                <option>Consultant</option>
+                <option>Trade</option>
+                <option>Vendor</option>
+                <option>Client</option>
+                <option>Project Team</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+
+            <div class="field full">
+              <label for="pcRole">
+                Role / Responsibility
+              </label>
+
+              <input
+                id="pcRole"
+                name="role"
+                autocomplete="off"
+              >
+            </div>
+
+
+            <div class="field">
+              <label for="pcEmail">
+                Email
+              </label>
+
+              <input
+                id="pcEmail"
+                name="email"
+                type="email"
+                autocomplete="off"
+              >
+            </div>
+
+
+            <div class="field">
+              <label for="pcPhone">
+                Phone
+              </label>
+
+              <input
+                id="pcPhone"
+                name="phone"
+                type="tel"
+                autocomplete="off"
+              >
+            </div>
+
+
+            <div class="field">
+              <label class="pc-checkbox-label">
+                <input
+                  id="pcDashboardUser"
+                  name="dashboardUser"
+                  type="checkbox"
+                >
+                Dashboard User
+              </label>
+            </div>
+
+
+            <div class="field">
+              <label class="pc-checkbox-label">
+                <input
+                  id="pcActive"
+                  name="active"
+                  type="checkbox"
+                  checked
+                >
+                Active
+              </label>
+            </div>
+
+          </div>
+
+
+          <div class="modal-actions">
+            <button
+              id="pcArchiveBtn"
+              class="btn danger"
+              type="button"
+              style="display:none"
+            >
+              Archive
+            </button>
+
+            <span style="flex:1"></span>
+
+            <button
+              class="btn"
+              type="button"
+              data-pc-close
+            >
+              Cancel
+            </button>
+
+            <button
+              class="btn primary"
+              type="submit"
+            >
+              Save Contact
+            </button>
+          </div>
+
+        </form>
+      </div>
+    `;
+
+    backdrop.addEventListener(
+      "click",
+      event => {
+        if (
+          event.target === backdrop ||
+          event.target.closest("[data-pc-close]")
+        ) {
+          closeEditor();
+        }
+      }
+    );
+
+    backdrop
+      .querySelector("#pcEditorForm")
+      .addEventListener(
+        "submit",
+        saveEditor
+      );
+
+    backdrop
+      .querySelector("#pcArchiveBtn")
+      .addEventListener(
+        "click",
+        toggleArchive
+      );
+
+    document.body.appendChild(backdrop);
+  }
+
+  function openEditor(contact = null) {
+    if (!isAdmin()) return;
+
+    ensureEditor();
+
+    editingId =
+      contact?.id || null;
+
+    document.getElementById(
+      "pcEditorTitle"
+    ).textContent =
+      contact
+        ? "Edit Contact"
+        : "Add Contact";
+
+    document.getElementById(
+      "pcName"
+    ).value =
+      contact?.name || "";
+
+    document.getElementById(
+      "pcContactPerson"
+    ).value =
+      contact?.contactPerson || "";
+
+    document.getElementById(
+      "pcType"
+    ).value =
+      contact?.type || "";
+
+    document.getElementById(
+      "pcRole"
+    ).value =
+      contact?.role || "";
+
+    document.getElementById(
+      "pcEmail"
+    ).value =
+      contact?.email || "";
+
+    document.getElementById(
+      "pcPhone"
+    ).value =
+      contact?.phone || "";
+
+    document.getElementById(
+      "pcDashboardUser"
+    ).checked =
+      Boolean(contact?.dashboardUser);
+
+    document.getElementById(
+      "pcActive"
+    ).checked =
+      contact
+        ? contact.active !== false
+        : true;
+
+    const archiveButton =
+      document.getElementById(
+        "pcArchiveBtn"
+      );
+
+    if (contact) {
+      archiveButton.style.display = "";
+
+      archiveButton.textContent =
+        contact.active === false
+          ? "Restore"
+          : "Archive";
+    } else {
+      archiveButton.style.display =
+        "none";
+    }
+
+    const backdrop =
+      document.getElementById(
+        "projectContactEditorBackdrop"
+      );
+
+    backdrop.style.display =
+      "flex";
+
+    setTimeout(() => {
+      document
+        .getElementById("pcName")
+        ?.focus();
+    }, 0);
+  }
+
+  function closeEditor() {
+    const backdrop =
+      document.getElementById(
+        "projectContactEditorBackdrop"
+      );
+
+    if (!backdrop) return;
+
+    backdrop.style.display =
+      "none";
+
+    editingId = null;
+  }
+
+  function saveEditor(event) {
+    event.preventDefault();
+
+    if (!isAdmin()) return;
+
+    const existing =
+      editingId
+        ? ProjectContacts.getContact(
+            editingId
+          )
+        : null;
+
+    const name =
+      String(
+        document.getElementById(
+          "pcName"
+        ).value || ""
+      ).trim();
+
+    if (!name) {
+      document
+        .getElementById("pcName")
+        .focus();
+
+      return;
+    }
+
+    const projectContacts =
+      ProjectContacts.forProject(
+        projectKey(),
+        { includeInactive: true }
+      );
+
+    ProjectContacts.saveContact({
+      ...(existing || {}),
+
+      id:
+        existing?.id ||
+        `${projectKey()}-contact-${Date.now()}`,
+
+      projectId:
+        existing?.projectId ||
+        projectKey(),
+
+      name,
+
+      contactPerson:
+        document.getElementById(
+          "pcContactPerson"
+        ).value,
+
+      type:
+        document.getElementById(
+          "pcType"
+        ).value,
+
+      role:
+        document.getElementById(
+          "pcRole"
+        ).value,
+
+      email:
+        document.getElementById(
+          "pcEmail"
+        ).value,
+
+      phone:
+        document.getElementById(
+          "pcPhone"
+        ).value,
+
+      dashboardUser:
+        document.getElementById(
+          "pcDashboardUser"
+        ).checked,
+
+      active:
+        document.getElementById(
+          "pcActive"
+        ).checked,
+
+      sortOrder:
+        existing?.sortOrder ||
+        (
+          Math.max(
+            0,
+            ...projectContacts.map(
+              contact =>
+                Number(
+                  contact.sortOrder || 0
+                )
+            )
+          ) + 10
+        )
+    });
+
+    closeEditor();
+    render();
+  }
+
+  function toggleArchive() {
+    if (
+      !isAdmin() ||
+      !editingId
+    ) {
+      return;
+    }
+
+    const contact =
+      ProjectContacts.getContact(
+        editingId
+      );
 
     if (!contact) return;
 
-    alert(
-      `Contact editing will be enabled when Project Contacts are connected to SharePoint.\n\n${ProjectContacts.displayName(contact)}`
+    ProjectContacts.setActive(
+      editingId,
+      !contact.active
     );
+
+    closeEditor();
+    render();
+  }
+
+  function editContact(id) {
+    if (!isAdmin()) return;
+
+    const contact =
+      ProjectContacts.getContact(id);
+
+    if (!contact) return;
+
+    openEditor(contact);
   }
 
   function addContact() {
-    alert(
-      "Adding Project Contacts will be enabled when this prototype is connected to SharePoint."
-    );
+    if (!isAdmin()) return;
+
+    openEditor();
   }
 
   function onProjectChanged() {
-    seededProjectKey = null;
     render();
   }
 
   function watchViewActivation() {
-    const view = document.getElementById("projectContacts");
+    const view =
+      document.getElementById(
+        "projectContacts"
+      );
+
     if (!view) return;
 
-    const observer = new MutationObserver(() => {
-      if (view.classList.contains("active")) {
-        render();
-      }
-    });
+    const observer =
+      new MutationObserver(() => {
+        if (
+          view.classList.contains(
+            "active"
+          )
+        ) {
+          render();
+        }
+      });
 
-    observer.observe(view, {
-      attributes: true,
-      attributeFilter: ["class"]
-    });
+    observer.observe(
+      view,
+      {
+        attributes: true,
+        attributeFilter: ["class"]
+      }
+    );
   }
 
-  document.addEventListener("change", event => {
-    if (!event.target.matches("#projectContacts .project-select-clone")) return;
+  document.addEventListener(
+    "change",
+    event => {
+      if (
+        !event.target.matches(
+          "#projectContacts .project-select-clone"
+        )
+      ) {
+        return;
+      }
 
-    setTimeout(() => {
-      onProjectChanged();
-    }, 0);
-  });
-
-  document.addEventListener("DOMContentLoaded", () => {
-    watchViewActivation();
-
-    const addButton =
-      document.getElementById("addProjectContactBtn");
-
-    if (addButton) {
-      addButton.addEventListener("click", addContact);
+      setTimeout(
+        onProjectChanged,
+        0
+      );
     }
-  });
+  );
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      watchViewActivation();
+
+      const addButton =
+        document.getElementById(
+          "addProjectContactBtn"
+        );
+
+      if (addButton) {
+        addButton.addEventListener(
+          "click",
+          addContact
+        );
+      }
+    }
+  );
 
   return {
     render,
     setDisplayMode,
+    setShowArchived,
     editContact,
     addContact,
     onProjectChanged
   };
 })();
 
-window.ProjectContactsView = ProjectContactsView;
+window.ProjectContactsView =
+  ProjectContactsView;

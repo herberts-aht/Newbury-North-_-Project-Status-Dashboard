@@ -231,3 +231,83 @@
     grid-template-columns:1fr;
   }
 }
+
+
+/* Project Task validation */
+
+.pte-invalid{
+  border-color:#c2410c !important;
+  box-shadow:0 0 0 2px rgba(194,65,12,.10);
+}
+
+.pte-validation-toast{
+  position:fixed;
+  top:22px;
+  right:22px;
+  z-index:10000;
+  max-width:420px;
+  padding:12px 16px;
+  border:1px solid rgba(194,65,12,.25);
+  border-radius:10px;
+  background:#fff7ed;
+  color:#9a3412;
+  font-size:13px;
+  font-weight:700;
+  box-shadow:0 10px 28px rgba(0,0,0,.14);
+  opacity:0;
+  transform:translateY(-8px);
+  pointer-events:none;
+  transition:
+    opacity .18s ease,
+    transform .18s ease;
+}
+
+.pte-validation-toast.show{
+  opacity:1;
+  transform:translateY(0);
+}
+
+
+
+/* Validation message inside Task modal */
+#projectTaskEditorModal .pte-validation-toast{
+  position:static;
+  width:auto;
+  max-width:none;
+  margin:10px 0 8px auto;
+  padding:9px 12px;
+  border:1px solid rgba(194,65,12,.25);
+  border-radius:8px;
+  background:#fff7ed;
+  color:#9a3412;
+  font-size:12px;
+  font-weight:700;
+  text-align:right;
+  box-shadow:none;
+  opacity:0;
+  transform:none;
+  pointer-events:none;
+}
+
+#projectTaskEditorModal .pte-validation-toast.show{
+  opacity:1;
+  transform:none;
+}
+
+
+/* Keep validation message compact instead of full-width */
+#projectTaskEditorModal .pte-validation-toast{
+  display:inline-flex;
+  width:max-content;
+  max-width:100%;
+  align-self:flex-end;
+  margin-left:auto;
+}
+
+/* Right-align compact validation message above Save */
+#projectTaskEditorModal .pte-validation-toast{
+  display:block;
+  width:fit-content;
+  max-width:100%;
+  margin:10px 0 8px auto;
+}

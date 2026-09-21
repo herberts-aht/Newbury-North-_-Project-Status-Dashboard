@@ -417,10 +417,6 @@ const ProjectWorkItems = (() => {
         deliverable: item.title,
         discipline:
           item.workstream ||
-          [...pathFor(item.id)]
-            .reverse()
-            .find(node => String(node.workstream || "").trim())
-            ?.workstream ||
           item.phase ||
           "Project Plan",
 

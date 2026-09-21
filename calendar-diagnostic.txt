@@ -1,0 +1,773 @@
+1-// Dashboard rendering.
+2-//
+3-// This module controls the visible project screens. Authentication,
+4-// permissions, storage, and project data remain separate.
+5-
+6-let calendarViewDate=new Date();
+7:let calendarScheduleMode="project";
+8-let ganttScheduleMode="project";
+9-let siteScheduleSnapshot={locations:[],operations:[],loaded:false,loading:false,projectSharePointId:0};
+10-
+11-const projectControlViewModes={
+12-  deliverables:(()=>{try{return localStorage.getItem("aht-project-control-deliverables-view")||"cards";}catch{return "cards";}})(),
+13-  info:(()=>{try{return localStorage.getItem("aht-project-control-info-view")||"cards";}catch{return "cards";}})()
+14-};
+15-function applyProjectControlViewModes(){
+16-  ["deliverables","info"].forEach(sectionId=>{
+17-    const section=document.getElementById(sectionId);
+18-    if(!section)return;
+19-    const mode=projectControlViewModes[sectionId]==="list"?"list":"cards";
+20-    section.dataset.controlView=mode;
+21-    document.querySelectorAll(`[data-control-view-button="${sectionId}"]`).forEach(button=>{
+22-      const active=button.dataset.mode===mode;
+23-      button.classList.toggle("active",active);
+24-      button.setAttribute("aria-pressed",active?"true":"false");
+25-    });
+26-  });
+27-}
+28-window.setProjectControlView=(sectionId,mode)=>{
+29-  if(!["deliverables","info"].includes(sectionId)||!["cards","list"].includes(mode))return;
+30-  projectControlViewModes[sectionId]=mode;
+31-  try{localStorage.setItem(`aht-project-control-${sectionId}-view`,mode);}catch{}
+32-  applyProjectControlViewModes();
+33-};
+34-
+35-function scheduleModeLabel(mode){return mode==="site"?"Site":mode==="combined"?"Combined":"Project";}
+36-function updateScheduleModeButtons(){
+37-  document.querySelectorAll("[data-schedule-view]").forEach(button=>{
+38:    const active=(button.dataset.scheduleView==="calendar"?calendarScheduleMode:ganttScheduleMode)===button.dataset.mode;
+39-    button.classList.toggle("active",active);
+40-    button.setAttribute("aria-pressed",active?"true":"false");
+41-  });
+42-  const cd=document.getElementById("calendarModeDescription");
+43:  if(cd)cd.textContent=calendarScheduleMode==="project"?"Project dates from Deliverables and Information Required.":calendarScheduleMode==="site"?"Site Operations dates only. Details stay in Site Operations.":"Project and Site dates shown together without linking the underlying records.";
+44-  const gd=document.getElementById("ganttModeDescription");
+45-  if(gd)gd.textContent=ganttScheduleMode==="project"?"Project Plan schedule.":ganttScheduleMode==="site"?"Site Operations schedule only. Details stay in Site Operations.":"Project and Site schedules shown together while remaining independent.";
+46-}
+47-async function ensureSiteSchedule(force=false){
+48-  const projectSharePointId=Number(currentProject()?.sharePointId||0);
+49-
+50-  if(
+51-    siteScheduleSnapshot.loading &&
+52-    Number(siteScheduleSnapshot.projectSharePointId||0)===projectSharePointId
+53-  ) return;
+54-
+55-  if(
+56-    siteScheduleSnapshot.loaded &&
+57-    !force &&
+58-    Number(siteScheduleSnapshot.projectSharePointId||0)===projectSharePointId
+59-  ) return;
+60-
+61-  if(!window.SiteOperations?.getScheduleData){
+62-    console.error("Site schedule bridge is unavailable.");
+63-    siteScheduleSnapshot={
+64-      locations:[],
+65-      operations:[],
+66-      loaded:true,
+67-      loading:false,
+68-      projectSharePointId
+69-    };
+70-    return;
+71-  }
+72-
+73-  siteScheduleSnapshot={
+74-    ...siteScheduleSnapshot,
+75-    loading:true,
+76-    loaded:false,
+77-    projectSharePointId
+78-  };
+79-
+80-  try{
+81-    const data=await window.SiteOperations.getScheduleData(
+82-      force || Number(siteScheduleSnapshot.projectSharePointId||0)!==projectSharePointId
+83-    );
+84-
+85-    siteScheduleSnapshot={
+86-      locations:data?.locations||[],
+87-      operations:data?.operations||[],
+88-      loaded:true,
+89-      loading:false,
+90-      projectSharePointId
+91-    };
+92-  }
+93-  catch(error){
+94-    console.error("Site schedule load failed",error);
+95-    siteScheduleSnapshot={
+96-      locations:[],
+97-      operations:[],
+98-      loaded:true,
+99-      loading:false,
+100-      projectSharePointId
+101-    };
+102-  }
+103-}
+104-window.setScheduleMode=async(view,mode)=>{
+105-  if(!["project","site","combined"].includes(mode))return;
+106-  if(view==="calendar"){
+107:    calendarScheduleMode=mode;
+108-  }else{
+109-    ganttScheduleMode=mode;
+110-    resetGanttGroups();
+111-    resetGanttTimelineWindow();
+112-  }
+113-  updateScheduleModeButtons();
+114-  if(mode!=="project")await ensureSiteSchedule(false);
+115-  render();
+116-};
+117-function siteLocationName(id){return siteScheduleSnapshot.locations.find(x=>Number(x.id)===Number(id))?.name||"Site";}
+118-function siteScheduleRecords(){
+119-  return siteScheduleSnapshot.operations.map(op=>({
+120-    ...op,
+121-    scheduleKind:"site",
+122-    deliverable:op.title,
+123-    discipline:siteLocationName(op.locationId),
+124-    startDate:op.activityDate||op.targetDate,
+125-    date:op.targetDate||op.activityDate,
+126-    waitingOn:op.blockerDependency||""
+127-  }));
+128-}
+129-function projectScheduleRecords(fallbackRecords=[]){
+130-  /*
+131-   * Project Plan is now the Project-side schedule source.
+132-   * Keep the old Deliverables records only as a temporary fallback
+133-   * if Project Plan has not loaded yet.
+134-   */
+135-  const project=currentProject();
+136-  const projectKey=String(
+137-    project?.id ||
+138-    project?.sharePointId ||
+139-    ""
+140-  );
+141-
+142-  if(
+143-    projectKey &&
+144-    window.ProjectWorkItems?.getScheduleData
+145-  ){
+146-    return window.ProjectWorkItems
+147-      .getScheduleData(projectKey,{includeParents:true})
+148-      .map(record=>({
+149-        ...record,
+150-        scheduleKind:"projectPlan",
+151-        discipline:
+152-          record.discipline ||
+153-          record.workstream ||
+154-          record.phase ||
+155-          "Project Plan"
+156-      }));
+157-  }
+158-
+159-  return (fallbackRecords||[]).map(record=>({
+160-    ...record,
+161-    scheduleKind:"project"
+162-  }));
+163-}
+164-
+165-function scheduleRecordsForGantt(projectRecords){
+166-  const project=projectScheduleRecords(projectRecords);
+167-  const site=siteScheduleRecords();
+168-
+169-  return ganttScheduleMode==="site"
+170-    ? site
+171-    : ganttScheduleMode==="combined"
+172-      ? [...project,...site]
+173-      : project;
+174-}
+175-
+176-function openScheduleSource(kind,id){
+177-  if(kind==="site"){
+--
+431-}
+432-function render(){
+433- document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canEdit));
+434- document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canAdmin));
+435- const projects=allowedProjects();
+436- if(!projects.length){
+437-   const profileSyncFailed=Boolean(currentUser?.accessProfileSyncError);
+438-   if(permissionBanner) permissionBanner.textContent=profileSyncFailed
+439-     ? "Project access could not be verified from Microsoft. Sign out and sign back in; if this continues, contact the Project Control administrator."
+440-     : `${currentUser?.name||"This user"} does not currently have any Project Control projects assigned.`;
+441-   if(projectGrid) projectGrid.innerHTML=profileSyncFailed
+442-     ? '<div class="panel" style="padding:18px"><strong>Project access could not be verified.</strong><div class="small" style="margin-top:5px">Your Microsoft dashboard profile did not load. Sign out and sign back in before requesting a new project assignment.</div></div>'
+443-     : '<div class="panel" style="padding:18px"><strong>No projects assigned.</strong><div class="small" style="margin-top:5px">Contact the Project Control administrator if project access is required.</div></div>';
+444-   return;
+445- }
+446: if(!projects.some(p=>p.id===state.currentProjectId))state.currentProjectId=projects[0].id;const p=currentProject(),ds=visibleDeliverables(p),infoRecords=visibleInfo(p);
+447- userLabel.textContent=currentUser.name;roleLabel.textContent=currentUser.role;avatarInitials.textContent=currentUser.name.split(" ").map(x=>x[0]).join("").slice(0,2);projectSubtitle.textContent=`${p.name} · ${p.subtitle}`;welcomeTitle.textContent=`Welcome, ${currentUser.name.split(" ")[0]}`;const displayedHealth=displayedProjectHealth(p);summaryHealth.textContent=displayedHealth;summaryHealthDot.style.background=healthColor(displayedHealth);summaryHealthMode.textContent=activeProjectHealthOverride(p)?"Manual override":"Automatic from deliverables";summaryHealthNote.textContent=activeProjectHealthOverride(p)?(p.healthOverrideReason||""):"";summaryExecutiveLead.textContent=p.executiveLead||"—";summarySeniorProjectManager.textContent=p.seniorProjectManager||"—";summaryProjectManagerSiteLead.textContent=p.projectManagerSiteLead||"—";summaryUpdated.textContent=formatLastUpdated(p);summaryAccess.textContent=currentUser.canAdmin?"Administrator":currentUser.canEdit?"Editor":"Viewer";document.querySelectorAll(".internal-activity").forEach(x=>x.classList.toggle("hidden",!currentUser.isInternal));lastActivityDate.textContent=fmtDate(p.lastActivityDate);lastActivityText.textContent=p.lastActivity||"No activity recorded.";const activityPhase=document.getElementById("lastActivityPhase");if(activityPhase){activityPhase.textContent=p.lastActivityPhase||"";activityPhase.classList.toggle("hidden",!p.lastActivityPhase);}const projectCommentBtn=document.getElementById("addProjectCommentBtn");if(projectCommentBtn){const openProjectComments=projectGeneralComments(p,false).length;projectCommentBtn.classList.toggle("hidden",!currentUser?.isInternal);if(window.innerWidth<=700){
+448-  projectCommentBtn.innerHTML=`
+449-    <span class="mobile-project-comment">
+450-      <span class="comment-text-line">Project</span>
+451-      <span class="comment-text-line">Comment${openProjectComments===1?"":"s"}</span>
+452-      <span class="comment-icon-wrap">
+453-        <span class="comment-icon">💬</span>
+454-        ${openProjectComments ? `<span class="comment-count">${openProjectComments}</span>` : ""}
+455-      </span>
+456-    </span>`;
+457-}else{
+458-  projectCommentBtn.textContent=openProjectComments
+459-    ? `💬 ${openProjectComments} Project Comment${openProjectComments===1?"":"s"}`
+460-    : "💬 Project Comment";
+461-}}
+462- permissionBanner.textContent=currentUser.projects.includes("*")?`${currentUser.name} can view all assigned Newbury projects. ${currentUser.canAdmin?"Administrator access.":currentUser.canEdit?"Internal editing access.":"Read-only executive access."}`:`${currentUser.name} can view only: ${projects.map(x=>x.name).join(", ")}. ${currentUser.canEdit?"Internal editing access.":"Read-only external access."}`;
+463- document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canEdit));document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canAdmin));
+464- projectGrid.innerHTML=projects.map(pr=>{const waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length,active=Math.max(0,pr.deliverables.length-waiting-complete);const progress=weightedProjectProgress(pr),planning=displayedPhaseProgress(pr,"Planning"),engineering=displayedPhaseProgress(pr,"Engineering"),installation=displayedPhaseProgress(pr,"Installation"),health=displayedProjectHealth(pr);return `<div class="project-card" onclick="setProject('${pr.id}');showView('dashboard')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health"><span class="pulse" style="background:${healthColor(health)}"></span><span>${esc(health)}</span></div><div class="small" style="margin-top:6px">Updated: ${esc(formatLastUpdated(pr))}</div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%${progressModeMark(pr.progressOverallMode||"auto")}</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong><span class="phase-progress-value">${planning}%</span>${progressModeMark(phaseProgressMode(pr,"Planning"))}</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong><span class="phase-progress-value">${engineering}%</span>${progressModeMark(phaseProgressMode(pr,"Engineering"))}</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong><span class="phase-progress-value">${installation}%</span>${progressModeMark(phaseProgressMode(pr,"Installation"))}</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
+465- const opts=projects.map(pr=>`<option value="${pr.id}" ${pr.id===p.id?"selected":""}>${esc(pr.name)}</option>`).join("");projectSelect.innerHTML=opts;document.querySelectorAll(".project-select-clone").forEach(s=>s.innerHTML=opts);
+466- const summaryWaiting=ds.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,summaryComplete=ds.filter(x=>x.status==="Complete").length,summaryActive=Math.max(0,ds.length-summaryWaiting-summaryComplete);kpiTotal.textContent=ds.length;kpiActive.textContent=summaryActive;kpiWaiting.textContent=summaryWaiting;kpiComplete.textContent=summaryComplete;
+467-
+468-[
+469-  [kpiTotal,"all"],
+470-  [kpiActive,"active"],
+471-  [kpiWaiting,"waiting"],
+472-  [kpiComplete,"complete"]
+473-].forEach(([el,mode])=>{
+474-  const card=el?.closest(".kpi");
+475-  if(!card)return;
+476-
+477-  card.classList.add("summary-kpi-drilldown");
+478-  card.setAttribute("role","button");
+479-  card.tabIndex=0;
+480-  card.onclick=()=>openSummaryDeliverables(mode);
+481-  card.onkeydown=event=>{
+482-    if(event.key==="Enter"||event.key===" "){
+483-      event.preventDefault();
+484-      openSummaryDeliverables(mode);
+485-    }
+486-  };
+487-});
+488- currentWork.innerHTML=ds.filter(x=>x.status==="In Progress").map(x=>`<div${summaryClickableAttrs("Deliverable",x.id)}><span class="dot"></span><div><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></div></div>`).join("")||"<span class='small'>No active items.</span>";
+489- requiredOthers.innerHTML=infoRecords.filter(x=>x.status!=="Received").map(x=>`<div${summaryClickableAttrs("Information Required",x.id)}><span class="dot" style="background:var(--orange)"></span><div><strong>${esc(x.item)}</strong>${currentUser.canEdit?` <button class="linkbtn agenda-edit" onclick="editInfo(${x.id})">Edit source</button>`:""}<div class="small">${esc(x.from)} · blocks ${esc(x.blocking)}</div></div></div>`).join("")||"<span class='small'>Nothing outstanding.</span>";
+490- nextDeliverables.innerHTML=ds.filter(x=>x.status==="In Progress").map(x=>`<div${summaryClickableAttrs("Deliverable",x.id)}><span class="dot" style="background:var(--green)"></span><div><strong>${esc(x.deliverable)}</strong><div class="small">${esc(x.nextStep)} · ${fmtDate(x.date)}</div></div></div>`).join("")||"<span class='small'>No active deliverables.</span>";
+491- projectRisks.innerHTML=ds.filter(x=>x.risk).map(x=>`<div${summaryClickableAttrs("Deliverable",x.id)}><span class="dot" style="background:var(--red)"></span><div>${esc(x.risk)}</div></div>`).join("")||"<span class='small'>No current risks.</span>";
+492- bindSummaryDrilldowns();
+493-  const q=searchDeliverables.value.toLowerCase(),fs=filterStatus.value,fd=filterDiscipline.value,
+494-filtered=ds.filter(x=>{
+495-  const normalMatch=
+496-    (!q||JSON.stringify(x).toLowerCase().includes(q)) &&
+497-    (!fs||x.status===fs) &&
+498-    (!fd||x.discipline===fd);
+499-
+500-  if(!normalMatch)return false;
+501-
+502-  if(summaryDeliverableMode==="active")return x.status==="In Progress";
+503-  if(summaryDeliverableMode==="waiting")return String(x.status||"").includes("Waiting")||x.status==="Awaiting Review";
+504-  if(summaryDeliverableMode==="complete")return x.status==="Complete";
+505-
+506-  return true;
+507-});
+508- deliverablesBody.innerHTML=filtered.map(x=>`<tr><td>${esc(x.discipline)}</td><td><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></td><td>${badge(x.status)}</td><td>${healthBadge(x)}</td><td>${esc(x.owner)}</td><td>${esc(x.waitingOn)}</td><td>${esc(x.nextStep)}</td><td>${fmtDate(x.date)}</td><td><div class="record-actions">${commentControl(p,"Deliverable",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editDeliverable(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
+509- deliverableCards.innerHTML=filtered.map(x=>`<article class="project-control-card deliverable-summary-card" role="button" tabindex="0" onclick="openProjectControlDetail('Deliverable',${x.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProjectControlDetail('Deliverable',${x.id});}"><div class="project-control-card-top"><div><div class="mobile-record-kicker">${esc(x.discipline)}</div><h3>${esc(x.deliverable)}</h3></div><div class="project-control-badges">${badge(x.status)}</div></div><div class="project-control-card-meta"><span><small>Owner</small><strong>${esc(x.owner)||"—"}</strong></span><span><small>Target</small><strong>${fmtDate(x.date)}</strong></span></div><div class="project-control-card-footer"><span class="project-control-card-comment-wrap">${commentControl(p,"Deliverable",x,{card:true})}</span><span class="project-control-view-details"><span>View details</span><span aria-hidden="true">›</span></span></div></article>`).join("")||'<div class="mobile-empty">No deliverables match the current filters.</div>';
+510- infoBody.innerHTML=infoRecords.map(x=>`<tr><td><strong>${esc(x.item)}</strong>${visBadge(x.visibility)}</td><td>${esc(x.from)}</td><td>${badge(x.status)}</td><td>${esc(x.blocking)}</td><td>${esc(x.notes)}</td><td><div class="record-actions">${commentControl(p,"Information Required",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editInfo(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
+511- infoCards.innerHTML=infoRecords.map(x=>`<article class="project-control-card info-summary-card" role="button" tabindex="0" onclick="openProjectControlDetail('Information Required',${x.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProjectControlDetail('Information Required',${x.id});}"><div class="project-control-card-top"><div><div class="mobile-record-kicker">Dependency</div><h3>${esc(x.item)}</h3></div><div class="project-control-badges">${badge(x.status)}</div></div><div class="project-control-card-meta"><span><small>Requested From</small><strong>${esc(x.from)||"—"}</strong></span><span><small>Needed By</small><strong>${fmtDate(x.neededBy)}</strong></span></div>${x.blocking?`<div class="project-control-card-block"><small>Blocking</small><span>${esc(x.blocking)}</span></div>`:""}<div class="project-control-card-footer"><span class="project-control-card-comment-wrap">${commentControl(p,"Information Required",x,{card:true})}</span><span class="project-control-view-details"><span>View details</span><span aria-hidden="true">›</span></span></div></article>`).join("")||'<div class="mobile-empty">No information requests for this project.</div>';
+512- applyProjectControlViewModes();
+513- const statuses=[...new Set(ds.map(x=>x.status))].sort(),disciplines=[...new Set(ds.map(x=>x.discipline))].sort(),oldS=filterStatus.value,oldD=filterDiscipline.value;filterStatus.innerHTML='<option value="">All statuses</option>'+statuses.map(s=>`<option>${esc(s)}</option>`).join("");filterStatus.value=oldS;filterDiscipline.innerHTML='<option value="">All disciplines</option>'+disciplines.map(s=>`<option>${esc(s)}</option>`).join("");filterDiscipline.value=oldD;
+514- updateScheduleModeButtons();
+515: if((calendarScheduleMode!=="project"||ganttScheduleMode!=="project")&&!siteScheduleSnapshot.loaded&&!siteScheduleSnapshot.loading){ensureSiteSchedule(false).then(()=>render());}
+516- timelineTrack.innerHTML=renderGantt(scheduleRecordsForGantt(ds));
+517- requestAnimationFrame(bindGanttBottomScroll);
+518- const projectEvents=[...ds.filter(x=>x.date).map(x=>({date:x.date,title:x.deliverable,type:x.status==="Complete"?"green":x.status.includes("Waiting")||x.status==="Awaiting Review"?"orange":"",source:"deliverable",sourceId:x.id,scheduleKind:"project"})),...infoRecords.filter(x=>x.neededBy).map(x=>({date:x.neededBy,title:x.item+" needed",type:"orange",source:"info",sourceId:x.id,scheduleKind:"project"}))];
+519- const siteEvents=siteScheduleSnapshot.operations.flatMap(x=>{const dates=[];if(x.activityDate)dates.push({date:x.activityDate,title:x.title,type:x.status==="Complete"?"green":/risk|blocked/i.test(x.status||"")?"orange":"",source:"site",sourceId:x.id,scheduleKind:"site"});if(x.targetDate&&x.targetDate!==x.activityDate)dates.push({date:x.targetDate,title:x.title,type:x.status==="Complete"?"green":/risk|blocked/i.test(x.status||"")?"orange":"",source:"site",sourceId:x.id,scheduleKind:"site"});return dates;});
+520: const events=(calendarScheduleMode==="site"?siteEvents:calendarScheduleMode==="combined"?[...projectEvents,...siteEvents]:projectEvents).sort((a,b)=>a.date.localeCompare(b.date)),grouped={};events.forEach(e=>(grouped[e.date]??=[]).push(e));agendaList.innerHTML=Object.entries(grouped).map(([date,items])=>`<div class="agenda-day"><div class="agenda-date">${fmtDate(date)}</div><div class="agenda-items">${items.map(i=>`<div class="agenda-pill ${i.type}"><span>${esc(i.title)}</span>${i.source==="site"?`<button class="linkbtn agenda-edit" onclick="openScheduleSource('site',${i.sourceId})">View</button>`:currentUser.canEdit?`<button class="linkbtn agenda-edit" onclick="${i.source==="deliverable"?`editDeliverable(${i.sourceId})`:`editInfo(${i.sourceId})`}">Edit source</button>`:""}</div>`).join("")}</div></div>`).join("");
+521- const now=new Date(),
+522-calendarYear=calendarViewDate.getFullYear(),
+523-calendarMonth=calendarViewDate.getMonth(),
+524-firstDay=new Date(calendarYear,calendarMonth,1).getDay(),
+525-daysInMonth=new Date(calendarYear,calendarMonth+1,0).getDate();
+526-
+527-const calendarTodayLabel=document.getElementById("calendarTodayLabel");
+528-if(calendarTodayLabel)calendarTodayLabel.textContent=new Intl.DateTimeFormat("en-US",{weekday:"short",month:"short",day:"numeric"}).format(now);
+529-
+530-const calendarMonthName=document.getElementById("calendarMonthName");
+531-if(calendarMonthName){
+532-  calendarMonthName.textContent=new Intl.DateTimeFormat("en-US",{month:"long"}).format(new Date(calendarYear,calendarMonth,1));
+533-}
+534-
+535-const calendarYearPicker=document.getElementById("calendarYearPicker");
+536-if(calendarYearPicker){
+537-  if(!calendarYearPicker.options.length){
+538-    const currentYear=now.getFullYear();
+539-    const startYear=Math.min(currentYear-2,calendarYear-2);
+540-    const endYear=Math.max(currentYear+8,calendarYear+8);
+541-    let options="";
+542-    for(let y=startYear;y<=endYear;y++)options+=`<option value="${y}">${y}</option>`;
+543-    calendarYearPicker.innerHTML=options;
+544-  }
+545-  calendarYearPicker.value=String(calendarYear);
+546-}
+547-
+548-let cells="";
+549-["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+550-  .forEach(d=>cells+=`<div class="day-head">${d}</div>`);
+551-
+552-for(let i=0;i<firstDay;i++)cells+=`<div class="day-cell"></div>`;
+553-
+554-for(let day=1;day<=daysInMonth;day++){
+555-  const key=`${calendarYear}-${String(calendarMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`,
+556-        ev=grouped[key]||[],
+557-        todayClass=
+558-          day===now.getDate() &&
+559-          calendarMonth===now.getMonth() &&
+560-          calendarYear===now.getFullYear()
+561-            ?" today":"";
+562-
+563-  cells+=`<div class="day-cell${todayClass}">
+564-    <div class="day-num">${day}</div>
+565-    ${todayClass?`<div class="calendar-today-marker">Today</div>`:""}
+566-    ${ev.slice(0,2).map(e=>`<div class="event-dot ${e.type}" ${
+567-      (currentUser.canEdit||e.source==="site")
+568-        ?`onclick="${e.source==="deliverable"?`editDeliverable(${e.sourceId})`:e.source==="site"?`openScheduleSource('site',${e.sourceId})`:`editInfo(${e.sourceId})`}" style="cursor:pointer" title="Open source record"`
+569-        :""
+570-    }>${esc(e.title)}</div>`).join("")}
+571-  </div>`;
+572-}
+573-
+574-monthGrid.innerHTML=cells;
+575-if(currentUser.canAdmin)renderAdmin();
+576- if(currentUser.canAdmin){
+577-   const uq=[...new Set(state.auditLog.map(x=>x.userName))].sort();
+578-   const pq=[...new Set(state.auditLog.map(x=>x.projectName))].sort();
+579-   const oldU=auditUserFilter.value,oldP=auditProjectFilter.value,oldA=auditActionFilter.value;
+580-   auditUserFilter.innerHTML='<option value="">All users</option>'+uq.map(x=>`<option>${esc(x)}</option>`).join("");
+581-   auditProjectFilter.innerHTML='<option value="">All projects</option>'+pq.map(x=>`<option>${esc(x)}</option>`).join("");
+582-   auditUserFilter.value=oldU;auditProjectFilter.value=oldP;auditActionFilter.value=oldA;
+583-   const aq=auditSearch.value.toLowerCase();
+584-   const filteredAudit=state.auditLog.filter(x=>
+585-     (!aq||JSON.stringify(x).toLowerCase().includes(aq))&&
+586-     (!auditUserFilter.value||x.userName===auditUserFilter.value)&&
+587-     (!auditProjectFilter.value||x.projectName===auditProjectFilter.value)&&
+588-     (!auditActionFilter.value||x.action===auditActionFilter.value)
+589-   ).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+590-   auditCount.textContent=`Showing ${filteredAudit.length} of ${state.auditLog.length} entries.`;
+--
+1350- adminPasswordProfile.disabled=selected.id==="stacy";
+1351- adminUserActive.checked=selected.active!==false;
+1352- archiveUserBtn.textContent=selected.active===false?"Archived":"Archive User";
+1353- archiveUserBtn.disabled=selected.active===false||selected.id===currentUser?.id||(selected.role==="Administrator"&&activeAdministratorCount()<=1);
+1354-
+1355- projectAssignmentList.innerHTML=state.projects.map(p=>{
+1356-   const checked=selected.projects.includes("*")||selected.projects.includes(p.id);
+1357-   return `<label style="display:block;margin:7px 0;font-size:13px"><input type="checkbox" value="${p.id}" ${checked?"checked":""}> ${esc(p.name)}</label>`;
+1358- }).join("");
+1359-}
+1360-
+1361-function printCurrentProjectReport(){
+1362- const p=currentProject();
+1363- if(!p)return;
+1364-
+1365: const ds=visibleDeliverables(p);
+1366- const infoRecords=visibleInfo(p);
+1367- const waiting=ds.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length;
+1368- const complete=ds.filter(x=>x.status==="Complete").length;
+1369- const active=Math.max(0,ds.length-waiting-complete);
+1370- const current=ds.filter(x=>x.status==="In Progress");
+1371- const next=current;
+1372- const risks=ds.filter(x=>x.risk);
+1373- const outstandingInfo=infoRecords.filter(x=>x.status!=="Received"&&x.status!=="No Longer Needed");
+1374- const progress=weightedProjectProgress(p);
+1375- const planning=displayedPhaseProgress(p,"Planning");
+1376- const engineering=displayedPhaseProgress(p,"Engineering");
+1377- const installation=displayedPhaseProgress(p,"Installation");
+1378- const health=displayedProjectHealth(p);
+1379- const generated=new Date().toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"});
+1380-
+1381- const reportEsc=value=>esc(String(value??""));
+1382- const reportDate=value=>value?fmtDate(value):"—";
+1383-
+1384- const bulletList=(items,emptyText,renderer)=>items.length
+1385-   ? `<ul class="clean-list">${items.map(renderer).join("")}</ul>`
+1386-   : `<div class="empty">${reportEsc(emptyText)}</div>`;
+1387-
+1388- const deliverableRows=ds.map(x=>`
+1389-   <tr>
+1390-     <td>${reportEsc(x.discipline)}</td>
+1391-     <td><strong>${reportEsc(x.deliverable)}</strong>${x.current?`<div class="sub">${reportEsc(x.current)}</div>`:""}</td>
+1392-     <td>${reportEsc(x.status)}</td>
+1393-     <td>${reportEsc(x.owner||"—")}</td>
+1394-     <td>${reportEsc(x.waitingOn||"—")}</td>
+1395-     <td>${reportEsc(x.nextStep||"—")}</td>
+1396-     <td class="nowrap">${reportDate(x.date)}</td>
+1397-   </tr>`).join("");
+1398-
+1399- const infoRows=infoRecords.map(x=>`
+1400-   <tr>
+1401-     <td><strong>${reportEsc(x.item)}</strong></td>
+1402-     <td>${reportEsc(x.from||"—")}</td>
+1403-     <td>${reportEsc(x.status||"—")}</td>
+1404-     <td>${reportEsc(x.blocking||"—")}</td>
+1405-     <td class="nowrap">${reportDate(x.neededBy)}</td>
+1406-     <td>${reportEsc(x.notes||"—")}</td>
+1407-   </tr>`).join("");
+1408-
+1409- const html=`<!doctype html>
+1410-<html>
+1411-<head>
+1412-<meta charset="utf-8">
+1413-<title>${reportEsc(p.name)} - Project Control Report</title>
+1414-<style>
+1415-  :root{--navy:#0c2338;--blue:#145f8a;--muted:#617182;--line:#dce4ea;--soft:#f4f7f9;--red:#9c3434;--orange:#a96518;--green:#277149}
+1416-  *{box-sizing:border-box}
+1417-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;color:#17212a;background:#fff;font-size:11px;line-height:1.4}
+1418-  .page{max-width:1080px;margin:0 auto;padding:28px}
+1419-  .report-header{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid var(--navy);padding-bottom:14px;margin-bottom:16px}
+1420-  h1{font-size:25px;line-height:1.1;margin:0;color:var(--navy)}
+1421-  .subtitle{font-size:12px;color:var(--muted);margin-top:5px}
+1422-  .report-meta{text-align:right;color:var(--muted);font-size:10px}
+1423-  .brand{font-weight:800;color:var(--navy);font-size:13px;margin-bottom:4px}
+1424-  .ribbon{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px}
+1425-  .cell{padding:10px;border-right:1px solid var(--line);min-height:60px}
+1426-  .cell:last-child{border-right:0}
+1427-  .label{text-transform:uppercase;font-size:8px;letter-spacing:.06em;color:var(--muted);font-weight:800}
+1428-  .value{font-size:12px;font-weight:750;color:var(--navy);margin-top:4px}
+1429-  .health{display:inline-block;padding:3px 7px;border:1px solid var(--line);border-radius:999px}
+1430-  .progress-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}
+1431-  .progress-card{border:1px solid var(--line);border-radius:7px;padding:9px}
+1432-  .pct{font-size:20px;font-weight:800;color:var(--navy)}
+1433-  .bar{height:5px;background:#e8edf1;border-radius:999px;margin-top:6px;overflow:hidden}
+1434-  .bar span{display:block;height:100%;background:var(--blue)}
+1435-  .count-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+--
+1596-  if(!p)return;
+1597-
+1598-  if(!window.jspdf?.jsPDF){
+1599-    alert("The PDF library did not load. Check your internet connection and try again.");
+1600-    return;
+1601-  }
+1602-
+1603-  const {jsPDF}=window.jspdf;
+1604-  const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
+1605-
+1606-  if(typeof doc.autoTable!=="function"){
+1607-    alert("The PDF table library did not load. Refresh Project Control and try again.");
+1608-    return;
+1609-  }
+1610-
+1611:  const ds=visibleDeliverables(p);
+1612-  const infoRecords=visibleInfo(p);
+1613-  const waiting=ds.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length;
+1614-  const complete=ds.filter(x=>x.status==="Complete").length;
+1615-  const active=Math.max(0,ds.length-waiting-complete);
+1616-  const current=ds.filter(x=>x.status==="In Progress");
+1617-  const outstandingInfo=infoRecords.filter(x=>x.status!=="Received"&&x.status!=="No Longer Needed");
+1618-  const risks=ds.filter(x=>x.risk);
+1619-  const progress=weightedProjectProgress(p);
+1620-  const planning=displayedPhaseProgress(p,"Planning");
+1621-  const engineering=displayedPhaseProgress(p,"Engineering");
+1622-  const installation=displayedPhaseProgress(p,"Installation");
+1623-  const health=displayedProjectHealth(p);
+1624-
+1625-  const navy=[0,78,132], blue=[0,136,199], green=[112,173,71], orange=[237,125,49], red=[192,0,0],
+1626-        muted=[97,113,130], line=[220,228,234], soft=[244,247,249],
+1627-        lightBlue=[228,242,250], lightGreen=[234,245,225], lightOrange=[253,239,222], lightRed=[250,228,228];
+1628-
+1629-  const statusStyle=value=>{
+1630-    const s=String(value||"").toLowerCase();
+1631-    if(s==="complete"||s==="received"||s==="healthy")return {fill:lightGreen,text:[55,100,35],accent:green};
+1632-    if(s.includes("overdue"))return {fill:lightRed,text:[150,30,30],accent:red};
+1633-    if(s.includes("waiting")||s.includes("awaiting")||s==="pending"||s==="outstanding"||s==="at risk")
+1634-      return {fill:lightOrange,text:[145,84,15],accent:orange};
+1635-    if(s.includes("progress")||s==="active")return {fill:lightBlue,text:[20,80,125],accent:blue};
+1636-    return {fill:soft,text:navy,accent:blue};
+1637-  };
+1638-  const pageWidth=doc.internal.pageSize.getWidth();
+1639-  const pageHeight=doc.internal.pageSize.getHeight();
+1640-  const margin=28;
+1641-  const contentWidth=pageWidth-margin*2;
+1642-  const generated=new Date();
+1643-  const dateStamp=[
+1644-    generated.getFullYear(),
+1645-    String(generated.getMonth()+1).padStart(2,"0"),
+1646-    String(generated.getDate()).padStart(2,"0")
+1647-  ].join("-");
+1648-
+1649-  const clean=value=>String(value??"").replace(/\s+/g," ").trim();
+1650-  const val=value=>clean(value)||"—";
+1651-  const date=value=>value?fmtDate(value):"—";
+1652-
+1653-  function pageFooter(){
+1654-    const total=doc.getNumberOfPages();
+1655-    for(let page=1;page<=total;page++){
+1656-      doc.setPage(page);
+1657-      doc.setDrawColor(...line);
+1658-      doc.line(margin,pageHeight-22,pageWidth-margin,pageHeight-22);
+1659-      doc.setFont("helvetica","normal");
+1660-      doc.setFontSize(7);
+1661-      doc.setTextColor(...muted);
+1662-      doc.text("AHT Global · Project Control",margin,pageHeight-10);
+1663-      doc.text(`${clean(p.name)} · v${APP_CONFIG.version}`,pageWidth-margin,pageHeight-10,{align:"right"});
+1664-      doc.text(`Page ${page} of ${total}`,pageWidth/2,pageHeight-10,{align:"center"});
+1665-    }
+1666-  }
+1667-
+1668-  function ensureSpace(y,needed=80){
+1669-    if(y+needed<=pageHeight-32)return y;
+1670-    doc.addPage("letter","landscape");
+1671-    return 30;
+1672-  }
+1673-
+1674-  function sectionTitle(title,y){
+1675-    y=ensureSpace(y,28);
+1676-    doc.setFont("helvetica","bold");
+1677-    doc.setFontSize(12);
+1678-    doc.setTextColor(...navy);
+1679-    doc.text(title,margin,y);
+1680-    doc.setDrawColor(...line);
+1681-    doc.line(margin,y+5,pageWidth-margin,y+5);
+--
+1915-  const blob=doc.output("blob");
+1916-  await saveProjectPdfBlob(blob,filename);
+1917-}
+1918-
+1919-async function downloadCurrentCalendarPDF(){
+1920-  const p=currentProject();
+1921-  if(!p)return;
+1922-
+1923-  if(!window.jspdf?.jsPDF){
+1924-    alert("The PDF library did not load. Refresh Project Control and try again.");
+1925-    return;
+1926-  }
+1927-
+1928-  const {jsPDF}=window.jspdf;
+1929-  const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
+1930:  if(calendarScheduleMode!=="project") await ensureSiteSchedule(false);
+1931:  const ds=visibleDeliverables(p);
+1932-  const infoRecords=visibleInfo(p);
+1933-
+1934-  const navy=[0,78,132], blue=[0,136,199], green=[112,173,71], orange=[237,125,49], red=[192,0,0],
+1935-        muted=[97,113,130], line=[220,228,234], soft=[244,247,249], lightBlue=[228,242,250],
+1936-        lightGreen=[232,244,224], lightOrange=[252,238,226], lightRed=[248,230,230], white=[255,255,255];
+1937-
+1938-  const clean=value=>String(value??"").replace(/\s+/g," ").trim();
+1939-
+1940-  function eventColor(event){
+1941-    const status=String(event.status||"");
+1942-    if(status==="Complete")return green;
+1943-    if(status==="Blocked")return red;
+1944-    if(status.includes("Waiting")||status==="Awaiting Review"||event.source==="info")return orange;
+1945-    if(status==="In Progress")return blue;
+1946-    return navy;
+1947-  }
+1948-
+1949-  function eventFill(event){
+1950-    const status=String(event.status||"");
+1951-    if(status==="Complete")return lightGreen;
+1952-    if(status==="Blocked")return lightRed;
+1953-    if(status.includes("Waiting")||status==="Awaiting Review"||event.source==="info")return lightOrange;
+1954-    if(status==="In Progress")return lightBlue;
+1955-    return soft;
+1956-  }
+1957-
+1958-  const projectPdfEvents=[
+1959-    ...ds.filter(x=>x.date).map(x=>({date:x.date,title:x.deliverable,status:x.status||"",source:"deliverable",detail:x.status||""})),
+1960-    ...infoRecords.filter(x=>x.neededBy).map(x=>({date:x.neededBy,title:`${x.item} needed`,status:x.status||"Outstanding",source:"info",detail:x.from?`Requested from ${x.from}`:""}))
+1961-  ];
+1962-  const sitePdfEvents=siteScheduleSnapshot.operations.flatMap(x=>{
+1963-    const detail=[siteLocationName(x.locationId),x.sitePhase,x.status].filter(Boolean).join(" · ");
+1964-    const rows=[];
+1965-    if(x.activityDate)rows.push({date:x.activityDate,title:x.title,status:x.status||"Planned",source:"site",detail});
+1966-    if(x.targetDate&&x.targetDate!==x.activityDate)rows.push({date:x.targetDate,title:x.title,status:x.status||"Planned",source:"site",detail});
+1967-    return rows;
+1968-  });
+1969:  const events=(calendarScheduleMode==="site"?sitePdfEvents:calendarScheduleMode==="combined"?[...projectPdfEvents,...sitePdfEvents]:projectPdfEvents).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+1970-
+1971-  const grouped={};
+1972-  events.forEach(event=>(grouped[event.date]??=[]).push(event));
+1973-
+1974-  const now=new Date();
+1975-  const year=calendarViewDate.getFullYear();
+1976-  const month=calendarViewDate.getMonth();
+1977-  const monthName=new Intl.DateTimeFormat("en-US",{month:"long",year:"numeric"}).format(new Date(year,month,1));
+1978-
+1979-  const pageWidth=doc.internal.pageSize.getWidth();
+1980-  const pageHeight=doc.internal.pageSize.getHeight();
+1981-  const margin=28;
+1982-  const footerY=pageHeight-20;
+1983-  const contentWidth=pageWidth-(margin*2);
+1984-
+1985-  function footer(){
+1986-    doc.setDrawColor(...line);
+1987-    doc.line(margin,footerY-8,pageWidth-margin,footerY-8);
+1988-    doc.setFont("helvetica","normal");
+1989-    doc.setFontSize(7);
+1990-    doc.setTextColor(...muted);
+1991-    doc.text("AHT Global · Project Control",margin,footerY);
+1992:    doc.text(`${clean(p.name)} · ${scheduleModeLabel(calendarScheduleMode)} Calendar · v${APP_CONFIG.version}`,pageWidth-margin,footerY,{align:"right"});
+1993-  }
+1994-
+1995-  function header(){
+1996-    doc.setFont("helvetica","bold");
+1997-    doc.setTextColor(...navy);
+1998-    doc.setFontSize(9);
+1999-    doc.text("AHT GLOBAL · PROJECT CONTROL",margin,28);
+2000-
+2001-    doc.setFontSize(20);
+2002:    doc.text(`${clean(p.name)} — ${scheduleModeLabel(calendarScheduleMode)} Calendar & Agenda`,margin,51);
+2003-
+2004-    doc.setFont("helvetica","normal");
+2005-    doc.setFontSize(8);
+2006-    doc.setTextColor(...muted);
+2007-    doc.text(clean(p.subtitle||""),margin,64);
+2008-
+2009-    doc.text(
+2010-      `Generated ${new Date().toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"})}`,
+2011-      pageWidth-margin,28,{align:"right"}
+2012-    );
+2013-    doc.text(`Last Updated ${formatLastUpdated(p)}`,pageWidth-margin,42,{align:"right"});
+2014-
+2015-    doc.setDrawColor(...navy);
+2016-    doc.setLineWidth(2);
+2017-    doc.line(margin,76,pageWidth-margin,76);
+2018-    doc.setLineWidth(.5);
+2019-  }
+2020-
+2021-  header();
+2022-
+2023-  const calendarTop=100;
+2024-  const gridLeft=margin;
+2025-  const gridWidth=contentWidth*0.66;
+2026-  const agendaLeft=gridLeft+gridWidth+16;
+2027-  const agendaWidth=pageWidth-margin-agendaLeft;
+2028-
+2029-  // ---- Calendar title ribbon ----
+2030-  doc.setFillColor(...navy);
+2031-  doc.roundedRect(gridLeft,calendarTop-15,gridWidth,24,5,5,"F");
+2032-  doc.setTextColor(...white);
+2033-  doc.setFont("helvetica","bold");
+2034-  doc.setFontSize(11);
+2035-  doc.text(monthName.toUpperCase(),gridLeft+10,calendarTop+1);
+2036-
+2037-  const dayNames=["SUN","MON","TUE","WED","THU","FRI","SAT"];
+2038-  const headerY=calendarTop+22;
+2039-  const cellW=gridWidth/7;
+2040-  const firstDay=new Date(year,month,1).getDay();
+2041-  const daysInMonth=new Date(year,month+1,0).getDate();
+2042-  const rows=Math.ceil((firstDay+daysInMonth)/7);
+2043-  const gridBottom=footerY-20;
+2044-  const cellH=(gridBottom-(headerY+14))/rows;
+2045-
+2046-  // Day-name header
+2047-  dayNames.forEach((day,index)=>{
+2048-    const x=gridLeft+(index*cellW);
+2049-    doc.setFillColor(...lightBlue);
+2050-    doc.setDrawColor(...line);
+2051-    doc.rect(x,headerY-10,cellW,18,"FD");
+2052-    doc.setTextColor(...navy);
+2053-    doc.setFont("helvetica","bold");
+2054-    doc.setFontSize(7.5);
+2055-    doc.text(day,x+(cellW/2),headerY+2,{align:"center"});
+2056-  });
+2057-
+2058-  // Calendar cells
+2059-  doc.setLineWidth(.4);
+2060-  for(let row=0;row<rows;row++){
+2061-    for(let col=0;col<7;col++){
+2062-      const x=gridLeft+(col*cellW);
+2063-      const y=headerY+8+(row*cellH);
+2064-      doc.setFillColor(...white);
+2065-      doc.setDrawColor(...line);
+2066-      doc.rect(x,y,cellW,cellH,"FD");
+2067-    }
+2068-  }
+2069-
+2070-  for(let day=1;day<=daysInMonth;day++){
+2071-    const position=firstDay+day-1;
+2072-    const row=Math.floor(position/7);
+--
+2188-  ];
+2189-  let legendX=gridLeft;
+2190-  legendItems.forEach(([label,color])=>{
+2191-    doc.setFillColor(...color);
+2192-    doc.roundedRect(legendX,legendY-5,7,7,2,2,"F");
+2193-    doc.setTextColor(...muted);
+2194-    doc.setFont("helvetica","normal");
+2195-    doc.setFontSize(6.5);
+2196-    doc.text(label,legendX+11,legendY+1);
+2197-    legendX+=doc.getTextWidth(label)+32;
+2198-  });
+2199-
+2200-  footer();
+2201-
+2202-  const dateStamp=new Date().toISOString().slice(0,10);
+2203:  const filename=`${projectReportSafeFileName(p.name)}-${scheduleModeLabel(calendarScheduleMode)}-Calendar-${dateStamp}.pdf`;
+2204-  await saveProjectPdfBlob(doc.output("blob"),filename);
+2205-}
+2206-async function downloadCurrentGanttPDF(){
+2207-  const p=currentProject();
+2208-  if(!p)return;
+2209-
+2210-  if(!window.jspdf?.jsPDF){
+2211-    alert("The PDF library did not load. Refresh Project Control and try again.");
+2212-    return;
+2213-  }
+2214-
+2215-  const {jsPDF}=window.jspdf;
+2216-  const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
+2217-  if(ganttScheduleMode!=="project") await ensureSiteSchedule(false);
+2218:  const records=scheduleRecordsForGantt(visibleDeliverables(p));
+2219-
+2220-  const scheduled=records
+2221-    .map(record=>({record,start:ganttStartFor(record),end:ganttDate(record.date)}))
+2222-    .filter(item=>item.start&&item.end)
+2223-    .sort((a,b)=>a.end-b.end);
+2224-
+2225-  const unscheduled=records.filter(record=>!ganttDate(record.date));
+2226-
+2227-  const pageWidth=doc.internal.pageSize.getWidth();
+2228-  const pageHeight=doc.internal.pageSize.getHeight();
+2229-  const margin=28;
+2230-  const leftCol=190;
+2231-  const chartX=margin+leftCol;
+2232-  const chartW=pageWidth-margin-chartX;
+2233-  const rowH=24;
+2234-  const headerY=92;
+2235-  const footerY=pageHeight-20;
+2236-
+2237-  const navy=[0,78,132], blue=[0,136,199], green=[112,173,71], orange=[237,125,49], red=[192,0,0],
+2238-        muted=[97,113,130], line=[220,228,234], soft=[244,247,249], lightBlue=[228,242,250];
+2239-
+2240-  const clean=value=>String(value??"").replace(/\s+/g," ").trim();
+2241-  const dateStamp=(()=>{
+2242-    const d=new Date();
+2243-    return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+2244-  })();
+2245-
+2246-  function statusColor(record){
+2247-    const status=String(record.status||"");
+2248-    if(status==="Complete")return green;
+2249-    if(status==="Blocked")return red;
+2250-    if(status.includes("Waiting")||status==="Awaiting Review")return orange;
+2251-    if(status==="In Progress")return blue;
+2252-    return navy;
+2253-  }
+2254-
+2255-  function footer(){
+2256-    doc.setDrawColor(...line);
+2257-    doc.line(margin,footerY-8,pageWidth-margin,footerY-8);
+2258-    doc.setFont("helvetica","normal");
+2259-    doc.setFontSize(7);
+2260-    doc.setTextColor(...muted);
+2261-    doc.text("AHT Global · Project Control",margin,footerY);
+2262-    doc.text(`${clean(p.name)} · Gantt · v${APP_CONFIG.version}`,pageWidth-margin,footerY,{align:"right"});
+2263-  }
+2264-
+2265-  function header(pageNo,totalPages){
+2266-    doc.setFont("helvetica","bold");
+2267-    doc.setTextColor(...navy);
+2268-    doc.setFontSize(9);
+2269-    doc.text("AHT GLOBAL · PROJECT CONTROL",margin,28);
+2270-
+2271-    doc.setFontSize(20);
+2272-    doc.text(`${clean(p.name)} — Gantt Schedule`,margin,51);
+2273-
+2274-    doc.setFont("helvetica","normal");
+2275-    doc.setFontSize(8);
+2276-    doc.setTextColor(...muted);
+2277-    doc.text(clean(p.subtitle||""),margin,64);
+2278-
+2279-    doc.text(`Generated ${new Date().toLocaleString("en-US",{dateStyle:"medium",timeStyle:"short"})}`,pageWidth-margin,28,{align:"right"});
+2280-    doc.text(`Page ${pageNo} of ${totalPages}`,pageWidth-margin,42,{align:"right"});
+2281-
+2282-    doc.setDrawColor(...navy);
+2283-    doc.setLineWidth(2);
+2284-    doc.line(margin,74,pageWidth-margin,74);
+2285-    doc.setLineWidth(.5);
+2286-  }
+2287-
+2288-  if(!scheduled.length){

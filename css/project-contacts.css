@@ -245,3 +245,60 @@
     grid-template-columns:1fr;
   }
 }
+
+/* ==========================================================
+   v0.14.89 — Project Contacts editor / archive support
+   ========================================================== */
+
+.pc-editor-backdrop{
+  display:none;
+}
+
+.pc-editor-modal{
+  width:min(760px,100%);
+}
+
+.pc-checkbox-label{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center;
+  gap:8px;
+  min-height:38px;
+  cursor:pointer;
+}
+
+.pc-checkbox-label input{
+  width:auto!important;
+  min-height:0!important;
+}
+
+.pc-show-archived{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  color:var(--muted);
+  white-space:nowrap;
+}
+
+.pc-show-archived input{
+  margin:0;
+}
+
+.pc-inactive{
+  opacity:.62;
+}
+
+.pc-archived-label{
+  color:var(--muted);
+  font-weight:700;
+}
+
+.pc-empty{
+  padding:24px;
+  border:1px dashed var(--line);
+  border-radius:10px;
+  background:#fff;
+  color:var(--muted);
+  text-align:center;
+}

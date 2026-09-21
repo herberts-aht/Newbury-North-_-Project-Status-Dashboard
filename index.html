@@ -7,13 +7,13 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css?v=0.14.61i" />
+<link rel="stylesheet" href="css/styles.css?v=0.15.28" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
-  <link rel="stylesheet" href="css/project-work.css?v=0.14.70" />
-  <link rel="stylesheet" href="css/project-contacts.css?v=0.14.72" />
-  <link rel="stylesheet" href="css/project-task-editor.css?v=0.14.88" />
+  <link rel="stylesheet" href="css/project-work.css?v=0.15.04" />
+  <link rel="stylesheet" href="css/project-contacts.css?v=0.14.89" />
+  <link rel="stylesheet" href="css/project-task-editor.css?v=0.15.11" />
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -213,13 +213,13 @@
       <div class="so-breadcrumb" id="siteOperationsBreadcrumb"></div>
       <div id="siteOperationsContent"></div>
     </section>
-    <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Schedule Overview</div><h2>Gantt</h2><p id="ganttModeDescription">Project deliverable schedule. Select Site or Combined for field execution.</p><div class="schedule-mode-toggle" aria-label="Gantt schedule source"><button type="button" data-schedule-view="gantt" data-mode="project" onclick="setScheduleMode('gantt','project')">Project</button><button class="admin-only" type="button" data-schedule-view="gantt" data-mode="site" onclick="setScheduleMode('gantt','site')">Site</button><button class="admin-only" type="button" data-schedule-view="gantt" data-mode="combined" onclick="setScheduleMode('gantt','combined')">Combined</button></div></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary" type="button" onclick="downloadCurrentGanttPDF()">Download Gantt PDF</button></div></div><div class="timeline"><div id="timelineTrack"></div></div></section>
+    <section id="timeline" class="view"><div class="page-header"><div><div class="eyebrow">Schedule Overview</div><h2>Gantt</h2><p id="ganttModeDescription">Project Plan schedule. Select Site or Combined for field execution.</p><div class="schedule-mode-toggle" aria-label="Gantt schedule source"><button type="button" data-schedule-view="gantt" data-mode="project" onclick="setScheduleMode('gantt','project')">Project</button><button class="admin-only" type="button" data-schedule-view="gantt" data-mode="site" onclick="setScheduleMode('gantt','site')">Site</button><button class="admin-only" type="button" data-schedule-view="gantt" data-mode="combined" onclick="setScheduleMode('gantt','combined')">Combined</button></div></div><div class="actions"><div class="project-switcher"><span class="small">Project</span><select class="project-select-clone"></select></div><button class="btn primary" type="button" onclick="downloadCurrentGanttPDF()">Download Gantt PDF</button></div></div><div class="timeline"><div id="timelineTrack"></div></div></section>
     <section id="calendar" class="view">
   <div class="page-header">
     <div>
       <div class="eyebrow">Schedule</div>
       <h2>Calendar & Agenda</h2>
-      <p id="calendarModeDescription">Project dates from Deliverables and Information Required.</p>
+      <p id="calendarModeDescription">Project dates from Project Plan.</p>
       <div class="schedule-mode-toggle" aria-label="Calendar schedule source"><button type="button" data-schedule-view="calendar" data-mode="project" onclick="setScheduleMode('calendar','project')">Project</button><button class="admin-only" type="button" data-schedule-view="calendar" data-mode="site" onclick="setScheduleMode('calendar','site')">Site</button><button class="admin-only" type="button" data-schedule-view="calendar" data-mode="combined" onclick="setScheduleMode('calendar','combined')">Combined</button></div>
     </div>
     <div class="actions">
@@ -433,13 +433,13 @@
 <script src="js/auth.js"></script>
 <script src="js/microsoft-access.js"></script>
 <script src="js/permissions.js"></script>
-<script src="js/project-contacts.js?v=0.14.71"></script>
-<script src="js/project-contacts-view.js?v=0.14.72"></script>
-<script src="js/project-work-items.js?v=0.14.61"></script>
-<script src="js/project-work-view.js?v=0.14.80"></script>
-<script src="js/project-task-editor.js?v=0.14.87"></script>
+<script src="js/project-contacts.js?v=0.14.91"></script>
+<script src="js/project-contacts-view.js?v=0.14.89"></script>
+<script src="js/project-work-items.js?v=0.15.15"></script>
+<script src="js/project-work-view.js?v=0.15.04"></script>
+<script src="js/project-task-editor.js?v=0.15.08"></script>
 <script src="js/site-operations.js?v=0.14.60"></script>
-  <script src="js/dashboard.js?v=0.14.60"></script>
+  <script src="js/dashboard.js?v=0.15.28"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js"></script>
@@ -1228,7 +1228,7 @@ deleteRecordBtn.onclick=async()=>{
        project.id,
        "Project",
        name,
-       "Project permanently deleted with child records and explicit access assignments."
+       "Project permanently deleted with related records and explicit access assignments."
      );
 
      state.projects.splice(i,1);

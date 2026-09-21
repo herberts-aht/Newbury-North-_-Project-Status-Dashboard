@@ -1,0 +1,350 @@
+=== ACTIONABLE ITEM ===
+389-        }
+390-      `).join("")}
+391-    `;
+392-  }
+393-
+394:  function isActionableItem(item) {
+395-    if (!item || item.archived) return false;
+396-
+397-    const status = String(item.status || "");
+398-
+399-    return Boolean(
+400-      item.waitingOn ||
+401-      item.informationRequired ||
+402-      item.blockerDependency ||
+403-      status === "Waiting" ||
+404-      status === "Awaiting Review" ||
+405-      status === "Blocked"
+406-    );
+407-  }
+408-
+409-  function actionRequiredItems() {
+410-    const key = projectKey();
+411-
+412-    const candidates = ProjectWorkItems.getItems()
+413-      .filter(item =>
+414-        String(item.projectId) === key &&
+415-        isActionableItem(item)
+416-      );
+417-
+418-    const filtered = candidates.filter(item => {
+419-      const actionableDescendants =
+420-        ProjectWorkItems
+421-          .descendantsOf(item.id)
+422-          .filter(isActionableItem);
+423-
+424-      if (!actionableDescendants.length) {
+425-        return true;
+426-      }
+427-
+428-      /*
+429-       * When actionable child work exists, the child is normally the
+430-       * real thing somebody needs to act on. Do not also show its parent
+431-       * container unless that parent carries a distinct blocker of its own.
+432-       */
+433-      if (item.blockerDependency) {
+434-        const duplicateBlocker = actionableDescendants.some(
+435-          child =>
+436-            String(child.blockerDependency || "").trim() ===
+437-            String(item.blockerDependency || "").trim()
+438-        );
+439-
+
+=== ACTION REQUIRED ITEMS ===
+404-      status === "Awaiting Review" ||
+405-      status === "Blocked"
+406-    );
+407-  }
+408-
+409:  function actionRequiredItems() {
+410-    const key = projectKey();
+411-
+412-    const candidates = ProjectWorkItems.getItems()
+413-      .filter(item =>
+414-        String(item.projectId) === key &&
+415-        isActionableItem(item)
+416-      );
+417-
+418-    const filtered = candidates.filter(item => {
+419-      const actionableDescendants =
+420-        ProjectWorkItems
+421-          .descendantsOf(item.id)
+422-          .filter(isActionableItem);
+423-
+424-      if (!actionableDescendants.length) {
+425-        return true;
+426-      }
+427-
+428-      /*
+429-       * When actionable child work exists, the child is normally the
+430-       * real thing somebody needs to act on. Do not also show its parent
+431-       * container unless that parent carries a distinct blocker of its own.
+432-       */
+433-      if (item.blockerDependency) {
+434-        const duplicateBlocker = actionableDescendants.some(
+435-          child =>
+436-            String(child.blockerDependency || "").trim() ===
+437-            String(item.blockerDependency || "").trim()
+438-        );
+439-
+440-        return !duplicateBlocker;
+441-      }
+442-
+443-      return false;
+444-    });
+445-
+446-    return filtered.sort((a, b) => {
+447-      const aDate = String(a.requiredBy || a.targetDate || "9999-12-31");
+448-      const bDate = String(b.requiredBy || b.targetDate || "9999-12-31");
+449-
+450-      return (
+451-        aDate.localeCompare(bDate) ||
+452-        String(a.waitingOn || "").localeCompare(String(b.waitingOn || "")) ||
+453-        String(a.title || "").localeCompare(String(b.title || ""))
+454-      );
+455-    });
+456-  }
+457-
+458-  function actionWaitingOnName(item) {
+459-    return String(
+460-      item.waitingOn ||
+461-      item.owner ||
+462-      "Unassigned"
+463-    ).trim() || "Unassigned";
+464-  }
+465-
+466-  function actionWaitingOnOptions() {
+467-    return [...new Set(
+468-      actionRequiredItems().map(actionWaitingOnName)
+469-    )].sort((a, b) => a.localeCompare(b));
+470-  }
+471-
+472-  function visibleActionRequiredItems() {
+473-    const records = actionRequiredItems();
+474-
+475-    if (actionWaitingOnFilter === "all") {
+476-      return records;
+477-    }
+478-
+479-    return records.filter(
+
+=== ACTION CARD / ROW ===
+614-        </div>
+615-      </div>
+616-    `;
+617-  }
+618-
+619:  function actionRequiredCard(item) {
+620-    const needed =
+621-      item.informationRequired ||
+622-      item.blockerDependency ||
+623-      item.title ||
+624-      "Action required";
+625-
+626-    const waitingOn =
+627-      item.waitingOn ||
+628-      item.owner ||
+629-      "Unassigned";
+630-
+631-    const due =
+632-      item.requiredBy ||
+633-      item.targetDate;
+634-
+635-    return `
+636-      <article
+637-        class="pw-action-card" role="button" tabindex="0" data-project-work-item-id="${escapeHtml(item.id)}"
+638-        role="button"
+639-        tabindex="0"
+640-        data-project-work-item-id="${escapeHtml(item.id)}"
+641-      >
+642-        <div class="pw-action-card-top">
+643-          <div>
+644-            <div class="pw-action-card-type">Action Required</div>
+645-            <h3>${escapeHtml(item.title)}</h3>
+646-          </div>
+647-
+648-          <span class="pw-action-status ${actionStatusClass(item)}">
+649-            ${escapeHtml(actionStatusLabel(item))}
+650-          </span>
+651-        </div>
+652-
+653-        <div class="pw-action-card-rule"></div>
+654-
+655-        <div class="pw-action-card-meta">
+656-
+657-          <div>
+658-            <span>Waiting On</span>
+659-            <strong>${escapeHtml(waitingOn)}</strong>
+660-          </div>
+661-
+662-          <div>
+663-            <span>Required By</span>
+664-            <strong>${dateLabel(due)}</strong>
+665-          </div>
+666-
+667-        </div>
+668-
+669-        <div class="pw-action-card-block">
+670-          <span>What We Need</span>
+671-          <strong>${escapeHtml(needed)}</strong>
+672-        </div>
+673-
+674-        <div class="pw-action-card-block">
+675-          <span>Blocking / Related Work</span>
+676-          <strong>${escapeHtml(blockingLabel(item))}</strong>
+677-        </div>
+678-
+679-        <div class="pw-action-card-owner">
+680-          <span>Owner</span>
+681-          <strong>${escapeHtml(item.owner || "—")}</strong>
+682-        </div>
+683-
+684-        <div class="pw-action-card-path">
+685-          ${escapeHtml(actionPath(item))}
+686-        </div>
+687-
+688-        <div class="pw-action-card-footer">
+689-          <span>View details</span>
+690-          <strong>›</strong>
+691-        </div>
+692-      </article>
+693-    `;
+694-  }
+695-
+696:  function actionRequiredRow(item) {
+697-    const needed =
+698-      item.informationRequired ||
+699-      item.blockerDependency ||
+700-      item.title ||
+701-      "Action required";
+702-
+703-    const due = item.requiredBy || item.targetDate;
+704-
+705-    return `
+706-      <div
+707-        class="pw-action-row" role="button" tabindex="0" data-project-work-item-id="${escapeHtml(item.id)}"
+708-        role="button"
+709-        tabindex="0"
+710-        data-project-work-item-id="${escapeHtml(item.id)}"
+711-      >
+712-
+713-        <div class="pw-action-who">
+714-          <strong>${escapeHtml(item.waitingOn || item.owner || "Unassigned")}</strong>
+715-          <span>${escapeHtml(item.status || "—")}</span>
+716-        </div>
+717-
+718-        <div class="pw-action-needed">
+719-          <strong>${escapeHtml(needed)}</strong>
+720-          <span>${escapeHtml(actionPath(item))}</span>
+721-        </div>
+722-
+723-        <div class="pw-action-date">
+724-          ${dateLabel(due)}
+725-        </div>
+726-
+727-        <div class="pw-action-related">
+728-          ${escapeHtml(relatedWorkLabel(item))}
+729-        </div>
+730-
+731-        <div class="pw-action-owner">
+732-          ${escapeHtml(item.owner || "—")}
+733-        </div>
+734-
+735-        <div class="pw-action-chevron">›</div>
+736-
+737-      </div>
+738-    `;
+739-  }
+740-
+741:  function renderActionRequired(root) {
+742-    const allRecords = actionRequiredItems();
+743-    const records = visibleActionRequiredItems();
+744-
+745-    root.innerHTML = `
+746-      <div class="pw-action-view">
+747-
+748-        ${renderModeToggle()}
+749-
+750-        <div class="pw-action-toolbar">
+751-          <div class="pw-action-toolbar-left">
+752-            <h3>Action Required</h3>
+753-            <p>
+754-              Items from anywhere in the project currently waiting on a person,
+755-              review, decision, or required information.
+756-            </p>
+757-
+758-          </div>
+759-
+760-          <div class="pw-action-toolbar-right">
+761-            ${actionWaitingOnFilterControl()}
+762-            ${actionViewToggle()}
+763-          </div>
+764-        </div>
+765-
+766-        ${
+767-          actionDisplayMode === "cards"
+768-            ? `
+769-              <div class="pw-action-card-grid">
+770-                ${
+771-                  records.length
+772-                    ? records.map(actionRequiredCard).join("")
+773-                    : `
+774-                      <div class="pw-empty">
+775-                        No outstanding project actions are currently identified.
+776-                      </div>
+777-                    `
+778-                }
+779-              </div>
+780-            `
+781-            : `
+782-              <div class="pw-action-list">
+783-
+784-                <div class="pw-action-row pw-action-head">
+785-                  <div>Waiting On</div>
+786-                  <div>What We Need</div>
+787-                  <div>Required By</div>
+788-                  <div>Blocking / Related Work</div>
+789-                  <div>Owner</div>
+790-                  <div></div>
+791-                </div>
+792-
+793-                ${
+794-                  records.length
+795-                    ? records.map(actionRequiredRow).join("")
+796-                    : `
+797-                      <div class="pw-empty">
+798-                        No outstanding project actions are currently identified.
+799-                      </div>
+800-                    `
+801-                }
+802-
+803-              </div>
+804-            `
+805-        }
+806-
+807-      </div>
+808-    `;
+809-  }
+810-
+811-  function renderOverview(root) {
+812-    const key = projectKey();
+813-    const roots = ProjectWorkItems.rootsForProject(key);
+814-    const overall = ProjectWorkItems.projectProgress(key);
+815-
+816-    const all = ProjectWorkItems.getItems().filter(
+817-      item => String(item.projectId) === key && !item.archived
+818-    );
+819-
+820-    const waiting = all.filter(
+821-      item =>
+822-        String(item.status).includes("Waiting") ||
+823-        item.status === "Awaiting Review"
+824-    ).length;
+825-
+826-    const blocked = all.filter(
+827-      item => item.status === "Blocked" || item.blockerDependency
+828-    ).length;
+829-
+830-    root.innerHTML = `
+831-      <div class="pw-overview">
