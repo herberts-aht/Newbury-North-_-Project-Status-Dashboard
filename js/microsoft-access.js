@@ -23,11 +23,26 @@ const MicrosoftAccess = (() => {
   }
   function normalizeEmail(value) { return String(value || "").trim().toLowerCase(); }
   function normalizeDashboardRole(value, isGuest = false) {
-    if (isGuest) return "External Viewer";
     let role = String(value || "").trim();
+
+    if (role === "Administrator") role = "Admin";
     if (role === "Internal Editor") role = "Editor";
     if (role === "Executive Viewer") role = "Viewer";
-    return ["Administrator", "Editor", "Viewer"].includes(role) ? role : "Viewer";
+
+    if (isGuest) {
+      return role === "Editor"
+        ? "Editor"
+        : "External Viewer";
+    }
+
+    return [
+      "Admin",
+      "Project Admin",
+      "Editor",
+      "Viewer"
+    ].includes(role)
+      ? role
+      : "Viewer";
   }
   function groupId() { return APP_CONFIG.entra.accessGroupId || ""; }
   function editGroupId() { return APP_CONFIG.entra.editAccessGroupId || ""; }
@@ -40,10 +55,20 @@ const MicrosoftAccess = (() => {
     const upn = normalizeEmail(member.userPrincipalName);
     return upn.includes("#ext#") ? "" : upn;
   }
+  function isExternalEntraMember(member) {
+    const userType = String(member?.userType || "").toLowerCase();
+    const upn = String(member?.userPrincipalName || "").toLowerCase();
+
+    return (
+      userType === "guest" ||
+      upn.includes("#ext#")
+    );
+  }
+
   function dashboardType(member) {
     const email = memberEmail(member);
     if ((APP_CONFIG.entra.adminEmails || []).map(normalizeEmail).includes(email)) return "Admin";
-    return String(member.userType || "").toLowerCase() === "guest" ? "External" : "AHT Internal";
+    return isExternalEntraMember(member) ? "External" : "AHT Internal";
   }
   function setStatus(message, tone = "") {
     const target = el("entraAccessStatus");
@@ -125,6 +150,12 @@ const MicrosoftAccess = (() => {
     return {
       r: normalizeDashboardRole(profile.role, isGuest),
       p: Array.isArray(profile.projects) ? profile.projects.filter(Boolean) : [],
+      pp: typeof profile.canViewProjectPlan === "boolean"
+        ? profile.canViewProjectPlan
+        : !isGuest,
+      so: typeof profile.canViewSiteOperations === "boolean"
+        ? profile.canViewSiteOperations
+        : !isGuest,
       c: profile.company || (isGuest ? "External" : "AHT Global"),
       n: profile.name || "",
       e: normalizeEmail(profile.email)
@@ -172,6 +203,12 @@ const MicrosoftAccess = (() => {
     sharedProfiles[objectId] = {
       r: normalizeDashboardRole(values.role, isGuest),
       p: values.projects || [],
+      pp: typeof values.canViewProjectPlan === "boolean"
+        ? values.canViewProjectPlan
+        : !isGuest,
+      so: typeof values.canViewSiteOperations === "boolean"
+        ? values.canViewSiteOperations
+        : !isGuest,
       c: values.company || "",
       n: values.name || "",
       e: normalizeEmail(values.email)
@@ -247,9 +284,11 @@ const MicrosoftAccess = (() => {
       if (stored.c) profile.company = stored.c;
       if (stored.r) profile.role = stored.r;
       if (Array.isArray(stored.p)) profile.projects = [...stored.p];
+      if (typeof stored.pp === "boolean") profile.canViewProjectPlan = stored.pp;
+      if (typeof stored.so === "boolean") profile.canViewSiteOperations = stored.so;
     }
     const email = memberEmail(member);
-    const isGuest = String(member.userType || "").toLowerCase() === "guest";
+    const isGuest = isExternalEntraMember(member);
     const isAdmin = (APP_CONFIG.entra.adminEmails || []).map(normalizeEmail).includes(email);
     profile.entraObjectId = member.id;
     profile.entraUserType = isGuest ? "Guest" : "Member";
@@ -273,6 +312,14 @@ const MicrosoftAccess = (() => {
       profile.role = profile.role === "Editor" ? "Editor" : "External Viewer";
       profile.canAdmin = false;
       profile.canEdit = profile.role === "Editor";
+      profile.canViewProjectPlan =
+        typeof profile.canViewProjectPlan === "boolean"
+          ? profile.canViewProjectPlan
+          : false;
+      profile.canViewSiteOperations =
+        typeof profile.canViewSiteOperations === "boolean"
+          ? profile.canViewSiteOperations
+          : false;
       profile.isInternal = false;
       profile.projects = Array.isArray(profile.projects) ? profile.projects.filter(x => x !== "*") : [];
       profile.company = profile.company && profile.company !== "AHT Global" ? profile.company : "External";
@@ -280,6 +327,8 @@ const MicrosoftAccess = (() => {
       profile.role = normalizeDashboardRole(profile.role, false);
       profile.canAdmin = profile.role === "Administrator";
       profile.canEdit = profile.role === "Administrator" || profile.role === "Editor";
+      profile.canViewProjectPlan = true;
+      profile.canViewSiteOperations = true;
       profile.isInternal = true;
       if (profile.canAdmin) profile.projects = ["*"];
       else if (!stored && (!Array.isArray(profile.projects) || !profile.projects.length)) profile.projects = ["*"];
@@ -405,7 +454,8 @@ const MicrosoftAccess = (() => {
 
     const normalizedRole = normalizeDashboardRole(role, false);
     const needsEdit =
-      normalizedRole === "Administrator" ||
+      normalizedRole === "Admin" ||
+      normalizedRole === "Project Admin" ||
       normalizedRole === "Editor";
 
     const isMember = await groupHasMember(targetGroupId, objectId);
@@ -492,9 +542,46 @@ const MicrosoftAccess = (() => {
         localProfile.entraObjectId = user.id;
         localProfile.entraUserType = "Member";
         localProfile.managedByEntraAccessGroup = true;
-        localProfile.role = normalizeDashboardRole(role, false);
-        localProfile.canAdmin = localProfile.role === "Administrator";
-        localProfile.canEdit = localProfile.role === "Administrator" || localProfile.role === "Editor";
+        localProfile.role =
+          normalizeDashboardRole(
+            role,
+            false
+          );
+
+        localProfile.canAdmin =
+          localProfile.role === "Admin";
+
+        localProfile.canProjectAdmin =
+          localProfile.role === "Project Admin" ||
+          localProfile.canAdmin;
+
+        localProfile.canEdit =
+          localProfile.role === "Editor" ||
+          localProfile.canProjectAdmin;
+
+        localProfile.isSystemOwner = false;
+
+        localProfile.canManageProjects =
+          localProfile.canProjectAdmin;
+
+        localProfile.canManageInternalUsers =
+          localProfile.canProjectAdmin;
+
+        localProfile.canAssignProjectAccess =
+          localProfile.canProjectAdmin;
+
+        localProfile.canViewExternalUsers =
+          localProfile.canAdmin;
+
+        localProfile.canManageExternalUsers =
+          false;
+
+        localProfile.canManageSystem =
+          false;
+
+        localProfile.canManageBackups =
+          false;
+
         localProfile.isInternal = true;
         localProfile.projects = [...projects];
         localProfile.active = true;

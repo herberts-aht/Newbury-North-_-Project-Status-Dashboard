@@ -91,6 +91,7 @@ const APP_CONFIG = Object.freeze({
       projectActivity: "Project Activity",
       projectLocations: "Project Locations",
       siteOperations: "Site Operations",
+      projectWorkItems: "Project Work Items",
       comments: "Project Comments",
       commentNotifications: "Project Comment Notifications"
     })

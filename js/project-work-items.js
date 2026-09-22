@@ -72,9 +72,39 @@ const ProjectWorkItems = (() => {
     return weight > 0 ? weight : 1;
   }
 
+  function normalizeIdList(value) {
+    const raw =
+      Array.isArray(value)
+        ? value
+        : (
+            value === null ||
+            value === undefined ||
+            value === ""
+          )
+            ? []
+            : [value];
+
+    return [
+      ...new Set(
+        raw
+          .map(id => String(id).trim())
+          .filter(Boolean)
+      )
+    ];
+  }
+
   function normalizeItem(item = {}) {
+    const predecessorIds =
+      normalizeIdList(
+        Array.isArray(item.predecessorIds) &&
+        item.predecessorIds.length
+          ? item.predecessorIds
+          : item.predecessorId
+      );
+
     return {
       id: item.id,
+      sharePointId: numberOr(item.sharePointId, 0),
       projectId: item.projectId ?? "",
       projectSharePointId: numberOr(item.projectSharePointId, 0),
 
@@ -105,12 +135,14 @@ const ProjectWorkItems = (() => {
       informationRequired: String(item.informationRequired ?? "").trim(),
       requiredBy: item.requiredBy ?? "",
 
+      predecessorIds,
+
+      /*
+       * Legacy compatibility.
+       * Existing code/data may still read predecessorId.
+       */
       predecessorId:
-        item.predecessorId === null ||
-        item.predecessorId === undefined ||
-        item.predecessorId === ""
-          ? null
-          : item.predecessorId,
+        predecessorIds[0] || null,
 
       blockerDependency: String(item.blockerDependency ?? "").trim(),
 

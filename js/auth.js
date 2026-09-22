@@ -59,11 +59,101 @@ function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeDashboardRole(value, isGuest = false) {
+  let role = String(value || "").trim();
+
+  if (role === "Administrator") role = "Admin";
+  if (role === "Internal Editor") role = "Editor";
+  if (role === "Executive Viewer") role = "Viewer";
+
+  if (isGuest) {
+    return role === "Editor"
+      ? "Editor"
+      : "External Viewer";
+  }
+
+  return [
+    "Admin",
+    "Project Admin",
+    "Editor",
+    "Viewer"
+  ].includes(role)
+    ? role
+    : "Viewer";
+}
+
+function dashboardRoleCapabilities(role, email = "") {
+  const normalizedRole = normalizeDashboardRole(role, false);
+
+  const configuredOwner =
+    (APP_CONFIG.entra.adminEmails || [])
+      .map(normalizeEmail)
+      .includes(normalizeEmail(email));
+
+  const isAdmin =
+    normalizedRole === "Admin";
+
+  const isProjectAdmin =
+    normalizedRole === "Project Admin";
+
+  const canEdit =
+    normalizedRole === "Editor" ||
+    isProjectAdmin ||
+    isAdmin;
+
+  return {
+    canEdit,
+    canProjectAdmin:
+      isProjectAdmin || isAdmin,
+    canAdmin:
+      isAdmin,
+
+    /*
+     * System Owner is intentionally hidden from the normal role UI.
+     * For now, APP_CONFIG.entra.adminEmails bootstraps this authority.
+     * We can later persist/transfer ownership independently.
+     */
+    isSystemOwner:
+      configuredOwner,
+
+    canManageProjects:
+      isProjectAdmin || isAdmin,
+
+    canManageInternalUsers:
+      isProjectAdmin || isAdmin,
+
+    canAssignProjectAccess:
+      isProjectAdmin || isAdmin,
+
+    canViewExternalUsers:
+      isAdmin,
+
+    canManageExternalUsers:
+      configuredOwner,
+
+    canManageSystem:
+      configuredOwner,
+
+    canManageBackups:
+      configuredOwner
+  };
+}
+
 function dashboardUserForAccount(account, graphUser = null, sharedProfile = null) {
   const claims = account?.idTokenClaims || {};
   const email = normalizeEmail(account?.username || claims.preferred_username || claims.email);
   const displayName = String(graphUser?.displayName || account?.name || claims.name || "AHT User").trim();
-  const entraUserType = String(graphUser?.userType || "").trim().toLowerCase();
+  const graphUpn = String(
+    graphUser?.userPrincipalName ||
+    account?.username ||
+    ""
+  ).trim().toLowerCase();
+
+  const entraUserType =
+    String(graphUser?.userType || "").trim().toLowerCase() === "guest" ||
+    graphUpn.includes("#ext#")
+      ? "guest"
+      : String(graphUser?.userType || "").trim().toLowerCase();
   const adminEmails = (APP_CONFIG.entra.adminEmails || []).map(normalizeEmail);
 
   let user = graphUser?.id ? USERS.find(item => item.entraObjectId === graphUser.id) : null;
@@ -75,8 +165,29 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
   const shared = sharedProfile && typeof sharedProfile === "object" ? sharedProfile : null;
 
   if (adminEmails.includes(email)) {
-    const admin = USERS.find(item => item.canAdmin && item.active !== false) || user;
-    if (admin) return { ...admin, email, name: displayName || admin.name, authAccount: account.homeAccountId };
+    const admin =
+      USERS.find(
+        item =>
+          item.active !== false &&
+          (
+            item.canAdmin ||
+            item.role === "Administrator" ||
+            item.role === "Admin"
+          )
+      ) || user;
+
+    if (admin) {
+      const role = "Admin";
+
+      return {
+        ...admin,
+        role,
+        ...dashboardRoleCapabilities(role, email),
+        email,
+        name: displayName || admin.name,
+        authAccount: account.homeAccountId
+      };
+    }
   }
 
   // Entra B2B guests are always external to AHT, even if their email/name
@@ -86,8 +197,16 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
   if (entraUserType === "guest") {
     const externalUser = user && user.isInternal === false ? user : null;
     const projects = Array.isArray(shared?.p) ? shared.p : (externalUser?.projects || []);
-    const storedRole = shared?.r || externalUser?.role || "External Viewer";
-    const role = storedRole === "Editor" ? "Editor" : "External Viewer";
+    const storedRole =
+      shared?.r ||
+      externalUser?.role ||
+      "External Viewer";
+
+    const role =
+      normalizeDashboardRole(
+        storedRole,
+        true
+      );
     return {
       ...(externalUser || {}),
       id: externalUser?.id || `entra-${graphUser?.id || account?.localAccountId || "guest"}`,
@@ -99,16 +218,41 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
       role,
       active: true,
       projects,
+      canViewProjectPlan:
+        typeof shared?.pp === "boolean"
+          ? shared.pp
+          : Boolean(externalUser?.canViewProjectPlan),
+      canViewSiteOperations:
+        typeof shared?.so === "boolean"
+          ? shared.so
+          : Boolean(externalUser?.canViewSiteOperations),
       canEdit: role === "Editor",
+      canProjectAdmin: false,
       canAdmin: false,
+      isSystemOwner: false,
+      canManageProjects: false,
+      canManageInternalUsers: false,
+      canAssignProjectAccess: false,
+      canViewExternalUsers: false,
+      canManageExternalUsers: false,
+      canManageSystem: false,
+      canManageBackups: false,
       isInternal: false,
       authAccount: account?.homeAccountId || ""
     };
   }
 
   if (user || shared) {
-    const storedRole = shared?.r || user?.role || "Viewer";
-    const role = storedRole === "Internal Editor" ? "Editor" : storedRole === "Executive Viewer" ? "Viewer" : storedRole;
+    const storedRole =
+      shared?.r ||
+      user?.role ||
+      "Viewer";
+
+    const role =
+      normalizeDashboardRole(
+        storedRole,
+        false
+      );
     return {
       ...(user || {}),
       id: user?.id || `entra-${graphUser?.id || account?.localAccountId || "user"}`,
@@ -120,8 +264,12 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
       role,
       active: true,
       projects: Array.isArray(shared?.p) ? shared.p : (user?.projects || ["*"]),
-      canAdmin: role === "Administrator",
-      canEdit: role === "Administrator" || role === "Editor",
+      canViewProjectPlan: true,
+      canViewSiteOperations: true,
+      ...dashboardRoleCapabilities(
+        role,
+        shared?.e || email || user?.email
+      ),
       isInternal: true,
       authAccount: account.homeAccountId
     };
@@ -137,6 +285,8 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
     role: "AHT Internal",
     active: true,
     projects: ["*"],
+    canViewProjectPlan: true,
+    canViewSiteOperations: true,
     canEdit: false,
     canAdmin: false,
     isInternal: true,

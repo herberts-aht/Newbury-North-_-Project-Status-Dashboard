@@ -9,8 +9,9 @@ const ProjectWorkView = (() => {
   let currentWorkItemId = null;
   let seededProjectKey = null;
   let projectWorkMode = "hierarchy";
-  let actionDisplayMode = "cards";
+  let actionDisplayMode = "list";
   let actionWaitingOnFilter = "all";
+  let deliveryPhaseFilter = "all";
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -29,6 +30,64 @@ const ProjectWorkView = (() => {
     if (!project) return "";
 
     return String(project.id || project.sharePointId || "");
+  }
+
+  function configuredDeliveryPhases() {
+    const project =
+      typeof currentProject === "function"
+        ? currentProject()
+        : null;
+
+    return Array.isArray(project?.deliveryPhases)
+      ? project.deliveryPhases
+          .map(value => String(value || "").trim())
+          .filter(Boolean)
+      : [];
+  }
+
+  function deliveryPhaseFilterOptions(roots = []) {
+    const configured = configuredDeliveryPhases();
+
+    const discovered = roots
+      .map(item => String(item.phase || "").trim())
+      .filter(Boolean);
+
+    const phases = [
+      ...new Set([
+        ...configured,
+        ...discovered
+      ])
+    ];
+
+    const hasUnassigned =
+      roots.some(item => !String(item.phase || "").trim());
+
+    return {
+      phases,
+      hasUnassigned
+    };
+  }
+
+  function rootMatchesDeliveryPhase(item) {
+    if (deliveryPhaseFilter === "all") {
+      return true;
+    }
+
+    const phase = String(item?.phase || "").trim();
+
+    if (deliveryPhaseFilter === "__unassigned__") {
+      return !phase;
+    }
+
+    return phase === deliveryPhaseFilter;
+  }
+
+  function setDeliveryPhaseFilter(value) {
+    deliveryPhaseFilter =
+      String(value || "all");
+
+    currentWorkItemId = null;
+    render();
   }
 
   function dateLabel(value) {
@@ -315,6 +374,7 @@ const ProjectWorkView = (() => {
     const parts = [];
 
     if (item.itemType) parts.push(item.itemType);
+    if (item.phase) parts.push(item.phase);
     if (item.system) parts.push(item.system);
 
     const children = ProjectWorkItems.childrenOf(item.id);
@@ -336,6 +396,11 @@ const ProjectWorkView = (() => {
     const warning = showWarning
       ? warningLabel(item)
       : "";
+
+    const warningDetail =
+      warning
+        ? warningReason(item)
+        : "";
 
     return `
       <div
@@ -360,6 +425,16 @@ const ProjectWorkView = (() => {
                 <span class="pw-warning-inline ${warningClass(item)}">
                   ${escapeHtml(warning)}
                 </span>
+
+                ${
+                  warningDetail
+                    ? `
+                      <div class="small pw-warning-reason">
+                        ${escapeHtml(warningDetail)}
+                      </div>
+                    `
+                    : ""
+                }
               `
               : ""
           }
@@ -459,16 +534,215 @@ const ProjectWorkView = (() => {
     );
   }
 
+  function predecessorIdsFor(item) {
+    const ids =
+      (
+        Array.isArray(
+          item?.predecessorIds
+        ) &&
+        item.predecessorIds.length
+      )
+        ? item.predecessorIds
+        : (
+            item?.predecessorId
+              ? [item.predecessorId]
+              : []
+          );
+
+    return [
+      ...new Set(
+        ids
+          .map(id => String(id))
+          .filter(Boolean)
+      )
+    ];
+  }
+
+  function predecessorsFor(item) {
+    return predecessorIdsFor(item)
+      .map(id =>
+        ProjectWorkItems.getItem(id)
+      )
+      .filter(Boolean);
+  }
+
+  function incompletePredecessorsFor(item) {
+    return predecessorsFor(item)
+      .filter(predecessor =>
+        !taskIsComplete(predecessor)
+      );
+  }
+
+  /*
+   * Reverse dependency lookup.
+   *
+   * These are Project Plan relationships only. Site Operations remain
+   * a separate source and are not mixed into Project Plan predecessors.
+   */
+  function dependentsFor(item) {
+    if (!item?.id) {
+      return [];
+    }
+
+    const itemId = String(item.id);
+    const projectId = String(item.projectId ?? "");
+    const projectSharePointId =
+      String(item.projectSharePointId ?? "");
+
+    return ProjectWorkItems.getItems()
+      .filter(candidate => {
+        if (
+          !candidate ||
+          candidate.archived ||
+          String(candidate.id) === itemId
+        ) {
+          return false;
+        }
+
+        const sameProject =
+          (
+            projectId &&
+            String(candidate.projectId ?? "") === projectId
+          ) ||
+          (
+            projectSharePointId &&
+            String(candidate.projectSharePointId ?? "") ===
+              projectSharePointId
+          );
+
+        return (
+          sameProject &&
+          predecessorIdsFor(candidate)
+            .some(id => String(id) === itemId)
+        );
+      });
+  }
+
+  function incompleteDependentsFor(item) {
+    return dependentsFor(item)
+      .filter(dependent =>
+        !taskIsComplete(dependent)
+      );
+  }
+
   function predecessorIncomplete(item) {
-    if (!item?.predecessorId) return false;
-
-    const predecessor =
-      ProjectWorkItems.getItem(item.predecessorId);
-
-    return Boolean(
-      predecessor &&
-      !taskIsComplete(predecessor)
+    return (
+      incompletePredecessorsFor(item)
+        .length > 0
     );
+  }
+
+  function predecessorDueDate(item) {
+    return (
+      item?.targetDate ||
+      item?.requiredBy ||
+      ""
+    );
+  }
+
+  function dependencyStateFor(item) {
+    const predecessors =
+      predecessorsFor(item);
+
+    if (!predecessors.length) {
+      return {
+        hasPredecessors: false,
+        incomplete: [],
+        overdue: [],
+        dueToday: [],
+        ready: false,
+        label: "",
+        detail: ""
+      };
+    }
+
+    const incomplete =
+      incompletePredecessorsFor(item);
+
+    const overdue =
+      incomplete.filter(predecessor => {
+        const days =
+          daysUntil(
+            predecessorDueDate(
+              predecessor
+            )
+          );
+
+        return (
+          days !== null &&
+          days < 0
+        );
+      });
+
+    const dueToday =
+      incomplete.filter(predecessor => {
+        const days =
+          daysUntil(
+            predecessorDueDate(
+              predecessor
+            )
+          );
+
+        return days === 0;
+      });
+
+    const ready =
+      incomplete.length === 0;
+
+    let label = "";
+    let detail = "";
+
+    if (ready) {
+      label =
+        "Ready to Start";
+
+      detail =
+        "All predecessor Tasks are complete.";
+    } else {
+      label =
+        `Blocked by ${incomplete.length} ${
+          incomplete.length === 1
+            ? "Task"
+            : "Tasks"
+        }`;
+
+      const parts = [];
+
+      if (overdue.length) {
+        parts.push(
+          `${overdue.length} predecessor${
+            overdue.length === 1
+              ? ""
+              : "s"
+          } overdue`
+        );
+      }
+
+      if (dueToday.length) {
+        parts.push(
+          `${dueToday.length} predecessor${
+            dueToday.length === 1
+              ? ""
+              : "s"
+          } due today`
+        );
+      }
+
+      detail =
+        parts.length
+          ? parts.join(" · ")
+          : "Waiting for predecessor Tasks to be completed.";
+    }
+
+    return {
+      hasPredecessors: true,
+      incomplete,
+      overdue,
+      dueToday,
+      ready,
+      label,
+      detail
+    };
   }
 
   function actionDueDate(item) {
@@ -491,23 +765,55 @@ const ProjectWorkView = (() => {
     const dueIn =
       daysUntil(actionDueDate(item));
 
+    const dependencyState =
+      dependencyStateFor(item);
+
+    const downstreamCount =
+      incompleteDependentsFor(item).length;
+
     const dependencyPressure = Boolean(
       item.waitingOn ||
       item.blockerDependency ||
-      predecessorIncomplete(item) ||
+      dependencyState.incomplete.length ||
       String(item.status || "") === "Waiting" ||
       String(item.status || "") === "Awaiting Review" ||
       String(item.status || "") === "Blocked"
     );
 
+    /*
+     * The task itself has already missed its required/target date.
+     */
     if (dueIn !== null && dueIn < 0) {
       return "overdue";
     }
 
+    /*
+     * An overdue predecessor creates earlier schedule pressure.
+     * Use a 14-day look-ahead so we can surface the threat before
+     * the downstream task reaches the normal 7-day warning window.
+     */
+    if (
+      dependencyState.overdue.length &&
+      (
+        dueIn === null ||
+        dueIn <= 14
+      )
+    ) {
+      return "at-risk";
+    }
+
+    /*
+     * Inside the normal 7-day warning window, either an unresolved
+     * dependency or downstream work relying on this task raises the
+     * condition from Due Soon to At Risk.
+     */
     if (
       dueIn !== null &&
       dueIn <= 7 &&
-      dependencyPressure
+      (
+        dependencyPressure ||
+        downstreamCount > 0
+      )
     ) {
       return "at-risk";
     }
@@ -580,6 +886,105 @@ const ProjectWorkView = (() => {
     return `pw-warning-${warningState(item)}`;
   }
 
+  function warningReason(item) {
+    if (!item || taskIsComplete(item)) {
+      return "";
+    }
+
+    const state =
+      warningState(item);
+
+    const dueIn =
+      daysUntil(actionDueDate(item));
+
+    const dependencyState =
+      dependencyStateFor(item);
+
+    const downstreamCount =
+      incompleteDependentsFor(item).length;
+
+    if (state === "overdue") {
+      const daysLate =
+        dueIn !== null
+          ? Math.abs(dueIn)
+          : null;
+
+      return daysLate !== null
+        ? `Target passed ${daysLate} ${daysLate === 1 ? "day" : "days"} ago`
+        : "Target date has passed";
+    }
+
+    if (state === "at-risk") {
+      if (dependencyState.overdue.length) {
+        const count =
+          dependencyState.overdue.length;
+
+        const parts = [
+          `${count} overdue predecessor${count === 1 ? "" : "s"}`
+        ];
+
+        if (dueIn !== null && dueIn >= 0) {
+          parts.push(
+            `${dueIn} ${dueIn === 1 ? "day" : "days"} to target`
+          );
+        }
+
+        return parts.join(" · ");
+      }
+
+      if (dependencyState.incomplete.length) {
+        const count =
+          dependencyState.incomplete.length;
+
+        return (
+          `Waiting on ${count} predecessor ` +
+          `${count === 1 ? "Task" : "Tasks"}`
+        );
+      }
+
+      if (downstreamCount > 0) {
+        return (
+          `Blocks ${downstreamCount} dependent ` +
+          `${downstreamCount === 1 ? "Task" : "Tasks"}`
+        );
+      }
+
+      if (item.waitingOn) {
+        return `Waiting on ${item.waitingOn}`;
+      }
+
+      if (item.blockerDependency) {
+        return String(item.blockerDependency);
+      }
+
+      if (dueIn !== null && dueIn >= 0) {
+        return (
+          `${dueIn} ${dueIn === 1 ? "day" : "days"} to target`
+        );
+      }
+
+      return "Schedule pressure";
+    }
+
+    if (state === "due-soon") {
+      if (dueIn === 0) {
+        return "Due today";
+      }
+
+      if (dueIn !== null) {
+        return (
+          `${dueIn} ${dueIn === 1 ? "day" : "days"} to target`
+        );
+      }
+    }
+
+    if (state === "parent-at-risk") {
+      return "Subtask schedule requires attention";
+    }
+
+    return "";
+  }
+
   function warningRank(item) {
     switch (warningState(item)) {
       case "overdue":
@@ -611,6 +1016,7 @@ const ProjectWorkView = (() => {
       item.waitingOn ||
       item.informationRequired ||
       item.blockerDependency ||
+      predecessorIncomplete(item) ||
       status === "Waiting" ||
       status === "Awaiting Review" ||
       status === "Blocked" ||
@@ -735,6 +1141,20 @@ const ProjectWorkView = (() => {
     return dates[0] || "";
   }
 
+  function dependencyRequiredBy(item) {
+    const dates =
+      incompletePredecessorsFor(item)
+        .map(predecessor =>
+          predecessor.targetDate ||
+          predecessor.requiredBy ||
+          ""
+        )
+        .filter(Boolean)
+        .sort();
+
+    return dates[0] || "";
+  }
+
   function actionSummaryItems() {
     const raw = actionRequiredItems();
     const groups = new Map();
@@ -793,7 +1213,11 @@ const ProjectWorkView = (() => {
           .filter(Boolean)
       )];
 
-      const earliest = earliestActionDate(members);
+      const earliest =
+        earliestActionDate(members);
+
+      const dependencyDue =
+        dependencyRequiredBy(root);
 
       return {
         ...root,
@@ -814,6 +1238,7 @@ const ProjectWorkView = (() => {
               : root.waitingOn,
 
         requiredBy:
+          dependencyDue ||
           earliest ||
           root.requiredBy ||
           ""
@@ -844,6 +1269,25 @@ const ProjectWorkView = (() => {
   }
 
   function actionAttentionSummary(item) {
+    const dependency =
+      dependencyStateFor(item);
+
+    if (
+      dependency.hasPredecessors &&
+      dependency.incomplete.length
+    ) {
+      const names =
+        dependency.incomplete
+          .map(predecessor =>
+            predecessor.title
+          )
+          .join(", ");
+
+      return (
+        `${dependency.label}: ${names}`
+      );
+    }
+
     const members =
       Array.isArray(item?.__actionMembers)
         ? item.__actionMembers
@@ -998,12 +1442,31 @@ const ProjectWorkView = (() => {
   }
 
   function relatedWorkLabel(item) {
-    if (item.blockerDependency) return item.blockerDependency;
+    if (item.blockerDependency) {
+      return item.blockerDependency;
+    }
 
-    const path = ProjectWorkItems.pathFor(item.id);
+    const incomplete =
+      incompletePredecessorsFor(item);
+
+    if (incomplete.length) {
+      return incomplete
+        .map(predecessor =>
+          predecessor.title
+        )
+        .join(", ");
+    }
+
+    const path =
+      ProjectWorkItems.pathFor(
+        item.id
+      );
 
     if (path.length >= 2) {
-      return path[path.length - 2]?.title || item.title;
+      return (
+        path[path.length - 2]?.title ||
+        item.title
+      );
     }
 
     return item.title;
@@ -1037,13 +1500,40 @@ const ProjectWorkView = (() => {
   }
 
   function actionStatusLabel(item) {
-    const status = String(item.status || "").trim();
+    const status =
+      String(
+        item.status || ""
+      ).trim();
 
-    if (status === "Blocked") return "Blocked";
-    if (status === "Awaiting Review") return "Awaiting Review";
-    if (status === "Waiting") return "Waiting";
-    if (status) return status;
-    if (item.waitingOn) return "Waiting";
+    const dependency =
+      dependencyStateFor(item);
+
+    if (
+      dependency.hasPredecessors &&
+      dependency.incomplete.length
+    ) {
+      return dependency.label;
+    }
+
+    if (status === "Blocked") {
+      return "Blocked";
+    }
+
+    if (status === "Awaiting Review") {
+      return "Awaiting Review";
+    }
+
+    if (status === "Waiting") {
+      return "Waiting";
+    }
+
+    if (status) {
+      return status;
+    }
+
+    if (item.waitingOn) {
+      return "Waiting";
+    }
 
     return "Not Started";
   }
@@ -1060,13 +1550,34 @@ const ProjectWorkView = (() => {
   }
 
   function blockingLabel(item) {
-    if (item.blockerDependency) return item.blockerDependency;
+    if (item.blockerDependency) {
+      return item.blockerDependency;
+    }
 
-    const path = ProjectWorkItems.pathFor(item.id);
+    const incomplete =
+      incompletePredecessorsFor(item);
+
+    if (incomplete.length) {
+      return incomplete
+        .map(predecessor =>
+          predecessor.title
+        )
+        .join(", ");
+    }
+
+    const path =
+      ProjectWorkItems.pathFor(
+        item.id
+      );
 
     if (path.length >= 2) {
-      const parent = path[path.length - 2];
-      return parent?.title || item.title;
+      const parent =
+        path[path.length - 2];
+
+      return (
+        parent?.title ||
+        item.title
+      );
     }
 
     return item.title;
@@ -1156,7 +1667,7 @@ const ProjectWorkView = (() => {
           </div>
 
           <div>
-            <span>Required By</span>
+            <span>Input Needed By</span>
             <strong>${dateLabel(due)}</strong>
           </div>
 
@@ -1210,7 +1721,7 @@ const ProjectWorkView = (() => {
 
         <div class="pw-action-who">
           <strong>${escapeHtml(item.waitingOn || item.owner || "Unassigned")}</strong>
-          <span>${escapeHtml(item.status || "—")}</span>
+          <span>${escapeHtml(actionStatusLabel(item))}</span>
           ${
             warningLabel(item)
               ? `
@@ -1232,7 +1743,7 @@ const ProjectWorkView = (() => {
         </div>
 
         <div class="pw-action-related">
-          ${escapeHtml(relatedWorkLabel(item))}
+          ${escapeHtml(blockingLabel(item))}
         </div>
 
         <div class="pw-action-owner">
@@ -1291,7 +1802,7 @@ const ProjectWorkView = (() => {
                 <div class="pw-action-row pw-action-head">
                   <div>Waiting On</div>
                   <div>What We Need</div>
-                  <div>Required By</div>
+                  <div>Input Needed By</div>
                   <div>Blocking / Related Work</div>
                   <div>Owner</div>
                   <div></div>
@@ -1318,7 +1829,22 @@ const ProjectWorkView = (() => {
   function renderOverview(root) {
     const key = projectKey();
     const roots = ProjectWorkItems.rootsForProject(key);
+    const filteredRoots = roots.filter(rootMatchesDeliveryPhase);
     const overall = ProjectWorkItems.projectProgress(key);
+
+    const {
+      phases: deliveryPhases,
+      hasUnassigned: hasUnassignedPhase
+    } = deliveryPhaseFilterOptions(roots);
+
+    const validFilter =
+      deliveryPhaseFilter === "all" ||
+      deliveryPhaseFilter === "__unassigned__" ||
+      deliveryPhases.includes(deliveryPhaseFilter);
+
+    if (!validFilter) {
+      deliveryPhaseFilter = "all";
+    }
 
     const all = ProjectWorkItems.getItems().filter(
       item => String(item.projectId) === key && !item.archived
@@ -1372,16 +1898,77 @@ const ProjectWorkView = (() => {
             <div>
               <h3>Project Plan Tasks</h3>
               <div class="small">
-                Select a workstream to drill into the work driving its progress.
+                Select a Task to drill into its Subtasks, dependencies, and progress.
               </div>
             </div>
+
+            ${
+              deliveryPhases.length || hasUnassignedPhase
+                ? `
+                  <label class="pw-phase-filter">
+                    <span>Delivery Phase</span>
+                    <select
+                      onchange="ProjectWorkView.setDeliveryPhaseFilter(this.value)"
+                    >
+                      <option value="all"${
+                        deliveryPhaseFilter === "all"
+                          ? " selected"
+                          : ""
+                      }>
+                        All Phases
+                      </option>
+
+                      ${deliveryPhases.map(phase => `
+                        <option
+                          value="${escapeHtml(phase)}"${
+                            deliveryPhaseFilter === phase
+                              ? " selected"
+                              : ""
+                          }
+                        >
+                          ${escapeHtml(phase)}
+                        </option>
+                      `).join("")}
+
+                      ${
+                        hasUnassignedPhase
+                          ? `
+                            <option
+                              value="__unassigned__"${
+                                deliveryPhaseFilter === "__unassigned__"
+                                  ? " selected"
+                                  : ""
+                              }
+                            >
+                              Unassigned
+                            </option>
+                          `
+                          : ""
+                      }
+                    </select>
+                  </label>
+                `
+                : ""
+            }
           </div>
 
           <div class="pw-list">
             ${
-              roots.length
-                ? roots.map(workItemRow).join("")
-                : `<div class="pw-empty">No Tasks have been created yet.</div>`
+              filteredRoots.length
+                ? filteredRoots.map(workItemRow).join("")
+                : (
+                    roots.length
+                      ? `
+                        <div class="pw-empty">
+                          No Tasks are assigned to this Delivery Phase.
+                        </div>
+                      `
+                      : `
+                        <div class="pw-empty">
+                          No Tasks have been created yet.
+                        </div>
+                      `
+                  )
             }
           </div>
         </div>
@@ -1394,9 +1981,14 @@ const ProjectWorkView = (() => {
     const progress = ProjectWorkItems.displayedProgress(item.id);
     const children = ProjectWorkItems.childrenOf(item.id);
 
-    const predecessor = item.predecessorId
-      ? ProjectWorkItems.getItem(item.predecessorId)
-      : null;
+    const predecessors =
+      predecessorsFor(item);
+
+    const incompletePredecessors =
+      incompletePredecessorsFor(item);
+
+    const dependencyState =
+      dependencyStateFor(item);
 
     const waitingChildren = children.filter(child =>
       String(child.status || "").includes("Waiting") ||
@@ -1415,7 +2007,7 @@ const ProjectWorkView = (() => {
       item.informationRequired ||
       item.requiredBy ||
       item.blockerDependency ||
-      predecessor;
+      predecessors.length;
 
     root.innerHTML = `
       <div class="pw-detail-banner">
@@ -1489,18 +2081,70 @@ const ProjectWorkView = (() => {
               <div class="pw-dependency-grid">
 
                 <div>
+                  <span>Dependency State</span>
+                  <strong>
+                    ${
+                      dependencyState
+                        .hasPredecessors
+                        ? escapeHtml(
+                            dependencyState.label
+                          )
+                        : "—"
+                    }
+                  </strong>
+
+                  ${
+                    dependencyState
+                      .detail
+                      ? `
+                        <div class="small">
+                          ${escapeHtml(
+                            dependencyState.detail
+                          )}
+                        </div>
+                      `
+                      : ""
+                  }
+                </div>
+
+                <div>
                   <span>Waiting On</span>
                   <strong>${escapeHtml(item.waitingOn || "—")}</strong>
                 </div>
 
                 <div>
-                  <span>Required By</span>
+                  <span>Input Needed By</span>
                   <strong>${dateLabel(item.requiredBy)}</strong>
                 </div>
 
                 <div>
-                  <span>Predecessor</span>
-                  <strong>${escapeHtml(predecessor?.title || "—")}</strong>
+                  <span>Predecessor(s)</span>
+
+                  <strong>
+                    ${
+                      predecessors.length
+                        ? predecessors
+                            .map(predecessor => {
+                              const incomplete =
+                                incompletePredecessors
+                                  .some(item =>
+                                    String(item.id) ===
+                                    String(predecessor.id)
+                                  );
+
+                              return `
+                                ${escapeHtml(predecessor.title)}
+                                ${
+                                  incomplete
+                                    ? '<span class="small"> · Incomplete</span>'
+                                    : ""
+                                }
+                              `;
+                            })
+                            .join("<br>")
+                        : "—"
+                    }
+                  </strong>
                 </div>
 
                 <div>
@@ -1600,6 +2244,40 @@ const ProjectWorkView = (() => {
     `;
   }
 
+  function syncProjectPlanHeaderActions() {
+
+    const editButton =
+      document.getElementById(
+        "editProjectTaskHeaderBtn"
+      );
+
+    if (!editButton) {
+      return;
+    }
+
+    const item =
+      (
+        projectWorkMode === "hierarchy" &&
+        currentWorkItemId != null
+      )
+        ? ProjectWorkItems.getItem(
+            currentWorkItemId
+          )
+        : null;
+
+    editButton.hidden = !item;
+
+    editButton.onclick =
+      item
+        ? () => {
+            window.ProjectTaskEditor?.open({
+              id: item.id
+            });
+          }
+        : null;
+  }
+
+
   function render() {
     const view = document.getElementById("projectWork");
     const root = document.getElementById("projectWorkContent");
@@ -1607,6 +2285,8 @@ const ProjectWorkView = (() => {
     if (!view || !root) return;
 
     seedPrototypeData();
+
+    syncProjectPlanHeaderActions();
 
     if (projectWorkMode === "actions") {
       const breadcrumb = document.getElementById("projectWorkBreadcrumb");
@@ -1630,6 +2310,8 @@ const ProjectWorkView = (() => {
 
     if (!item) {
       currentWorkItemId = null;
+      window.__projectPlanSelectedTaskId = null;
+      syncProjectPlanHeaderActions();
       renderBreadcrumb();
       renderOverview(root);
       return;
@@ -1661,6 +2343,7 @@ const ProjectWorkView = (() => {
   function openOverview() {
     projectWorkMode = "hierarchy";
     currentWorkItemId = null;
+    window.__projectPlanSelectedTaskId = null;
     render();
   }
 
@@ -1674,6 +2357,7 @@ currentWorkItemId = id;
 
   function onProjectChanged() {
     currentWorkItemId = null;
+    window.__projectPlanSelectedTaskId = null;
     seededProjectKey = null;
     projectWorkMode = "hierarchy";
     actionWaitingOnFilter = "all";
@@ -1740,6 +2424,7 @@ currentWorkItemId = id;
   return {
     render,
     setMode,
+    setDeliveryPhaseFilter,
     setActionDisplayMode,
     setActionWaitingOnFilter,
     openOverview,

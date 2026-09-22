@@ -2778,3 +2778,707 @@ main.container{
 .calendar-project-event > .agenda-edit{
   flex:0 0 auto;
 }
+
+/* Calendar day overflow control */
+#calendar .calendar-more-btn{
+  border:0;
+  background:transparent;
+  padding:2px 0 0;
+  color:var(--navy);
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+  text-align:left;
+}
+#calendar .calendar-more-btn:hover{
+  text-decoration:underline;
+}
+
+/* Calendar day overflow control — polished label */
+#calendar .calendar-more-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  margin-top:3px;
+  line-height:1.1;
+}
+
+#calendar .calendar-more-label{
+  color:var(--navy);
+}
+
+#calendar .calendar-more-sep{
+  color:var(--muted);
+  font-weight:600;
+}
+
+#calendar .calendar-more-count{
+  color:var(--muted);
+  font-weight:800;
+}
+
+
+/* Project Plan header Task actions */
+.project-plan-task-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.project-plan-task-actions .btn {
+  flex: 0 0 auto;
+}
+
+
+/* Project Plan predecessor multi-select */
+.pte-predecessor-list {
+  min-height: 42px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #cfd9e2;
+  border-radius: 6px;
+  background: #fff;
+  padding: 6px;
+}
+
+.pte-predecessor-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pte-predecessor-option:hover {
+  background: #f4f7f9;
+}
+
+.pte-predecessor-option input {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.pte-predecessor-option span {
+  line-height: 1.3;
+}
+
+.pte-predecessor-empty {
+  padding: 8px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* Fix Project Plan predecessor checkbox layout */
+.pte-predecessor-list {
+  overflow-x: hidden;
+}
+
+.pte-predecessor-option {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pte-predecessor-option input[type="checkbox"] {
+  width: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+  margin: 2px 0 0 0 !important;
+  flex: 0 0 16px !important;
+}
+
+.pte-predecessor-option span {
+  display: block;
+  width: auto !important;
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+
+/* ==========================================================
+   Executive Summary source language
+   ========================================================== */
+
+.exec-summary-item {
+  position: relative;
+  margin: 0 -7px;
+  padding: 9px 8px;
+  border-radius: 6px;
+  transition: background .15s ease, box-shadow .15s ease;
+}
+
+.exec-summary-item[role="button"] {
+  cursor: pointer;
+}
+
+.exec-summary-item[role="button"]:hover {
+  box-shadow: inset 0 0 0 1px rgba(61, 86, 108, .10);
+}
+
+.exec-summary-content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.exec-summary-title-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px 7px;
+}
+
+.exec-source-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 8px;
+  line-height: 1.25;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+  font-weight: 800;
+  white-space: nowrap;
+  background: #eef2f5;
+  color: #65717d;
+}
+
+/* Deliverables — neutral gray source language. */
+.exec-source-deliverable {
+  background: rgba(92, 101, 110, .075);
+  box-shadow: inset 3px 0 0 rgba(92, 101, 110, .38);
+}
+
+.exec-source-deliverable .exec-source-tag {
+  background: #e9edef;
+  color: #5f6972;
+}
+
+
+/* Information Required — dependency/orange language. */
+.exec-source-info {
+  background: rgba(169, 101, 24, .045);
+  box-shadow: inset 3px 0 0 rgba(169, 101, 24, .34);
+}
+
+.exec-source-info .exec-source-tag {
+  background: #fff1e3;
+  color: #95601f;
+}
+
+/* Project Plan — subtle planning/blue language. */
+.exec-source-project {
+  background: rgba(20, 95, 138, .085);
+  box-shadow: inset 3px 0 0 rgba(20, 95, 138, .68);
+}
+
+.exec-source-project .exec-source-tag {
+  background: #dcecf5;
+  color: #285f82;
+}
+
+/*
+ * Reserved for Site Operations when Site intelligence is added
+ * to the Executive Summary.
+ */
+.exec-source-site {
+  background: rgba(39, 113, 73, .045);
+  box-shadow: inset 3px 0 0 rgba(39, 113, 73, .28);
+}
+
+.exec-source-site .exec-source-tag {
+  background: #e9f4ee;
+  color: #3f7358;
+}
+
+
+/* Executive Summary live row limit / expansion */
+.exec-summary-more-wrap {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  padding:9px 3px 1px;
+  font-size:10px;
+  color:var(--muted);
+}
+
+.exec-summary-more {
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:2px 0;
+  color:var(--blue);
+  font-size:11px;
+  font-weight:750;
+  cursor:pointer;
+}
+
+.exec-summary-more:hover {
+  text-decoration:underline;
+}
+
+
+/* Executive Summary row consistency */
+.exec-summary-title-line > strong {
+  font-size: inherit;
+  line-height: 1.25;
+}
+
+.exec-summary-item .small {
+  line-height: 1.3;
+}
+
+/*
+ * Keep the Executive Summary compact. Full text remains
+ * available by opening the underlying record.
+ */
+#currentWork .exec-summary-item .small {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+
+/* ==========================================================
+   EXECUTIVE SUMMARY — PROJECT HEALTH STRIP
+   Keep overall health and its drivers visible at first glance
+   without increasing Executive Summary vertical height.
+   ========================================================== */
+
+.project-health-strip{
+  display:flex;
+  align-items:center;
+  gap:18px;
+  width:100%;
+  box-sizing:border-box;
+  margin-bottom:8px;
+  padding:10px 13px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:9px;
+  box-shadow:0 4px 18px rgba(15,23,42,.04);
+}
+
+.project-health-primary{
+  flex:0 0 auto;
+  min-width:125px;
+  padding-right:17px;
+  border-right:1px solid var(--line);
+}
+
+.project-health-label{
+  font-size:10px;
+  color:var(--muted);
+  font-weight:750;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+}
+
+.project-health-value{
+  display:flex;
+  align-items:center;
+  margin-top:3px;
+  font-size:13px;
+  font-weight:750;
+  white-space:nowrap;
+}
+
+.project-health-value .health-mode{
+  display:inline-block;
+  margin:0 0 0 8px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:#eef2f6;
+  font-size:9px;
+  line-height:1.3;
+  white-space:nowrap;
+}
+
+.project-health-value .health-mode.hidden{
+  display:none;
+}
+
+.project-health-drivers{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px 8px;
+  min-width:0;
+  flex:1 1 auto;
+}
+
+.project-health-driver{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  box-sizing:border-box;
+  padding:4px 9px;
+  border:1px solid #e1e7ed;
+  border-radius:999px;
+  background:#f7f9fb;
+  color:#465466;
+  font-size:11px;
+  font-weight:700;
+  line-height:1.2;
+  white-space:nowrap;
+}
+
+.project-health-driver-manual{
+  white-space:normal;
+}
+
+.project-health-driver-clear{
+  color:#49705a;
+  background:#f3f8f4;
+}
+
+/*
+ * With Project Health removed from this grid, the three
+ * leadership fields form the first row naturally.
+ */
+#dashboard .summary-ribbon{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  margin-bottom:8px;
+}
+
+@media(max-width:900px){
+  .project-health-strip{
+    align-items:flex-start;
+  }
+
+  .project-health-primary{
+    min-width:115px;
+  }
+
+  #dashboard .summary-ribbon{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:700px){
+  .project-health-strip{
+    display:block;
+  }
+
+  .project-health-primary{
+    min-width:0;
+    padding-right:0;
+    padding-bottom:8px;
+    margin-bottom:8px;
+    border-right:0;
+    border-bottom:1px solid var(--line);
+  }
+
+  .project-health-drivers{
+    gap:6px;
+  }
+
+  .project-health-driver{
+    white-space:normal;
+  }
+
+  #dashboard .summary-ribbon{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+
+/* Project Health driver source / severity colors */
+.project-health-driver-project{
+  background:#eef5fb;
+  border-color:#d8e7f3;
+  color:#355f7d;
+}
+
+.project-health-driver-overdue{
+  background:#fdf0f0;
+  border-color:#f2d8d8;
+  color:#9a4b4b;
+}
+
+.project-health-driver-soon{
+  background:#fff5e8;
+  border-color:#f4e2c8;
+  color:#95621f;
+}
+
+.project-health-driver-site{
+  background:#edf7f1;
+  border-color:#d7eadf;
+  color:#4c755d;
+}
+
+.project-health-driver-manual{
+  background:#f2f0f8;
+  border-color:#e1ddee;
+  color:#665a84;
+}
+
+
+/* ==========================================================
+   EXECUTIVE SUMMARY — HEADER CONTEXT + PHASE PROGRESS
+   ========================================================== */
+
+.executive-header-actions{
+  align-items:flex-end;
+  gap:12px;
+}
+
+.executive-header-meta{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  justify-content:center;
+  min-width:220px;
+  padding-bottom:1px;
+}
+
+.executive-header-meta .small{
+  margin-bottom:3px;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+}
+
+.executive-header-meta strong{
+  font-size:11px;
+  line-height:1.25;
+  color:#334155;
+  white-space:nowrap;
+}
+
+#dashboard .summary-ribbon{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+.executive-progress-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:8px;
+}
+
+.executive-progress-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:9px;
+  padding:9px 11px 10px;
+  box-shadow:0 4px 18px rgba(15,23,42,.04);
+}
+
+.executive-progress-label{
+  font-size:10px;
+  color:var(--muted);
+  font-weight:750;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+}
+
+.executive-progress-value{
+  margin-top:2px;
+  font-size:18px;
+  line-height:1.15;
+  font-weight:760;
+  color:var(--navy);
+}
+
+.executive-progress-bar{
+  height:4px;
+  margin-top:7px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e8edf2;
+}
+
+.executive-progress-bar span{
+  display:block;
+  width:0;
+  height:100%;
+  border-radius:999px;
+  background:var(--blue);
+  transition:width .18s ease;
+}
+
+@media(max-width:980px){
+  .executive-header-actions{
+    align-items:flex-start;
+  }
+
+  .executive-header-meta{
+    align-items:flex-start;
+    min-width:0;
+  }
+}
+
+@media(max-width:700px){
+  .executive-progress-grid{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .executive-header-actions{
+    width:100%;
+  }
+
+  .executive-header-meta{
+    width:100%;
+  }
+}
+
+
+/* PROJECT PLAN MILESTONE DIRECT FIX */
+
+.gantt-milestone{
+  position:absolute;
+  top:50%;
+  width:14px !important;
+  height:14px;
+  padding:0;
+  border:0;
+  border-radius:2px;
+  background:currentColor;
+  transform:translate(-50%,-50%) rotate(45deg);
+  cursor:pointer;
+  z-index:5;
+  font-size:0;
+}
+
+.gantt-milestone.complete{color:#4f8b67;}
+.gantt-milestone.active{color:#3b78aa;}
+.gantt-milestone.waiting{color:#c98a32;}
+.gantt-milestone.blocked{color:#b95d56;}
+.gantt-milestone.pending{color:#60798d;}
+
+
+/* CALENDAR MILESTONE DIRECT FIX */
+
+.calendar-milestone-label{
+  display:inline-flex;
+  align-items:center;
+  margin-right:6px;
+  padding:1px 6px;
+  border-radius:999px;
+  font-size:9px;
+  font-weight:700;
+  line-height:1.5;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  background:rgba(64,99,126,.10);
+  color:#49697f;
+}
+
+
+/* SIDEBAR INFORMATION ARCHITECTURE */
+
+.sidebar-nav{
+  gap:3px;
+}
+
+.sidebar-nav .nav-projects-link{
+  margin-bottom:5px;
+  font-weight:800;
+}
+
+.sidebar-nav .nav-section-label{
+  margin:13px 10px 4px;
+  padding-top:8px;
+  border-top:1px solid rgba(255,255,255,.10);
+  color:rgba(255,255,255,.48);
+  font-size:9px;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  user-select:none;
+}
+
+.sidebar-nav .nav-section-label:first-of-type{
+  margin-top:4px;
+}
+
+.sidebar-nav .nav-section-item{
+  padding-left:15px;
+}
+
+.sidebar-nav .nav-section-admin{
+  margin-top:15px;
+}
+
+/*
+ * Mobile sidebar becomes a horizontal scroller.
+ * Section labels remain compact so they do not dominate the row.
+ */
+@media(max-width:980px){
+  .sidebar-nav .nav-section-label{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    margin:0 3px;
+    padding:0 7px;
+    border-top:0;
+    border-left:1px solid rgba(255,255,255,.12);
+    font-size:8px;
+    white-space:nowrap;
+  }
+
+  .sidebar-nav .nav-projects-link{
+    margin-bottom:0;
+  }
+
+  .sidebar-nav .nav-section-item{
+    padding-left:12px;
+  }
+}
+
+
+/* PROJECT PLAN DELIVERY PHASE FILTER */
+
+.pw-section-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.pw-phase-filter{
+  min-width:180px;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+
+.pw-phase-filter > span{
+  font-size:10px;
+  font-weight:800;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+
+.pw-phase-filter select{
+  width:100%;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  background:#fff;
+  color:var(--text);
+  font-size:12px;
+}
+
+@media(max-width:700px){
+  .pw-section-head{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .pw-phase-filter{
+    width:100%;
+    min-width:0;
+  }
+}

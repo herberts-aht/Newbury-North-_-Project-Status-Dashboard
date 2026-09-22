@@ -26,6 +26,19 @@ const LocalStorageDataProvider = {
 
   async saveUsers(nextUsers) {
     localStorage.setItem(this.usersKey, JSON.stringify(nextUsers));
+  },
+
+  async loadProjectWorkItems() {
+    return window.ProjectWorkItems
+      ? ProjectWorkItems.getItems()
+      : [];
+  },
+
+  async saveProjectWorkItems(nextItems) {
+    if (window.ProjectWorkItems) {
+      ProjectWorkItems.setItems(nextItems || []);
+    }
+    return nextItems || [];
   }
 };
 
@@ -167,6 +180,347 @@ const SharePointDataProvider = {
       if (Number.isFinite(numeric) && numeric > 0) return numeric;
     }
     return 0;
+  },
+
+  mapProjectWorkItem(item) {
+    const fields = item.fields || {};
+
+    let predecessorIds = [];
+
+    try {
+      const parsed = JSON.parse(
+        fields.PredecessorKeys || "[]"
+      );
+
+      predecessorIds =
+        Array.isArray(parsed)
+          ? parsed.map(value => String(value).trim()).filter(Boolean)
+          : [];
+    } catch (_) {
+      predecessorIds = String(
+        fields.PredecessorKeys || ""
+      )
+        .split(";")
+        .map(value => value.trim())
+        .filter(Boolean);
+    }
+
+    return {
+      id:
+        fields.WorkItemKey ||
+        `sp-work-item-${item.id}`,
+
+      sharePointId:
+        Number(item.id || 0),
+
+      projectId:
+        fields.ProjectKey || "",
+
+      projectSharePointId:
+        Number(fields.ProjectSharePointId || 0),
+
+      title:
+        fields.Title || "",
+
+      parentWorkItemId:
+        fields.ParentWorkItemKey || null,
+
+      itemType:
+        fields.ItemType || "Task",
+
+      workstream:
+        fields.Workstream || "",
+
+      phase:
+        fields.DeliveryPhase || "",
+
+      system:
+        fields.SystemName || "",
+
+      owner:
+        fields.OwnerName || "",
+
+      status:
+        fields.WorkStatus || "Not Started",
+
+      startDate:
+        this.normalizeDate(fields.StartDate),
+
+      targetDate:
+        this.normalizeDate(fields.TargetDate),
+
+      percentComplete:
+        Number(fields.PercentComplete || 0),
+
+      progressWeight:
+        Number(fields.ProgressWeight || 1),
+
+      trackProgress:
+        fields.TrackProgress !== false,
+
+      waitingOn:
+        fields.WaitingOn || "",
+
+      informationRequired:
+        fields.InformationRequired || "",
+
+      requiredBy:
+        this.normalizeDate(fields.InputNeededBy),
+
+      predecessorIds,
+
+      predecessorId:
+        predecessorIds[0] || null,
+
+      blockerDependency:
+        fields.BlockerDependency || "",
+
+      visibility:
+        fields.WorkVisibility || "Internal",
+
+      sortOrder:
+        Number(fields.SortOrder || 0),
+
+      archived:
+        Boolean(fields.Archived)
+    };
+  },
+
+  projectWorkItemFields(item) {
+    const predecessorIds =
+      Array.isArray(item.predecessorIds)
+        ? item.predecessorIds
+        : item.predecessorId
+          ? [item.predecessorId]
+          : [];
+
+    return {
+      Title:
+        String(item.title || "Untitled Task").slice(0,255),
+
+      WorkItemKey:
+        String(item.id || ""),
+
+      ProjectKey:
+        String(item.projectId || ""),
+
+      ProjectSharePointId:
+        Number(item.projectSharePointId || 0),
+
+      ParentWorkItemKey:
+        item.parentWorkItemId
+          ? String(item.parentWorkItemId)
+          : "",
+
+      ItemType:
+        item.itemType || "Task",
+
+      Workstream:
+        item.workstream || "",
+
+      DeliveryPhase:
+        item.phase || "",
+
+      SystemName:
+        item.system || "",
+
+      OwnerName:
+        item.owner || "",
+
+      WorkStatus:
+        item.status || "Not Started",
+
+      StartDate:
+        item.startDate
+          ? this.graphDate(item.startDate)
+          : null,
+
+      TargetDate:
+        item.targetDate
+          ? this.graphDate(item.targetDate)
+          : null,
+
+      PercentComplete:
+        Number(item.percentComplete || 0),
+
+      ProgressWeight:
+        Number(item.progressWeight || 1),
+
+      TrackProgress:
+        item.trackProgress !== false,
+
+      WaitingOn:
+        item.waitingOn || "",
+
+      InformationRequired:
+        item.informationRequired || "",
+
+      InputNeededBy:
+        item.requiredBy
+          ? this.graphDate(item.requiredBy)
+          : null,
+
+      PredecessorKeys:
+        JSON.stringify(
+          predecessorIds
+            .map(value => String(value).trim())
+            .filter(Boolean)
+        ),
+
+      BlockerDependency:
+        item.blockerDependency || "",
+
+      WorkVisibility:
+        item.visibility || "Internal",
+
+      SortOrder:
+        Number(item.sortOrder || 0),
+
+      Archived:
+        Boolean(item.archived)
+    };
+  },
+
+  async loadProjectWorkItems() {
+    const rows =
+      await this.getListRows(
+        this.config.lists.projectWorkItems
+      );
+
+    return rows
+      .map(item => this.mapProjectWorkItem(item))
+      .filter(item => !item.archived);
+  },
+
+  async saveProjectWorkItems(nextItems = []) {
+    const listName =
+      this.config.lists.projectWorkItems;
+
+    const existingRows =
+      await this.getListRows(listName);
+
+    const byKey = new Map();
+    const duplicateRowsByKey = new Map();
+
+    for (const row of existingRows) {
+      const key =
+        String(
+          row.fields?.WorkItemKey || ""
+        ).trim();
+
+      if (!key) continue;
+
+      if (!byKey.has(key)) {
+        byKey.set(key, row);
+      } else {
+        const duplicates =
+          duplicateRowsByKey.get(key) || [];
+
+        duplicates.push(row);
+        duplicateRowsByKey.set(
+          key,
+          duplicates
+        );
+      }
+    }
+
+    const activeKeys = new Set();
+
+    for (const item of nextItems || []) {
+      const key =
+        String(item.id || "").trim();
+
+      if (!key) continue;
+
+      activeKeys.add(key);
+
+      const fields =
+        this.projectWorkItemFields(item);
+
+      let existing =
+        item.sharePointId
+          ? existingRows.find(
+              row =>
+                Number(row.id) ===
+                Number(item.sharePointId)
+            )
+          : null;
+
+      if (!existing) {
+        existing =
+          byKey.get(key) ||
+          null;
+      }
+
+      if (existing) {
+        await this.updateItem(
+          listName,
+          existing.id,
+          fields
+        );
+
+        item.sharePointId =
+          Number(existing.id);
+      } else {
+        const created =
+          await this.createItem(
+            listName,
+            fields
+          );
+
+        item.sharePointId =
+          Number(created.id);
+
+        byKey.set(
+          key,
+          {
+            id: created.id,
+            fields
+          }
+        );
+      }
+    }
+
+    /*
+     * If duplicate WorkItemKey rows somehow exist, keep the
+     * first canonical row and archive the extras.
+     */
+    for (const duplicates of duplicateRowsByKey.values()) {
+      for (const row of duplicates) {
+        if (row.fields?.Archived !== true) {
+          await this.updateItem(
+            listName,
+            row.id,
+            { Archived: true }
+          );
+        }
+      }
+    }
+
+    /*
+     * Archive SharePoint records that no longer exist in the
+     * current ProjectWorkItems collection.
+     */
+    for (const row of existingRows) {
+      const key =
+        String(
+          row.fields?.WorkItemKey || ""
+        ).trim();
+
+      if (
+        key &&
+        !activeKeys.has(key) &&
+        row.fields?.Archived !== true
+      ) {
+        await this.updateItem(
+          listName,
+          row.id,
+          { Archived: true }
+        );
+      }
+    }
+
+    return nextItems;
   },
 
   mapDeliverable(item) {
@@ -680,6 +1034,38 @@ const SharePointDataProvider = {
           description: fields.ProjectDescription || "",
           subtitle: fields.ProjectSubtitle || "",
           phase: fields.ProjectPhase || "",
+
+          deliveryPhases: (() => {
+            const raw =
+              String(
+                fields.DeliveryPhases || ""
+              ).trim();
+
+            if (!raw) return [];
+
+            try {
+              const parsed = JSON.parse(raw);
+
+              if (Array.isArray(parsed)) {
+                return parsed
+                  .map(value =>
+                    String(value || "").trim()
+                  )
+                  .filter(Boolean);
+              }
+            } catch (error) {
+              // Backward-compatible fallback for manually entered
+              // newline-separated phase values.
+            }
+
+            return raw
+              .split(/\r?\n/)
+              .map(value =>
+                String(value || "").trim()
+              )
+              .filter(Boolean);
+          })(),
+
           executiveLead: fields.ExecutiveLead || "",
           seniorProjectManager: fields.SeniorProjectManager || "",
           projectManagerSiteLead: fields.ProjectManagerSiteLead || "",
@@ -830,6 +1216,17 @@ const SharePointDataProvider = {
       ProjectDescription: project.description || "",
       ProjectSubtitle: project.subtitle || "",
       ProjectPhase: project.phase || "",
+
+      DeliveryPhases: JSON.stringify(
+        Array.isArray(project.deliveryPhases)
+          ? project.deliveryPhases
+              .map(value =>
+                String(value || "").trim()
+              )
+              .filter(Boolean)
+          : []
+      ),
+
       ExecutiveLead: project.executiveLead || "",
       SeniorProjectManager: project.seniorProjectManager || "",
       ProjectManagerSiteLead: project.projectManagerSiteLead || "",
@@ -1062,7 +1459,25 @@ const SharePointDataProvider = {
 
   dashboardAccessUser(row) {
     const fields = row.fields || {};
-    const role = fields.DashboardRole || "Viewer";
+    const storedRole =
+      fields.DashboardRole ||
+      "Viewer";
+
+    const role =
+      storedRole === "Administrator"
+        ? "Admin"
+        : storedRole;
+
+    const canAdmin =
+      role === "Admin";
+
+    const canProjectAdmin =
+      role === "Project Admin" ||
+      canAdmin;
+
+    const canEdit =
+      role === "Editor" ||
+      canProjectAdmin;
 
     return {
       id: fields.ProfileKey || `sharepoint-user-${row.id}`,
@@ -1076,8 +1491,21 @@ const SharePointDataProvider = {
       entraObjectId: fields.EntraObjectId || "",
       entraUserType: fields.EntraUserType || "Member",
       managedByEntraAccessGroup: Boolean(fields.EntraObjectId),
-      canAdmin: role === "Administrator",
-      canEdit: role === "Administrator" || role === "Editor",
+      canAdmin,
+      canProjectAdmin,
+      canEdit,
+      isSystemOwner: false,
+      canManageProjects:
+        canProjectAdmin,
+      canManageInternalUsers:
+        canProjectAdmin,
+      canAssignProjectAccess:
+        canProjectAdmin,
+      canViewExternalUsers:
+        canAdmin,
+      canManageExternalUsers: false,
+      canManageSystem: false,
+      canManageBackups: false,
       isInternal: String(fields.EntraUserType || "Member").toLowerCase() !== "guest"
     };
   },
@@ -1213,12 +1641,30 @@ const SharePointDataProvider = {
       const objectId = String(user.entraObjectId || "").trim();
       const displayName = String(user.name || profileKey).trim();
 
-      const role =
-        user.canAdmin || user.role === "Administrator"
-          ? "Administrator"
-          : (user.canEdit || user.role === "Editor")
-            ? "Editor"
-            : "Viewer";
+      let role =
+        String(user.role || "").trim();
+
+      if (role === "Administrator") {
+        role = "Admin";
+      }
+
+      if (
+        ![
+          "Admin",
+          "Project Admin",
+          "Editor",
+          "Viewer"
+        ].includes(role)
+      ) {
+        role =
+          user.canAdmin
+            ? "Admin"
+            : user.canProjectAdmin
+              ? "Project Admin"
+              : user.canEdit
+                ? "Editor"
+                : "Viewer";
+      }
 
       const fields = {
         Title: displayName,
@@ -1334,6 +1780,22 @@ const FallbackDataProvider = {
   async getDashboardAccessProfile(graphUser) {
     if (this.fallbackWasUsed) return null;
     return SharePointDataProvider.getDashboardAccessProfile(graphUser);
+  },
+
+  async loadProjectWorkItems() {
+    if (this.fallbackWasUsed) {
+      return LocalStorageDataProvider.loadProjectWorkItems();
+    }
+
+    return SharePointDataProvider.loadProjectWorkItems();
+  },
+
+  async saveProjectWorkItems(nextItems) {
+    if (this.fallbackWasUsed) {
+      return LocalStorageDataProvider.saveProjectWorkItems(nextItems);
+    }
+
+    return SharePointDataProvider.saveProjectWorkItems(nextItems);
   },
 
   async addProjectActivity(project, record) {

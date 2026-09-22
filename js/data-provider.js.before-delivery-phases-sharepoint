@@ -1,0 +1,1380 @@
+// Replaceable project-data providers.
+//
+// LocalStorageDataProvider remains the active production-safe provider until
+// APP_CONFIG.dataProvider is changed to "sharePoint". SharePointDataProvider
+// maps the four SharePoint Lists back into the same state shape already used
+// by the dashboard, so no dashboard rendering code needs to change.
+
+const LocalStorageDataProvider = {
+  name: "localStorage",
+  storageKey: "aht_perm_demo_v23",
+  usersKey: "aht_users_v1",
+
+  async loadState() {
+    const saved = localStorage.getItem(this.storageKey);
+    return saved ? JSON.parse(saved) : structuredClone(DEMO);
+  },
+
+  async saveState(nextState) {
+    localStorage.setItem(this.storageKey, JSON.stringify(nextState));
+  },
+
+  async loadUsers() {
+    const saved = localStorage.getItem(this.usersKey);
+    return saved ? JSON.parse(saved) : structuredClone(USERS);
+  },
+
+  async saveUsers(nextUsers) {
+    localStorage.setItem(this.usersKey, JSON.stringify(nextUsers));
+  }
+};
+
+const SharePointDataProvider = {
+  name: "sharePoint",
+
+  get config() {
+    return APP_CONFIG.sharePoint;
+  },
+
+  async getAccessToken() {
+    if (typeof window.getMicrosoftAccessToken === "function") {
+      return window.getMicrosoftAccessToken(APP_CONFIG.entra.scopes);
+    }
+    throw new Error("Microsoft sign-in is not ready.");
+  },
+
+  async graph(path, options = {}) {
+    const token = await this.getAccessToken();
+    const response = await fetch(
+      path.startsWith("http") ? path : `https://graph.microsoft.com/v1.0${path}`,
+      {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
+      }
+    );
+
+    if (!response.ok) {
+      let details = "";
+      try {
+        const body = await response.json();
+        details = body?.error?.message || body?.error?.code || "";
+      } catch (_) {
+        details = await response.text();
+      }
+      throw new Error(
+        `Microsoft Graph request failed (${response.status} ${response.statusText})` +
+        (details ? `: ${details}` : "")
+      );
+    }
+
+    if (response.status === 204) return null;
+    return response.json();
+  },
+
+  normalizeDate(value) {
+    if (!value) return "";
+    return String(value).slice(0, 10);
+  },
+
+  mapHealth(fields) {
+    if (fields.HealthMode === "manual" && fields.HealthOverride) {
+      return fields.HealthOverride;
+    }
+    return "On Track";
+  },
+
+  async getSite() {
+    if (this._site) return this._site;
+
+    const siteUrl = new URL(this.config.siteUrl);
+    const relativePath = siteUrl.pathname.replace(/^\/+/, "");
+    this._site = await this.graph(
+      `/sites/${encodeURIComponent(siteUrl.hostname)}:/${relativePath}?$select=id,displayName,webUrl`
+    );
+    return this._site;
+  },
+
+  async getListId(displayName) {
+    this._listIds ||= {};
+    if (this._listIds[displayName]) return this._listIds[displayName];
+
+    const site = await this.getSite();
+    let url = `/sites/${encodeURIComponent(site.id)}/lists?$select=id,displayName`;
+    while (url) {
+      const data = await this.graph(url);
+      for (const list of data.value || []) {
+        this._listIds[list.displayName] = list.id;
+      }
+      url = data["@odata.nextLink"] || "";
+    }
+
+    const id = this._listIds[displayName];
+    if (!id) throw new Error(`SharePoint list not found: ${displayName}`);
+    return id;
+  },
+
+  async getProjectRows() {
+    const site = await this.getSite();
+    const listId = await this.getListId(this.config.lists.projects);
+
+    let url =
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+      `/items?$expand=fields&$top=200`;
+
+    const rows = [];
+    while (url) {
+      const data = await this.graph(url);
+      rows.push(...(data.value || []));
+      url = data["@odata.nextLink"] || "";
+    }
+    return rows;
+  },
+
+  async getListRows(displayName, fieldNames = []) {
+    const site = await this.getSite();
+    const listId = await this.getListId(displayName);
+
+    const expand = fieldNames.length
+      ? `fields($select=${fieldNames.join(",")})`
+      : "fields";
+
+    let url =
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+      `/items?$expand=${expand}&$top=500`;
+
+    const rows = [];
+    while (url) {
+      const data = await this.graph(url);
+      rows.push(...(data.value || []));
+      url = data["@odata.nextLink"] || "";
+    }
+    return rows;
+  },
+
+  projectLookupId(fields) {
+    const candidates = [
+      fields.ProjectLookupId,
+      fields.ProjectId,
+      fields.Project,
+      fields.Project_x003a_ID
+    ];
+    for (const value of candidates) {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    }
+    return 0;
+  },
+
+  mapDeliverable(item) {
+    const fields = item.fields || {};
+    const title = fields.Title || "Untitled Deliverable";
+    const current = fields.CurrentActivity || "";
+    const targetDate = this.normalizeDate(fields.TargetDate);
+    return {
+      id: Number(item.id),
+      sharePointId: Number(item.id),
+      legacyId: Number(fields.LegacyId || 0),
+      projectSharePointId: this.projectLookupId(fields),
+      deliverable: title,
+      name: title,
+      discipline: fields.Discipline || "",
+      progressPhase: fields.ProgressPhase || "",
+      status: fields.OperationalStatus || "Pending",
+      owner: fields.Owner || "",
+      current,
+      currentActivity: current,
+      waitingOn: fields.WaitingOn || "",
+      nextStep: fields.NextStep || "",
+      startDate: this.normalizeDate(fields.StartDate),
+      date: targetDate,
+      targetDate,
+      risk: fields.Risk || "",
+      visibility: fields.Visibility || "Shared",
+      archived: Boolean(fields.Archived),
+      healthMode: fields.HealthMode || "auto",
+      healthOverride: fields.HealthOverride || "",
+      healthOverrideReason: fields.HealthOverrideReason || "",
+      healthOverrideUntil: this.normalizeDate(fields.HealthOverrideUntil)
+    };
+  },
+
+  mapInformationRequired(item) {
+    const fields = item.fields || {};
+    const requestedFrom = fields.RequestedFrom || "";
+    return {
+      id: Number(item.id),
+      sharePointId: Number(item.id),
+      legacyId: Number(fields.LegacyId || 0),
+      projectSharePointId: this.projectLookupId(fields),
+      item: fields.Title || "Untitled Information Request",
+      from: requestedFrom,
+      requestedFrom,
+      status: fields.RequestStatus || "Outstanding",
+      blocking: fields.Blocking || "",
+      neededBy: this.normalizeDate(fields.NeededBy),
+      notes: fields.Notes || "",
+      visibility: fields.Visibility || "Shared",
+      archived: Boolean(fields.Archived)
+    };
+  },
+
+  mapProjectActivity(item, projects = []) {
+    const fields = item.fields || {};
+    const projectKey = String(fields.ProjectKey || "");
+    const project = projects.find(p => String(p.id) === projectKey);
+    return {
+      id: Number(item.id),
+      sharePointId: Number(item.id),
+      projectId: projectKey || project?.id || "",
+      projectName: fields.ProjectName || project?.name || "",
+      date: this.normalizeDate(fields.ActivityDate || item.createdDateTime || ""),
+      phase: fields.PhaseCategory || "",
+      activity: fields.ActivityText || fields.Title || "",
+      enteredBy: fields.EnteredBy || ""
+    };
+  },
+
+  projectActivityFields(project, record) {
+    return {
+      Title: String(record.activity || "Project activity").slice(0,255),
+      ProjectKey: String(project.id || ""),
+      ProjectName: project.name || "",
+      ActivityDate: this.graphDate(record.date),
+      PhaseCategory: record.phase || "",
+      ActivityText: record.activity || "",
+      EnteredBy: record.enteredBy || ""
+    };
+  },
+
+  async addProjectActivity(project, record) {
+    if (!project?.id) throw new Error("Project was not supplied for Project Activity.");
+    const created = await this.createItem(
+      this.config.lists.projectActivity,
+      this.projectActivityFields(project, record)
+    );
+    return {
+      ...record,
+      id: Number(created.id),
+      sharePointId: Number(created.id),
+      projectId: project.id,
+      projectName: project.name
+    };
+  },
+
+  mapProjectComment(item) {
+    const fields = item.fields || {};
+    return {
+      id: Number(item.id),
+      sharePointId: Number(item.id),
+      projectId: fields.ProjectKey || "",
+      projectName: fields.ProjectName || "",
+      recordType: fields.RecordType || "",
+      recordSharePointId: Number(fields.RecordSharePointId || 0),
+      recordName: fields.RecordName || fields.Title || "",
+      comment: fields.CommentText || "",
+      authorName: fields.AuthorName || "",
+      authorEmail: fields.AuthorEmail || "",
+      mentionEmails: String(fields.MentionEmails || "").split(";").map(x=>x.trim()).filter(Boolean),
+      mentionNames: String(fields.MentionNames || "").split(";").map(x=>x.trim()).filter(Boolean),
+      timestamp: fields.CommentTime || item.createdDateTime || "",
+      status: fields.CommentStatus || "Open",
+      resolvedBy: fields.ResolvedBy || "",
+      resolvedTime: fields.ResolvedTime || ""
+    };
+  },
+
+  projectCommentFields(project, recordType, record, comment) {
+    const recordName = record.deliverable || record.item || record.name || (recordType==="Project" ? "General Project Comment" : "Project record");
+    return {
+      Title: String(recordName).slice(0,255),
+      ProjectKey: String(project.id || ""),
+      ProjectName: project.name || "",
+      RecordType: recordType,
+      RecordSharePointId: Number(record.sharePointId || record.id || 0),
+      RecordName: recordName,
+      CommentText: comment.comment || "",
+      AuthorName: comment.authorName || "",
+      AuthorEmail: comment.authorEmail || "",
+      MentionEmails: (comment.mentionEmails || []).join(";"),
+      MentionNames: (comment.mentionNames || []).join(";"),
+      CommentTime: comment.timestamp || new Date().toISOString(),
+      CommentStatus: "Open"
+    };
+  },
+
+  projectCommentNotificationFields(project, recordType, record, comment, createdCommentId, recipient) {
+    const recordName = record.deliverable || record.item || record.name || (recordType==="Project" ? "General Project Comment" : "Project record");
+    return {
+      Title: String(`${project.name || "Project"} - ${recordName}`).slice(0,255),
+      RecipientName: recipient.name || recipient.email || "",
+      RecipientEmail: recipient.email || "",
+      ProjectKey: String(project.id || ""),
+      ProjectName: project.name || "",
+      RecordType: recordType,
+      RecordSharePointId: Number(record.sharePointId || record.id || 0),
+      RecordName: recordName,
+      CommentText: comment.comment || "",
+      AuthorName: comment.authorName || "",
+      AuthorEmail: comment.authorEmail || "",
+      CommentId: Number(createdCommentId || 0),
+      NotificationTime: comment.timestamp || new Date().toISOString(),
+      DashboardUrl: "https://newburynorth.ahtglobal.com/"
+    };
+  },
+
+  async queueProjectCommentNotifications(project, recordType, record, comment, createdCommentId) {
+    const emails = Array.isArray(comment.mentionEmails) ? comment.mentionEmails : [];
+    const names = Array.isArray(comment.mentionNames) ? comment.mentionNames : [];
+    const seen = new Set();
+    const recipients = [];
+    emails.forEach((rawEmail, index) => {
+      const email = String(rawEmail || "").trim();
+      const key = email.toLowerCase();
+      if (!email || seen.has(key)) return;
+      seen.add(key);
+      recipients.push({ email, name: String(names[index] || email).trim() });
+    });
+    if (!recipients.length) return [];
+
+    const results = await Promise.allSettled(recipients.map(recipient =>
+      this.createItem(
+        this.config.lists.commentNotifications,
+        this.projectCommentNotificationFields(project, recordType, record, comment, createdCommentId, recipient)
+      )
+    ));
+    return results.map((result, index) => ({
+      recipient: recipients[index],
+      ok: result.status === "fulfilled",
+      error: result.status === "rejected" ? String(result.reason?.message || result.reason || "Notification queue failed") : ""
+    }));
+  },
+
+  async addProjectComment(project, recordType, record, comment) {
+    if (!project?.id) throw new Error("Project was not supplied for comment.");
+    if (!record) throw new Error("Record was not supplied for comment.");
+    const created = await this.createItem(
+      this.config.lists.comments,
+      this.projectCommentFields(project, recordType, record, comment)
+    );
+    const notificationResults = await this.queueProjectCommentNotifications(
+      project,
+      recordType,
+      record,
+      comment,
+      Number(created.id)
+    );
+    return {
+      ...comment,
+      id: Number(created.id),
+      sharePointId: Number(created.id),
+      projectId: project.id,
+      projectName: project.name,
+      recordType,
+      recordSharePointId: Number(record.sharePointId || record.id || 0),
+      recordName: record.deliverable || record.item || record.name || (recordType==="Project" ? "General Project Comment" : "Project record"),
+      status: "Open",
+      resolvedBy: "",
+      resolvedTime: "",
+      notificationResults
+    };
+  },
+
+  async resolveProjectComment(comment, resolvedBy) {
+    if (!comment?.sharePointId && !comment?.id) throw new Error("Comment id is missing.");
+    const resolvedTime = new Date().toISOString();
+    await this.updateItem(this.config.lists.comments, comment.sharePointId || comment.id, {
+      CommentStatus: "Resolved",
+      ResolvedBy: resolvedBy || "",
+      ResolvedTime: resolvedTime
+    });
+    return { ...comment, status: "Resolved", resolvedBy: resolvedBy || "", resolvedTime };
+  },
+
+  async deleteProjectComment(comment) {
+    if (!comment?.sharePointId && !comment?.id) throw new Error("Comment id is missing.");
+    await this.deleteItem(this.config.lists.comments, comment.sharePointId || comment.id);
+    return true;
+  },
+
+  mapChangeLog(item, projects = []) {
+    const fields = item.fields || {};
+    const projectSharePointId = this.projectLookupId(fields);
+    const project = projects.find(p => Number(p.sharePointId) === Number(projectSharePointId));
+    return {
+      id: Number(item.id),
+      sharePointId: Number(item.id),
+      timestamp: fields.ChangeTime || item.createdDateTime || "",
+      userId: fields.UserEmail || "",
+      userName: fields.UserName || "System",
+      projectId: project?.id || "admin",
+      projectName: project?.name || "Administration",
+      action: fields.Action || "Update",
+      recordType: fields.RecordType || "",
+      recordName: fields.Title || "",
+      details: fields.Details || ""
+    };
+  },
+
+  changeLogFields(record, projectSharePointId = 0) {
+    const fields = {
+      Title: String(record.recordName || "Dashboard change").slice(0,255),
+      ChangeTime: record.timestamp || new Date().toISOString(),
+      UserName: record.userName || "System",
+      UserEmail: record.userEmail || record.userId || "",
+      Action: record.action || "Update",
+      RecordType: record.recordType || "",
+      Details: record.details || ""
+    };
+    if (projectSharePointId) fields.ProjectLookupId = String(projectSharePointId);
+    return fields;
+  },
+
+  async loadState() {
+    const [projectItems, deliverableItems, informationItems] = await Promise.all([
+      this.getProjectRows(),
+      this.getListRows(this.config.lists.deliverables, [
+        "Title","Project","ProjectLookupId","LegacyId","Discipline","ProgressPhase","OperationalStatus","Owner",
+        "CurrentActivity","WaitingOn","NextStep","StartDate","TargetDate","Risk",
+        "Visibility","Archived","HealthMode","HealthOverride",
+        "HealthOverrideReason","HealthOverrideUntil"
+      ]),
+      this.getListRows(this.config.lists.informationRequired, [
+        "Title","Project","ProjectLookupId","LegacyId","RequestedFrom","RequestStatus","Blocking",
+        "NeededBy","Notes","Visibility","Archived"
+      ])
+    ]);
+
+    // Site Operations is the source of truth for automatic Installation progress.
+    // Keep this supplemental so a Site Operations list/schema issue cannot block the
+    // rest of Project Control from loading.
+    let siteOperationItems = [];
+    let projectLocationItems = [];
+    try {
+      [siteOperationItems, projectLocationItems] = await Promise.all([
+        this.getListRows(this.config.lists.siteOperations),
+        this.getListRows(this.config.lists.projectLocations)
+      ]);
+      console.info(`Loaded ${siteOperationItems.length} Site Operations item${siteOperationItems.length===1?"":"s"} and ${projectLocationItems.length} project location${projectLocationItems.length===1?"":"s"} for hierarchical installation progress.`);
+    } catch (error) {
+      console.error("Site Operations/location progress load failed; project data remains active.", error);
+      try {
+        siteOperationItems = await this.getListRows(this.config.lists.siteOperations);
+      } catch (_) {}
+    }
+
+    // Change Log is supplemental. A schema/read problem here must never force the entire
+    // dashboard into local fallback. Reading all fields also avoids Graph select failures
+    // if SharePoint internal column names differ from their display names.
+    let changeLogItems = [];
+    try {
+      changeLogItems = await this.getListRows(this.config.lists.changeLog);
+      console.info(`Loaded ${changeLogItems.length} Change Log entr${changeLogItems.length===1?"y":"ies"} from SharePoint.`);
+    } catch (error) {
+      console.error("Change Log load failed; core SharePoint project data remains active.", error);
+    }
+
+    // Project Activity is supplemental and should never block the core dashboard.
+    let projectActivityItems = [];
+    try {
+      projectActivityItems = await this.getListRows(this.config.lists.projectActivity);
+      console.info(`Loaded ${projectActivityItems.length} Project Activity entr${projectActivityItems.length===1?"y":"ies"} from SharePoint.`);
+    } catch (error) {
+      console.error("Project Activity load failed; core SharePoint project data remains active.", error);
+    }
+
+    // Record comments are supplemental and must never block core dashboard data.
+    let projectCommentItems = [];
+    try {
+      projectCommentItems = await this.getListRows(this.config.lists.comments);
+      console.info(`Loaded ${projectCommentItems.length} Project Comment entr${projectCommentItems.length===1?"y":"ies"} from SharePoint.`);
+    } catch (error) {
+      console.error("Project Comments load failed; core SharePoint project data remains active.", error);
+    }
+
+    const deliverables = deliverableItems
+      .map(item => this.mapDeliverable(item))
+      .filter(item => !item.archived);
+
+    const informationRequired = informationItems
+      .map(item => this.mapInformationRequired(item))
+      .filter(item => !item.archived);
+
+    if (informationRequired.length) {
+      console.debug(
+        "Information Required lookup check",
+        informationRequired.map(item => ({
+          id: item.id,
+          legacyId: item.legacyId,
+          projectSharePointId: item.projectSharePointId,
+          item: item.item
+        }))
+      );
+    }
+
+    // Hierarchical Installation rollup:
+    // activity Progress Weight -> location progress -> parent location using Location Rollup Weight
+    // -> top-level project Installation progress using each top-level Location Rollup Weight.
+    // This prevents a building with more task rows from automatically dominating another building.
+    const lookupNumber = (fields, baseName) => {
+      const candidates = [
+        fields?.[`${baseName}LookupId`],
+        fields?.[`${baseName}Id`],
+        fields?.[baseName]
+      ];
+      for (const value of candidates) {
+        if (value && typeof value === "object") {
+          const nested = Number(value.LookupId ?? value.lookupId ?? value.Id ?? value.id ?? 0);
+          if (Number.isFinite(nested) && nested > 0) return nested;
+        }
+        const numeric = Number(value);
+        if (Number.isFinite(numeric) && numeric > 0) return numeric;
+      }
+      return 0;
+    };
+
+    const locationsById = new Map();
+    const childrenByParent = new Map();
+    const rootsByProject = new Map();
+
+    for (const item of projectLocationItems || []) {
+      const fields = item.fields || {};
+      if (fields.Active === false) continue;
+      const id = Number(item.id);
+      const projectSharePointId = this.projectLookupId(fields);
+      if (!id || !projectSharePointId) continue;
+      const parentId = lookupNumber(fields, "ParentLocation");
+      const progressWeight = Number(fields.LocationProgressWeight || 0) > 0
+        ? Number(fields.LocationProgressWeight)
+        : 1;
+      const location = { id, projectSharePointId, parentId, progressWeight };
+      locationsById.set(id, location);
+      if (parentId) {
+        const children = childrenByParent.get(parentId) || [];
+        children.push(location);
+        childrenByParent.set(parentId, children);
+      } else {
+        const roots = rootsByProject.get(projectSharePointId) || [];
+        roots.push(location);
+        rootsByProject.set(projectSharePointId, roots);
+      }
+    }
+
+    const directTrackedByLocation = new Map();
+    const flatFallbackByProject = new Map();
+    for (const item of siteOperationItems || []) {
+      const fields = item.fields || {};
+      const projectSharePointId = this.projectLookupId(fields);
+      if (!projectSharePointId || !Boolean(fields.TrackProgress)) continue;
+
+      const percent = Math.max(0, Math.min(100, Number(fields.PercentComplete || 0)));
+      const progressWeight = Number(fields.ProgressWeight || 0) > 0
+        ? Number(fields.ProgressWeight)
+        : 1;
+      const locationId = lookupNumber(fields, "Location");
+      const operation = { percent, progressWeight };
+
+      if (locationId) {
+        const list = directTrackedByLocation.get(locationId) || [];
+        list.push(operation);
+        directTrackedByLocation.set(locationId, list);
+      }
+
+      const fallback = flatFallbackByProject.get(projectSharePointId) || { weightedTotal: 0, totalWeight: 0, count: 0 };
+      fallback.weightedTotal += percent * progressWeight;
+      fallback.totalWeight += progressWeight;
+      fallback.count += 1;
+      flatFallbackByProject.set(projectSharePointId, fallback);
+    }
+
+    const weightedOps = records => {
+      let weightedTotal = 0;
+      let totalWeight = 0;
+      for (const record of records || []) {
+        weightedTotal += record.percent * record.progressWeight;
+        totalWeight += record.progressWeight;
+      }
+      return totalWeight ? weightedTotal / totalWeight : null;
+    };
+
+    const locationProgressMemo = new Map();
+    const calculateLocationProgress = locationId => {
+      if (locationProgressMemo.has(locationId)) return locationProgressMemo.get(locationId);
+      const directProgress = weightedOps(directTrackedByLocation.get(locationId) || []);
+      const children = childrenByParent.get(locationId) || [];
+      const components = [];
+
+      // Direct work at a non-leaf location is one progress component. Individual activity
+      // weights first determine that direct-work percentage.
+      if (directProgress !== null) components.push({ percent: directProgress, weight: 1 });
+
+      for (const child of children) {
+        const childProgress = calculateLocationProgress(child.id);
+        if (childProgress !== null) {
+          components.push({ percent: childProgress, weight: child.progressWeight });
+        }
+      }
+
+      if (!components.length) {
+        locationProgressMemo.set(locationId, null);
+        return null;
+      }
+
+      let weightedTotal = 0;
+      let totalWeight = 0;
+      for (const component of components) {
+        weightedTotal += component.percent * component.weight;
+        totalWeight += component.weight;
+      }
+      const result = totalWeight ? weightedTotal / totalWeight : null;
+      locationProgressMemo.set(locationId, result);
+      return result;
+    };
+
+    const siteProgressByProject = new Map();
+    for (const { item } of projectItems.map(item => ({ item }))) {
+      const projectId = Number(item.id);
+      const roots = rootsByProject.get(projectId) || [];
+      const components = [];
+      for (const root of roots) {
+        const percent = calculateLocationProgress(root.id);
+        if (percent !== null) components.push({ percent, weight: root.progressWeight });
+      }
+
+      const fallback = flatFallbackByProject.get(projectId) || { weightedTotal: 0, totalWeight: 0, count: 0 };
+      if (components.length) {
+        let weightedTotal = 0;
+        let totalWeight = 0;
+        for (const component of components) {
+          weightedTotal += component.percent * component.weight;
+          totalWeight += component.weight;
+        }
+        siteProgressByProject.set(projectId, {
+          weightedTotal,
+          totalWeight,
+          count: fallback.count,
+          hierarchical: true
+        });
+      } else if (fallback.totalWeight) {
+        // Backward-compatible fallback if locations are unavailable/not yet configured.
+        siteProgressByProject.set(projectId, { ...fallback, hierarchical: false });
+      }
+    }
+
+    const projects = projectItems
+      .map(item => ({ item, fields: item.fields || {} }))
+      .filter(({ fields }) => !Boolean(fields.Archived))
+      .map(({ item, fields }) => {
+        const sharePointId = Number(item.id);
+
+        return {
+          id: fields.ProjectKey || String(item.id),
+          sharePointId,
+          name: fields.Title || "Untitled Project",
+          address: fields.ProjectAddress || "",
+          city: fields.ProjectCity || "",
+          state: fields.ProjectState || "",
+          description: fields.ProjectDescription || "",
+          subtitle: fields.ProjectSubtitle || "",
+          phase: fields.ProjectPhase || "",
+          executiveLead: fields.ExecutiveLead || "",
+          seniorProjectManager: fields.SeniorProjectManager || "",
+          projectManagerSiteLead: fields.ProjectManagerSiteLead || "",
+          archived: Boolean(fields.Archived),
+          health: this.mapHealth(fields),
+
+          // Built-in SharePoint creation timestamp is the permanent left boundary
+          // for this project's interactive Gantt.
+          createdAt: item.createdDateTime || "",
+
+          // SharePoint is the permanent source for project Last Updated.
+          lastUpdatedAt: item.lastModifiedDateTime || "",
+          lastUpdatedBy:
+            item.lastModifiedBy?.user?.displayName ||
+            item.lastModifiedBy?.application?.displayName ||
+            "",
+
+          updated: item.lastModifiedDateTime
+            ? new Date(item.lastModifiedDateTime).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric"
+              })
+            : "",
+
+          lastActivityDate: this.normalizeDate(fields.LastActivityDate),
+          lastActivity: fields.LastActivity || "",
+          progressPlanning: Number(fields.ProgressPlanning || 0),
+          progressPlanningMode: fields.ProgressPlanningMode || "manual",
+          progressEngineering: Number(fields.ProgressEngineering || 0),
+          progressEngineeringMode: fields.ProgressEngineeringMode || "manual",
+          progressInstallation: Number(fields.ProgressInstallation || 0),
+          // Existing projects were originally seeded with Installation = Manual/0 before
+          // Site Operations existed. Once tracked Site items exist, treat that untouched
+          // zero as Auto so field progress appears immediately. A non-zero manual value
+          // remains an explicit override.
+          progressInstallationMode: (() => {
+            const tracked = siteProgressByProject.get(sharePointId)?.count || 0;
+            const storedMode = fields.ProgressInstallationMode || "manual";
+            const storedManual = Number(fields.ProgressInstallation || 0);
+            return tracked > 0 && storedMode === "manual" && storedManual === 0
+              ? "auto"
+              : storedMode;
+          })(),
+          siteInstallationProgress: (() => {
+            const site = siteProgressByProject.get(sharePointId);
+            return site?.totalWeight
+              ? Math.max(0, Math.min(100, Math.round(site.weightedTotal / site.totalWeight)))
+              : 0;
+          })(),
+          siteInstallationTrackedItems: siteProgressByProject.get(sharePointId)?.count || 0,
+          progressOverallMode: fields.ProgressOverallMode || "auto",
+          progressOverallOverride: Number(fields.ProgressOverallOverride || 0),
+          healthMode: fields.HealthMode || "auto",
+          healthOverride: fields.HealthOverride || "",
+          healthOverrideReason: fields.HealthOverrideReason || "",
+          healthOverrideUntil: this.normalizeDate(fields.HealthOverrideUntil),
+          deliverables: deliverables.filter(record => record.projectSharePointId === sharePointId),
+          info: informationRequired.filter(record => record.projectSharePointId === sharePointId),
+          activities: [],
+          comments: []
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const projectActivities = projectActivityItems
+      .map(item => this.mapProjectActivity(item, projects))
+      .filter(item => item.projectId && item.activity)
+      .sort((a,b) => String(b.date).localeCompare(String(a.date)) || Number(b.id)-Number(a.id));
+
+    for (const project of projects) {
+      project.activities = projectActivities.filter(item => String(item.projectId) === String(project.id));
+      const latest = project.activities[0];
+      if (latest) {
+        project.lastActivityDate = latest.date;
+        project.lastActivity = latest.activity;
+        project.lastActivityPhase = latest.phase || "";
+      } else {
+        project.lastActivityPhase = "";
+      }
+    }
+
+    const projectComments = projectCommentItems
+      .map(item => this.mapProjectComment(item))
+      .filter(item => item.projectId && item.recordSharePointId && item.comment)
+      .sort((a,b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")) || Number(b.id)-Number(a.id));
+
+    for (const project of projects) {
+      project.comments = projectComments.filter(item => String(item.projectId) === String(project.id));
+    }
+
+    const savedProjectId = localStorage.getItem("ahtProjectControl.currentProjectId");
+    const currentProjectId = projects.some(project => project.id === savedProjectId)
+      ? savedProjectId
+      : (projects[0]?.id || null);
+
+    const result = {
+      currentProjectId,
+      projects,
+      auditLog: changeLogItems
+        .map(item => this.mapChangeLog(item, projects))
+        .sort((a,b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
+    };
+    this._lastState = structuredClone(result);
+    return result;
+  },
+
+  graphDate(value) {
+    if (!value) return null;
+    return `${String(value).slice(0, 10)}T12:00:00Z`;
+  },
+
+  async createItem(displayName, fields) {
+    const site = await this.getSite();
+    const listId = await this.getListId(displayName);
+    return this.graph(
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items`,
+      { method: "POST", body: JSON.stringify({ fields }) }
+    );
+  },
+
+  async updateItem(displayName, itemId, fields) {
+    const site = await this.getSite();
+    const listId = await this.getListId(displayName);
+    return this.graph(
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}/fields`,
+      { method: "PATCH", body: JSON.stringify(fields) }
+    );
+  },
+
+  async deleteItem(displayName, itemId) {
+    if (!itemId) return;
+    const site = await this.getSite();
+    const listId = await this.getListId(displayName);
+    await this.graph(
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}`,
+      { method: "DELETE" }
+    );
+  },
+
+  projectFields(project) {
+    return {
+      Title: project.name || project.address || "Untitled Project",
+      ProjectKey: String(project.id || ""),
+      ProjectAddress: project.address || "",
+      ProjectCity: project.city || "",
+      ProjectState: project.state || "",
+      ProjectDescription: project.description || "",
+      ProjectSubtitle: project.subtitle || "",
+      ProjectPhase: project.phase || "",
+      ExecutiveLead: project.executiveLead || "",
+      SeniorProjectManager: project.seniorProjectManager || "",
+      ProjectManagerSiteLead: project.projectManagerSiteLead || "",
+      Archived: Boolean(project.archived),
+      LastActivityDate: this.graphDate(project.lastActivityDate),
+      LastActivity: project.lastActivity || "",
+      ProgressPlanning: Number(project.progressPlanning || 0),
+      ProgressPlanningMode: project.progressPlanningMode || "manual",
+      ProgressEngineering: Number(project.progressEngineering || 0),
+      ProgressEngineeringMode: project.progressEngineeringMode || "manual",
+      ProgressInstallation: Number(project.progressInstallation || 0),
+      ProgressInstallationMode: project.progressInstallationMode || "manual",
+      ProgressOverallMode: project.progressOverallMode || "auto",
+      ProgressOverallOverride: Number(project.progressOverallOverride || 0),
+      HealthMode: project.healthMode || "auto",
+      HealthOverride: project.healthMode === "manual" ? (project.healthOverride || null) : null,
+      HealthOverrideReason: project.healthMode === "manual" ? (project.healthOverrideReason || "") : "",
+      HealthOverrideUntil: project.healthMode === "manual" ? this.graphDate(project.healthOverrideUntil) : null
+    };
+  },
+
+  deliverableFields(record, projectSharePointId) {
+    return {
+      Title: record.deliverable || record.name || "Untitled Deliverable",
+      ProjectLookupId: String(projectSharePointId),
+      LegacyId: Number(record.legacyId || 0),
+      Discipline: record.discipline || "",
+      ProgressPhase: record.progressPhase || null,
+      OperationalStatus: record.status || "Pending",
+      Owner: record.owner || "",
+      CurrentActivity: record.current || record.currentActivity || "",
+      WaitingOn: record.waitingOn || "",
+      NextStep: record.nextStep || "",
+      StartDate: this.graphDate(record.startDate),
+      TargetDate: this.graphDate(record.date || record.targetDate),
+      Risk: record.risk || "",
+      Visibility: record.visibility || "Shared",
+      Archived: Boolean(record.archived),
+      HealthMode: record.healthMode || "auto",
+      HealthOverride: record.healthMode === "manual" ? (record.healthOverride || null) : null,
+      HealthOverrideReason: record.healthMode === "manual" ? (record.healthOverrideReason || "") : "",
+      HealthOverrideUntil: record.healthMode === "manual" ? this.graphDate(record.healthOverrideUntil) : null
+    };
+  },
+
+  informationFields(record, projectSharePointId) {
+    return {
+      Title: record.item || "Untitled Information Request",
+      ProjectLookupId: String(projectSharePointId),
+      LegacyId: Number(record.legacyId || 0),
+      RequestedFrom: record.from || record.requestedFrom || "",
+      RequestStatus: record.status || "Outstanding",
+      Blocking: record.blocking || "",
+      NeededBy: this.graphDate(record.neededBy),
+      Notes: record.notes || "",
+      Visibility: record.visibility || "Shared",
+      Archived: Boolean(record.archived)
+    };
+  },
+
+  comparable(value) {
+    return JSON.stringify(value ?? null);
+  },
+
+  async saveState(nextState) {
+    const previous = this._lastState || { projects: [] };
+    const previousProjects = new Map((previous.projects || []).map(project => [project.id, project]));
+
+    // Projects are updated first so newly-created projects have a SharePoint lookup ID
+    // before their child records are written.
+    for (const project of nextState.projects || []) {
+      const before = previousProjects.get(project.id);
+
+      const projectWasTouched =
+        Boolean(before) &&
+        String(before.lastUpdatedAt || "") !== String(project.lastUpdatedAt || "");
+
+      if (!project.sharePointId) {
+        const created = await this.createItem(this.config.lists.projects, this.projectFields(project));
+        project.sharePointId = Number(created.id);
+      } else if (
+        !before ||
+        projectWasTouched ||
+        this.comparable(this.projectFields(before)) !== this.comparable(this.projectFields(project))
+      ) {
+        await this.updateItem(
+          this.config.lists.projects,
+          project.sharePointId,
+          this.projectFields(project)
+        );
+      }
+
+      const previousDeliverables = new Map(((before && before.deliverables) || []).map(record => [String(record.id), record]));
+      const currentDeliverableIds = new Set();
+      for (const record of project.deliverables || []) {
+        const key = String(record.id);
+        const prior = previousDeliverables.get(key);
+        if (!record.sharePointId) {
+          const created = await this.createItem(this.config.lists.deliverables, this.deliverableFields(record, project.sharePointId));
+          record.sharePointId = Number(created.id);
+          record.id = Number(created.id);
+        } else if (!prior || this.comparable(this.deliverableFields(prior, project.sharePointId)) !== this.comparable(this.deliverableFields(record, project.sharePointId))) {
+          await this.updateItem(this.config.lists.deliverables, record.sharePointId, this.deliverableFields(record, project.sharePointId));
+        }
+        currentDeliverableIds.add(String(record.sharePointId || record.id));
+      }
+      for (const prior of previousDeliverables.values()) {
+        const priorId = prior.sharePointId || prior.id;
+        if (priorId && !currentDeliverableIds.has(String(priorId))) {
+          await this.updateItem(this.config.lists.deliverables, priorId, { Archived: true });
+        }
+      }
+
+      const previousInfo = new Map(((before && before.info) || []).map(record => [String(record.id), record]));
+      const currentInfoIds = new Set();
+      for (const record of project.info || []) {
+        const key = String(record.id);
+        const prior = previousInfo.get(key);
+        if (!record.sharePointId) {
+          const created = await this.createItem(this.config.lists.informationRequired, this.informationFields(record, project.sharePointId));
+          record.sharePointId = Number(created.id);
+          record.id = Number(created.id);
+        } else if (!prior || this.comparable(this.informationFields(prior, project.sharePointId)) !== this.comparable(this.informationFields(record, project.sharePointId))) {
+          await this.updateItem(this.config.lists.informationRequired, record.sharePointId, this.informationFields(record, project.sharePointId));
+        }
+        currentInfoIds.add(String(record.sharePointId || record.id));
+      }
+      for (const prior of previousInfo.values()) {
+        const priorId = prior.sharePointId || prior.id;
+        if (priorId && !currentInfoIds.has(String(priorId))) {
+          await this.updateItem(this.config.lists.informationRequired, priorId, { Archived: true });
+        }
+      }
+    }
+
+    // Persist newly-created audit entries only after project data has been saved.
+    // Audit logging must never block a Deliverable / Information Required / Project save.
+    const previousAuditIds = new Set((previous.auditLog || []).map(record => String(record.sharePointId || record.id)));
+    for (const record of nextState.auditLog || []) {
+      const existingId = record.sharePointId || (Number.isInteger(record.id) && record.id < 1000000000 ? record.id : null);
+      if (existingId && previousAuditIds.has(String(existingId))) continue;
+      if (record.sharePointId) continue;
+      try {
+        const auditProject = (nextState.projects || []).find(project => project.id === record.projectId);
+        const created = await this.createItem(
+          this.config.lists.changeLog,
+          this.changeLogFields(record, auditProject?.sharePointId || 0)
+        );
+        record.sharePointId = Number(created.id);
+        record.id = Number(created.id);
+      } catch (error) {
+        console.error("Change Log persistence failed; project data was still saved.", error);
+      }
+    }
+
+    this._lastState = structuredClone(nextState);
+  },
+
+  async deleteProject(project) {
+    if (!project) throw new Error("Project was not supplied for deletion.");
+
+    // Delete child records first so SharePoint lookup relationships cannot
+    // leave orphaned records behind.
+    for (const record of project.deliverables || []) {
+      const itemId = record.sharePointId || record.id;
+      if (itemId) {
+        await this.deleteItem(this.config.lists.deliverables, itemId);
+      }
+    }
+
+    for (const record of project.info || []) {
+      const itemId = record.sharePointId || record.id;
+      if (itemId) {
+        await this.deleteItem(this.config.lists.informationRequired, itemId);
+      }
+    }
+
+    // Remove the project row itself.
+    if (project.sharePointId) {
+      await this.deleteItem(this.config.lists.projects, project.sharePointId);
+    }
+
+    // Remove this project key from users with explicit assignments.
+    // "*" remains all-project access and needs no change.
+    const accessRows = await this.getDashboardAccessRows();
+
+    for (const row of accessRows) {
+      const raw = String(row.fields?.ProjectKeys || "").trim();
+      if (!raw || raw === "*") continue;
+
+      const keys = raw
+        .split(/[;,|]/)
+        .map(value => value.trim())
+        .filter(Boolean);
+
+      if (!keys.includes(project.id)) continue;
+
+      const updated = keys
+        .filter(value => value !== project.id)
+        .join(";");
+
+      await this.updateItem(
+        this.config.lists.dashboardAccess,
+        row.id,
+        { ProjectKeys: updated }
+      );
+    }
+  },
+
+  async getDashboardAccessRows() {
+    return this.getListRows(this.config.lists.dashboardAccess, [
+      "Title",
+      "ProfileKey",
+      "DisplayName",
+      "Company",
+      "DashboardRole",
+      "ProjectKeys",
+      "Active",
+      "EntraObjectId",
+      "EntraUserType"
+    ]);
+  },
+
+  dashboardAccessProjects(value) {
+    return String(value || "")
+      .split(/[;,|]/)
+      .map(projectKey => projectKey.trim())
+      .filter(Boolean);
+  },
+
+  dashboardAccessUser(row) {
+    const fields = row.fields || {};
+    const role = fields.DashboardRole || "Viewer";
+
+    return {
+      id: fields.ProfileKey || `sharepoint-user-${row.id}`,
+      sharePointAccessId: Number(row.id),
+      name: fields.DisplayName || fields.Title || "AHT User",
+      email: "",
+      company: fields.Company || "AHT Global",
+      role,
+      active: fields.Active !== false,
+      projects: this.dashboardAccessProjects(fields.ProjectKeys),
+      entraObjectId: fields.EntraObjectId || "",
+      entraUserType: fields.EntraUserType || "Member",
+      managedByEntraAccessGroup: Boolean(fields.EntraObjectId),
+      canAdmin: role === "Administrator",
+      canEdit: role === "Administrator" || role === "Editor",
+      isInternal: String(fields.EntraUserType || "Member").toLowerCase() !== "guest"
+    };
+  },
+
+  async getDashboardAccessProfile(graphUser) {
+    if (!graphUser?.id) return null;
+
+    const rows = await this.getDashboardAccessRows();
+
+    const objectId = String(graphUser.id || "").trim().toLowerCase();
+    const displayName = String(graphUser.displayName || "").trim().toLowerCase();
+    const graphEmail = String(
+      graphUser.mail ||
+      graphUser.userPrincipalName ||
+      ""
+    ).trim().toLowerCase();
+
+    let row = rows.find(item =>
+      String(item.fields?.EntraObjectId || "").trim().toLowerCase() === objectId
+    );
+
+    if (!row && graphEmail) {
+      row = rows.find(item =>
+        String(item.fields?.ProfileKey || "").trim().toLowerCase() === graphEmail
+      );
+    }
+
+    // Deliberately do NOT fall back to display name here.
+    // Names are mutable and can collide; sign-in identity must be anchored
+    // to Entra Object ID or exact ProfileKey/email.
+    if (!row || row.fields?.Active === false) return null;
+
+    const user = this.dashboardAccessUser(row);
+
+    return {
+      r: user.role,
+      p: user.projects,
+      c: user.company,
+      n: user.name,
+      e: graphEmail,
+      entraObjectId: user.entraObjectId,
+      active: user.active
+    };
+  },
+
+  async loadUsers() {
+    const localUsers = await LocalStorageDataProvider.loadUsers();
+
+    try {
+      const rows = await this.getDashboardAccessRows();
+      const sharePointUsers = rows
+        .filter(row => String(row.fields?.EntraUserType || "Member").toLowerCase() !== "guest")
+        .map(row => this.dashboardAccessUser(row));
+
+      const merged = [...localUsers];
+
+      for (const spUser of sharePointUsers) {
+        const index = merged.findIndex(localUser => {
+          const sameObjectId =
+            spUser.entraObjectId &&
+            localUser.entraObjectId &&
+            String(localUser.entraObjectId).toLowerCase() === String(spUser.entraObjectId).toLowerCase();
+
+          const sameId =
+            String(localUser.id || "").toLowerCase() === String(spUser.id || "").toLowerCase();
+
+          const sameName =
+            String(localUser.name || "").trim().toLowerCase() ===
+            String(spUser.name || "").trim().toLowerCase();
+
+          return sameObjectId || sameId || sameName;
+        });
+
+        if (index >= 0) {
+          merged[index] = {
+            ...merged[index],
+            ...spUser,
+            email: merged[index].email || spUser.email || ""
+          };
+        } else {
+          merged.push(spUser);
+        }
+      }
+
+      await LocalStorageDataProvider.saveUsers(merged);
+      return merged;
+    } catch (error) {
+      console.warn("Could not load Dashboard Access from SharePoint; using cached users.", error);
+      return localUsers;
+    }
+  },
+
+  async saveUsers(nextUsers) {
+    await LocalStorageDataProvider.saveUsers(nextUsers);
+
+    const rows = await this.getDashboardAccessRows();
+
+    const byProfileKey = new Map();
+    const byObjectId = new Map();
+    const bySharePointId = new Map();
+    const byDisplayName = new Map();
+
+    for (const row of rows) {
+      const profileKey = String(row.fields?.ProfileKey || "").trim().toLowerCase();
+      const objectId = String(row.fields?.EntraObjectId || "").trim().toLowerCase();
+      const displayName = String(
+        row.fields?.DisplayName ||
+        row.fields?.Title ||
+        ""
+      ).trim().toLowerCase();
+
+      if (profileKey) byProfileKey.set(profileKey, row);
+      if (objectId) byObjectId.set(objectId, row);
+      if (row.id != null) bySharePointId.set(String(row.id), row);
+      if (displayName) byDisplayName.set(displayName, row);
+    }
+
+    const internalUsers = (nextUsers || []).filter(user => {
+      const entraType = String(user.entraUserType || "Member").toLowerCase();
+      return (
+        user &&
+        user.isInternal !== false &&
+        user.role !== "External Viewer" &&
+        entraType !== "guest"
+      );
+    });
+
+    for (const user of internalUsers) {
+      const email = String(user.email || "").trim();
+      const profileKey = email || String(user.id || "").trim();
+      if (!profileKey) continue;
+
+      const objectId = String(user.entraObjectId || "").trim();
+      const displayName = String(user.name || profileKey).trim();
+
+      const role =
+        user.canAdmin || user.role === "Administrator"
+          ? "Administrator"
+          : (user.canEdit || user.role === "Editor")
+            ? "Editor"
+            : "Viewer";
+
+      const fields = {
+        Title: displayName,
+        ProfileKey: profileKey,
+        DisplayName: displayName,
+        Company: user.company || "AHT Global",
+        DashboardRole: role,
+        ProjectKeys: Array.isArray(user.projects)
+          ? user.projects.filter(Boolean).join(";")
+          : "",
+        Active: user.active !== false,
+        EntraObjectId: objectId,
+        EntraUserType: "Member"
+      };
+
+      const sharePointAccessId = String(user.sharePointAccessId || "").trim();
+
+      let existing =
+        (objectId && byObjectId.get(objectId.toLowerCase())) ||
+        (profileKey && byProfileKey.get(profileKey.toLowerCase())) ||
+        (sharePointAccessId && bySharePointId.get(sharePointAccessId)) ||
+        null;
+
+      if (
+        !existing &&
+        !objectId &&
+        !profileKey &&
+        !sharePointAccessId &&
+        displayName
+      ) {
+        existing = byDisplayName.get(displayName.toLowerCase()) || null;
+      }
+
+      if (existing) {
+        await this.updateItem(
+          this.config.lists.dashboardAccess,
+          existing.id,
+          fields
+        );
+
+        existing.fields = {
+          ...(existing.fields || {}),
+          ...fields
+        };
+
+        user.sharePointAccessId = Number(existing.id);
+      } else {
+        const created = await this.createItem(
+          this.config.lists.dashboardAccess,
+          fields
+        );
+
+        const row = {
+          id: created.id,
+          fields
+        };
+
+        user.sharePointAccessId = Number(created.id);
+
+        byProfileKey.set(profileKey.toLowerCase(), row);
+        if (objectId) byObjectId.set(objectId.toLowerCase(), row);
+        if (created.id != null) bySharePointId.set(String(created.id), row);
+        if (displayName) byDisplayName.set(displayName.toLowerCase(), row);
+      }
+    }
+
+    return nextUsers;
+  }
+};
+
+const FallbackDataProvider = {
+  name: "sharePointWithLocalFallback",
+  fallbackWasUsed: false,
+
+  async loadState() {
+    try {
+      this.fallbackWasUsed = false;
+      return await SharePointDataProvider.loadState();
+    } catch (error) {
+      if (!APP_CONFIG.allowLocalFallback) throw error;
+      this.fallbackWasUsed = true;
+      console.warn("SharePoint unavailable; using LocalStorage data.", error);
+      return LocalStorageDataProvider.loadState();
+    }
+  },
+
+  async saveState(nextState) {
+    if (this.fallbackWasUsed) {
+      return LocalStorageDataProvider.saveState(nextState);
+    }
+    return SharePointDataProvider.saveState(nextState);
+  },
+
+  async deleteProject(project) {
+    if (this.fallbackWasUsed) return;
+    return SharePointDataProvider.deleteProject(project);
+  },
+
+  async loadUsers() {
+    if (this.fallbackWasUsed) {
+      return LocalStorageDataProvider.loadUsers();
+    }
+    return SharePointDataProvider.loadUsers();
+  },
+
+  async saveUsers(nextUsers) {
+    if (this.fallbackWasUsed) {
+      return LocalStorageDataProvider.saveUsers(nextUsers);
+    }
+    return SharePointDataProvider.saveUsers(nextUsers);
+  },
+
+  async getDashboardAccessProfile(graphUser) {
+    if (this.fallbackWasUsed) return null;
+    return SharePointDataProvider.getDashboardAccessProfile(graphUser);
+  },
+
+  async addProjectActivity(project, record) {
+    if (this.fallbackWasUsed) {
+      throw new Error("Project Activity cannot be saved while SharePoint is unavailable.");
+    }
+    return SharePointDataProvider.addProjectActivity(project, record);
+  },
+
+  async addProjectComment(project, recordType, record, comment) {
+    if (this.fallbackWasUsed) {
+      throw new Error("Comments cannot be saved while SharePoint is unavailable.");
+    }
+    return SharePointDataProvider.addProjectComment(project, recordType, record, comment);
+  },
+
+  async resolveProjectComment(comment, resolvedBy) {
+    if (this.fallbackWasUsed) {
+      throw new Error("Comments cannot be resolved while SharePoint is unavailable.");
+    }
+    return SharePointDataProvider.resolveProjectComment(comment, resolvedBy);
+  },
+
+  async deleteProjectComment(comment) {
+    if (this.fallbackWasUsed) {
+      throw new Error("Comments cannot be deleted while SharePoint is unavailable.");
+    }
+    return SharePointDataProvider.deleteProjectComment(comment);
+  }
+};
+
+function selectDataProvider() {
+  switch (APP_CONFIG.dataProvider) {
+    case "sharePoint":
+      return APP_CONFIG.allowLocalFallback
+        ? FallbackDataProvider
+        : SharePointDataProvider;
+    case "localStorage":
+    default:
+      return LocalStorageDataProvider;
+  }
+}
+
+let DataProvider = selectDataProvider();

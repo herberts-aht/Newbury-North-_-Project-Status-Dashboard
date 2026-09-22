@@ -1,0 +1,503 @@
+/*
+ * Project Work Items
+ * ------------------
+ * Generic hierarchical project-work engine.
+ *
+ * Goals:
+ * - Unlimited parent/child task depth.
+ * - Leaf tasks may store manual progress.
+ * - Parent progress is calculated from tracked children.
+ * - Child weights control rollup contribution.
+ * - No Newbury-specific assumptions.
+ * - No SharePoint dependency in this first pass.
+ *
+ * This module is intentionally data/UI agnostic so it can later support
+ * any AHT project and feed the existing Project / Site / Combined schedule.
+ */
+
+const ProjectWorkItems = (() => {
+  const STORAGE_KEY = "aht-project-plan-prototype-v1";
+
+  let items = [];
+
+  function loadLocal() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+
+      if (!raw) {
+        items = [];
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+
+      items = Array.isArray(parsed)
+        ? parsed.map(normalizeItem)
+        : [];
+    } catch (error) {
+      console.warn(
+        "Project Plan local prototype data could not be loaded.",
+        error
+      );
+
+      items = [];
+    }
+  }
+
+  function persistLocal() {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(items)
+      );
+    } catch (error) {
+      console.warn(
+        "Project Plan local prototype data could not be saved.",
+        error
+      );
+    }
+  }
+
+  function numberOr(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function clampPercent(value) {
+    return Math.max(0, Math.min(100, numberOr(value, 0)));
+  }
+
+  function normalizedWeight(value) {
+    const weight = numberOr(value, 1);
+    return weight > 0 ? weight : 1;
+  }
+
+  function normalizeItem(item = {}) {
+    return {
+      id: item.id,
+      projectId: item.projectId ?? "",
+      projectSharePointId: numberOr(item.projectSharePointId, 0),
+
+      title: String(item.title ?? "").trim(),
+      parentWorkItemId:
+        item.parentWorkItemId === null ||
+        item.parentWorkItemId === undefined ||
+        item.parentWorkItemId === ""
+          ? null
+          : item.parentWorkItemId,
+
+      workstream: String(item.workstream ?? "").trim(),
+      phase: String(item.phase ?? "").trim(),
+      system: String(item.system ?? "").trim(),
+      itemType: String(item.itemType ?? "Task").trim() || "Task",
+
+      owner: String(item.owner ?? "").trim(),
+      status: String(item.status ?? "Not Started").trim() || "Not Started",
+
+      startDate: item.startDate ?? "",
+      targetDate: item.targetDate ?? "",
+
+      percentComplete: clampPercent(item.percentComplete),
+      progressWeight: normalizedWeight(item.progressWeight),
+      trackProgress: item.trackProgress !== false,
+
+      waitingOn: String(item.waitingOn ?? "").trim(),
+      informationRequired: String(item.informationRequired ?? "").trim(),
+      requiredBy: item.requiredBy ?? "",
+
+      predecessorId:
+        item.predecessorId === null ||
+        item.predecessorId === undefined ||
+        item.predecessorId === ""
+          ? null
+          : item.predecessorId,
+
+      blockerDependency: String(item.blockerDependency ?? "").trim(),
+
+      visibility: String(item.visibility ?? "Internal").trim() || "Internal",
+      sortOrder: numberOr(item.sortOrder, 0),
+      archived: Boolean(item.archived)
+    };
+  }
+
+  function setItems(nextItems = []) {
+    items = Array.isArray(nextItems)
+      ? nextItems.map(normalizeItem)
+      : [];
+
+    persistLocal();
+
+    return getItems();
+  }
+
+  function setProjectItems(projectKey, nextItems = []) {
+    const key = String(projectKey ?? "");
+
+    const otherProjects = items.filter(item =>
+      String(item.projectId ?? "") !== key &&
+      String(item.projectSharePointId ?? "") !== key
+    );
+
+    const projectItems = Array.isArray(nextItems)
+      ? nextItems.map(item =>
+          normalizeItem({
+            ...item,
+            projectId:
+              item.projectId ??
+              key
+          })
+        )
+      : [];
+
+    items = [
+      ...otherProjects,
+      ...projectItems
+    ];
+
+    persistLocal();
+
+    return getItems();
+  }
+
+  function getItems() {
+    return items.map(item => ({ ...item }));
+  }
+
+  function getItem(id) {
+    return items.find(item => String(item.id) === String(id)) || null;
+  }
+
+  function childrenOf(parentId, options = {}) {
+    const includeArchived = Boolean(options.includeArchived);
+
+    return items
+      .filter(item =>
+        String(item.parentWorkItemId ?? "") === String(parentId ?? "") &&
+        (includeArchived || !item.archived)
+      )
+      .slice()
+      .sort((a, b) =>
+        numberOr(a.sortOrder, 0) - numberOr(b.sortOrder, 0) ||
+        String(a.title).localeCompare(String(b.title))
+      );
+  }
+
+  function rootsForProject(projectKey, options = {}) {
+    const includeArchived = Boolean(options.includeArchived);
+
+    return items
+      .filter(item => {
+        const sameProject =
+          String(item.projectId ?? "") === String(projectKey ?? "") ||
+          (
+            Number(projectKey) > 0 &&
+            Number(item.projectSharePointId) === Number(projectKey)
+          );
+
+        return (
+          sameProject &&
+          item.parentWorkItemId == null &&
+          (includeArchived || !item.archived)
+        );
+      })
+      .slice()
+      .sort((a, b) =>
+        numberOr(a.sortOrder, 0) - numberOr(b.sortOrder, 0) ||
+        String(a.title).localeCompare(String(b.title))
+      );
+  }
+
+  function descendantsOf(id, options = {}) {
+    const result = [];
+    const seen = new Set();
+
+    function walk(parentId) {
+      for (const child of childrenOf(parentId, options)) {
+        const key = String(child.id);
+
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        result.push({ ...child });
+        walk(child.id);
+      }
+    }
+
+    walk(id);
+    return result;
+  }
+
+  function hasChildren(id) {
+    return childrenOf(id).length > 0;
+  }
+
+  /*
+   * Progress rule:
+   *
+   * LEAF:
+   *   Uses its own Percent Complete when Track Progress = true.
+   *
+   * PARENT:
+   *   Ignores manually entered parent percentage and calculates progress
+   *   from tracked child work items.
+   *
+   * This prevents a parent from saying 80% when its children mathematically
+   * show 35%.
+   */
+  function calculateProgress(id, memo = new Map(), stack = new Set()) {
+    const key = String(id);
+
+    if (memo.has(key)) return memo.get(key);
+
+    if (stack.has(key)) {
+      console.error(
+        "Project Work Items hierarchy cycle detected.",
+        [...stack, key]
+      );
+      return null;
+    }
+
+    const item = getItem(id);
+    if (!item || item.archived) return null;
+
+    stack.add(key);
+
+    const children = childrenOf(item.id);
+
+    if (!children.length) {
+      const result = item.trackProgress
+        ? clampPercent(item.percentComplete)
+        : null;
+
+      stack.delete(key);
+      memo.set(key, result);
+      return result;
+    }
+
+    let weightedTotal = 0;
+    let totalWeight = 0;
+
+    for (const child of children) {
+      const childProgress = calculateProgress(
+        child.id,
+        memo,
+        stack
+      );
+
+      if (childProgress === null) continue;
+
+      const weight = normalizedWeight(child.progressWeight);
+
+      weightedTotal += childProgress * weight;
+      totalWeight += weight;
+    }
+
+    const result =
+      totalWeight > 0
+        ? weightedTotal / totalWeight
+        : null;
+
+    stack.delete(key);
+    memo.set(key, result);
+
+    return result;
+  }
+
+  function displayedProgress(id) {
+    const progress = calculateProgress(id);
+
+    return progress === null
+      ? null
+      : Math.round(progress);
+  }
+
+  function projectProgress(projectKey) {
+    const roots = rootsForProject(projectKey);
+
+    let weightedTotal = 0;
+    let totalWeight = 0;
+
+    for (const root of roots) {
+      const progress = calculateProgress(root.id);
+
+      if (progress === null) continue;
+
+      const weight = normalizedWeight(root.progressWeight);
+
+      weightedTotal += progress * weight;
+      totalWeight += weight;
+    }
+
+    return totalWeight
+      ? Math.round(weightedTotal / totalWeight)
+      : null;
+  }
+
+  function levelOf(id) {
+    let level = 0;
+    let current = getItem(id);
+    const seen = new Set();
+
+    while (current?.parentWorkItemId != null) {
+      const key = String(current.id);
+
+      if (seen.has(key)) break;
+      seen.add(key);
+
+      level += 1;
+      current = getItem(current.parentWorkItemId);
+    }
+
+    return level;
+  }
+
+  function pathFor(id) {
+    const path = [];
+    let current = getItem(id);
+    const seen = new Set();
+
+    while (current) {
+      const key = String(current.id);
+
+      if (seen.has(key)) break;
+      seen.add(key);
+
+      path.unshift({ ...current });
+
+      if (current.parentWorkItemId == null) break;
+      current = getItem(current.parentWorkItemId);
+    }
+
+    return path;
+  }
+
+  function buildTree(projectKey) {
+    function decorate(item) {
+      return {
+        ...item,
+        calculatedProgress: displayedProgress(item.id),
+        level: levelOf(item.id),
+        children: childrenOf(item.id).map(decorate)
+      };
+    }
+
+    return rootsForProject(projectKey).map(decorate);
+  }
+
+  /*
+   * Schedule bridge.
+   *
+   * This is shaped intentionally close to the records consumed by the
+   * existing Gantt. We will wire this into dashboard.js after the hierarchy
+   * engine is proven.
+   */
+  function getScheduleData(projectKey, options = {}) {
+    const includeParents = options.includeParents !== false;
+
+    return items
+      .filter(item => {
+        const sameProject =
+          String(item.projectId ?? "") === String(projectKey ?? "") ||
+          (
+            Number(projectKey) > 0 &&
+            Number(item.projectSharePointId) === Number(projectKey)
+          );
+
+        if (!sameProject || item.archived) return false;
+        if (!includeParents && hasChildren(item.id)) return false;
+
+        return Boolean(item.startDate || item.targetDate);
+      })
+      .map(item => ({
+        ...item,
+
+        scheduleKind: "projectWorkItem",
+
+        // Compatibility with the current Gantt renderer.
+        deliverable: item.title,
+        discipline:
+          item.workstream ||
+          [...pathFor(item.id)]
+            .reverse()
+            .find(node => String(node.workstream || "").trim())
+            ?.workstream ||
+          item.phase ||
+          "Project Plan",
+
+        date: item.targetDate,
+        waitingOn: item.waitingOn,
+
+        calculatedProgress: displayedProgress(item.id),
+        level: levelOf(item.id),
+        hasChildren: hasChildren(item.id),
+        path: pathFor(item.id).map(node => node.title)
+      }));
+  }
+
+  function validateHierarchy() {
+    const problems = [];
+    const ids = new Set(items.map(item => String(item.id)));
+
+    for (const item of items) {
+      if (
+        item.parentWorkItemId != null &&
+        !ids.has(String(item.parentWorkItemId))
+      ) {
+        problems.push({
+          type: "missing-parent",
+          itemId: item.id,
+          parentWorkItemId: item.parentWorkItemId,
+          title: item.title
+        });
+      }
+
+      const seen = new Set();
+      let current = item;
+
+      while (current?.parentWorkItemId != null) {
+        const key = String(current.id);
+
+        if (seen.has(key)) {
+          problems.push({
+            type: "cycle",
+            itemId: item.id,
+            title: item.title
+          });
+          break;
+        }
+
+        seen.add(key);
+        current = getItem(current.parentWorkItemId);
+      }
+    }
+
+    return problems;
+  }
+
+  loadLocal();
+
+  return {
+    setItems,
+    setProjectItems,
+    getItems,
+    getItem,
+
+    childrenOf,
+    descendantsOf,
+    rootsForProject,
+    hasChildren,
+
+    calculateProgress,
+    displayedProgress,
+    projectProgress,
+
+    levelOf,
+    pathFor,
+    buildTree,
+
+    getScheduleData,
+    validateHierarchy
+  };
+})();
+
+window.ProjectWorkItems = ProjectWorkItems;

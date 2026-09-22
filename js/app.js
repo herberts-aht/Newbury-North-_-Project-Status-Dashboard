@@ -45,6 +45,46 @@ async function initializeApplication() {
     if (currentUser) {
       state = await DataProvider.loadState();
 
+      /*
+       * Project Plan migration:
+       * Keep the browser-local prototype intact when the new
+       * SharePoint list is empty. Once SharePoint contains work
+       * items, it becomes the shared source of truth.
+       */
+      if (
+        window.ProjectWorkItems &&
+        DataProvider?.loadProjectWorkItems
+      ) {
+        try {
+          const sharedProjectWorkItems =
+            await DataProvider.loadProjectWorkItems();
+
+          if (
+            Array.isArray(sharedProjectWorkItems) &&
+            sharedProjectWorkItems.length
+          ) {
+            ProjectWorkItems.setItems(
+              sharedProjectWorkItems
+            );
+
+            console.info(
+              `Loaded ${sharedProjectWorkItems.length} Project Work Item${
+                sharedProjectWorkItems.length === 1 ? "" : "s"
+              } from SharePoint.`
+            );
+          } else {
+            console.info(
+              "Project Work Items SharePoint list is empty; preserving local Project Plan data for migration."
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Project Work Items load failed; preserving local Project Plan data.",
+            error
+          );
+        }
+      }
+
       if (!state || !Array.isArray(state.projects)) {
         throw new Error("Project data could not be loaded.");
       }

@@ -1,13 +1,63 @@
 const ProjectTaskEditor = (() => {
 
   let editingId = null;
+  let saveInProgress = false;
 
   function isAdmin() {
+    if (
+      typeof currentUser !== "undefined" &&
+      currentUser
+    ) {
+      return Boolean(currentUser.canAdmin);
+    }
+
     const role = String(
       document.getElementById("roleLabel")?.textContent || ""
     ).trim().toLowerCase();
 
-    return role === "administrator";
+    return role === "administrator" || role === "admin";
+  }
+
+  function canEdit() {
+    if (
+      typeof currentUser !== "undefined" &&
+      currentUser
+    ) {
+      return Boolean(currentUser.canEdit);
+    }
+
+    const role = String(
+      document.getElementById("roleLabel")?.textContent || ""
+    ).trim().toLowerCase();
+
+    return [
+      "editor",
+      "project admin",
+      "administrator",
+      "admin"
+    ].includes(role);
+  }
+
+  function canProjectAdmin() {
+    if (
+      typeof currentUser !== "undefined" &&
+      currentUser
+    ) {
+      return Boolean(
+        currentUser.canProjectAdmin ||
+        currentUser.canAdmin
+      );
+    }
+
+    const role = String(
+      document.getElementById("roleLabel")?.textContent || ""
+    ).trim().toLowerCase();
+
+    return [
+      "project admin",
+      "administrator",
+      "admin"
+    ].includes(role);
   }
 
   function esc(value) {
@@ -241,30 +291,60 @@ const ProjectTaskEditor = (() => {
     selected,
     itemId
   ) {
-    return `
-      <option value="">
-        — None —
-      </option>
+    const selectedIds =
+      new Set(
+        (
+          Array.isArray(selected)
+            ? selected
+            : selected
+              ? [selected]
+              : []
+        )
+          .map(id => String(id))
+      );
 
-      ${projectItems()
+    const choices =
+      projectItems()
         .filter(item =>
           String(item.id) !==
           String(itemId || "")
         )
-        .map(item => `
-          <option
-            value="${esc(item.id)}"
-            ${
-              String(item.id) === String(selected)
-                ? "selected"
-                : ""
-            }
-          >
-            ${esc(item.title)}
-          </option>
-        `)
-        .join("")}
-    `;
+        .map(item => {
+          const path =
+            ProjectWorkItems
+              .pathFor(item.id)
+              .map(node => node.title)
+              .join(" › ");
+
+          const id =
+            String(item.id);
+
+          return `
+            <label class="pte-predecessor-option">
+              <input
+                type="checkbox"
+                name="ptePredecessor"
+                value="${esc(id)}"
+                ${
+                  selectedIds.has(id)
+                    ? "checked"
+                    : ""
+                }
+              >
+              <span>${esc(path || item.title)}</span>
+            </label>
+          `;
+        })
+        .join("");
+
+    return (
+      choices ||
+      `
+        <div class="pte-predecessor-empty">
+          No other Tasks are available.
+        </div>
+      `
+    );
   }
 
   function ensureModal() {
@@ -346,6 +426,15 @@ const ProjectTaskEditor = (() => {
               </label>
 
 
+              <label class="field pte-field">
+                <span>Delivery Phase *</span>
+                <select id="ptePhase"></select>
+                <small>
+                  Required for top-level Tasks. Subtasks inherit the parent phase.
+                </small>
+              </label>
+
+
               <label class="field full pte-field pte-full">
                 <span>Task Name *</span>
                 <input
@@ -385,17 +474,25 @@ const ProjectTaskEditor = (() => {
 
 
               <label class="field pte-field">
-                <span>Required By</span>
+                <span>Input Needed By</span>
                 <input
                   id="pteRequiredBy"
                   type="date"
                 >
               </label>
 
-              <label class="field pte-field">
-                <span>Predecessor</span>
-                <select id="ptePredecessor"></select>
-              </label>
+              <div class="field pte-field">
+                <span>Predecessor(s)</span>
+
+                <div
+                  id="ptePredecessor"
+                  class="pte-predecessor-list"
+                ></div>
+
+                <small>
+                  Select all Tasks that must be completed first.
+                </small>
+              </div>
 
 
               <label class="field full pte-field pte-full">
@@ -458,11 +555,6 @@ const ProjectTaskEditor = (() => {
                 </label>
 
                 <label class="field pte-field">
-                  <span>Phase</span>
-                  <input id="ptePhase">
-                </label>
-
-                <label class="field pte-field">
                   <span>System</span>
                   <input id="pteSystem">
                 </label>
@@ -517,6 +609,126 @@ const ProjectTaskEditor = (() => {
   }
 
 
+  function deliveryPhaseOptions(selected = "") {
+    const project =
+      typeof currentProject === "function"
+        ? currentProject()
+        : null;
+
+    const configured =
+      Array.isArray(project?.deliveryPhases)
+        ? project.deliveryPhases
+        : [];
+
+    const values = [
+      ...configured
+    ];
+
+    /*
+     * Preserve legacy/existing phase values even if the project's
+     * configured list has since changed.
+     */
+    if (
+      selected &&
+      !values.includes(selected)
+    ) {
+      values.push(selected);
+    }
+
+    const safe = value =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    return [
+      `<option value="">— No Delivery Phase —</option>`,
+      ...values.map(value =>
+        `<option value="${safe(value)}" ${
+          value === selected
+            ? "selected"
+            : ""
+        }>${safe(value)}</option>`
+      )
+    ].join("");
+  }
+
+
+  function syncDeliveryPhaseControl(
+    item = {},
+    fallbackParentId = ""
+  ) {
+    const phaseSelect =
+      document.getElementById("ptePhase");
+
+    const parentSelect =
+      document.getElementById("pteParent");
+
+    if (!phaseSelect || !parentSelect) {
+      return;
+    }
+
+    const parentId =
+      parentSelect.value ||
+      fallbackParentId ||
+      "";
+
+    const parent =
+      parentId
+        ? ProjectWorkItems.getItem(parentId)
+        : null;
+
+    const isSubtask =
+      Boolean(parentId);
+
+    /*
+     * Top-level items choose their own Delivery Phase.
+     * Subtasks inherit the parent phase automatically.
+     * Administrators may override a Subtask phase.
+     */
+    if (isSubtask) {
+      const inheritedPhase =
+        parent?.phase || "";
+
+      const selectedPhase =
+        item.phase ||
+        inheritedPhase;
+
+      phaseSelect.innerHTML =
+        deliveryPhaseOptions(
+          selectedPhase
+        );
+
+      phaseSelect.value =
+        selectedPhase;
+
+      phaseSelect.disabled =
+        !isAdmin();
+
+      phaseSelect.title =
+        isAdmin()
+          ? "This Subtask inherits its parent Delivery Phase. Administrators may override it."
+          : "This Subtask inherits its parent Delivery Phase.";
+    } else {
+      phaseSelect.innerHTML =
+        deliveryPhaseOptions(
+          item.phase || ""
+        );
+
+      phaseSelect.value =
+        item.phase || "";
+
+      phaseSelect.disabled =
+        false;
+
+      phaseSelect.title =
+        "Delivery Phase is required for top-level Project Plan items.";
+    }
+  }
+
+
   function fill(
     item = {},
     parentId = ""
@@ -557,6 +769,18 @@ const ProjectTaskEditor = (() => {
       "pteItemType"
     ).value =
       item.itemType || "Task";
+
+    document.getElementById(
+      "pteParent"
+    )?.addEventListener(
+      "change",
+      () => {
+        syncDeliveryPhaseControl(
+          item,
+          ""
+        );
+      }
+    );
 
 
     document.getElementById(
@@ -611,7 +835,18 @@ const ProjectTaskEditor = (() => {
       "ptePredecessor"
     ).innerHTML =
       predecessorOptions(
-        item.predecessorId || "",
+        (
+          Array.isArray(
+            item.predecessorIds
+          ) &&
+          item.predecessorIds.length
+        )
+          ? item.predecessorIds
+          : (
+              item.predecessorId
+                ? [item.predecessorId]
+                : []
+            ),
         editingId
       );
 
@@ -642,10 +877,10 @@ const ProjectTaskEditor = (() => {
       item.workstream || "";
 
 
-    document.getElementById(
-      "ptePhase"
-    ).value =
-      item.phase || "";
+    syncDeliveryPhaseControl(
+      item,
+      parentId
+    );
 
 
     document.getElementById(
@@ -657,7 +892,7 @@ const ProjectTaskEditor = (() => {
 
   function open(options = {}) {
 
-    if (!isAdmin()) {
+    if (!canEdit()) {
       return;
     }
 
@@ -819,6 +1054,12 @@ const ProjectTaskEditor = (() => {
     const requiredBy =
       value("pteRequiredBy");
 
+    const parentId =
+      value("pteParent");
+
+    const deliveryPhase =
+      value("ptePhase");
+
     if (!title) {
       return failValidation(
         "Can't save Task — Task Name is required.",
@@ -833,9 +1074,19 @@ const ProjectTaskEditor = (() => {
       );
     }
 
+    if (
+      !parentId &&
+      !deliveryPhase
+    ) {
+      return failValidation(
+        "Can't save Task — Delivery Phase is required for a top-level Task or Milestone.",
+        "ptePhase"
+      );
+    }
+
     if (!requiredBy) {
       return failValidation(
-        "Can't save Task — Required By is required.",
+        "Can't save Task — Input Needed By is required.",
         "pteRequiredBy"
       );
     }
@@ -854,7 +1105,7 @@ const ProjectTaskEditor = (() => {
       requiredBy > targetDate
     ) {
       return failValidation(
-        "Can't save Task — Required By must be on or before Target Date.",
+        "Can't save Task — Input Needed By must be on or before Target Date.",
         "pteRequiredBy"
       );
     }
@@ -862,11 +1113,15 @@ const ProjectTaskEditor = (() => {
     return true;
   }
 
-  function save(event) {
+  async function save(event) {
 
     event.preventDefault();
 
-    if (!isAdmin()) {
+    if (saveInProgress) {
+      return;
+    }
+
+    if (!canEdit()) {
       return;
     }
 
@@ -900,6 +1155,16 @@ const ProjectTaskEditor = (() => {
             parentId
           )
         : null;
+
+
+    const predecessorIds =
+      [
+        ...document.querySelectorAll(
+          '#ptePredecessor input[name="ptePredecessor"]:checked'
+        )
+      ]
+        .map(input => input.value)
+        .filter(Boolean);
 
 
     const record = {
@@ -953,8 +1218,10 @@ const ProjectTaskEditor = (() => {
           "pteBlockerDependency"
         ),
 
+      predecessorIds,
+
       predecessorId:
-        value("ptePredecessor") ||
+        predecessorIds[0] ||
         null,
 
       status:
@@ -985,9 +1252,21 @@ const ProjectTaskEditor = (() => {
         "",
 
       phase:
-        value("ptePhase") ||
-        parent?.phase ||
-        "",
+        parentId
+          ? (
+              canProjectAdmin()
+                ? (
+                    value("ptePhase") ||
+                    parent?.phase ||
+                    ""
+                  )
+                : (
+                    existing?.phase ||
+                    parent?.phase ||
+                    ""
+                  )
+            )
+          : value("ptePhase"),
 
       system:
         value("pteSystem") ||
@@ -1019,7 +1298,36 @@ const ProjectTaskEditor = (() => {
         : [...all, record];
 
 
+    saveInProgress = true;
+
     ProjectWorkItems.setItems(next);
+
+    try {
+      if (DataProvider?.saveProjectWorkItems) {
+        await DataProvider.saveProjectWorkItems(
+          ProjectWorkItems.getItems()
+        );
+
+        /*
+         * Persist returned SharePoint IDs back into the local
+         * normalized collection after the first migration save.
+         */
+        ProjectWorkItems.setItems(
+          ProjectWorkItems.getItems()
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Project Work Item SharePoint save failed.",
+        error
+      );
+
+      alert(
+        `The Task was saved locally, but SharePoint sync failed: ${error.message}`
+      );
+    } finally {
+      saveInProgress = false;
+    }
 
     close();
 
@@ -1031,7 +1339,9 @@ const ProjectTaskEditor = (() => {
   return {
     open,
     close,
-    isAdmin
+    isAdmin,
+    canEdit,
+    canProjectAdmin
   };
 
 })();
@@ -1049,7 +1359,7 @@ document.addEventListener(
   "click",
   event => {
 
-    if (!ProjectTaskEditor.isAdmin()) {
+    if (!ProjectTaskEditor.canEdit()) {
       return;
     }
 
@@ -1114,6 +1424,12 @@ document.addEventListener(
 
 function syncProjectTaskEditButton() {
 
+  /*
+   * Edit Task is now rendered directly by project-work-view.js.
+   * Keep this legacy hook inactive for backward compatibility.
+   */
+  return;
+
   const root =
     document.getElementById(
       "projectWorkContent"
@@ -1137,13 +1453,8 @@ function syncProjectTaskEditButton() {
   const isDetail =
     Boolean(
       taskId &&
-      (
-        root.textContent.includes(
-          "Task Details"
-        ) ||
-        root.textContent.includes(
-          "DEPENDENCY / REQUIRED INPUT"
-        )
+      root.querySelector(
+        ".pw-detail-banner"
       )
     );
 
