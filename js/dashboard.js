@@ -765,9 +765,17 @@ function summaryRecordDestination(recordType,id){
 }
 
 function summaryClickableAttrs(recordType,id){
-  return summaryRecordDestination(recordType,id)
-    ? ` class="item summary-drilldown" role="button" tabindex="0" data-summary-type="${recordType}" data-summary-id="${Number(id)}"`
-    : ' class="item"';
+  if(!summaryRecordDestination(recordType,id)){
+    return ' class="item"';
+  }
+
+  const safeType=String(recordType)
+    .replaceAll("\\","\\\\")
+    .replaceAll("'","\\'");
+
+  const numericId=Number(id);
+
+  return ` class="item summary-drilldown" role="button" tabindex="0" data-summary-type="${safeType}" data-summary-id="${numericId}" onclick="openSummaryRecord('${safeType}',${numericId})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSummaryRecord('${safeType}',${numericId});}"`;
 }
 
 function openSummaryRecord(recordType,id){
@@ -777,29 +785,18 @@ function openSummaryRecord(recordType,id){
   summaryDeliverableMode="";
 
   if(destination.view==="deliverables"){
-    showView("deliverables");
-
-    if(searchDeliverables) searchDeliverables.value=destination.record.deliverable||"";
-    if(filterStatus) filterStatus.value="";
-    if(filterDiscipline) filterDiscipline.value="";
-
-    render();
+    openProjectControlDetail(
+      "Deliverable",
+      destination.record.id
+    );
     return;
   }
 
   if(destination.view==="info"){
-    showView("info");
-    render();
-
-    const cards=[...document.querySelectorAll("#infoCards .mobile-record")];
-    const rows=[...document.querySelectorAll("#infoBody tr")];
-    const records=visibleInfo(currentProject());
-
-    records.forEach((record,index)=>{
-      const show=Number(record.id)===Number(id);
-      if(rows[index]) rows[index].style.display=show?"":"none";
-      if(cards[index]) cards[index].style.display=show?"":"none";
-    });
+    openProjectControlDetail(
+      "Information Required",
+      destination.record.id
+    );
   }
 }
 
@@ -1331,9 +1328,9 @@ filtered=ds.filter(x=>{
 
   return true;
 });
- deliverablesBody.innerHTML=filtered.map(x=>`<tr><td>${esc(x.discipline)}</td><td><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></td><td>${badge(x.status)}</td><td>${healthBadge(x)}</td><td>${esc(x.owner)}</td><td>${esc(x.waitingOn)}</td><td>${esc(x.nextStep)}</td><td>${fmtDate(x.date)}</td><td><div class="record-actions">${commentControl(p,"Deliverable",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editDeliverable(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
+ deliverablesBody.innerHTML=filtered.map(x=>`<tr class="project-control-clickable-row" onclick="openProjectControlDetail('Deliverable',${x.id})"><td>${esc(x.discipline)}</td><td><strong>${esc(x.deliverable)}</strong>${visBadge(x.visibility)}<div class="small">${esc(x.current)}</div></td><td>${badge(x.status)}</td><td>${healthBadge(x)}</td><td>${esc(x.owner)}</td><td>${esc(x.waitingOn)}</td><td>${esc(x.nextStep)}</td><td>${fmtDate(x.date)}</td><td><div class="record-actions" onclick="event.stopPropagation()">${commentControl(p,"Deliverable",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editDeliverable(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
  deliverableCards.innerHTML=filtered.map(x=>`<article class="project-control-card deliverable-summary-card" role="button" tabindex="0" onclick="openProjectControlDetail('Deliverable',${x.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProjectControlDetail('Deliverable',${x.id});}"><div class="project-control-card-top"><div><div class="mobile-record-kicker">${esc(x.discipline)}</div><h3>${esc(x.deliverable)}</h3></div><div class="project-control-badges">${badge(x.status)}</div></div><div class="project-control-card-meta"><span><small>Owner</small><strong>${esc(x.owner)||"—"}</strong></span><span><small>Target</small><strong>${fmtDate(x.date)}</strong></span></div><div class="project-control-card-footer"><span class="project-control-card-comment-wrap">${commentControl(p,"Deliverable",x,{card:true})}</span><span class="project-control-view-details"><span>View details</span><span aria-hidden="true">›</span></span></div></article>`).join("")||'<div class="mobile-empty">No deliverables match the current filters.</div>';
- infoBody.innerHTML=infoRecords.map(x=>`<tr><td><strong>${esc(x.item)}</strong>${visBadge(x.visibility)}</td><td>${esc(x.from)}</td><td>${badge(x.status)}</td><td>${esc(x.blocking)}</td><td>${esc(x.notes)}</td><td><div class="record-actions">${commentControl(p,"Information Required",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editInfo(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
+ infoBody.innerHTML=infoRecords.map(x=>`<tr class="project-control-clickable-row" onclick="openProjectControlDetail('Information Required',${x.id})"><td><strong>${esc(x.item)}</strong>${visBadge(x.visibility)}</td><td>${esc(x.from)}</td><td>${badge(x.status)}</td><td>${esc(x.blocking)}</td><td>${esc(x.notes)}</td><td><div class="record-actions" onclick="event.stopPropagation()">${commentControl(p,"Information Required",x)}${currentUser.canEdit?`<button class="linkbtn" onclick="editInfo(${x.id})">Edit</button>`:""}</div></td></tr>`).join("");
  infoCards.innerHTML=infoRecords.map(x=>`<article class="project-control-card info-summary-card" role="button" tabindex="0" onclick="openProjectControlDetail('Information Required',${x.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProjectControlDetail('Information Required',${x.id});}"><div class="project-control-card-top"><div><div class="mobile-record-kicker">Dependency</div><h3>${esc(x.item)}</h3></div><div class="project-control-badges">${badge(x.status)}</div></div><div class="project-control-card-meta"><span><small>Requested From</small><strong>${esc(x.from)||"—"}</strong></span><span><small>Needed By</small><strong>${fmtDate(x.neededBy)}</strong></span></div>${x.blocking?`<div class="project-control-card-block"><small>Blocking</small><span>${esc(x.blocking)}</span></div>`:""}<div class="project-control-card-footer"><span class="project-control-card-comment-wrap">${commentControl(p,"Information Required",x,{card:true})}</span><span class="project-control-view-details"><span>View details</span><span aria-hidden="true">›</span></span></div></article>`).join("")||'<div class="mobile-empty">No information requests for this project.</div>';
  applyProjectControlViewModes();
  const statuses=[...new Set(ds.map(x=>x.status))].sort(),disciplines=[...new Set(ds.map(x=>x.discipline))].sort(),oldS=filterStatus.value,oldD=filterDiscipline.value;filterStatus.innerHTML='<option value="">All statuses</option>'+statuses.map(s=>`<option>${esc(s)}</option>`).join("");filterStatus.value=oldS;filterDiscipline.innerHTML='<option value="">All disciplines</option>'+disciplines.map(s=>`<option>${esc(s)}</option>`).join("");filterDiscipline.value=oldD;
@@ -1700,8 +1697,16 @@ for(let day=1;day<=daysInMonth;day++){
     <div class="day-num">${day}</div>
     ${todayClass?`<div class="calendar-today-marker">Today</div>`:""}
     ${visibleEvents.map(e=>`<div class="event-dot ${e.type}" ${
-      (currentUser.canEdit||e.source==="site")
-        ?`onclick="${e.source==="projectPlan"?`openScheduleSource('projectPlan','${ganttJsString(e.sourceId)}')`:e.source==="deliverable"?`editDeliverable(${e.sourceId})`:e.source==="site"?`openScheduleSource('site',${e.sourceId})`:`editInfo(${e.sourceId})`}" style="cursor:pointer" title="Open source record"`
+      true
+        ?`onclick="${
+            e.source==="projectPlan"
+              ? `openScheduleSource('projectPlan','${ganttJsString(e.sourceId)}')`
+              : e.source==="deliverable"
+                ? `openProjectControlDetail('Deliverable',${e.sourceId})`
+                : e.source==="site"
+                  ? `openScheduleSource('site',${e.sourceId})`
+                  : `openProjectControlDetail('Information Required',${e.sourceId})`
+          }" style="cursor:pointer" title="Open source record"`
         :""
     }>${
       e.source==="projectPlan" &&
@@ -2516,9 +2521,20 @@ function renderAdmin(){
  adminUserEmail.value=selected.email||"";
  adminUserCompany.value=selected.company||"";
  const isConfiguredAdmin=(APP_CONFIG.entra.adminEmails||[]).map(x=>String(x).toLowerCase()).includes(String(selected.email||"").toLowerCase());
- if(selected.entraUserType==="Guest"){
-   adminRoleSelect.innerHTML='<option>External Viewer</option><option>Editor</option>';
+ if(
+   selected.entraUserType==="Guest" &&
+   selected.roleTestingEnabled===true
+ ){
+   adminRoleSelect.innerHTML=
+     '<option>External Viewer</option>'+
+     '<option>Viewer</option>'+
+     '<option>Editor</option>'+
+     '<option>Project Admin</option>'+
+     '<option>Admin</option>';
    adminRoleSelect.disabled=false;
+ }else if(selected.entraUserType==="Guest"){
+   adminRoleSelect.innerHTML='<option>External Viewer</option>';
+   adminRoleSelect.disabled=true;
  }else if(selected.entraUserType==="Member"&&!isConfiguredAdmin){
    adminRoleSelect.innerHTML='<option>Admin</option><option>Project Admin</option><option>Viewer</option><option>Editor</option>';
    adminRoleSelect.disabled=false;

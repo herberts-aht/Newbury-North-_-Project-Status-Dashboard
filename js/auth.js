@@ -205,21 +205,37 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
         ? shared.pa
         : (externalUser?.projectAccess || {});
 
+    const roleTestingEnabled =
+      externalUser?.roleTestingEnabled === true;
+
     const storedRole =
-      shared?.r ||
       externalUser?.role ||
       "External Viewer";
 
     const role =
-      normalizeDashboardRole(
-        storedRole,
-        true
-      );
+      roleTestingEnabled
+        ? normalizeDashboardRole(storedRole, false)
+        : "External Viewer";
+
+    const testCapabilities =
+      roleTestingEnabled
+        ? dashboardRoleCapabilities(role, "")
+        : {
+            canEdit: false,
+            canProjectAdmin: false,
+            canAdmin: false,
+            canManageProjects: false,
+            canManageInternalUsers: false,
+            canAssignProjectAccess: false,
+            canViewExternalUsers: false
+          };
+
     return {
       ...(externalUser || {}),
       id: externalUser?.id || `entra-${graphUser?.id || account?.localAccountId || "guest"}`,
       entraObjectId: graphUser?.id || externalUser?.entraObjectId || "",
       entraUserType: "Guest",
+      roleTestingEnabled,
       name: shared?.n || displayName || externalUser?.name || "External User",
       email: normalizeEmail(shared?.e || graphUser?.mail || graphUser?.userPrincipalName || email),
       company: shared?.c || externalUser?.company || "External",
@@ -235,14 +251,14 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
         typeof shared?.so === "boolean"
           ? shared.so
           : Boolean(externalUser?.canViewSiteOperations),
-      canEdit: role === "Editor",
-      canProjectAdmin: false,
-      canAdmin: false,
+      canEdit: Boolean(testCapabilities.canEdit),
+      canProjectAdmin: Boolean(testCapabilities.canProjectAdmin),
+      canAdmin: Boolean(testCapabilities.canAdmin),
       isSystemOwner: false,
-      canManageProjects: false,
-      canManageInternalUsers: false,
-      canAssignProjectAccess: false,
-      canViewExternalUsers: false,
+      canManageProjects: Boolean(testCapabilities.canManageProjects),
+      canManageInternalUsers: Boolean(testCapabilities.canManageInternalUsers),
+      canAssignProjectAccess: Boolean(testCapabilities.canAssignProjectAccess),
+      canViewExternalUsers: Boolean(testCapabilities.canViewExternalUsers),
       canManageExternalUsers: false,
       canManageSystem: false,
       canManageBackups: false,

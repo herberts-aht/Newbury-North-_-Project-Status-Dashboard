@@ -3582,3 +3582,13 @@ main.container{
 .system-owner-only.hidden{
   display:none !important;
 }
+
+
+/* Read-only record detail access */
+.project-control-clickable-row{
+  cursor:pointer;
+}
+
+.project-control-clickable-row:hover{
+  background:rgba(0,0,0,.025);
+}

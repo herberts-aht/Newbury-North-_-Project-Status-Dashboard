@@ -1446,7 +1446,8 @@ const SharePointDataProvider = {
       "ProjectKeys",
       "Active",
       "EntraObjectId",
-      "EntraUserType"
+      "EntraUserType",
+      "RoleTestingEnabled"
     ]);
   },
 
@@ -1492,6 +1493,7 @@ const SharePointDataProvider = {
       projects: this.dashboardAccessProjects(fields.ProjectKeys),
       entraObjectId: fields.EntraObjectId || "",
       entraUserType: fields.EntraUserType || "Member",
+      roleTestingEnabled: fields.RoleTestingEnabled === true,
       managedByEntraAccessGroup: Boolean(fields.EntraObjectId),
       canAdmin,
       canProjectAdmin,
@@ -2062,7 +2064,10 @@ const SharePointDataProvider = {
           objectId,
 
         EntraUserType:
-          isExternal ? "Guest" : "Member"
+          isExternal ? "Guest" : "Member",
+
+        RoleTestingEnabled:
+          user.roleTestingEnabled === true
       };
 
       const sharePointAccessId =

@@ -316,21 +316,72 @@ const MicrosoftAccess = (() => {
     }
 
     if (isGuest) {
-      // Preserve an Administrator-assigned Editor role for a guest while keeping the account external.
-      profile.role = profile.role === "Editor" ? "Editor" : "External Viewer";
-      profile.canAdmin = false;
-      profile.canEdit = profile.role === "Editor";
+      const roleTestingEnabled =
+        profile.roleTestingEnabled === true;
+
+      profile.role =
+        roleTestingEnabled
+          ? normalizeDashboardRole(profile.role, false)
+          : "External Viewer";
+
+      profile.canAdmin =
+        roleTestingEnabled &&
+        profile.role === "Admin";
+
+      profile.canProjectAdmin =
+        roleTestingEnabled &&
+        (
+          profile.role === "Project Admin" ||
+          profile.canAdmin
+        );
+
+      profile.canEdit =
+        roleTestingEnabled &&
+        (
+          profile.role === "Editor" ||
+          profile.canProjectAdmin
+        );
+
+      profile.canManageProjects =
+        profile.canProjectAdmin;
+
+      profile.canManageInternalUsers =
+        profile.canProjectAdmin;
+
+      profile.canAssignProjectAccess =
+        profile.canProjectAdmin;
+
+      profile.canViewExternalUsers =
+        profile.canAdmin;
+
+      profile.isSystemOwner = false;
+      profile.canManageExternalUsers = false;
+      profile.canManageSystem = false;
+      profile.canManageBackups = false;
+
       profile.canViewProjectPlan =
         typeof profile.canViewProjectPlan === "boolean"
           ? profile.canViewProjectPlan
           : false;
+
       profile.canViewSiteOperations =
         typeof profile.canViewSiteOperations === "boolean"
           ? profile.canViewSiteOperations
           : false;
+
       profile.isInternal = false;
-      profile.projects = Array.isArray(profile.projects) ? profile.projects.filter(x => x !== "*") : [];
-      profile.company = profile.company && profile.company !== "AHT Global" ? profile.company : "External";
+
+      if (!roleTestingEnabled) {
+        profile.projects =
+          Array.isArray(profile.projects)
+            ? profile.projects.filter(x => x !== "*")
+            : [];
+      }
+
+      profile.company =
+        profile.company && profile.company !== "AHT Global"
+          ? profile.company
+          : "External";
     } else {
       profile.role =
         normalizeDashboardRole(

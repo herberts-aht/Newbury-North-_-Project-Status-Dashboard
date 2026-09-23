@@ -892,11 +892,26 @@ const ProjectTaskEditor = (() => {
 
   function open(options = {}) {
 
-    if (!canEdit()) {
-      return;
-    }
+    const readOnly = !canEdit();
 
     ensureModal();
+
+    const editorForm =
+      document.getElementById("projectTaskEditorForm");
+
+    if (editorForm) {
+      editorForm
+        .querySelectorAll("input, select, textarea")
+        .forEach(control => {
+          control.disabled = readOnly;
+        });
+
+      editorForm
+        .querySelectorAll('button[type="submit"]')
+        .forEach(button => {
+          button.classList.toggle("hidden", readOnly);
+        });
+    }
 
     let item = {};
 
