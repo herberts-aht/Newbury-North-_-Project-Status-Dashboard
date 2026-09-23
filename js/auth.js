@@ -171,8 +171,10 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
           item.active !== false &&
           (
             item.canAdmin ||
-            item.role === "Administrator" ||
-            item.role === "Admin"
+            normalizeDashboardRole(
+              item.role,
+              false
+            ) === "Admin"
           )
       ) || user;
 
@@ -197,6 +199,12 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
   if (entraUserType === "guest") {
     const externalUser = user && user.isInternal === false ? user : null;
     const projects = Array.isArray(shared?.p) ? shared.p : (externalUser?.projects || []);
+
+    const projectAccess =
+      shared?.pa && typeof shared.pa === "object"
+        ? shared.pa
+        : (externalUser?.projectAccess || {});
+
     const storedRole =
       shared?.r ||
       externalUser?.role ||
@@ -218,6 +226,7 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
       role,
       active: true,
       projects,
+      projectAccess,
       canViewProjectPlan:
         typeof shared?.pp === "boolean"
           ? shared.pp
@@ -295,10 +304,10 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
 }
 
 async function loadSharedDashboardProfile(graphUser) {
-  // Internal AHT users use SharePoint Dashboard Access as the authoritative
-  // source for dashboard role and project visibility.
+  // SharePoint Dashboard Access + Project Access are now the preferred
+  // company-wide source for dashboard role and project visibility.
+  // This applies to both internal members and external guests.
   if (
-    String(graphUser?.userType || "").toLowerCase() !== "guest" &&
     typeof DataProvider?.getDashboardAccessProfile === "function"
   ) {
     try {

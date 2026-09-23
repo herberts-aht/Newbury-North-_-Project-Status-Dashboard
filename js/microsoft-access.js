@@ -277,7 +277,14 @@ const MicrosoftAccess = (() => {
   }
 
   function applyDirectoryIdentity(profile, member) {
-    const stored = sharedProfiles[member.id] || null;
+    // Dashboard Access / Project Access in SharePoint are authoritative.
+    // The legacy Entra extension is read-only fallback only for identities
+    // that do not yet have a SharePoint Dashboard Access record.
+    const stored =
+      profile.sharePointAccessId
+        ? null
+        : (sharedProfiles[member.id] || null);
+
     if (stored) {
       if (stored.n) profile.name = stored.n;
       if (stored.e) profile.email = stored.e;
@@ -298,8 +305,9 @@ const MicrosoftAccess = (() => {
     if (email) profile.email = email;
 
     if (isAdmin) {
-      profile.role = "Administrator";
+      profile.role = "Admin";
       profile.canAdmin = true;
+      profile.canProjectAdmin = true;
       profile.canEdit = true;
       profile.isInternal = true;
       profile.projects = ["*"];
@@ -324,14 +332,39 @@ const MicrosoftAccess = (() => {
       profile.projects = Array.isArray(profile.projects) ? profile.projects.filter(x => x !== "*") : [];
       profile.company = profile.company && profile.company !== "AHT Global" ? profile.company : "External";
     } else {
-      profile.role = normalizeDashboardRole(profile.role, false);
-      profile.canAdmin = profile.role === "Administrator";
-      profile.canEdit = profile.role === "Administrator" || profile.role === "Editor";
+      profile.role =
+        normalizeDashboardRole(
+          profile.role,
+          false
+        );
+
+      profile.canAdmin =
+        profile.role === "Admin";
+
+      profile.canProjectAdmin =
+        profile.role === "Project Admin" ||
+        profile.canAdmin;
+
+      profile.canEdit =
+        profile.role === "Editor" ||
+        profile.canProjectAdmin;
+
       profile.canViewProjectPlan = true;
       profile.canViewSiteOperations = true;
       profile.isInternal = true;
-      if (profile.canAdmin) profile.projects = ["*"];
-      else if (!stored && (!Array.isArray(profile.projects) || !profile.projects.length)) profile.projects = ["*"];
+
+      if (profile.canAdmin) {
+        profile.projects = ["*"];
+      } else if (
+        !stored &&
+        (
+          !Array.isArray(profile.projects) ||
+          !profile.projects.length
+        )
+      ) {
+        profile.projects = ["*"];
+      }
+
       profile.company = "AHT Global";
     }
   }
@@ -369,7 +402,9 @@ const MicrosoftAccess = (() => {
         if (profile.active !== false) { profile.active = false; changed = true; }
       }
     }
-    if (changed) await DataProvider.saveUsers(USERS);
+    // Directory synchronization updates identity/cache only.
+    // It must never rewrite SharePoint Dashboard Access or Project Access.
+    if (changed) await LocalStorageDataProvider.saveUsers(USERS);
   }
 
   function renderMembers() {
@@ -531,63 +566,97 @@ const MicrosoftAccess = (() => {
     }
     setBusy(true); setStatus(`Preparing ${email}…`);
     try {
-      await loadSharedProfiles();
       const user = await graph(`/users/${encodeURIComponent(email)}?$select=id,displayName,mail,userPrincipalName,userType,accountEnabled`);
-      await saveProfileForObject(user.id, { role, projects, company: "AHT Global", name: user.displayName || email, email });
+
       await addMemberObjectId(user.id);
       await syncSharePointEditAccess(user.id, role);
 
-      const localProfile = USERS.find(item => normalizeEmail(item.email) === email);
-      if (localProfile) {
-        localProfile.entraObjectId = user.id;
-        localProfile.entraUserType = "Member";
-        localProfile.managedByEntraAccessGroup = true;
-        localProfile.role =
-          normalizeDashboardRole(
-            role,
-            false
-          );
+      let localProfile =
+        USERS.find(item =>
+          String(item.entraObjectId || "") === String(user.id || "")
+        ) ||
+        USERS.find(item =>
+          normalizeEmail(item.email) === email
+        );
 
-        localProfile.canAdmin =
-          localProfile.role === "Admin";
+      if (!localProfile) {
+        localProfile = {
+          id: email,
+          name: user.displayName || email,
+          email,
+          company: "AHT Global",
+          role: "Viewer",
+          passwordProfile: "aht",
+          active: true,
+          projects: [],
+          projectAccess: {},
+          canEdit: false,
+          canAdmin: false,
+          isInternal: true
+        };
 
-        localProfile.canProjectAdmin =
-          localProfile.role === "Project Admin" ||
-          localProfile.canAdmin;
-
-        localProfile.canEdit =
-          localProfile.role === "Editor" ||
-          localProfile.canProjectAdmin;
-
-        localProfile.isSystemOwner = false;
-
-        localProfile.canManageProjects =
-          localProfile.canProjectAdmin;
-
-        localProfile.canManageInternalUsers =
-          localProfile.canProjectAdmin;
-
-        localProfile.canAssignProjectAccess =
-          localProfile.canProjectAdmin;
-
-        localProfile.canViewExternalUsers =
-          localProfile.canAdmin;
-
-        localProfile.canManageExternalUsers =
-          false;
-
-        localProfile.canManageSystem =
-          false;
-
-        localProfile.canManageBackups =
-          false;
-
-        localProfile.isInternal = true;
-        localProfile.projects = [...projects];
-        localProfile.active = true;
-        localProfile.company = "AHT Global";
-        await DataProvider.saveUsers(USERS);
+        USERS.push(localProfile);
       }
+
+      localProfile.name =
+        user.displayName ||
+        localProfile.name ||
+        email;
+
+      localProfile.email = email;
+      localProfile.entraObjectId = user.id;
+      localProfile.entraUserType = "Member";
+      localProfile.managedByEntraAccessGroup = true;
+
+      localProfile.role =
+        normalizeDashboardRole(
+          role,
+          false
+        );
+
+      localProfile.canAdmin =
+        localProfile.role === "Admin";
+
+      localProfile.canProjectAdmin =
+        localProfile.role === "Project Admin" ||
+        localProfile.canAdmin;
+
+      localProfile.canEdit =
+        localProfile.role === "Editor" ||
+        localProfile.canProjectAdmin;
+
+      localProfile.isSystemOwner = false;
+
+      localProfile.canManageProjects =
+        localProfile.canProjectAdmin;
+
+      localProfile.canManageInternalUsers =
+        localProfile.canProjectAdmin;
+
+      localProfile.canAssignProjectAccess =
+        localProfile.canProjectAdmin;
+
+      localProfile.canViewExternalUsers =
+        localProfile.canAdmin;
+
+      localProfile.canManageExternalUsers = false;
+      localProfile.canManageSystem = false;
+      localProfile.canManageBackups = false;
+
+      localProfile.isInternal = true;
+      localProfile.projects = [...projects];
+      localProfile.active = true;
+      localProfile.company = "AHT Global";
+
+      await DataProvider.saveUsers(
+        USERS,
+        {
+          writeDashboardAccess: true,
+          dashboardAccessUserIds: [localProfile.id],
+          writeProjectAccess: true,
+          projectAccessUserIds: [localProfile.id]
+        }
+      );
 
       if (!directoryMembers.some(item => item.id === user.id)) {
         directoryMembers.push(user);
@@ -752,15 +821,84 @@ const MicrosoftAccess = (() => {
         });
       }
 
-      await saveProfileForObject(objectId, {
-        role,
-        projects,
-        company: company || "External",
-        name: name || email,
-        email
-      });
-
       await addMemberObjectId(objectId);
+
+      let localProfile =
+        USERS.find(item =>
+          String(item.entraObjectId || "") === String(objectId || "")
+        ) ||
+        USERS.find(item =>
+          normalizeEmail(item.email) === email
+        );
+
+      if (!localProfile) {
+        localProfile = {
+          id: email,
+          name: name || email,
+          email,
+          company: company || "External",
+          role: "External Viewer",
+          passwordProfile: "external",
+          active: true,
+          projects: [],
+          projectAccess: {},
+          canEdit: false,
+          canAdmin: false,
+          isInternal: false
+        };
+
+        USERS.push(localProfile);
+      }
+
+      localProfile.name =
+        name ||
+        localProfile.name ||
+        email;
+
+      localProfile.email = email;
+      localProfile.company =
+        company ||
+        localProfile.company ||
+        "External";
+
+      localProfile.entraObjectId = objectId;
+      localProfile.entraUserType = "Guest";
+      localProfile.managedByEntraAccessGroup = true;
+      localProfile.role = "External Viewer";
+      localProfile.canAdmin = false;
+      localProfile.canProjectAdmin = false;
+      localProfile.canEdit = false;
+      localProfile.isSystemOwner = false;
+      localProfile.canManageProjects = false;
+      localProfile.canManageInternalUsers = false;
+      localProfile.canAssignProjectAccess = false;
+      localProfile.canViewExternalUsers = false;
+      localProfile.canManageExternalUsers = false;
+      localProfile.canManageSystem = false;
+      localProfile.canManageBackups = false;
+      localProfile.isInternal = false;
+      localProfile.active = true;
+      localProfile.projects = [...projects];
+
+      localProfile.projectAccess ||= {};
+
+      for (const projectId of projects) {
+        localProfile.projectAccess[projectId] = {
+          canViewProjectPlan: false,
+          canViewSiteOperations: false,
+          active: true
+        };
+      }
+
+      await DataProvider.saveUsers(
+        USERS,
+        {
+          writeDashboardAccess: true,
+          dashboardAccessUserIds: [localProfile.id],
+          writeProjectAccess: true,
+          projectAccessUserIds: [localProfile.id]
+        }
+      );
 
       // Do not auto-open Outlook here. The separate button is intentionally
       // a fresh user click so Safari can hand mailto: to native Outlook.
@@ -858,7 +996,12 @@ const MicrosoftAccess = (() => {
     }
   }
 
-  return { initialize, onAdminView, refresh, saveDashboardProfile, removeProjectFromProfiles, renderInviteProjects };
+  return {
+    initialize,
+    onAdminView,
+    refresh,
+    renderInviteProjects
+  };
 })();
 
 MicrosoftAccess.initialize();

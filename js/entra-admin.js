@@ -108,7 +108,7 @@ async function inviteExternalFromDashboard() {
         inviteRedirectUrl: window.location.origin,
         sendInvitationMessage: true,
         invitedUserMessageInfo: {
-          customizedMessageBody: "You have been invited to the AHT Newbury North Project Control Dashboard. Use your email identity to accept the invitation and sign in."
+          customizedMessageBody: "You have been invited to the AHT Project Control Dashboard. Use your email identity to accept the invitation and sign in."
         }
       })
     });

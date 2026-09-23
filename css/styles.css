@@ -3482,3 +3482,103 @@ main.container{
     min-width:0;
   }
 }
+
+
+/* ==========================================================
+   ADMIN PROJECT ACCESS
+   ========================================================== */
+
+.admin-project-access-table-wrap{
+  max-height:320px;
+  overflow:auto;
+  border:1px solid #dbe4ec;
+  border-radius:8px;
+  background:#fff;
+}
+
+.admin-project-access-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+
+.admin-project-access-table th,
+.admin-project-access-table td{
+  padding:9px 10px;
+  border-bottom:1px solid #e6edf2;
+  text-align:left;
+  vertical-align:middle;
+}
+
+.admin-project-access-table th{
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:#f7f9fb;
+  color:#51606f;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.admin-project-access-table th:nth-child(2),
+.admin-project-access-table th:nth-child(3),
+.admin-project-access-table td:nth-child(2),
+.admin-project-access-table td:nth-child(3){
+  width:120px;
+  text-align:center;
+}
+
+.admin-project-access-table tr:last-child td{
+  border-bottom:0;
+}
+
+
+/* Admin project assignment / capability alignment */
+.admin-project-assignment-option{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:7px 0;
+  font-size:13px;
+  line-height:1.25;
+  cursor:pointer;
+}
+
+.admin-project-assignment-option input[type="checkbox"]{
+  flex:0 0 auto;
+  width:auto;
+  margin:0;
+}
+
+.admin-project-assignment-option span{
+  display:inline-block;
+}
+
+.admin-project-access-table th:nth-child(2),
+.admin-project-access-table th:nth-child(3),
+.admin-project-access-table td:nth-child(2),
+.admin-project-access-table td:nth-child(3){
+  text-align:center;
+}
+
+.admin-project-access-table td:nth-child(2) input[type="checkbox"],
+.admin-project-access-table td:nth-child(3) input[type="checkbox"]{
+  display:block;
+  width:auto;
+  margin:0 auto;
+}
+
+/* Force spacing between Project Assignment checkbox and project name */
+.admin-project-assignment-option input[type="checkbox"]{
+  margin:0 8px 0 0 !important;
+}
+
+
+/* Capability-gated administration */
+.management-only.hidden,
+.manage-projects-only.hidden,
+.manage-access-only.hidden,
+.system-owner-only.hidden{
+  display:none !important;
+}

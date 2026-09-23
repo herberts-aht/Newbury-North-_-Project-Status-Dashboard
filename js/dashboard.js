@@ -829,9 +829,68 @@ function bindSummaryDrilldowns(){
     };
   });
 }
+function currentProjectAccessCapability(capability){
+ const user=currentUser;
+ if(!user)return false;
+
+ // Internal AHT users automatically receive both detailed work areas.
+ if(user.isInternal!==false)return true;
+
+ const project=currentProject();
+ if(!project)return false;
+
+ const projectKey=String(
+   project.id||
+   project.projectKey||
+   ""
+ ).trim();
+
+ const access=
+   user.projectAccess&&projectKey
+     ? user.projectAccess[projectKey]
+     : null;
+
+ if(access&&typeof access[capability]==="boolean"){
+   return access[capability];
+ }
+
+ // Temporary compatibility fallback during migration.
+ return Boolean(user[capability]);
+}
+
 function render(){
  document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canEdit));
  document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canAdmin));
+
+ const canOpenAdministration=
+   Boolean(
+     currentUser?.canManageProjects ||
+     currentUser?.canManageInternalUsers ||
+     currentUser?.canAssignProjectAccess ||
+     currentUser?.canViewExternalUsers ||
+     currentUser?.canManageExternalUsers ||
+     currentUser?.canManageSystem ||
+     currentUser?.canManageBackups
+   );
+
+ document.querySelectorAll(".management-only")
+   .forEach(x=>x.classList.toggle("hidden",!canOpenAdministration));
+
+ document.querySelectorAll(".manage-projects-only")
+   .forEach(x=>x.classList.toggle("hidden",!currentUser?.canManageProjects));
+
+ document.querySelectorAll(".manage-access-only")
+   .forEach(x=>x.classList.toggle(
+     "hidden",
+     !(
+       currentUser?.canManageInternalUsers ||
+       currentUser?.canAssignProjectAccess ||
+       currentUser?.canViewExternalUsers
+     )
+   ));
+
+ document.querySelectorAll(".system-owner-only")
+   .forEach(x=>x.classList.toggle("hidden",!currentUser?.isSystemOwner));
  const projects=allowedProjects();
  if(!projects.length){
    const profileSyncFailed=Boolean(currentUser?.accessProfileSyncError);
@@ -911,7 +970,41 @@ function render(){
     : "💬 Project Comment";
 }}
  permissionBanner.textContent=currentUser.projects.includes("*")?`${currentUser.name} can view all assigned Newbury projects. ${currentUser.canAdmin?"Administrator access.":currentUser.canEdit?"Internal editing access.":"Read-only executive access."}`:`${currentUser.name} can view only: ${projects.map(x=>x.name).join(", ")}. ${currentUser.canEdit?"Internal editing access.":"Read-only external access."}`;
- document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canEdit));document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canAdmin));
+ document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canEdit));
+ document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser.canAdmin));
+
+ document.querySelectorAll(".management-only")
+   .forEach(x=>x.classList.toggle("hidden",!canOpenAdministration));
+
+ document.querySelectorAll(".manage-projects-only")
+   .forEach(x=>x.classList.toggle("hidden",!currentUser?.canManageProjects));
+
+ document.querySelectorAll(".manage-access-only")
+   .forEach(x=>x.classList.toggle(
+     "hidden",
+     !(
+       currentUser?.canManageInternalUsers ||
+       currentUser?.canAssignProjectAccess ||
+       currentUser?.canViewExternalUsers
+     )
+   ));
+
+ document.querySelectorAll(".system-owner-only")
+   .forEach(x=>x.classList.toggle("hidden",!currentUser?.isSystemOwner));
+
+ document.querySelectorAll(".project-plan-access").forEach(
+   x=>x.classList.toggle(
+     "hidden",
+     !currentProjectAccessCapability("canViewProjectPlan")
+   )
+ );
+
+ document.querySelectorAll(".site-operations-access").forEach(
+   x=>x.classList.toggle(
+     "hidden",
+     !currentProjectAccessCapability("canViewSiteOperations")
+   )
+ );
  projectGrid.innerHTML=projects.map(pr=>{const waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length,active=Math.max(0,pr.deliverables.length-waiting-complete);const progress=weightedProjectProgress(pr),planning=displayedPhaseProgress(pr,"Planning"),engineering=displayedPhaseProgress(pr,"Engineering"),installation=displayedPhaseProgress(pr,"Installation"),health=displayedProjectHealth(pr);return `<div class="project-card" onclick="setProject('${pr.id}');showView('dashboard')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health"><span class="pulse" style="background:${healthColor(health)}"></span><span>${esc(health)}</span></div><div class="small" style="margin-top:6px">Updated: ${esc(formatLastUpdated(pr))}</div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%${progressModeMark(pr.progressOverallMode||"auto")}</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong><span class="phase-progress-value">${planning}%</span>${progressModeMark(phaseProgressMode(pr,"Planning"))}</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong><span class="phase-progress-value">${engineering}%</span>${progressModeMark(phaseProgressMode(pr,"Engineering"))}</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong><span class="phase-progress-value">${installation}%</span>${progressModeMark(phaseProgressMode(pr,"Installation"))}</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
  const opts=projects.map(pr=>`<option value="${pr.id}" ${pr.id===p.id?"selected":""}>${esc(pr.name)}</option>`).join("");projectSelect.innerHTML=opts;document.querySelectorAll(".project-select-clone").forEach(s=>s.innerHTML=opts);
  const summaryWaiting=ds.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,summaryComplete=ds.filter(x=>x.status==="Complete").length,summaryActive=Math.max(0,ds.length-summaryWaiting-summaryComplete);kpiTotal.textContent=ds.length;kpiActive.textContent=summaryActive;kpiWaiting.textContent=summaryWaiting;kpiComplete.textContent=summaryComplete;
@@ -1633,8 +1726,16 @@ for(let day=1;day<=daysInMonth;day++){
 }
 
 monthGrid.innerHTML=cells;
-if(currentUser.canAdmin)renderAdmin();
- if(currentUser.canAdmin){
+if(
+  currentUser?.canManageProjects ||
+  currentUser?.canManageInternalUsers ||
+  currentUser?.canAssignProjectAccess ||
+  currentUser?.canViewExternalUsers ||
+  currentUser?.canManageExternalUsers ||
+  currentUser?.canManageSystem ||
+  currentUser?.canManageBackups
+)renderAdmin();
+ if(currentUser?.isSystemOwner){
    const uq=[...new Set(state.auditLog.map(x=>x.userName))].sort();
    const pq=[...new Set(state.auditLog.map(x=>x.projectName))].sort();
    const oldU=auditUserFilter.value,oldP=auditProjectFilter.value,oldA=auditActionFilter.value;
@@ -2368,7 +2469,18 @@ function bindGanttBottomScroll(){
 }
 
 function renderAdmin(){
- if(!currentUser?.canAdmin)return;
+ const canOpenAdministration=
+   Boolean(
+     currentUser?.canManageProjects ||
+     currentUser?.canManageInternalUsers ||
+     currentUser?.canAssignProjectAccess ||
+     currentUser?.canViewExternalUsers ||
+     currentUser?.canManageExternalUsers ||
+     currentUser?.canManageSystem ||
+     currentUser?.canManageBackups
+   );
+
+ if(!canOpenAdministration)return;
  projectAdminList.innerHTML=state.projects.map(p=>`
    <div class="project-admin-row ${p.archived?"archived":""}">
      <div><strong>${esc(p.name)}</strong><div class="small">${esc(p.subtitle||"Naples, FL")}</div></div>
@@ -2418,19 +2530,164 @@ function renderAdmin(){
    adminRoleSelect.disabled=false;
  }
  adminRoleSelect.value=
-   selected.role==="Administrator"
-     ?"Admin"
-     :selected.role;
+   selected.role || "Viewer";
  adminPasswordProfile.value=selected.id==="stacy"?"stacy":selected.passwordProfile||(selected.isInternal?"aht":"external");
  adminPasswordProfile.disabled=selected.id==="stacy";
  adminUserActive.checked=selected.active!==false;
  archiveUserBtn.textContent=selected.active===false?"Archived":"Archive User";
- archiveUserBtn.disabled=selected.active===false||selected.id===currentUser?.id||(selected.role==="Administrator"&&activeAdministratorCount()<=1);
+ archiveUserBtn.disabled=selected.active===false||selected.id===currentUser?.id||(selected.role==="Admin"&&activeAdministratorCount()<=1);
 
  projectAssignmentList.innerHTML=state.projects.map(p=>{
    const checked=selected.projects.includes("*")||selected.projects.includes(p.id);
-   return `<label style="display:block;margin:7px 0;font-size:13px"><input type="checkbox" value="${p.id}" ${checked?"checked":""}> ${esc(p.name)}</label>`;
+   return `<label class="admin-project-assignment-option"><input type="checkbox" value="${p.id}" ${checked?"checked":""}><span>${esc(p.name)}</span></label>`;
  }).join("");
+
+ projectAssignmentList
+   .querySelectorAll('input[type="checkbox"]')
+   .forEach(input=>{
+     input.onchange=()=>{
+       const projectId=input.value;
+
+       selected.projects=
+         Array.isArray(selected.projects)
+           ? selected.projects.filter(id=>id!=="*")
+           : [];
+
+       if(input.checked){
+         if(!selected.projects.includes(projectId)){
+           selected.projects.push(projectId);
+         }
+
+         selected.projectAccess ||= {};
+
+         selected.projectAccess[projectId] ||= {
+           canViewProjectPlan:false,
+           canViewSiteOperations:false,
+           active:true
+         };
+       }else{
+         selected.projects=
+           selected.projects.filter(id=>id!==projectId);
+       }
+
+       renderAdmin();
+     };
+   });
+
+ const capabilityList=
+   document.getElementById("adminProjectCapabilityList");
+
+ const capabilityNote=
+   document.getElementById("adminProjectCapabilityNote");
+
+ if(capabilityList){
+   const isExternal=
+     String(selected.entraUserType||"")
+       .toLowerCase()==="guest" ||
+     selected.isInternal===false ||
+     selected.role==="External Viewer";
+
+   const assignedProjects=
+     state.projects.filter(p=>
+       selected.projects.includes("*") ||
+       selected.projects.includes(p.id)
+     );
+
+   if(!isExternal){
+     if(capabilityNote){
+       capabilityNote.textContent=
+         "Internal users automatically receive Project Plan and Site Operations access on assigned projects.";
+     }
+
+     capabilityList.innerHTML="";
+   }else{
+     if(capabilityNote){
+       capabilityNote.textContent=
+         "Detailed access is controlled separately for each assigned project.";
+     }
+
+     if(!assignedProjects.length){
+       capabilityList.innerHTML=
+         '<div class="small">Assign at least one project to manage detailed access.</div>';
+     }else{
+       capabilityList.innerHTML=`
+         <div class="admin-project-access-table-wrap">
+           <table class="admin-project-access-table">
+             <thead>
+               <tr>
+                 <th>Project</th>
+                 <th>Project Plan</th>
+                 <th>Site Operations</th>
+               </tr>
+             </thead>
+             <tbody>
+               ${assignedProjects.map(p=>{
+                 const access=
+                   selected.projectAccess?.[p.id] || {};
+
+                 const planChecked=
+                   access.canViewProjectPlan===true;
+
+                 const siteChecked=
+                   access.canViewSiteOperations===true;
+
+                 return `
+                   <tr>
+                     <td>
+                       <strong>${esc(p.name)}</strong>
+                     </td>
+
+                     <td>
+                       <input
+                         type="checkbox"
+                         class="admin-project-plan-capability"
+                         data-project-id="${esc(p.id)}"
+                         ${planChecked?"checked":""}
+                       />
+                     </td>
+
+                     <td>
+                       <input
+                         type="checkbox"
+                         class="admin-site-ops-capability"
+                         data-project-id="${esc(p.id)}"
+                         ${siteChecked?"checked":""}
+                       />
+                     </td>
+                   </tr>
+                 `;
+               }).join("")}
+             </tbody>
+           </table>
+         </div>
+       `;
+
+       selected.projectAccess ||= {};
+
+       capabilityList
+         .querySelectorAll(".admin-project-plan-capability")
+         .forEach(input=>{
+           input.onchange=()=>{
+             const projectId=input.dataset.projectId;
+             selected.projectAccess[projectId] ||= {};
+             selected.projectAccess[projectId].canViewProjectPlan=
+               input.checked;
+           };
+         });
+
+       capabilityList
+         .querySelectorAll(".admin-site-ops-capability")
+         .forEach(input=>{
+           input.onchange=()=>{
+             const projectId=input.dataset.projectId;
+             selected.projectAccess[projectId] ||= {};
+             selected.projectAccess[projectId].canViewSiteOperations=
+               input.checked;
+           };
+         });
+     }
+   }
+ }
 }
 
 function printCurrentProjectReport(){

@@ -1483,7 +1483,9 @@ const SharePointDataProvider = {
       id: fields.ProfileKey || `sharepoint-user-${row.id}`,
       sharePointAccessId: Number(row.id),
       name: fields.DisplayName || fields.Title || "AHT User",
-      email: "",
+      email: String(fields.ProfileKey || "").includes("@")
+        ? String(fields.ProfileKey || "").trim()
+        : "",
       company: fields.Company || "AHT Global",
       role,
       active: fields.Active !== false,
@@ -1510,44 +1512,162 @@ const SharePointDataProvider = {
     };
   },
 
+  async getProjectAccessRows() {
+    return this.getListRows(
+      this.config.lists.projectAccess,
+      [
+        "Title",
+        "AccessKey",
+        "ProfileKey",
+        "EntraObjectId",
+        "ProjectKey",
+        "ProjectSharePointId",
+        "CanViewProjectPlan",
+        "CanViewSiteOperations",
+        "Active"
+      ]
+    );
+  },
+
   async getDashboardAccessProfile(graphUser) {
     if (!graphUser?.id) return null;
 
-    const rows = await this.getDashboardAccessRows();
+    const [rows, projectAccessRows] = await Promise.all([
+      this.getDashboardAccessRows(),
+      this.getProjectAccessRows()
+    ]);
 
-    const objectId = String(graphUser.id || "").trim().toLowerCase();
-    const displayName = String(graphUser.displayName || "").trim().toLowerCase();
-    const graphEmail = String(
-      graphUser.mail ||
-      graphUser.userPrincipalName ||
-      ""
-    ).trim().toLowerCase();
+    const objectId =
+      String(graphUser.id || "")
+        .trim()
+        .toLowerCase();
+
+    const graphEmails = [
+      graphUser.mail,
+      graphUser.userPrincipalName
+    ]
+      .map(value =>
+        String(value || "")
+          .trim()
+          .toLowerCase()
+      )
+      .filter(Boolean);
 
     let row = rows.find(item =>
-      String(item.fields?.EntraObjectId || "").trim().toLowerCase() === objectId
+      String(item.fields?.EntraObjectId || "")
+        .trim()
+        .toLowerCase() === objectId
     );
 
-    if (!row && graphEmail) {
+    if (!row && graphEmails.length) {
       row = rows.find(item =>
-        String(item.fields?.ProfileKey || "").trim().toLowerCase() === graphEmail
+        graphEmails.includes(
+          String(item.fields?.ProfileKey || "")
+            .trim()
+            .toLowerCase()
+        )
       );
     }
 
-    // Deliberately do NOT fall back to display name here.
-    // Names are mutable and can collide; sign-in identity must be anchored
-    // to Entra Object ID or exact ProfileKey/email.
-    if (!row || row.fields?.Active === false) return null;
+    // Identity matching is intentionally limited to stable identifiers.
+    // Never fall back to display name for authentication.
+    if (!row || row.fields?.Active === false) {
+      return null;
+    }
 
     const user = this.dashboardAccessUser(row);
 
+    const profileKey =
+      String(row.fields?.ProfileKey || "")
+        .trim()
+        .toLowerCase();
+
+    const accessRows = projectAccessRows.filter(item => {
+      if (item.fields?.Active === false) return false;
+
+      const accessObjectId =
+        String(item.fields?.EntraObjectId || "")
+          .trim()
+          .toLowerCase();
+
+      const accessProfileKey =
+        String(item.fields?.ProfileKey || "")
+          .trim()
+          .toLowerCase();
+
+      return (
+        (objectId && accessObjectId === objectId) ||
+        (profileKey && accessProfileKey === profileKey)
+      );
+    });
+
+    const projectAccess = {};
+
+    for (const accessRow of accessRows) {
+      const fields = accessRow.fields || {};
+      const projectKey =
+        String(fields.ProjectKey || "").trim();
+
+      if (!projectKey) continue;
+
+      projectAccess[projectKey] = {
+        canViewProjectPlan:
+          fields.CanViewProjectPlan === true,
+
+        canViewSiteOperations:
+          fields.CanViewSiteOperations === true,
+
+        projectSharePointId:
+          Number(fields.ProjectSharePointId || 0),
+
+        active:
+          fields.Active !== false
+      };
+    }
+
+    const projectKeys = Object.keys(projectAccess);
+
+    // During migration, fall back to the legacy ProjectKeys field only
+    // when no Project Access records exist for the user.
+    const projects =
+      projectKeys.length
+        ? projectKeys
+        : user.projects;
+
     return {
       r: user.role,
-      p: user.projects,
+      p: projects,
+
+      // New company-wide per-project permission map.
+      pa: projectAccess,
+
+      // Compatibility flags while remaining screens are converted.
+      // Internal users already receive both automatically.
+      pp:
+        user.isInternal ||
+        Object.values(projectAccess).some(
+          access => access.canViewProjectPlan
+        ),
+
+      so:
+        user.isInternal ||
+        Object.values(projectAccess).some(
+          access => access.canViewSiteOperations
+        ),
+
       c: user.company,
       n: user.name,
-      e: graphEmail,
-      entraObjectId: user.entraObjectId,
-      active: user.active
+
+      e:
+        String(row.fields?.ProfileKey || "").trim() ||
+        graphEmails[0] ||
+        "",
+
+      entraObjectId:
+        user.entraObjectId,
+
+      active:
+        user.active
     };
   },
 
@@ -1555,38 +1675,163 @@ const SharePointDataProvider = {
     const localUsers = await LocalStorageDataProvider.loadUsers();
 
     try {
-      const rows = await this.getDashboardAccessRows();
+      const [rows, projectAccessRows] = await Promise.all([
+        this.getDashboardAccessRows(),
+        this.getProjectAccessRows()
+      ]);
+
       const sharePointUsers = rows
-        .filter(row => String(row.fields?.EntraUserType || "Member").toLowerCase() !== "guest")
-        .map(row => this.dashboardAccessUser(row));
+        .map(row => {
+          const user = this.dashboardAccessUser(row);
 
-      const merged = [...localUsers];
+          const profileKey =
+            String(row.fields?.ProfileKey || "")
+              .trim()
+              .toLowerCase();
 
-      for (const spUser of sharePointUsers) {
-        const index = merged.findIndex(localUser => {
+          const objectId =
+            String(row.fields?.EntraObjectId || "")
+              .trim()
+              .toLowerCase();
+
+          const projectAccess = {};
+
+          projectAccessRows.forEach(accessRow => {
+            if (accessRow.fields?.Active === false) return;
+
+            const accessProfileKey =
+              String(accessRow.fields?.ProfileKey || "")
+                .trim()
+                .toLowerCase();
+
+            const accessObjectId =
+              String(accessRow.fields?.EntraObjectId || "")
+                .trim()
+                .toLowerCase();
+
+            const belongs =
+              (objectId && accessObjectId === objectId) ||
+              (profileKey && accessProfileKey === profileKey);
+
+            if (!belongs) return;
+
+            const projectKey =
+              String(accessRow.fields?.ProjectKey || "")
+                .trim();
+
+            if (!projectKey) return;
+
+            projectAccess[projectKey] = {
+              canViewProjectPlan:
+                accessRow.fields?.CanViewProjectPlan === true,
+
+              canViewSiteOperations:
+                accessRow.fields?.CanViewSiteOperations === true,
+
+              projectSharePointId:
+                Number(
+                  accessRow.fields?.ProjectSharePointId || 0
+                ),
+
+              active:
+                accessRow.fields?.Active !== false
+            };
+          });
+
+          user.projectAccess = projectAccess;
+
+          const projectKeys =
+            Object.keys(projectAccess);
+
+          if (projectKeys.length) {
+            user.projects = projectKeys;
+          }
+
+          return user;
+        });
+
+      /*
+       * SharePoint Dashboard Access + Project Access are authoritative.
+       *
+       * LocalStorage is only a cache / compatibility source. It must never
+       * override shared identity, assignments, or per-project permissions.
+       */
+      const merged = sharePointUsers.map(spUser => {
+        const localUser = localUsers.find(candidate => {
+          const sameObjectId =
+            spUser.entraObjectId &&
+            candidate.entraObjectId &&
+            String(candidate.entraObjectId).trim().toLowerCase() ===
+              String(spUser.entraObjectId).trim().toLowerCase();
+
+          const sameEmail =
+            spUser.email &&
+            candidate.email &&
+            String(candidate.email).trim().toLowerCase() ===
+              String(spUser.email).trim().toLowerCase();
+
+          const sameId =
+            String(candidate.id || "").trim().toLowerCase() ===
+            String(spUser.id || "").trim().toLowerCase();
+
+          return sameObjectId || sameEmail || sameId;
+        });
+
+        if (!localUser) {
+          return spUser;
+        }
+
+        return {
+          ...localUser,
+          ...spUser,
+
+          // Shared permission data must always win.
+          projects: [...(spUser.projects || [])],
+          projectAccess: {
+            ...(spUser.projectAccess || {})
+          },
+
+          email:
+            spUser.email ||
+            localUser.email ||
+            ""
+        };
+      });
+
+      /*
+       * Keep only genuinely local-only legacy/demo records.
+       * Any Entra-managed cached identity that is not represented by
+       * Dashboard Access is intentionally discarded from the live USERS list.
+       */
+      for (const localUser of localUsers) {
+        const represented = sharePointUsers.some(spUser => {
           const sameObjectId =
             spUser.entraObjectId &&
             localUser.entraObjectId &&
-            String(localUser.entraObjectId).toLowerCase() === String(spUser.entraObjectId).toLowerCase();
+            String(localUser.entraObjectId).trim().toLowerCase() ===
+              String(spUser.entraObjectId).trim().toLowerCase();
+
+          const sameEmail =
+            spUser.email &&
+            localUser.email &&
+            String(localUser.email).trim().toLowerCase() ===
+              String(spUser.email).trim().toLowerCase();
 
           const sameId =
-            String(localUser.id || "").toLowerCase() === String(spUser.id || "").toLowerCase();
+            String(localUser.id || "").trim().toLowerCase() ===
+              String(spUser.id || "").trim().toLowerCase();
 
-          const sameName =
-            String(localUser.name || "").trim().toLowerCase() ===
-            String(spUser.name || "").trim().toLowerCase();
-
-          return sameObjectId || sameId || sameName;
+          return sameObjectId || sameEmail || sameId;
         });
 
-        if (index >= 0) {
-          merged[index] = {
-            ...merged[index],
-            ...spUser,
-            email: merged[index].email || spUser.email || ""
-          };
-        } else {
-          merged.push(spUser);
+        if (represented) continue;
+
+        const isManagedIdentity =
+          Boolean(localUser.entraObjectId) ||
+          localUser.managedByEntraAccessGroup === true;
+
+        if (!isManagedIdentity) {
+          merged.push(localUser);
         }
       }
 
@@ -1598,57 +1843,172 @@ const SharePointDataProvider = {
     }
   },
 
-  async saveUsers(nextUsers) {
+  async saveUsers(nextUsers, options = {}) {
     await LocalStorageDataProvider.saveUsers(nextUsers);
 
-    const rows = await this.getDashboardAccessRows();
+    const writeDashboardAccess =
+      options?.writeDashboardAccess === true;
+
+    const writeProjectAccess =
+      options?.writeProjectAccess === true;
+
+    const dashboardAccessUserIds =
+      new Set(
+        Array.isArray(options?.dashboardAccessUserIds)
+          ? options.dashboardAccessUserIds
+              .map(value => String(value || "").trim())
+              .filter(Boolean)
+          : []
+      );
+
+    const projectAccessUserIds =
+      new Set(
+        Array.isArray(options?.projectAccessUserIds)
+          ? options.projectAccessUserIds
+              .map(value => String(value || "").trim())
+              .filter(Boolean)
+          : []
+      );
+
+    const [
+      dashboardRows,
+      projectAccessRows,
+      projectRows
+    ] = await Promise.all([
+      this.getDashboardAccessRows(),
+      this.getProjectAccessRows(),
+      this.getProjectRows()
+    ]);
+
+    // --------------------------------------------------------
+    // Existing Dashboard Access indexes
+    // --------------------------------------------------------
 
     const byProfileKey = new Map();
     const byObjectId = new Map();
     const bySharePointId = new Map();
-    const byDisplayName = new Map();
 
-    for (const row of rows) {
-      const profileKey = String(row.fields?.ProfileKey || "").trim().toLowerCase();
-      const objectId = String(row.fields?.EntraObjectId || "").trim().toLowerCase();
-      const displayName = String(
-        row.fields?.DisplayName ||
-        row.fields?.Title ||
-        ""
-      ).trim().toLowerCase();
+    for (const row of dashboardRows) {
+      const profileKey =
+        String(row.fields?.ProfileKey || "")
+          .trim()
+          .toLowerCase();
+
+      const objectId =
+        String(row.fields?.EntraObjectId || "")
+          .trim()
+          .toLowerCase();
+
+      const displayName =
+        String(
+          row.fields?.DisplayName ||
+          row.fields?.Title ||
+          ""
+        )
+          .trim()
+          .toLowerCase();
 
       if (profileKey) byProfileKey.set(profileKey, row);
       if (objectId) byObjectId.set(objectId, row);
-      if (row.id != null) bySharePointId.set(String(row.id), row);
-      if (displayName) byDisplayName.set(displayName, row);
+      if (row.id != null) {
+        bySharePointId.set(String(row.id), row);
+      }
     }
 
-    const internalUsers = (nextUsers || []).filter(user => {
-      const entraType = String(user.entraUserType || "Member").toLowerCase();
-      return (
-        user &&
-        user.isInternal !== false &&
-        user.role !== "External Viewer" &&
-        entraType !== "guest"
-      );
-    });
 
-    for (const user of internalUsers) {
-      const email = String(user.email || "").trim();
-      const profileKey = email || String(user.id || "").trim();
+    // --------------------------------------------------------
+    // Current project index
+    // --------------------------------------------------------
+
+    const projectByKey = new Map();
+
+    for (const row of projectRows) {
+      const projectKey =
+        String(row.fields?.ProjectKey || "").trim();
+
+      if (!projectKey) continue;
+
+      projectByKey.set(
+        projectKey.toLowerCase(),
+        {
+          key: projectKey,
+          sharePointId: Number(row.id || 0)
+        }
+      );
+    }
+
+
+    // --------------------------------------------------------
+    // Existing Project Access indexes
+    // --------------------------------------------------------
+
+    const projectAccessByKey = new Map();
+
+    for (const row of projectAccessRows) {
+      const accessKey =
+        String(row.fields?.AccessKey || "")
+          .trim()
+          .toLowerCase();
+
+      if (accessKey) {
+        projectAccessByKey.set(accessKey, row);
+      }
+    }
+
+
+    // --------------------------------------------------------
+    // Save every dashboard user — internal AND external.
+    // --------------------------------------------------------
+
+    for (const user of (nextUsers || []).filter(Boolean)) {
+
+      const email =
+        String(user.email || "").trim();
+
+      const profileKey =
+        email ||
+        String(user.id || "").trim();
+
       if (!profileKey) continue;
 
-      const objectId = String(user.entraObjectId || "").trim();
-      const displayName = String(user.name || profileKey).trim();
+      const objectId =
+        String(user.entraObjectId || "").trim();
 
-      let role =
+      const displayName =
+        String(user.name || profileKey).trim();
+
+      const rawRole =
         String(user.role || "").trim();
 
+      const isExternal =
+        String(user.entraUserType || "")
+          .toLowerCase() === "guest" ||
+        user.isInternal === false ||
+        rawRole === "External Viewer";
+
+      let role = rawRole;
+
+      // Normalize legacy role names.
       if (role === "Administrator") {
         role = "Admin";
       }
 
-      if (
+      if (role === "Internal Editor") {
+        role = "Editor";
+      }
+
+      if (role === "Executive Viewer") {
+        role = "Viewer";
+      }
+
+      if (isExternal) {
+        // External identities remain external even if limited edit
+        // rights are permitted later.
+        role =
+          role === "Editor"
+            ? "Editor"
+            : "External Viewer";
+      } else if (
         ![
           "Admin",
           "Project Admin",
@@ -1666,70 +2026,345 @@ const SharePointDataProvider = {
                 : "Viewer";
       }
 
-      const fields = {
+
+      // ------------------------------------------------------
+      // Dashboard Access row
+      // Only explicit access-management actions may write it.
+      // ------------------------------------------------------
+
+      const writeThisUsersDashboardAccess =
+        writeDashboardAccess &&
+        dashboardAccessUserIds.has(
+          String(user.id || "").trim()
+        );
+
+      if (writeThisUsersDashboardAccess) {
+
+      const dashboardFields = {
         Title: displayName,
         ProfileKey: profileKey,
         DisplayName: displayName,
-        Company: user.company || "AHT Global",
+        Company:
+          user.company ||
+          (isExternal ? "External" : "AHT Global"),
         DashboardRole: role,
-        ProjectKeys: Array.isArray(user.projects)
-          ? user.projects.filter(Boolean).join(";")
-          : "",
-        Active: user.active !== false,
-        EntraObjectId: objectId,
-        EntraUserType: "Member"
+
+        // Keep legacy field populated during migration.
+        ProjectKeys:
+          Array.isArray(user.projects)
+            ? user.projects.filter(Boolean).join(";")
+            : "",
+
+        Active:
+          user.active !== false,
+
+        EntraObjectId:
+          objectId,
+
+        EntraUserType:
+          isExternal ? "Guest" : "Member"
       };
 
-      const sharePointAccessId = String(user.sharePointAccessId || "").trim();
+      const sharePointAccessId =
+        String(user.sharePointAccessId || "").trim();
 
       let existing =
-        (objectId && byObjectId.get(objectId.toLowerCase())) ||
-        (profileKey && byProfileKey.get(profileKey.toLowerCase())) ||
-        (sharePointAccessId && bySharePointId.get(sharePointAccessId)) ||
+        (objectId &&
+          byObjectId.get(objectId.toLowerCase())) ||
+        byProfileKey.get(profileKey.toLowerCase()) ||
+        (sharePointAccessId &&
+          bySharePointId.get(sharePointAccessId)) ||
         null;
 
-      if (
-        !existing &&
-        !objectId &&
-        !profileKey &&
-        !sharePointAccessId &&
-        displayName
-      ) {
-        existing = byDisplayName.get(displayName.toLowerCase()) || null;
-      }
-
       if (existing) {
+
         await this.updateItem(
           this.config.lists.dashboardAccess,
           existing.id,
-          fields
+          dashboardFields
         );
 
         existing.fields = {
           ...(existing.fields || {}),
-          ...fields
+          ...dashboardFields
         };
 
-        user.sharePointAccessId = Number(existing.id);
+        user.sharePointAccessId =
+          Number(existing.id);
+
       } else {
-        const created = await this.createItem(
-          this.config.lists.dashboardAccess,
-          fields
-        );
+
+        const created =
+          await this.createItem(
+            this.config.lists.dashboardAccess,
+            dashboardFields
+          );
 
         const row = {
           id: created.id,
-          fields
+          fields: dashboardFields
         };
 
-        user.sharePointAccessId = Number(created.id);
+        user.sharePointAccessId =
+          Number(created.id);
 
-        byProfileKey.set(profileKey.toLowerCase(), row);
-        if (objectId) byObjectId.set(objectId.toLowerCase(), row);
-        if (created.id != null) bySharePointId.set(String(created.id), row);
-        if (displayName) byDisplayName.set(displayName.toLowerCase(), row);
+        byProfileKey.set(
+          profileKey.toLowerCase(),
+          row
+        );
+
+        if (objectId) {
+          byObjectId.set(
+            objectId.toLowerCase(),
+            row
+          );
+        }
+
+        if (created.id != null) {
+          bySharePointId.set(
+            String(created.id),
+            row
+          );
+        }
+
       }
+
+      } // writeThisUsersDashboardAccess
+
+
+      // ------------------------------------------------------
+      // Project Access is a protected permission matrix.
+      // Only explicit access-management actions may write it.
+      // ------------------------------------------------------
+
+      const writeThisUsersProjectAccess =
+        writeProjectAccess &&
+        projectAccessUserIds.has(
+          String(user.id || "").trim()
+        );
+
+      if (writeThisUsersProjectAccess) {
+
+      // ------------------------------------------------------
+      // Determine desired project assignments.
+      // ------------------------------------------------------
+
+      let desiredProjectKeys = [];
+
+      if (
+        Array.isArray(user.projects) &&
+        user.projects.includes("*")
+      ) {
+        desiredProjectKeys =
+          [...projectByKey.values()]
+            .map(project => project.key);
+      } else {
+        desiredProjectKeys =
+          (user.projects || [])
+            .map(projectKey => {
+              const project =
+                projectByKey.get(
+                  String(projectKey)
+                    .trim()
+                    .toLowerCase()
+                );
+
+              return project?.key || "";
+            })
+            .filter(Boolean);
+      }
+
+      desiredProjectKeys =
+        [...new Set(desiredProjectKeys)];
+
+
+      // ------------------------------------------------------
+      // Write active Project Access rows.
+      // ------------------------------------------------------
+
+      const nextProjectAccess = {};
+
+      for (const projectKey of desiredProjectKeys) {
+
+        const project =
+          projectByKey.get(
+            projectKey.toLowerCase()
+          );
+
+        if (!project) continue;
+
+        const existingCapability =
+          user.projectAccess?.[projectKey] || {};
+
+        const canViewProjectPlan =
+          isExternal
+            ? Boolean(
+                existingCapability.canViewProjectPlan
+              )
+            : true;
+
+        const canViewSiteOperations =
+          isExternal
+            ? Boolean(
+                existingCapability.canViewSiteOperations
+              )
+            : true;
+
+        const accessKey =
+          `${profileKey}|${projectKey}`
+            .toLowerCase();
+
+        const accessFields = {
+          Title:
+            `${displayName} - ${projectKey}`,
+
+          AccessKey:
+            accessKey,
+
+          ProfileKey:
+            profileKey,
+
+          EntraObjectId:
+            objectId,
+
+          ProjectKey:
+            projectKey,
+
+          ProjectSharePointId:
+            project.sharePointId,
+
+          CanViewProjectPlan:
+            canViewProjectPlan,
+
+          CanViewSiteOperations:
+            canViewSiteOperations,
+
+          Active:
+            user.active !== false,
+
+          GrantedBy:
+            String(
+              currentUser?.email ||
+              currentUser?.name ||
+              "Project Control"
+            ),
+
+          GrantedOn:
+            new Date().toISOString()
+        };
+
+        const existingAccess =
+          projectAccessByKey.get(accessKey);
+
+        if (existingAccess) {
+
+          await this.updateItem(
+            this.config.lists.projectAccess,
+            existingAccess.id,
+            accessFields
+          );
+
+          existingAccess.fields = {
+            ...(existingAccess.fields || {}),
+            ...accessFields
+          };
+
+        } else {
+
+          const created =
+            await this.createItem(
+              this.config.lists.projectAccess,
+              accessFields
+            );
+
+          projectAccessByKey.set(
+            accessKey,
+            {
+              id: created.id,
+              fields: accessFields
+            }
+          );
+        }
+
+        nextProjectAccess[projectKey] = {
+          canViewProjectPlan,
+          canViewSiteOperations,
+          projectSharePointId:
+            project.sharePointId,
+          active:
+            user.active !== false
+        };
+      }
+
+
+      // ------------------------------------------------------
+      // Deactivate rows no longer assigned to this user.
+      // Never delete access history.
+      // ------------------------------------------------------
+
+      const desiredSet =
+        new Set(
+          desiredProjectKeys.map(
+            projectKey =>
+              `${profileKey}|${projectKey}`
+                .toLowerCase()
+          )
+        );
+
+      for (const row of projectAccessRows) {
+
+        const rowProfileKey =
+          String(row.fields?.ProfileKey || "")
+            .trim()
+            .toLowerCase();
+
+        const rowObjectId =
+          String(row.fields?.EntraObjectId || "")
+            .trim()
+            .toLowerCase();
+
+        const belongsToUser =
+          rowProfileKey === profileKey.toLowerCase() ||
+          (
+            objectId &&
+            rowObjectId === objectId.toLowerCase()
+          );
+
+        if (!belongsToUser) continue;
+
+        const rowAccessKey =
+          String(row.fields?.AccessKey || "")
+            .trim()
+            .toLowerCase();
+
+        if (
+          rowAccessKey &&
+          !desiredSet.has(rowAccessKey) &&
+          row.fields?.Active !== false
+        ) {
+          await this.updateItem(
+            this.config.lists.projectAccess,
+            row.id,
+            {
+              Active: false
+            }
+          );
+
+          row.fields = {
+            ...(row.fields || {}),
+            Active: false
+          };
+        }
+      }
+
+      user.projectAccess =
+        nextProjectAccess;
+
+      } // writeProjectAccess
     }
+
+    // Save the SharePoint IDs/projectAccess maps we just added.
+    await LocalStorageDataProvider.saveUsers(nextUsers);
 
     return nextUsers;
   }
@@ -1770,11 +2405,11 @@ const FallbackDataProvider = {
     return SharePointDataProvider.loadUsers();
   },
 
-  async saveUsers(nextUsers) {
+  async saveUsers(nextUsers, options = {}) {
     if (this.fallbackWasUsed) {
       return LocalStorageDataProvider.saveUsers(nextUsers);
     }
-    return SharePointDataProvider.saveUsers(nextUsers);
+    return SharePointDataProvider.saveUsers(nextUsers, options);
   },
 
   async getDashboardAccessProfile(graphUser) {

@@ -87,6 +87,7 @@ const APP_CONFIG = Object.freeze({
       deliverables: "Deliverables",
       informationRequired: "Information Required",
       dashboardAccess: "Dashboard Access",
+      projectAccess: "Project Access",
       changeLog: "Change Log",
       projectActivity: "Project Activity",
       projectLocations: "Project Locations",

@@ -84,7 +84,17 @@ function importBackupFile(file){
      if(!state.auditLog)state.auditLog=[];
      if(Array.isArray(payload.users)){
        USERS.splice(0,USERS.length,...snapshot(payload.users));
-       await DataProvider.saveUsers(USERS);
+       await DataProvider.saveUsers(
+         USERS,
+         {
+           writeDashboardAccess: true,
+           dashboardAccessUserIds:
+             USERS.map(user => user.id).filter(Boolean),
+           writeProjectAccess: true,
+           projectAccessUserIds:
+             USERS.map(user => user.id).filter(Boolean)
+         }
+       );
        populateLoginUsers(currentUser?.id||"");
      }
      if(!state.projects.some(p=>p.id===state.currentProjectId&&!p.archived)){

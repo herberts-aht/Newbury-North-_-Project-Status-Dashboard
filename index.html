@@ -7,7 +7,7 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css?v=0.15.51" />
+<link rel="stylesheet" href="css/styles.css?v=0.15.56" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
@@ -94,19 +94,19 @@
         </button>
 
 
-        <div class="admin-only nav-section-label nav-section-admin">
+        <div class="management-only nav-section-label nav-section-admin">
           Admin
         </div>
 
         <button
-          class="admin-only nav-section-item"
+          class="management-only nav-section-item"
           data-view="admin"
         >
           Administration
         </button>
 
         <button
-          class="admin-only nav-section-item"
+          class="system-owner-only nav-section-item"
           data-view="audit"
         >
           Change Log
@@ -377,18 +377,18 @@
       <div class="page-header">
         <div><div class="eyebrow">System Control</div><h2>Administration</h2><p>Manage projects, user assignments, and access.</p></div>
         <div class="admin-header-actions">
-          <button class="btn" id="exportBackupBtn">Export Backup</button>
-          <button class="btn" id="importBackupBtn">Import Backup</button>
+          <button class="btn system-owner-only" id="exportBackupBtn">Export Backup</button>
+          <button class="btn system-owner-only" id="importBackupBtn">Import Backup</button>
           <input id="importBackupFile" type="file" accept="application/json,.json" class="hidden" />
-          <button class="btn primary" id="newProjectBtn">Add Project</button>
+          <button class="btn primary manage-projects-only" id="newProjectBtn">Add Project</button>
         </div>
       </div>
-      <div class="admin-panel">
+      <div class="admin-panel manage-projects-only">
         <h3 style="margin-top:0">Projects</h3>
         <div id="projectAdminList" class="project-admin-list"></div>
       </div>
 
-      <div class="admin-panel entra-access-panel" id="entraAccessPanel">
+      <div class="admin-panel entra-access-panel system-owner-only" id="entraAccessPanel">
         <div class="entra-access-heading">
           <div>
             <div class="eyebrow">Live Microsoft Entra</div>
@@ -436,7 +436,7 @@
         </div>
       </div>
 
-      <div class="admin-panel" id="dashboardProfilePanel">
+      <div class="admin-panel manage-access-only" id="dashboardProfilePanel">
         <div class="admin-grid">
           <div class="admin-card">
             <div class="admin-card-heading">
@@ -467,26 +467,13 @@
             <div class="external-project-capabilities" style="margin-top:18px">
               <h4 style="margin:0 0 6px">Additional Project Access</h4>
 
-              <div class="small" style="margin-bottom:10px">
-                Internal users receive both automatically.
-                External users can be granted detailed access as needed.
-              </div>
+              <div
+                id="adminProjectCapabilityNote"
+                class="small"
+                style="margin-bottom:10px"
+              ></div>
 
-              <label class="active-user-check">
-                <input
-                  id="adminCanViewProjectPlan"
-                  type="checkbox"
-                />
-                Project Plan access
-              </label>
-
-              <label class="active-user-check">
-                <input
-                  id="adminCanViewSiteOperations"
-                  type="checkbox"
-                />
-                Site Operations access
-              </label>
+              <div id="adminProjectCapabilityList"></div>
             </div>
 
           </div>
@@ -567,12 +554,12 @@
 </div>
 
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
-<script src="js/config.js?v=0.14.61"></script>
+<script src="js/config.js?v=0.14.62"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js?v=0.14.53"></script>
+<script src="js/data-provider.js?v=0.14.59"></script>
 <script src="js/storage.js"></script>
-<script src="js/auth.js?v=0.15.1"></script>
-<script src="js/microsoft-access.js?v=0.15.1"></script>
+<script src="js/auth.js?v=0.15.3"></script>
+<script src="js/microsoft-access.js?v=0.15.5"></script>
 <script src="js/permissions.js"></script>
 <script src="js/project-contacts.js?v=0.14.91"></script>
 <script src="js/project-contacts-view.js?v=0.14.89"></script>
@@ -580,7 +567,7 @@
 <script src="js/project-work-view.js?v=0.15.13"></script>
 <script src="js/project-task-editor.js?v=0.15.18"></script>
 <script src="js/site-operations.js?v=0.14.60"></script>
-  <script src="js/dashboard.js?v=0.15.64"></script>
+  <script src="js/dashboard.js?v=0.15.72"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js?v=0.15.1"></script>
@@ -1071,7 +1058,22 @@ function formatLastUpdated(project){
  return `${date} · ${time}${project.lastUpdatedBy?` · ${project.lastUpdatedBy}`:""}`;
 }
 function showView(id){
- if((id==="admin"||id==="audit")&&!currentUser?.canAdmin){
+ const canOpenAdministration=
+   Boolean(
+     currentUser?.canManageProjects ||
+     currentUser?.canManageInternalUsers ||
+     currentUser?.canAssignProjectAccess ||
+     currentUser?.canViewExternalUsers ||
+     currentUser?.canManageExternalUsers ||
+     currentUser?.canManageSystem ||
+     currentUser?.canManageBackups
+   );
+
+ if(id==="admin"&&!canOpenAdministration){
+   id="projects";
+ }
+
+ if(id==="audit"&&!currentUser?.isSystemOwner){
    id="projects";
  }
  document.querySelectorAll(".sidebar-nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===id));
@@ -1178,7 +1180,7 @@ function parseDeliveryPhases(value){
     )
   ];
 }
-function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;if(type!=="project"&&!currentUser.canEdit)return;editContext={type,id:obj?.id??null};deleteRecordBtn.classList.toggle("hidden",!obj||type==="project");modalTitle.textContent=(obj?"Edit ":"Add ")+(type==="deliverable"?"Deliverable":type==="info"?"Information Request":"Project");const d=obj||{};formFields.innerHTML=type==="project"?`
+function openModal(type,obj){if(type==="project"&&!currentUser?.canManageProjects)return;if(type!=="project"&&!currentUser?.canEdit)return;editContext={type,id:obj?.id??null};deleteRecordBtn.classList.toggle("hidden",!obj||type==="project");modalTitle.textContent=(obj?"Edit ":"Add ")+(type==="deliverable"?"Deliverable":type==="info"?"Information Request":"Project");const d=obj||{};formFields.innerHTML=type==="project"?`
     ${field("address","Project Address",d.address||d.name||"")}
     ${field("city","City",d.city||((d.subtitle||"").split(",")[0])||"Naples")}
     ${field("state","State",d.state||((d.subtitle||"").split(",")[1]||"FL").trim())}
@@ -1238,7 +1240,7 @@ function openModal(type,obj){if(type==="project"&&!currentUser.canAdmin)return;i
     Boolean(editContext?.id) &&
     (
       editContext.type === "project"
-        ? Boolean(currentUser?.canAdmin)
+        ? Boolean(currentUser?.isSystemOwner)
         : Boolean(currentUser?.canEdit)
     );
 
@@ -1277,7 +1279,7 @@ function activeAdministratorCount(){
      user.active!==false &&
      (
        user.role==="Admin" ||
-       user.role==="Administrator"
+       user.role==="Admin"
      )
  ).length;
 }
@@ -1292,7 +1294,7 @@ async function archiveSelectedUser(){
    alert("You cannot archive the account you are currently using.");
    return;
  }
- if(user.role==="Administrator"&&user.active!==false&&activeAdministratorCount()<=1){
+ if(user.role==="Admin"&&user.active!==false&&activeAdministratorCount()<=1){
    alert("You cannot archive the last active Administrator.");
    return;
  }
@@ -1300,7 +1302,15 @@ async function archiveSelectedUser(){
    return;
  }
  user.active=false;
- await DataProvider.saveUsers(USERS);
+ await DataProvider.saveUsers(
+   USERS,
+   {
+     writeDashboardAccess: true,
+     dashboardAccessUserIds: [user.id],
+     writeProjectAccess: true,
+     projectAccessUserIds: [user.id]
+   }
+ );
  logChange("Access Change","admin","User Access",user.name,"User archived.");
  await DataProvider.saveState(state);
  populateLoginUsers(currentUser?.id||"");
@@ -1324,7 +1334,7 @@ function userIdFromInput(name,email){
 }
 
 function setUserRoleFlags(user){
- if(user.role==="Administrator"){
+ if(user.role==="Admin"){
    user.role="Admin";
  }
 
@@ -1444,8 +1454,8 @@ saveAccessBtn.onclick=async()=>{
    return;
  }
  if(
-   ["Administrator","Admin"].includes(previousRole) &&
-   !["Administrator","Admin"].includes(user.role) &&
+   previousRole==="Admin" &&
+   user.role!=="Admin" &&
    user.active!==false &&
    activeAdministratorCount()<=1
  ){
@@ -1472,7 +1482,7 @@ saveAccessBtn.onclick=async()=>{
    return;
  }
  if(
-   ["Administrator","Admin"].includes(user.role) &&
+   user.role==="Admin" &&
    !requestedActive &&
    user.active!==false &&
    activeAdministratorCount()<=1
@@ -1487,11 +1497,15 @@ saveAccessBtn.onclick=async()=>{
  const selected=[...projectAssignmentList.querySelectorAll("input:checked")].map(x=>x.value);
  user.projects=user.canAdmin?["*"]:selected;
 
- await DataProvider.saveUsers(USERS);
- if(window.MicrosoftAccess?.saveDashboardProfile){
-   try{ await window.MicrosoftAccess.saveDashboardProfile(user); }
-   catch(error){ alert(`Dashboard profile was saved locally, but Microsoft profile sync failed: ${error.message}`); }
- }
+ await DataProvider.saveUsers(
+   USERS,
+   {
+     writeDashboardAccess: true,
+     dashboardAccessUserIds: [user.id],
+     writeProjectAccess: true,
+     projectAccessUserIds: [user.id]
+   }
+ );
  logChange(
    isNew?"Create":"Access Change",
    "admin",
@@ -1516,7 +1530,7 @@ window.editProject=id=>{
 };
 window.toggleArchive=id=>{
  const p=state.projects.find(x=>x.id===id);
- if(!p||!currentUser.canAdmin)return;
+ if(!p||!currentUser?.canManageProjects)return;
  p.archived=!p.archived;
  touchProject(p);
  logChange("Update",p.id,"Project",p.name,p.archived?"Project archived.":"Project restored.");
@@ -1555,8 +1569,8 @@ editForm.onsubmit=e=>{
    if(!address){alert("Enter the project address.");return;}
    if(!city){alert("Enter the city.");return;}
    if(!stateCode){alert("Enter the state.");return;}
-   if(currentUser.canAdmin&&obj.healthMode==="manual"&&!String(obj.healthOverride||"").trim()){alert("Choose a manual project-health override or return Health Mode to auto.");return;}
-   if(currentUser.canAdmin&&obj.healthMode==="manual"&&!String(obj.healthOverrideReason||"").trim()){alert("Enter the reason for the manual project-health override.");return;}
+   if(currentUser?.canManageProjects&&obj.healthMode==="manual"&&!String(obj.healthOverride||"").trim()){alert("Choose a manual project-health override or return Health Mode to auto.");return;}
+   if(currentUser?.canManageProjects&&obj.healthMode==="manual"&&!String(obj.healthOverrideReason||"").trim()){alert("Enter the reason for the manual project-health override.");return;}
    if(editContext.id){
      const p=state.projects.find(x=>x.id===editContext.id),before=snapshot(p);
      p.name=address;
@@ -1568,7 +1582,7 @@ editForm.onsubmit=e=>{
      p.seniorProjectManager=String(obj.seniorProjectManager||"").trim();
      p.projectManagerSiteLead=String(obj.projectManagerSiteLead||"").trim();
      p.subtitle=`${city}, ${stateCode}${description?` · ${description}`:""}`;
-     if(currentUser.canAdmin){
+     if(currentUser?.canManageProjects){
        p.lastActivityDate=String(obj.lastActivityDate||"").trim();
        p.lastActivity=String(obj.lastActivity||"").trim();
        p.progressPlanning=clampPercent(obj.progressPlanning);
@@ -1586,7 +1600,7 @@ editForm.onsubmit=e=>{
      }
      p.phase=obj.phase;
 
-     if(currentUser.canAdmin){
+     if(currentUser?.canManageProjects){
        p.deliveryPhases=
          parseDeliveryPhases(
            obj.deliveryPhasesText
@@ -1701,7 +1715,7 @@ deleteRecordBtn.onclick=async()=>{
  if(!editContext?.id)return;
 
  if(editContext.type==="project"){
-   if(!currentUser?.canAdmin)return;
+   if(!currentUser?.isSystemOwner)return;
 
    const i=state.projects.findIndex(x=>x.id===editContext.id);
    if(i<0)return;
@@ -1729,11 +1743,9 @@ deleteRecordBtn.onclick=async()=>{
        throw new Error("The active data provider does not support project deletion.");
      }
 
-     // Remove the project from Microsoft sharedProfiles too, so a later
-     // Microsoft Access refresh cannot restore a stale ProjectKey.
-     if(typeof window.MicrosoftAccess?.removeProjectFromProfiles==="function"){
-       await window.MicrosoftAccess.removeProjectFromProfiles(project.id);
-     }
+     // Dashboard Access / Project Access in SharePoint are authoritative.
+     // Legacy Entra sharedProfiles are read-only fallback and are no longer
+     // updated during project deletion.
 
      // Remove explicit local/dashboard assignments. "*" remains all projects.
      USERS.forEach(user=>{
@@ -1857,11 +1869,11 @@ function renderCommentsModal(){
   commentsSubtitle.textContent=commentsContext.type==="Project"?project.name:commentsContext.type;
   const showResolved=showResolvedComments.checked;
   const comments=commentsForRecord(showResolved);
-  const adminCanDelete=Boolean(currentUser?.canAdmin || String(currentUser?.role||"").trim().toLowerCase()==="administrator");
+  const adminCanDelete=Boolean(currentUser?.canAdmin || String(currentUser?.role||"").trim().toLowerCase()==="admin");
   commentsList.innerHTML=comments.length?comments.map(c=>{
     const resolved=c.status==="Resolved";
     const canResolve=!resolved&&Boolean(currentUser?.canEdit);
-    const canDelete=Boolean(currentUser?.canAdmin || String(currentUser?.role||"").trim().toLowerCase()==="administrator");
+    const canDelete=Boolean(currentUser?.canAdmin || String(currentUser?.role||"").trim().toLowerCase()==="admin");
     const actions=[
       canResolve?`<button class="linkbtn" type="button" onclick="resolveComment(${Number(c.id)})">Resolve</button>`:"",
       canDelete?`<button class="linkbtn comment-delete-btn" type="button" onclick="deleteComment(${Number(c.id)})">Delete</button>`:""
@@ -1929,7 +1941,7 @@ window.resolveComment=async function(id){
 
 window.deleteComment=async function(id){
   const {project}=commentsRecord();
-  const adminCanDelete=Boolean(currentUser?.canAdmin || String(currentUser?.role||"").trim().toLowerCase()==="administrator");
+  const adminCanDelete=Boolean(currentUser?.canAdmin || String(currentUser?.role||"").trim().toLowerCase()==="admin");
   if(!adminCanDelete||!project)return;
   const comment=(project.comments||[]).find(x=>Number(x.id)===Number(id));
   if(!comment)return;

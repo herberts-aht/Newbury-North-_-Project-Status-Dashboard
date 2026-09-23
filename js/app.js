@@ -32,17 +32,21 @@ async function initializeApplication() {
   });
 
   try {
-    // User profiles remain local during this read-only SharePoint phase.
-    const savedUsers = await DataProvider.loadUsers();
-    if (Array.isArray(savedUsers) && savedUsers.length) {
-      USERS.splice(0, USERS.length, ...savedUsers);
-    }
-
-    // Initialize Microsoft authentication first. SharePoint cannot be queried
-    // until MSAL has restored (or completed) the signed-in account.
+    // Microsoft authentication must initialize before shared user profiles
+    // are loaded because SharePoint requires an authenticated Graph token.
     await initializeAuthentication({ deferRender: true });
 
     if (currentUser) {
+      const savedUsers = await DataProvider.loadUsers();
+
+      if (Array.isArray(savedUsers) && savedUsers.length) {
+        USERS.splice(
+          0,
+          USERS.length,
+          ...savedUsers
+        );
+      }
+
       state = await DataProvider.loadState();
 
       /*
