@@ -2184,13 +2184,17 @@ const ProjectWorkView = (() => {
             </div>
           </div>
 
-          <button
-            class="btn admin-only"
-            type="button"
-            onclick="window.ProjectTaskEditor?.open({parentId:'${String(item.id).replaceAll("'", "\\'")}'})"
-          >
-            Add Subtask
-          </button>
+          ${
+            currentUser?.canEdit
+              ? `<button
+                   class="btn"
+                   type="button"
+                   onclick="window.ProjectTaskEditor?.open({parentId:'${String(item.id).replaceAll("'", "\\'")}'})"
+                 >
+                   Add Subtask
+                 </button>`
+              : ""
+          }
         </div>
 
         ${

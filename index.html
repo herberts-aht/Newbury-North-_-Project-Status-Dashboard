@@ -7,7 +7,7 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css?v=0.15.57" />
+<link rel="stylesheet" href="css/styles.css?v=1790281073" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
@@ -248,7 +248,7 @@
 
           <div class="project-plan-task-actions">
             <button
-              class="btn admin-only"
+              class="btn editor-only"
               id="editProjectTaskHeaderBtn"
               type="button"
               hidden
@@ -257,7 +257,7 @@
             </button>
 
             <button
-              class="btn admin-only"
+              class="btn editor-only"
               id="addProjectTaskBtn"
               type="button"
             >
@@ -388,26 +388,105 @@
         <div id="projectAdminList" class="project-admin-list"></div>
       </div>
 
-      <div class="admin-panel entra-access-panel system-owner-only" id="entraAccessPanel">
+      <div class="admin-panel entra-access-panel manage-access-only" id="entraAccessPanel">
         <div class="entra-access-heading">
           <div>
-            <div class="eyebrow">Live Microsoft Entra</div>
-            <h3>Microsoft Access</h3>
-            <p class="small">The dedicated Project Control Security Group controls who can sign in. Dashboard profiles below control edit level and project visibility.</p>
+            <div class="eyebrow">Access Control</div>
+            <h3>User Access</h3>
+            <p class="small">Add AHT employees, assign dashboard roles and projects, or invite approved external users.</p>
           </div>
-          <button class="btn" id="refreshEntraUsersBtn" type="button">Refresh Microsoft Users</button>
         </div>
-        <div id="entraAccessStatus" class="entra-access-status">Open Administration to load the live access group.</div>
+        <div id="entraAccessStatus" class="entra-access-status system-owner-only">Open Administration to load the live access group.</div>
         <div class="admin-grid entra-access-actions">
-          <div class="admin-card">
-            <h4>Add AHT Internal User</h4>
-            <p class="small">Adds an existing AHT Microsoft account to the dedicated Project Control access group.</p>
-            <label>AHT Email</label><input id="internalUserEmail" type="email" placeholder="name@ahtglobal.com" />
-            <label style="margin-top:8px">Dashboard Level</label><select id="internalUserRole"><option>Viewer</option><option>Editor</option><option>Project Admin</option><option>Admin</option></select>
-            <label style="margin-top:8px">Viewable Projects</label><div id="internalInviteProjects" class="invite-project-list"></div>
-            <button class="btn primary" id="addInternalBtn" type="button" style="margin-top:10px">Grant Dashboard Access</button>
+          <div class="admin-card" id="addAhtUserCard">
+          <div class="admin-card-heading">
+            <div>
+              <h4>Add AHT User</h4>
+              <div class="small">
+                Add an existing AHT employee to Project Control and assign their role and project access.
+              </div>
+            </div>
           </div>
-          <div class="admin-card">
+
+          <div class="admin-grid" style="margin-top:12px">
+            <div>
+              <label>AHT Employee</label>
+
+              <div class="employee-picker-toolbar">
+                <input
+                  id="addAhtEmployeeSearch"
+                  class="admin-picker-search"
+                  type="search"
+                  placeholder="Search employee, title, or department…"
+                  autocomplete="off"
+                />
+                <span
+                  id="addAhtEmployeeCount"
+                  class="small admin-picker-count"
+                ></span>
+              </div>
+
+              <div
+                id="addAhtEmployeeList"
+                class="employee-directory-picker"
+              ></div>
+
+              <select id="addAhtUserEmployee" class="hidden">
+                <option value="">Select AHT employee…</option>
+              </select>
+
+              <label style="margin-top:10px">Name</label>
+              <input id="addAhtUserName" readonly />
+
+              <label style="margin-top:10px">AHT Email</label>
+              <input id="addAhtUserEmail" type="email" readonly />
+
+              <label style="margin-top:10px">Role</label>
+              <select id="addAhtUserRole">
+                <option>Editor</option>
+                <option>Viewer</option>
+                <option>Project Admin</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Assign Projects</label>
+              <div class="admin-picker-toolbar">
+                <input
+                  id="addAhtProjectSearch"
+                  class="admin-picker-search"
+                  type="search"
+                  placeholder="Search projects…"
+                  autocomplete="off"
+                />
+                <span
+                  id="addAhtProjectCount"
+                  class="small admin-picker-count"
+                ></span>
+              </div>
+              <div
+                id="addAhtUserProjects"
+                class="admin-scroll-picker"
+              ></div>
+            </div>
+          </div>
+
+          <div class="access-card-actions">
+            <button class="btn primary" id="addAhtUserBtn" type="button">
+              Add AHT User
+            </button>
+
+            <button
+              class="btn organization-wide-user-control"
+              id="refreshEmployeeDirectoryBtn"
+              type="button"
+            >
+              Refresh Employee Directory
+            </button>
+          </div>
+        </div>
+
+        <div class="admin-card system-owner-only">
             <h4>Invite External User</h4>
             <p class="small">Creates an Entra B2B guest and grants access to this dashboard group only. This does not add the guest to SharePoint.</p>
             <label>Email</label><input id="externalInviteEmail" type="email" placeholder="person@company.com" />
@@ -415,7 +494,23 @@
             <label style="margin-top:8px">Company</label><input id="externalInviteCompany" placeholder="Company" />
             <label style="margin-top:8px">Dashboard Level</label><select id="externalInviteRole"><option>External Viewer</option></select>
             <label style="margin-top:8px">Viewable Projects</label><div id="externalInviteProjects" class="invite-project-list"></div>
-            <button class="btn primary" id="inviteExternalBtn" type="button" style="margin-top:10px">Create Invitation</button>
+            <div class="access-card-actions">
+              <button
+                class="btn primary"
+                id="inviteExternalBtn"
+                type="button"
+              >
+                Create Invitation
+              </button>
+
+              <button
+                class="btn system-owner-only"
+                id="refreshEntraUsersBtn"
+                type="button"
+              >
+                Refresh Microsoft Users
+              </button>
+            </div>
             <div id="inviteRedeemArea" class="invite-redeem hidden">
               <div class="small" id="inviteReadySummary"><strong>Invitation ready.</strong></div>
               <div class="small" style="margin-top:4px">Use the Microsoft activation link below. For an existing pending guest, paste a redemption link here if needed.</div>
@@ -427,7 +522,7 @@
             </div>
           </div>
         </div>
-        <div class="entra-user-table-wrap">
+        <div class="entra-user-table-wrap system-owner-only">
           <div class="entra-table-heading"><h4>Current Dashboard Access</h4><span class="small" id="entraUserCount"></span></div>
           <table class="entra-user-table">
             <thead><tr><th>User</th><th>Entra Type</th><th>Dashboard Level</th><th>Projects</th><th></th></tr></thead>
@@ -437,35 +532,89 @@
       </div>
 
       <div class="admin-panel manage-access-only" id="dashboardProfilePanel">
+
+        <div class="admin-card-heading" style="margin-bottom:10px">
+          <div>
+            <h4>Manage Existing Users</h4>
+            <div class="small">
+              Manage dashboard role, project assignments, and project access for existing users.
+            </div>
+          </div>
+        </div>
+
         <div class="admin-grid">
           <div class="admin-card">
-            <div class="admin-card-heading">
-              <h4>Dashboard Role / Project Assignment</h4>
-              <button class="btn" id="newUserBtn" type="button">Add Local Profile</button>
+            <label>User</label>
+            <input
+              id="adminUserSearch"
+              class="admin-picker-search"
+              type="search"
+              placeholder="Search available users…"
+              autocomplete="off"
+            />
+            <div class="small admin-scope-note">
+              Users shown here are limited to your current management scope.
             </div>
-            <label>User</label><select id="adminUserSelect"></select>
+            <select id="adminUserSelect"></select>
             <label style="margin-top:10px">Name</label><input id="adminUserName" />
             <label style="margin-top:10px">Email</label><input id="adminUserEmail" type="email" />
             <label style="margin-top:10px">Company</label><input id="adminUserCompany" />
             <label style="margin-top:10px">Role</label><select id="adminRoleSelect">
               <option>Admin</option><option>Project Admin</option><option>Viewer</option><option>Editor</option><option>External Viewer</option>
             </select>
+
+            <div
+              id="managementDivisionsControl"
+              class="organization-wide-user-control"
+              style="margin-top:14px"
+            >
+              <label>Home Division</label>
+              <div id="adminHomeDivision" class="small" style="margin:5px 0 10px">—</div>
+
+              <label>Additional Management Divisions</label>
+              <div class="small" style="margin:4px 0 7px">
+                Temporary administrative scope. This does not change the employee's Home Division.
+              </div>
+
+              <div
+                id="adminManagementDivisions"
+                class="admin-scroll-picker"
+              ></div>
+            </div>
+
             <div id="legacyPasswordControls"><label style="margin-top:10px">Temporary Password</label><select id="adminPasswordProfile">
               <option value="aht">AHT Internal — ahtadmin</option>
               <option value="external">External — user</option>
               <option value="stacy">Stacy Administrator — ahtadmin8626</option>
             </select></div>
-            <label class="active-user-check"><input id="adminUserActive" type="checkbox" checked /> Active user</label>
-            <label class="active-user-check"><input id="showArchivedUsers" type="checkbox" /> Show archived users</label>
-            <button class="btn danger" id="archiveUserBtn" type="button">Archive User</button>
+            <label class="active-user-check organization-wide-user-control"><input id="adminUserActive" type="checkbox" checked /> Active user</label>
+            <label class="active-user-check organization-wide-user-control"><input id="showArchivedUsers" type="checkbox" /> Show archived users</label>
+            <button class="btn danger organization-wide-user-control" id="archiveUserBtn" type="button">Archive User</button>
           </div>
+
           <div class="admin-card">
             <h4>Project Assignment</h4>
             <label>Assigned Projects</label>
-            <div id="projectAssignmentList"></div>
+            <div class="admin-picker-toolbar">
+              <input
+                id="adminProjectSearch"
+                class="admin-picker-search"
+                type="search"
+                placeholder="Search projects…"
+                autocomplete="off"
+              />
+              <span
+                id="adminProjectCount"
+                class="small admin-picker-count"
+              ></span>
+            </div>
+            <div
+              id="projectAssignmentList"
+              class="admin-scroll-picker"
+            ></div>
 
             <div class="external-project-capabilities" style="margin-top:18px">
-              <h4 style="margin:0 0 6px">Additional Project Access</h4>
+              <h4 style="margin:0 0 6px">Project Access</h4>
 
               <div
                 id="adminProjectCapabilityNote"
@@ -478,7 +627,10 @@
 
           </div>
         </div>
-        <div style="margin-top:12px"><button class="btn primary" id="saveAccessBtn">Save User</button></div>
+
+        <div style="margin-top:12px">
+          <button class="btn primary" id="saveAccessBtn">Save User</button>
+        </div>
       </div>
       <div class="note">Microsoft Entra controls sign-in access. Dashboard profiles control application edit level and project visibility only.</div>
     </section>
@@ -556,21 +708,21 @@
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
 <script src="js/config.js?v=0.14.62"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js?v=0.14.59"></script>
+<script src="js/data-provider.js?v=1790256735"></script>
 <script src="js/storage.js"></script>
-<script src="js/auth.js?v=0.15.3"></script>
-<script src="js/microsoft-access.js?v=0.15.5"></script>
+<script src="js/auth.js?v=1790194991"></script>
+<script src="js/microsoft-access.js?v=1790254956"></script>
 <script src="js/permissions.js"></script>
 <script src="js/project-contacts.js?v=0.14.91"></script>
 <script src="js/project-contacts-view.js?v=0.14.89"></script>
 <script src="js/project-work-items.js?v=0.15.17"></script>
-<script src="js/project-work-view.js?v=0.15.13"></script>
-<script src="js/project-task-editor.js?v=0.15.19"></script>
-<script src="js/site-operations.js?v=0.14.60"></script>
-  <script src="js/dashboard.js?v=0.15.74"></script>
+<script src="js/project-work-view.js?v=0.15.14"></script>
+<script src="js/project-task-editor.js?v=0.15.20"></script>
+<script src="js/site-operations.js?v=1790277011"></script>
+  <script src="js/dashboard.js?v=1790286420"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
-<script src="js/app.js?v=0.15.1"></script>
+<script src="js/app.js?v=0.15.2"></script>
 <script>
 
 
@@ -1076,6 +1228,10 @@ function showView(id){
  if(id==="audit"&&!currentUser?.isSystemOwner){
    id="projects";
  }
+
+ if(id==="audit"&&!currentUser?.isSystemOwner){
+   id="projects";
+ }
  document.querySelectorAll(".sidebar-nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===id));
  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
  if(id==="timeline"&&typeof resetGanttGroups==="function"){
@@ -1164,6 +1320,82 @@ function projectTeamField(name,label,val){
 }
 function selectField(name,label,opts,val){return `<div class="field"><label>${label}</label><select name="${name}">${opts.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select></div>`}
 
+const AHT_DIVISIONS=[
+  "Aspen",
+  "Colombia",
+  "Hawaii",
+  "Los Angeles",
+  "Marine",
+  "Miami",
+  "Naples",
+  "New York",
+  "Orlando",
+  "Palm Beach",
+  "Philadelphia",
+  "New Jersey",
+  "Long Island",
+  "Maui",
+  "Luxury Audio - Hawaii",
+  "Luxury Audio - New York",
+  "Oʻahu"
+];
+
+function projectDivisionValue(project){
+  const allowed=
+    typeof effectiveManagementDivisions==="function"
+      ? effectiveManagementDivisions(currentUser)
+      : [];
+
+  return String(
+    project?.division ||
+    allowed[0] ||
+    currentUser?.division ||
+    currentProject()?.division ||
+    "Naples"
+  ).trim();
+}
+
+function projectDivisionField(project){
+  const value=projectDivisionValue(project);
+
+  if(
+    currentUser?.canAdmin ||
+    currentUser?.isSystemOwner
+  ){
+    return selectField(
+      "division",
+      "Division",
+      AHT_DIVISIONS,
+      value
+    );
+  }
+
+  const allowed=
+    typeof effectiveManagementDivisions==="function"
+      ? effectiveManagementDivisions(currentUser)
+      : [];
+
+  if(allowed.length>1){
+    return selectField(
+      "division",
+      "Division",
+      allowed,
+      value
+    );
+  }
+
+  return `
+    <div class="field">
+      <label>Division</label>
+      <input
+        name="division"
+        value="${esc(value)}"
+        readonly
+      >
+    </div>
+  `;
+}
+
 function deliveryPhasesText(project){
   return Array.isArray(project?.deliveryPhases)
     ? project.deliveryPhases.join("\n")
@@ -1185,6 +1417,7 @@ function openModal(type,obj){if(type==="project"&&!currentUser?.canManageProject
     ${field("city","City",d.city||((d.subtitle||"").split(",")[0])||"Naples")}
     ${field("state","State",d.state||((d.subtitle||"").split(",")[1]||"FL").trim())}
     ${field("description","Builder / Client",d.description||((d.subtitle||"").includes("·")?(d.subtitle.split("·")[1]||"").trim():""),"full")}
+    ${projectDivisionField(d)}
     ${projectTeamField("executiveLead","Executive Lead",d.executiveLead||"")}
     ${projectTeamField("seniorProjectManager","Senior Project Manager",d.seniorProjectManager||"")}
     ${projectTeamField("projectManagerSiteLead","Project Manager / Site Lead",d.projectManagerSiteLead||"")}
@@ -1290,6 +1523,26 @@ async function archiveSelectedUser(){
    alert("Select a user first.");
    return;
  }
+
+ const operatorHasOrganizationWideAdminScope=
+   Boolean(
+     currentUser?.canAdmin ||
+     currentUser?.isSystemOwner
+   );
+
+ const protectedUser=
+   Boolean(
+     user.canAdmin ||
+     user.isSystemOwner ||
+     user.role==="Admin" ||
+     user.projects?.includes("*")
+   );
+
+ if(protectedUser && !operatorHasOrganizationWideAdminScope){
+   alert("Project Admins cannot archive or deactivate Admin or System Owner accounts.");
+   return;
+ }
+
  if(user.id===currentUser?.id){
    alert("You cannot archive the account you are currently using.");
    return;
@@ -1392,25 +1645,376 @@ function setUserRoleFlags(user){
 }
 
 function startNewUser(){
+ if(!currentUser?.canManageInternalUsers)return;
+
  creatingUser=true;
  adminUserSelect.value="";
  adminUserName.value="";
  adminUserEmail.value="";
  adminUserCompany.value="AHT Global";
+
+ const operatorCanAssignAdmin=
+   Boolean(
+     currentUser?.canAdmin ||
+     currentUser?.isSystemOwner
+   );
+
+ adminRoleSelect.innerHTML=
+   operatorCanAssignAdmin
+     ? '<option>Admin</option>'+
+       '<option>Project Admin</option>'+
+       '<option>Editor</option>'+
+       '<option>Viewer</option>'
+     : '<option>Project Admin</option>'+
+       '<option>Editor</option>'+
+       '<option>Viewer</option>';
+
  adminRoleSelect.value="Editor";
+ adminRoleSelect.disabled=false;
+
  adminPasswordProfile.value="aht";
  adminPasswordProfile.disabled=false;
  adminUserActive.checked=true;
- projectAssignmentList.querySelectorAll("input").forEach(input=>input.checked=false);
+
+ projectAssignmentList
+   .querySelectorAll("input")
+   .forEach(input=>input.checked=false);
+
  archiveUserBtn.disabled=true;
  adminUserName.focus();
 }
 
-newUserBtn.onclick=startNewUser;
+const addAhtUserBtn=
+ document.getElementById("addAhtUserBtn");
+
+if(addAhtUserBtn){
+ addAhtUserBtn.onclick=async()=>{
+   if(!currentUser?.canManageInternalUsers)return;
+
+   const name=
+     String(
+       document.getElementById("addAhtUserName")?.value||""
+     ).trim();
+
+   const email=
+     String(
+       document.getElementById("addAhtUserEmail")?.value||""
+     ).trim();
+
+   const role=
+     String(
+       document.getElementById("addAhtUserRole")?.value||"Viewer"
+     ).trim();
+
+   const employeeDirectory=
+     typeof DataProvider?.getCachedEmployeeDirectory==="function"
+       ? DataProvider.getCachedEmployeeDirectory()
+       : [];
+
+   const selectedEmployee=
+     employeeDirectory.find(employee=>
+       String(employee.email||"")
+         .trim()
+         .toLowerCase()===
+       email.toLowerCase()
+     );
+
+   if(!selectedEmployee){
+     alert("Select an AHT employee from the employee list.");
+     return;
+   }
+
+   if(!name){
+     alert("The selected employee does not have a name in the AHT Employee List.");
+     return;
+   }
+
+   if(!email){
+     alert("The selected employee does not have an AHT email.");
+     return;
+   }
+
+   const existing=
+     USERS.find(user=>
+       String(user.email||"").trim().toLowerCase()===
+       email.toLowerCase()
+     );
+
+   if(existing){
+     alert("That AHT user already has a Project Control profile. Use Manage Existing Users instead.");
+     return;
+   }
+
+   const operatorCanAssignAdmin=
+     Boolean(
+       currentUser?.canAdmin ||
+       currentUser?.isSystemOwner
+     );
+
+   if(!operatorCanAssignAdmin){
+     const allowedDivisions=
+       new Set(
+         effectiveManagementDivisions(currentUser)
+           .map(value=>value.toLowerCase())
+       );
+
+     const employeeDivision=
+       String(selectedEmployee.division||"")
+         .trim()
+         .toLowerCase();
+
+     if(
+       !employeeDivision ||
+       !allowedDivisions.has(employeeDivision)
+     ){
+       alert(
+         "That employee is outside your management division scope."
+       );
+       return;
+     }
+   }
+
+   if(
+     role==="Admin" &&
+     !operatorCanAssignAdmin
+   ){
+     alert("Project Admins cannot assign the Admin role.");
+     return;
+   }
+
+   if(
+     ![
+       "Viewer",
+       "Editor",
+       "Project Admin",
+       ...(operatorCanAssignAdmin?["Admin"]:[])
+     ].includes(role)
+   ){
+     alert("Choose a valid dashboard role.");
+     return;
+   }
+
+   const selectedProjects=
+     [...document.querySelectorAll(
+       "#addAhtUserProjects input:checked"
+     )].map(input=>input.value);
+
+   if(!selectedProjects.length && role!=="Admin"){
+     alert("Assign at least one project.");
+     return;
+   }
+
+   const user={
+     id:userIdFromInput(name,email),
+     name,
+     email,
+     company:"AHT Global",
+     division:String(selectedEmployee.division||"").trim(),
+     department:String(selectedEmployee.department||"").trim(),
+     employeeDirectoryId:selectedEmployee.id||0,
+     managementDivisions:[],
+     role,
+     passwordProfile:"aht",
+     active:true,
+     projects:role==="Admin"?["*"]:selectedProjects,
+     projectAccess:{},
+     entraUserType:"Member",
+     canEdit:false,
+     canAdmin:false,
+     canProjectAdmin:false,
+     isInternal:true
+   };
+
+   setUserRoleFlags(user);
+
+   USERS.push(user);
+
+   try{
+     await DataProvider.saveUsers(
+       USERS,
+       {
+         writeDashboardAccess:true,
+         dashboardAccessUserIds:[user.id],
+         writeProjectAccess:true,
+         projectAccessUserIds:[user.id]
+       }
+     );
+
+     logChange(
+       "Create",
+       "admin",
+       "User Access",
+       user.name,
+       `AHT user added; role: ${user.role}; projects: ${user.projects.join(", ")||"none"}.`
+     );
+
+     await DataProvider.saveState(state);
+
+     let microsoftAccessWarning="";
+
+     if(
+       (
+         currentUser?.canAdmin ||
+         currentUser?.isSystemOwner
+       ) &&
+       window.MicrosoftAccess?.grantInternalAccess
+     ){
+       try{
+         const entraUser=
+           await window.MicrosoftAccess.grantInternalAccess(
+             email,
+             role
+           );
+
+         if(entraUser?.id){
+           user.entraObjectId=entraUser.id;
+           user.entraUserType=
+             entraUser.userType || "Member";
+
+           await DataProvider.saveUsers(
+             USERS,
+             {
+               writeDashboardAccess:true,
+               dashboardAccessUserIds:[user.id],
+               writeProjectAccess:false
+             }
+           );
+         }
+
+       }catch(error){
+         console.error(
+           "Dashboard profile saved, but Microsoft access could not be granted.",
+           error
+         );
+
+         microsoftAccessWarning=
+           `\n\nDashboard profile was created, but Microsoft access still needs attention: ${error.message}`;
+       }
+     }
+
+     document.getElementById("addAhtUserEmployee").value="";
+     document.getElementById("addAhtUserName").value="";
+     document.getElementById("addAhtUserEmail").value="";
+     document.getElementById("addAhtUserRole").value="Editor";
+
+     document
+       .querySelectorAll("#addAhtUserProjects input")
+       .forEach(input=>input.checked=false);
+
+     populateLoginUsers(user.id);
+     adminUserSelect.value=user.id;
+
+     if(
+       currentUser?.canAdmin ||
+       currentUser?.isSystemOwner
+     ){
+       alert(
+         microsoftAccessWarning
+           ? `AHT user added.${microsoftAccessWarning}`
+           : "AHT user added and Microsoft access granted."
+       );
+     }else{
+       alert(
+         "AHT user added. An organization-wide Admin may still need to grant Microsoft sign-in access if the employee is not already in the Project Control access group."
+       );
+     }
+
+     render();
+
+   }catch(error){
+     const userIndex=
+       USERS.findIndex(candidate=>candidate.id===user.id);
+
+     if(userIndex>=0){
+       USERS.splice(userIndex,1);
+     }
+
+     console.error(error);
+
+     alert(
+       `AHT user could not be added: ${error.message}`
+     );
+   }
+ };
+}
+
+const refreshEmployeeDirectoryBtn=
+  document.getElementById(
+    "refreshEmployeeDirectoryBtn"
+  );
+
+if(refreshEmployeeDirectoryBtn){
+  refreshEmployeeDirectoryBtn.onclick=
+    async()=>{
+      if(
+        !currentUser?.canAdmin &&
+        !currentUser?.isSystemOwner
+      ){
+        alert(
+          "Organization-wide Admin access is required to refresh the employee directory."
+        );
+        return;
+      }
+
+      const originalText=
+        refreshEmployeeDirectoryBtn.textContent;
+
+      refreshEmployeeDirectoryBtn.disabled=true;
+      refreshEmployeeDirectoryBtn.textContent=
+        "Refreshing…";
+
+      try{
+        const result=
+          await DataProvider
+            .refreshAhtEmployeeDirectoryCache();
+
+        /*
+         * Re-read users so Division / Department enrichment
+         * and the employee picker use the refreshed cache.
+         */
+        const refreshedUsers=
+          await DataProvider.loadUsers();
+
+        USERS.splice(
+          0,
+          USERS.length,
+          ...refreshedUsers
+        );
+
+        alert(
+          "Employee directory refreshed.\n\n"+
+          `Source employees: ${result.sourceCount}\n`+
+          `Added: ${result.created}\n`+
+          `Updated: ${result.updated}\n`+
+          `Removed: ${result.removed}\n`+
+          `Unchanged: ${result.unchanged}`
+        );
+
+        render();
+
+      }catch(error){
+        console.error(
+          "Employee directory refresh failed.",
+          error
+        );
+
+        alert(
+          `Employee directory could not be refreshed:\n\n${error.message}`
+        );
+
+      }finally{
+        refreshEmployeeDirectoryBtn.disabled=false;
+        refreshEmployeeDirectoryBtn.textContent=
+          originalText;
+      }
+    };
+}
+
 archiveUserBtn.onclick=archiveSelectedUser;
 showArchivedUsers.onchange=renderAdmin;
 adminUserSelect.onchange=()=>{
  creatingUser=false;
+ window.adminEditingUserId=adminUserSelect.value||"";
  renderAdmin();
 };
 
@@ -1424,29 +2028,118 @@ saveAccessBtn.onclick=async()=>{
  let user=creatingUser?null:USERS.find(x=>x.id===adminUserSelect.value);
  const isNew=!user;
 
+ const operatorHasOrganizationWideAdminScope=
+   Boolean(
+     currentUser?.canAdmin ||
+     currentUser?.isSystemOwner
+   );
+
+ if(
+   !isNew &&
+   user &&
+   !operatorHasOrganizationWideAdminScope &&
+   (
+     user.canAdmin ||
+     user.isSystemOwner ||
+     user.role==="Admin" ||
+     user.projects?.includes("*")
+   )
+ ){
+   alert("Project Admins cannot modify Admin or System Owner accounts.");
+   return;
+ }
+
  if(isNew){
+   if(!currentUser?.canManageInternalUsers){
+     alert("You do not have permission to add internal users.");
+     return;
+   }
+
    user={
      id:userIdFromInput(name,adminUserEmail.value),
      name:"",
      email:"",
-     company:"",
-     role:"External Viewer",
-     passwordProfile:"external",
+     company:"AHT Global",
+     role:"Editor",
+     passwordProfile:"aht",
      active:true,
      projects:[],
-     canEdit:false,
+     projectAccess:{},
+     entraUserType:"Member",
+     canEdit:true,
      canAdmin:false,
-     isInternal:false
+     canProjectAdmin:false,
+     isInternal:true
    };
+
    USERS.push(user);
  }
 
  user.name=name;
  user.email=adminUserEmail.value.trim();
- user.company=adminUserCompany.value.trim();
+
+ if(isNew){
+   user.company="AHT Global";
+   user.entraUserType="Member";
+   user.isInternal=true;
+ }else{
+   user.company=adminUserCompany.value.trim();
+ }
+
  const previousRole=user.role;
+
+ const operatorCanAssignAdmin=
+   Boolean(
+     currentUser?.canAdmin ||
+     currentUser?.isSystemOwner
+   );
+
+ if(
+   adminRoleSelect.value==="Admin" &&
+   !operatorCanAssignAdmin
+ ){
+   alert("Project Admins cannot assign the Admin role.");
+   return;
+ }
+
  user.role=adminRoleSelect.value;
- // Administrators may explicitly grant an Entra guest Editor rights for testing or limited project edits.
+
+ if(operatorHasOrganizationWideAdminScope){
+   user.managementDivisions=
+     [...document.querySelectorAll(
+       "#adminManagementDivisions input.admin-management-division:checked"
+     )]
+       .map(input=>
+         String(input.value||"").trim()
+       )
+       .filter(Boolean);
+ }
+
+ if(
+   isNew &&
+   !(
+     currentUser?.canAdmin ||
+     currentUser?.isSystemOwner
+   )
+ ){
+   user.entraUserType="Member";
+   user.isInternal=true;
+   user.company="AHT Global";
+
+   if(
+     ![
+       "Viewer",
+       "Editor",
+       "Project Admin"
+     ].includes(user.role)
+   ){
+     alert("Project Admins may create internal Viewer, Editor, or Project Admin profiles only.");
+     return;
+   }
+ }
+
+ // Role-testing guests remain external Entra identities even while
+ // simulating an elevated dashboard role.
  // Guest identity remains external; comments/internal-only features stay hidden.
  if(user.id===currentUser?.id&&user.role!==previousRole){
    alert("For safety, you cannot change the Administrator role of the account you are currently using. Another Administrator can change it.");
@@ -1476,7 +2169,11 @@ saveAccessBtn.onclick=async()=>{
  }
  user.passwordProfile=user.id==="stacy"?"stacy":adminPasswordProfile.value;
 
- const requestedActive=adminUserActive.checked;
+ const requestedActive=
+   operatorHasOrganizationWideAdminScope
+     ? adminUserActive.checked
+     : user.active!==false;
+
  if(user.id===currentUser?.id&&!requestedActive){
    alert("You cannot deactivate the account you are currently using.");
    return;
@@ -1495,7 +2192,67 @@ saveAccessBtn.onclick=async()=>{
  setUserRoleFlags(user);
 
  const selected=[...projectAssignmentList.querySelectorAll("input:checked")].map(x=>x.value);
- user.projects=user.canAdmin?["*"]:selected;
+
+ const operatorHasOrganizationWideScope=
+   Boolean(
+     currentUser?.canAdmin ||
+     currentUser?.isSystemOwner ||
+     currentUser?.projects?.includes("*")
+   );
+
+ if(user.canAdmin){
+   user.projects=["*"];
+
+ }else if(operatorHasOrganizationWideScope){
+   user.projects=selected;
+
+ }else{
+   const operatorManagementDivisionKeys=
+     new Set(
+       effectiveManagementDivisions(currentUser)
+         .map(value=>value.toLowerCase())
+     );
+
+   const useExplicitProjectManagementScope=
+     !operatorManagementDivisionKeys.size;
+
+   const operatorProjectIds=
+     useExplicitProjectManagementScope
+       ? new Set(
+           (currentUser?.projects||[])
+             .filter(projectId=>projectId!=="*")
+         )
+       : new Set(
+           state.projects
+             .filter(project=>
+               operatorManagementDivisionKeys.has(
+                 String(project.division||"")
+                   .trim()
+                   .toLowerCase()
+               )
+             )
+             .map(project=>project.id)
+         );
+
+   const preservedOutsideScope=
+     (user.projects||[])
+       .filter(projectId=>
+         projectId!=="*" &&
+         !operatorProjectIds.has(projectId)
+       );
+
+   const selectedInsideScope=
+     selected.filter(projectId=>
+       operatorProjectIds.has(projectId)
+     );
+
+   user.projects=[
+     ...new Set([
+       ...preservedOutsideScope,
+       ...selectedInsideScope
+     ])
+   ];
+ }
 
  await DataProvider.saveUsers(
    USERS,
@@ -1518,19 +2275,84 @@ saveAccessBtn.onclick=async()=>{
  creatingUser=false;
  populateLoginUsers(user.id);
  adminUserSelect.value=user.id;
- alert(isNew?"User added.":"User updated.");
+ window.adminEditingUserId="";
+ alert(isNew?"Internal user added.":"User updated.");
  render();
 };
 
 
+function canManageProjectId(id){
+ if(
+   currentUser?.canAdmin ||
+   currentUser?.isSystemOwner ||
+   currentUser?.projects?.includes("*")
+ ){
+   return true;
+ }
+
+ if(!currentUser?.canManageProjects){
+   return false;
+ }
+
+ const project=
+   state.projects.find(
+     item=>item.id===id
+   );
+
+ if(!project){
+   return false;
+ }
+
+ const operatorManagementDivisionKeys=
+   new Set(
+     effectiveManagementDivisions(currentUser)
+       .map(value=>value.toLowerCase())
+   );
+
+ const useExplicitProjectManagementScope=
+   !operatorManagementDivisionKeys.size;
+
+ if(useExplicitProjectManagementScope){
+   return Boolean(
+     (currentUser?.projects||[]).includes(id)
+   );
+ }
+
+ return operatorManagementDivisionKeys.has(
+   String(project.division||"")
+     .trim()
+     .toLowerCase()
+ );
+}
+
 window.editProject=id=>{
+ if(!canManageProjectId(id))return;
+
  const p=state.projects.find(x=>x.id===id);
- const assignedUsers=USERS.filter(u=>u.projects.includes("*")||u.projects.includes(id)).map(u=>u.id);
- openModal("project",{...p,address:p.address||p.name,city:p.city||((p.subtitle||"").split(",")[0])||"",state:p.state||"FL",description:p.description||"",assignedUsers});
+ if(!p)return;
+
+ const assignedUsers=USERS
+   .filter(u=>
+     u.projects.includes("*")||
+     u.projects.includes(id)
+   )
+   .map(u=>u.id);
+
+ openModal(
+   "project",
+   {
+     ...p,
+     address:p.address||p.name,
+     city:p.city||((p.subtitle||"").split(",")[0])||"",
+     state:p.state||"FL",
+     description:p.description||"",
+     assignedUsers
+   }
+ );
 };
 window.toggleArchive=id=>{
  const p=state.projects.find(x=>x.id===id);
- if(!p||!currentUser?.canManageProjects)return;
+ if(!p||!canManageProjectId(id))return;
  p.archived=!p.archived;
  touchProject(p);
  logChange("Update",p.id,"Project",p.name,p.archived?"Project archived.":"Project restored.");
@@ -1566,9 +2388,62 @@ editForm.onsubmit=e=>{
    const city=String(obj.city||"").trim();
    const stateCode=String(obj.state||"").trim();
    const description=String(obj.description||"").trim();
+
+   const organizationWideProjectAdmin=
+     Boolean(
+       currentUser?.canAdmin ||
+       currentUser?.isSystemOwner
+     );
+
+   const currentProjectRecord=
+     editContext.id
+       ? state.projects.find(
+           project=>project.id===editContext.id
+         )
+       : null;
+
+   const allowedManagementDivisions=
+     typeof effectiveManagementDivisions==="function"
+       ? effectiveManagementDivisions(currentUser)
+       : [];
+
+   const requestedDivision=
+     String(obj.division||"").trim();
+
+   let division="";
+
+   if(organizationWideProjectAdmin){
+     division=requestedDivision;
+
+   }else if(allowedManagementDivisions.length){
+     const allowed=
+       allowedManagementDivisions.find(value=>
+         value.toLowerCase()===
+         requestedDivision.toLowerCase()
+       );
+
+     division=
+       allowed ||
+       String(
+         currentProjectRecord?.division ||
+         allowedManagementDivisions[0] ||
+         ""
+       ).trim();
+
+   }else{
+     division=
+       String(
+         currentProjectRecord?.division ||
+         currentProject()?.division ||
+         requestedDivision ||
+         ""
+       ).trim();
+   }
+
    if(!address){alert("Enter the project address.");return;}
    if(!city){alert("Enter the city.");return;}
    if(!stateCode){alert("Enter the state.");return;}
+   if(!division){alert("A project Division is required.");return;}
    if(currentUser?.canManageProjects&&obj.healthMode==="manual"&&!String(obj.healthOverride||"").trim()){alert("Choose a manual project-health override or return Health Mode to auto.");return;}
    if(currentUser?.canManageProjects&&obj.healthMode==="manual"&&!String(obj.healthOverrideReason||"").trim()){alert("Enter the reason for the manual project-health override.");return;}
    if(editContext.id){
@@ -1578,6 +2453,7 @@ editForm.onsubmit=e=>{
      p.city=city;
      p.state=stateCode;
      p.description=description;
+     p.division=division;
      p.executiveLead=String(obj.executiveLead||"").trim();
      p.seniorProjectManager=String(obj.seniorProjectManager||"").trim();
      p.projectManagerSiteLead=String(obj.projectManagerSiteLead||"").trim();
@@ -1640,6 +2516,7 @@ if(state.projects.some(project=>String(project.id).toUpperCase()===id)){
        city,
        state:stateCode,
        description,
+       division,
        executiveLead:String(obj.executiveLead||"").trim(),
        seniorProjectManager:String(obj.seniorProjectManager||"").trim(),
        projectManagerSiteLead:String(obj.projectManagerSiteLead||"").trim(),

@@ -45,6 +45,22 @@ async function initializeApplication() {
           USERS.length,
           ...savedUsers
         );
+
+        /*
+         * Authentication initializes before SharePoint users are loaded so
+         * Graph/SharePoint access is available. Rebuild the signed-in
+         * dashboard profile now that USERS contains the authoritative
+         * Dashboard Access record.
+         *
+         * This is especially important for role-testing guests, whose
+         * Project Admin / Editor capabilities depend on the loaded profile.
+         */
+        const refreshedUser =
+          await AuthProvider.restoreSession();
+
+        if (refreshedUser) {
+          currentUser = refreshedUser;
+        }
       }
 
       state = await DataProvider.loadState();

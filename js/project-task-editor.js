@@ -1389,6 +1389,10 @@ document.addEventListener(
       event.preventDefault();
       event.stopImmediatePropagation();
 
+      if (!currentUser?.canEdit) {
+        return;
+      }
+
       ProjectTaskEditor.open();
 
       return;
@@ -1413,15 +1417,19 @@ document.addEventListener(
 
     if (label === "Add Subtask") {
 
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      if (!currentUser?.canEdit) {
+        return;
+      }
+
       const parentId =
         window.__projectPlanSelectedTaskId;
 
       if (!parentId) {
         return;
       }
-
-      event.preventDefault();
-      event.stopImmediatePropagation();
 
       ProjectTaskEditor.open({
         parentId

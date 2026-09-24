@@ -233,7 +233,32 @@ linear-gradient(145deg,#102947,#17365d 58%,#244e7c)}
 .admin-card-heading h4{margin:0}
 .admin-card input,.admin-card select{width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;background:#fff}
 .active-user-check{display:flex!important;align-items:center;gap:8px;margin-top:12px!important;font-weight:600!important}
+
 .active-user-check input{width:auto}
+
+/* Organization-wide user lifecycle controls must remain hidden for Project Admins. */
+.organization-wide-user-control.hidden{
+  display:none!important;
+}
+
+/* Keep Admin-only lifecycle checkboxes compact and left aligned. */
+label.organization-wide-user-control{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:8px!important;
+  width:max-content!important;
+  max-width:100%;
+  margin-top:12px!important;
+  margin-bottom:5px!important;
+}
+
+label.organization-wide-user-control input{
+  flex:0 0 auto;
+  width:auto!important;
+  margin:0;
+}
+
 
 #archiveUserBtn{margin-top:12px;width:100%}
 #archiveUserBtn:disabled{opacity:.45;cursor:not-allowed;transform:none}
@@ -281,7 +306,21 @@ linear-gradient(145deg,#102947,#17365d 58%,#244e7c)}
 .gantt-bar[onclick]{cursor:pointer}
 .gantt-bar[onclick]:hover{filter:brightness(.94);transform:translateY(-1px)}
 .gantt-today{position:absolute;top:0;bottom:0;width:2px;background:#d64045;z-index:2;pointer-events:none}
-.gantt-today:before{content:"Today";position:absolute;top:2px;left:4px;background:#fff;color:#b52e33;font-size:9px;font-weight:800;padding:1px 3px;border-radius:3px;white-space:nowrap}
+.gantt-today:before{content:none;display:none}
+.gantt-today.head:before{
+  content:"Today";
+  display:block;
+  position:absolute;
+  top:2px;
+  left:4px;
+  background:#fff;
+  color:#b52e33;
+  font-size:9px;
+  font-weight:800;
+  padding:1px 3px;
+  border-radius:3px;
+  white-space:nowrap;
+}
 .gantt-legend{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px;font-size:11px;color:#536577}
 .gantt-legend>span{display:flex;align-items:center;gap:5px}
 .gantt-legend i{width:10px;height:10px;border-radius:3px}
@@ -1410,12 +1449,6 @@ input:focus,select:focus,textarea:focus{
   .gantt-group-summary{
     grid-template-columns:190px minmax(var(--gantt-chart-min,960px),1fr);
   }
-}
-
-/* v0.14.59 — hide Today text in Gantt header only */
-.gantt-today.head::before{
-  content:none!important;
-  display:none!important;
 }
 
 
@@ -3591,4 +3624,817 @@ main.container{
 
 .project-control-clickable-row:hover{
   background:rgba(0,0,0,.025);
+}
+
+
+/* === ADMIN USER MANAGEMENT LAYOUT === */
+
+#dashboardProfilePanel{
+  display:block;
+}
+
+#dashboardProfilePanel > .admin-card-heading{
+  margin:22px 0 10px !important;
+  padding-top:18px;
+  border-top:1px solid var(--line);
+}
+
+#dashboardProfilePanel > .admin-card-heading h4,
+#addAhtUserCard h4{
+  margin:0;
+}
+
+#addAhtUserCard{
+  padding:18px 20px;
+  margin-bottom:0 !important;
+}
+
+#dashboardProfilePanel > .admin-grid{
+  align-items:start;
+  gap:16px;
+}
+
+#dashboardProfilePanel > .admin-grid > .admin-card{
+  height:auto;
+  padding:18px 20px;
+}
+
+#dashboardProfilePanel input,
+#dashboardProfilePanel select{
+  width:100%;
+  box-sizing:border-box;
+}
+
+.admin-scope-note{
+  margin:5px 0 7px;
+}
+
+.admin-picker-toolbar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:6px 0 7px;
+}
+
+.admin-picker-search{
+  min-width:0;
+  flex:1 1 auto;
+}
+
+.admin-picker-count{
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+
+.admin-scroll-picker{
+  min-height:0;
+  max-height:280px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+  padding:6px;
+}
+
+.admin-scroll-picker .admin-project-assignment-option{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  width:100%;
+  margin:0;
+  padding:9px 8px;
+  border-radius:6px;
+  box-sizing:border-box;
+}
+
+.admin-scroll-picker .admin-project-assignment-option:hover{
+  background:var(--soft);
+}
+
+.admin-scroll-picker .admin-project-assignment-option + .admin-project-assignment-option{
+  border-top:1px solid var(--line);
+}
+
+.admin-scroll-picker .admin-project-assignment-option input{
+  width:auto !important;
+  flex:0 0 auto;
+  margin-top:2px;
+}
+
+.admin-scroll-picker .admin-project-assignment-option span{
+  min-width:0;
+  line-height:1.3;
+}
+
+#adminProjectCapabilityList{
+  max-height:320px;
+  overflow:auto;
+}
+
+.external-project-capabilities{
+  margin-top:12px !important;
+  padding-top:12px;
+  border-top:1px solid var(--line);
+}
+
+#dashboardProfilePanel > .admin-grid > .admin-card > h4:first-child{
+  margin:0 0 10px;
+}
+
+#addAhtUserProjects:empty,
+#projectAssignmentList:empty{
+  display:none;
+}
+
+#addAhtUserProjects,
+#projectAssignmentList{
+  height:auto;
+}
+
+#dashboardProfilePanel #saveAccessBtn{
+  min-width:110px;
+}
+
+@media (max-width:900px){
+  #dashboardProfilePanel > .admin-grid{
+    grid-template-columns:1fr;
+  }
+
+  .admin-scroll-picker{
+    max-height:230px;
+  }
+}
+
+
+/* === AHT EMPLOYEE DIRECTORY PICKER === */
+
+.employee-picker-toolbar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:6px 0 7px;
+}
+
+.employee-picker-toolbar .admin-picker-search{
+  flex:1 1 auto;
+  min-width:0;
+}
+
+.employee-directory-picker{
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+  max-height:340px;
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+
+.employee-directory-group + .employee-directory-group{
+  border-top:1px solid var(--line);
+}
+
+.employee-directory-division{
+  position:sticky;
+  top:0;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:8px 10px;
+  background:var(--soft);
+  border-bottom:1px solid var(--line);
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+.employee-directory-division span:last-child{
+  font-weight:600;
+  letter-spacing:0;
+  opacity:.65;
+}
+
+.employee-directory-header{
+  display:grid;
+  grid-template-columns:minmax(160px, .9fr) minmax(180px, 1.15fr);
+  gap:16px;
+  padding:7px 10px;
+  border-bottom:1px solid var(--line);
+  font-size:11px;
+  font-weight:700;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.employee-directory-row{
+  appearance:none;
+  -webkit-appearance:none;
+  display:grid;
+  grid-template-columns:minmax(160px, .9fr) minmax(180px, 1.15fr);
+  gap:16px;
+  align-items:start;
+  width:100%;
+  margin:0;
+  padding:9px 10px;
+  border:0;
+  border-bottom:1px solid var(--line);
+  border-radius:0;
+  background:#fff;
+  color:inherit;
+  text-align:left;
+  font:inherit;
+  cursor:pointer;
+}
+
+.employee-directory-row:last-child{
+  border-bottom:0;
+}
+
+.employee-directory-row:hover{
+  background:var(--soft);
+}
+
+.employee-directory-row.selected{
+  background:rgba(0,0,0,.055);
+}
+
+.employee-directory-name,
+.employee-directory-title{
+  min-width:0;
+}
+
+.employee-directory-name{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.employee-directory-name strong{
+  font-size:13px;
+  line-height:1.25;
+}
+
+.employee-directory-name small{
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.2;
+}
+
+.employee-directory-title{
+  font-size:12px;
+  line-height:1.3;
+}
+
+.employee-directory-empty{
+  padding:18px 12px;
+  color:var(--muted);
+  font-size:12px;
+  text-align:center;
+}
+
+@media (max-width:700px){
+  .employee-directory-header{
+    display:none;
+  }
+
+  .employee-directory-row{
+    grid-template-columns:1fr;
+    gap:4px;
+  }
+
+  .employee-directory-title{
+    color:var(--muted);
+  }
+}
+
+/* Keep employee rows from showing through pinned Division headers */
+.employee-directory-division{
+  background:#f4f7f9;
+  isolation:isolate;
+}
+
+
+
+/* === UNIFIED USER ONBOARDING === */
+
+.employee-directory-division{
+  background:#f4f7f9 !important;
+  isolation:isolate;
+}
+
+.entra-access-actions #addAhtUserCard > .admin-grid{
+  grid-template-columns:1fr;
+  gap:14px;
+}
+
+.entra-access-actions #addAhtUserCard{
+  min-width:0;
+}
+
+.entra-access-actions #addAhtUserCard .employee-directory-picker{
+  max-height:250px;
+}
+
+.entra-access-actions #addAhtUserCard .admin-scroll-picker{
+  max-height:180px;
+}
+
+@media (max-width:900px){
+  .entra-access-actions{
+    grid-template-columns:1fr;
+  }
+}
+
+
+/* === USER ACCESS CARD ACTION ALIGNMENT === */
+
+.entra-access-actions{
+  align-items:stretch;
+}
+
+.entra-access-actions > .admin-card{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+
+/* Let both card action rows settle at the same bottom edge */
+.access-card-actions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:auto;
+  padding-top:14px;
+}
+
+/* Use more of the available space in External User card */
+#externalInviteProjects{
+  min-height:260px;
+  max-height:260px;
+  overflow-y:auto;
+}
+
+/* Keep button text from wrapping awkwardly */
+.access-card-actions .btn{
+  white-space:nowrap;
+}
+
+@media (max-width:900px){
+  .access-card-actions{
+    flex-wrap:wrap;
+  }
+
+  #externalInviteProjects{
+    min-height:180px;
+    max-height:220px;
+  }
+}
+
+/* Match Employee Directory refresh to Microsoft refresh */
+#refreshEmployeeDirectoryBtn{
+  border-color:#71b65b;
+  color:#247a37;
+  background:#fff;
+}
+
+#refreshEmployeeDirectoryBtn:hover{
+  background:#f4fbf2;
+}
+
+
+/* === GANTT PREDECESSOR / DEPENDENCY VISUALS === */
+
+.gantt-row:has(.gantt-dependency-meta){
+  min-height:68px;
+}
+
+.gantt-dependency-meta{
+  display:flex;
+  align-items:flex-start;
+  gap:4px;
+  padding-left:24px;
+  min-width:0;
+  font-size:9px;
+  line-height:1.25;
+  color:#607487;
+}
+
+.gantt-dependency-meta.blocked{
+  color:#9a3e38;
+}
+
+.gantt-dependency-caption{
+  flex:0 0 auto;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.025em;
+}
+
+.gantt-dependency-links{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:3px;
+  min-width:0;
+}
+
+.gantt-dependency-link{
+  border:0;
+  background:transparent;
+  padding:0;
+  color:inherit;
+  font:inherit;
+  font-weight:750;
+  text-decoration:underline;
+  text-decoration-style:dotted;
+  text-underline-offset:2px;
+  cursor:pointer;
+  max-width:150px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.gantt-dependency-link:hover{
+  color:var(--blue);
+}
+
+.gantt-dependency-separator{
+  opacity:.65;
+}
+
+.gantt-dependency-anchor{
+  position:absolute;
+  top:8px;
+  width:8px;
+  height:8px;
+  margin-left:-4px;
+  border:2px solid #6f8798;
+  border-radius:50%;
+  background:#fff;
+  z-index:3;
+  pointer-events:none;
+}
+
+.gantt-dependency-anchor:after{
+  content:"";
+  position:absolute;
+  left:2px;
+  top:6px;
+  width:1px;
+  height:9px;
+  border-left:1px dashed #8fa0ad;
+}
+
+.gantt-dependency-anchor.blocked{
+  border-color:#b8443c;
+  background:#fff3f2;
+}
+
+.gantt-dependency-anchor.blocked:after{
+  border-left-color:#b8443c;
+}
+
+.gantt-has-incomplete-predecessor{
+  box-shadow:
+    0 0 0 2px rgba(184,68,60,.24),
+    0 2px 5px rgba(15,35,55,.14);
+}
+
+.gantt-lane-dependency-blocked{
+  background-color:rgba(184,68,60,.018);
+}
+
+
+/* === DEPENDENCY SCHEDULE CONFLICTS === */
+
+.gantt-schedule-conflict{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  margin-left:24px;
+  padding:4px 6px;
+  max-width:220px;
+  border-left:3px solid #b8443c;
+  background:#fff3f2;
+  color:#8f342f;
+  border-radius:3px;
+  font-size:9px;
+  line-height:1.25;
+}
+
+.gantt-schedule-conflict strong{
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:.035em;
+}
+
+.gantt-schedule-conflict span{
+  color:#7d4642;
+}
+
+.gantt-milestone-risk{
+  margin-left:24px;
+  font-size:9px;
+  font-weight:800;
+  color:#9a3e38;
+}
+
+.gantt-lane-schedule-conflict{
+  background-color:rgba(184,68,60,.035);
+}
+
+.gantt-has-schedule-conflict{
+  box-shadow:
+    0 0 0 3px rgba(184,68,60,.35),
+    0 2px 5px rgba(15,35,55,.14);
+}
+
+.gantt-row:has(.gantt-schedule-conflict){
+  min-height:86px;
+}
+
+
+/* === EXECUTIVE SUMMARY DEPENDENCY CONFLICT BADGE === */
+
+.exec-dependency-conflict-badge{
+  display:inline-flex;
+  align-items:center;
+  margin-left:6px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:#c00000;
+  color:#fff;
+  font-size:8px;
+  font-weight:850;
+  line-height:1.3;
+  letter-spacing:.045em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  vertical-align:middle;
+}
+
+.exec-blocked-label{
+  margin-left:4px;
+  color:#415365;
+  font-size:11px;
+  font-weight:750;
+}
+
+
+/* === EXECUTIVE SUMMARY MILESTONE RISK === */
+
+.exec-milestone-risk-badge{
+  display:inline-flex;
+  align-items:center;
+  margin-left:6px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:#8f1b17;
+  color:#fff;
+  font-size:8px;
+  font-weight:850;
+  line-height:1.3;
+  letter-spacing:.045em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  vertical-align:middle;
+}
+
+.exec-milestone-risk{
+  box-shadow:
+    inset 3px 0 0 rgba(143,27,23,.55);
+}
+
+
+/* === GANTT TODAY HEADER POSITION ===
+   Keep the Today text in the header, but start the red line
+   at the first Gantt row instead of running through the dates.
+*/
+.gantt-today.head{
+  top:0 !important;
+  bottom:-2px !important;
+  height:auto !important;
+  width:0 !important;
+  background:transparent !important;
+  overflow:visible !important;
+  z-index:10 !important;
+}
+
+.gantt-today.head::before{
+  content:"Today" !important;
+  display:block !important;
+  position:absolute !important;
+  left:50% !important;
+  top:auto !important;
+  bottom:0 !important;
+  transform:translateX(-50%) !important;
+  margin:0 !important;
+  padding:1px 3px !important;
+  background:#fff !important;
+  color:#b52e33 !important;
+  font-size:9px !important;
+  font-weight:800 !important;
+  line-height:1 !important;
+  border-radius:3px !important;
+  white-space:nowrap !important;
+  z-index:11 !important;
+}
+
+/* === GANTT TODAY PILL FORWARD === */
+.gantt-scale{
+  overflow:visible !important;
+}
+
+.gantt-today.head{
+  z-index:30 !important;
+  overflow:visible !important;
+}
+
+.gantt-today.head::before{
+  z-index:100 !important;
+  position:absolute !important;
+  background:#fff !important;
+  box-shadow:0 0 0 2px #fff !important;
+}
+
+/* === SITE OPERATIONS STRUCTURED SCHEDULE === */
+
+.so-schedule-divider{
+  margin-top:4px;
+}
+
+.so-schedule-choice-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px 10px;
+  max-height:180px;
+  overflow:auto;
+  padding:8px;
+  border:1px solid #d8e0e7;
+  border-radius:7px;
+  background:#f8fafb;
+}
+
+.so-schedule-choice{
+  display:flex;
+  align-items:flex-start;
+  gap:7px;
+  min-width:0;
+  font-size:11px;
+  line-height:1.3;
+  cursor:pointer;
+}
+
+.so-schedule-choice input{
+  flex:0 0 auto;
+  margin-top:2px;
+}
+
+.so-schedule-choice span{
+  min-width:0;
+}
+
+.so-schedule-help{
+  margin-top:5px;
+}
+
+@media(max-width:760px){
+  .so-schedule-choice-list{
+    grid-template-columns:1fr;
+  }
+}
+
+/* === SITE OPERATIONS TASK / SUBTASK HIERARCHY === */
+
+.so-operation-row-main{
+  padding-left:
+    calc(var(--so-task-level,0) * 18px);
+}
+
+.so-operation-row-title-line{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  min-width:0;
+}
+
+.so-operation-row-title-line strong{
+  min-width:0;
+}
+
+.so-operation-hierarchy-toggle,
+.so-operation-hierarchy-spacer{
+  flex:0 0 14px;
+  width:14px;
+}
+
+.so-operation-hierarchy-toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#52697d;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+  user-select:none;
+}
+
+.so-operation-hierarchy-toggle:hover{
+  color:#1f5f8f;
+}
+
+.so-operation-itemtype{
+  display:inline-flex;
+  align-items:center;
+  padding:1px 5px;
+  border-radius:999px;
+  background:#eef3f7;
+  color:#506678;
+  font-size:8px;
+  font-weight:800;
+  line-height:1.3;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+
+/* === SITE PREDECESSOR CONTROLLED TOGGLE === */
+
+.so-schedule-choice{
+  appearance:none;
+  -webkit-appearance:none;
+  width:100%;
+  border:1px solid transparent;
+  border-radius:6px;
+  background:transparent;
+  padding:6px 7px;
+  color:inherit;
+  text-align:left;
+}
+
+.so-schedule-choice:hover{
+  background:#eef4f8;
+}
+
+.so-schedule-choice.selected{
+  border-color:#91b9d8;
+  background:#edf6fc;
+}
+
+.so-schedule-choice input[type="checkbox"]{
+  position:absolute !important;
+  opacity:0 !important;
+  width:1px !important;
+  height:1px !important;
+  pointer-events:none !important;
+}
+
+.so-schedule-choice-marker{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 16px;
+  width:16px;
+  height:16px;
+  border:1px solid #8fa0ad;
+  border-radius:4px;
+  background:#fff;
+  color:#176fa8;
+  font-size:11px;
+  font-weight:900;
+  line-height:1;
+}
+
+.so-schedule-choice.selected .so-schedule-choice-marker{
+  border-color:#2d8bc5;
+  background:#e2f2fc;
+}
+
+.so-schedule-choice-label{
+  min-width:0;
+  font-weight:650;
+}
+
+/* === SITE PREDECESSOR POINTER FIX === */
+
+.so-schedule-choice{
+  position:relative !important;
+  z-index:5 !important;
+  pointer-events:auto !important;
+  cursor:pointer !important;
+}
+
+.so-schedule-choice > *{
+  pointer-events:none !important;
+}
+
+.so-schedule-choice-list{
+  position:relative !important;
+  z-index:4 !important;
 }

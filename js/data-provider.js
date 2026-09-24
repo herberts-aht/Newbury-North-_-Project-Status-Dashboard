@@ -111,6 +111,395 @@ const SharePointDataProvider = {
     return this._site;
   },
 
+  async getRootSite() {
+    if (this._rootSite) return this._rootSite;
+
+    const siteUrl = new URL(this.config.siteUrl);
+
+    this._rootSite = await this.graph(
+      `/sites/${encodeURIComponent(siteUrl.hostname)}?$select=id,displayName,webUrl`
+    );
+
+    return this._rootSite;
+  },
+
+  async getRootListId(displayName) {
+    this._rootListIds ||= {};
+
+    if (this._rootListIds[displayName]) {
+      return this._rootListIds[displayName];
+    }
+
+    const site = await this.getRootSite();
+
+    let url =
+      `/sites/${encodeURIComponent(site.id)}/lists?$select=id,displayName`;
+
+    while (url) {
+      const data = await this.graph(url);
+
+      for (const list of data.value || []) {
+        this._rootListIds[list.displayName] = list.id;
+      }
+
+      url = data["@odata.nextLink"] || "";
+    }
+
+    const id = this._rootListIds[displayName];
+
+    if (!id) {
+      throw new Error(
+        `Root SharePoint list not found: ${displayName}`
+      );
+    }
+
+    return id;
+  },
+
+  async getRootListRows(displayName) {
+    const site = await this.getRootSite();
+    const listId = await this.getRootListId(displayName);
+
+    let url =
+      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}` +
+      `/items?$expand=fields&$top=500`;
+
+    const rows = [];
+
+    while (url) {
+      const data = await this.graph(url);
+      rows.push(...(data.value || []));
+      url = data["@odata.nextLink"] || "";
+    }
+
+    return rows;
+  },
+
+  async refreshAhtEmployeeDirectoryCache() {
+    /*
+     * Organization-wide Admin/System Owner operation only.
+     *
+     * Source of truth:
+     *   AHT root site -> AHT Employee List
+     *
+     * Safe Project Control copy:
+     *   Newbury site -> AHT Employee Directory Cache
+     */
+    if(
+      !currentUser?.canAdmin &&
+      !currentUser?.isSystemOwner
+    ){
+      throw new Error(
+        "Organization-wide Admin access is required to refresh the employee directory."
+      );
+    }
+
+    const cacheListName =
+      "AHT Employee Directory Cache";
+
+    const sourceRows =
+      await this.getRootListRows(
+        "AHT Employee List",
+        [
+          "Title",
+          "mail",
+          "userPrincipalName",
+          "Division",
+          "department",
+          "EmploymentStatus",
+          "jobTitle"
+        ]
+      );
+
+    const sourceEmployees =
+      sourceRows
+        .map(item => {
+          const fields = item.fields || {};
+
+          const email =
+            String(
+              fields.mail ||
+              fields.userPrincipalName ||
+              ""
+            )
+              .trim()
+              .toLowerCase();
+
+          return {
+            sourceEmployeeId:
+              Number(item.id || 0),
+
+            name:
+              String(fields.Title || email || "")
+                .trim(),
+
+            email,
+
+            division:
+              String(fields.Division || "")
+                .trim(),
+
+            department:
+              String(fields.department || "")
+                .trim(),
+
+            employmentStatus:
+              String(fields.EmploymentStatus || "")
+                .trim(),
+
+            jobTitle:
+              String(fields.jobTitle || "")
+                .trim()
+          };
+        })
+        .filter(employee =>
+          employee.sourceEmployeeId &&
+          employee.email &&
+          employee.employmentStatus === "Employed"
+        );
+
+    const cacheRows =
+      await this.getListRows(
+        cacheListName,
+        [
+          "Title",
+          "EmployeeEmail",
+          "Division",
+          "Department",
+          "EmploymentStatus",
+          "SourceEmployeeId",
+          "JobTitle"
+        ]
+      );
+
+    const cacheBySourceId =
+      new Map(
+        cacheRows
+          .map(item => [
+            Number(
+              item.fields?.SourceEmployeeId || 0
+            ),
+            item
+          ])
+          .filter(([sourceId]) => sourceId)
+      );
+
+    const activeSourceIds =
+      new Set();
+
+    let created = 0;
+    let updated = 0;
+    let removed = 0;
+    let unchanged = 0;
+
+    const text =
+      value =>
+        String(value ?? "")
+          .trim();
+
+    for(const employee of sourceEmployees){
+      activeSourceIds.add(
+        employee.sourceEmployeeId
+      );
+
+      const fields = {
+        Title:
+          employee.name,
+
+        EmployeeEmail:
+          employee.email,
+
+        Division:
+          employee.division,
+
+        Department:
+          employee.department,
+
+        EmploymentStatus:
+          "Employed",
+
+        SourceEmployeeId:
+          employee.sourceEmployeeId,
+
+        JobTitle:
+          employee.jobTitle
+      };
+
+      const existing =
+        cacheBySourceId.get(
+          employee.sourceEmployeeId
+        );
+
+      if(!existing){
+        await this.createItem(
+          cacheListName,
+          fields
+        );
+
+        created++;
+        continue;
+      }
+
+      const before =
+        existing.fields || {};
+
+      const changed =
+        text(before.Title) !==
+          text(fields.Title) ||
+
+        text(before.EmployeeEmail)
+          .toLowerCase() !==
+          text(fields.EmployeeEmail)
+            .toLowerCase() ||
+
+        text(before.Division) !==
+          text(fields.Division) ||
+
+        text(before.Department) !==
+          text(fields.Department) ||
+
+        text(before.EmploymentStatus) !==
+          text(fields.EmploymentStatus) ||
+
+        Number(before.SourceEmployeeId || 0) !==
+          Number(fields.SourceEmployeeId || 0) ||
+
+        text(before.JobTitle) !==
+          text(fields.JobTitle);
+
+      if(changed){
+        await this.updateItem(
+          cacheListName,
+          existing.id,
+          fields
+        );
+
+        updated++;
+      }else{
+        unchanged++;
+      }
+    }
+
+    /*
+     * Cache is derived data, not an audit/history list.
+     * If an employee is no longer explicitly Employed in the
+     * corporate source list, remove the stale cache row.
+     */
+    for(const item of cacheRows){
+      const sourceEmployeeId =
+        Number(
+          item.fields?.SourceEmployeeId || 0
+        );
+
+      if(
+        sourceEmployeeId &&
+        !activeSourceIds.has(sourceEmployeeId)
+      ){
+        await this.deleteItem(
+          cacheListName,
+          item.id
+        );
+
+        removed++;
+      }
+    }
+
+    const directory =
+      await this.getAhtEmployeeDirectory();
+
+    this._employeeDirectory =
+      directory;
+
+    return {
+      sourceCount:
+        sourceEmployees.length,
+      cacheCount:
+        directory.length,
+      created,
+      updated,
+      removed,
+      unchanged
+    };
+  },
+
+  async getAhtEmployeeDirectory() {
+    /*
+     * Project Control reads the safe employee-directory cache from the
+     * Newbury site. The authoritative corporate Employee List remains on
+     * the AHT root site and is synchronized into this cache by an
+     * authorized Admin/System Owner.
+     *
+     * This prevents Project Admins and external role-testing accounts from
+     * requiring direct access to the corporate employee list.
+     */
+    const rows =
+      await this.getListRows(
+        "AHT Employee Directory Cache",
+        [
+          "Title",
+          "EmployeeEmail",
+          "Division",
+          "Department",
+          "EmploymentStatus",
+          "SourceEmployeeId",
+          "JobTitle"
+        ]
+      );
+
+    return rows
+      .map(item => {
+        const fields = item.fields || {};
+
+        const email =
+          String(fields.EmployeeEmail || "")
+            .trim()
+            .toLowerCase();
+
+        return {
+          id:
+            Number(
+              fields.SourceEmployeeId ||
+              item.id ||
+              0
+            ),
+
+          cacheId:
+            Number(item.id || 0),
+
+          name:
+            String(
+              fields.Title ||
+              email ||
+              ""
+            ).trim(),
+
+          email,
+
+          division:
+            String(fields.Division || "").trim(),
+
+          department:
+            String(fields.Department || "").trim(),
+
+          jobTitle:
+            String(fields.JobTitle || "").trim(),
+
+          employmentStatus:
+            String(fields.EmploymentStatus || "").trim()
+        };
+      })
+      .filter(employee =>
+        employee.email &&
+        employee.employmentStatus === "Employed"
+      );
+  },
+
+  getCachedEmployeeDirectory() {
+    return Array.isArray(this._employeeDirectory)
+      ? this._employeeDirectory.map(employee => ({ ...employee }))
+      : [];
+  },
+
   async getListId(displayName) {
     this._listIds ||= {};
     if (this._listIds[displayName]) return this._listIds[displayName];
@@ -1033,6 +1422,7 @@ const SharePointDataProvider = {
           state: fields.ProjectState || "",
           description: fields.ProjectDescription || "",
           subtitle: fields.ProjectSubtitle || "",
+          division: fields.Division || "",
           phase: fields.ProjectPhase || "",
 
           deliveryPhases: (() => {
@@ -1215,6 +1605,7 @@ const SharePointDataProvider = {
       ProjectState: project.state || "",
       ProjectDescription: project.description || "",
       ProjectSubtitle: project.subtitle || "",
+      Division: project.division || "",
       ProjectPhase: project.phase || "",
 
       DeliveryPhases: JSON.stringify(
@@ -1447,7 +1838,8 @@ const SharePointDataProvider = {
       "Active",
       "EntraObjectId",
       "EntraUserType",
-      "RoleTestingEnabled"
+      "RoleTestingEnabled",
+      "ManagementDivisions"
     ]);
   },
 
@@ -1494,6 +1886,10 @@ const SharePointDataProvider = {
       entraObjectId: fields.EntraObjectId || "",
       entraUserType: fields.EntraUserType || "Member",
       roleTestingEnabled: fields.RoleTestingEnabled === true,
+      managementDivisions:
+        this.dashboardAccessProjects(
+          fields.ManagementDivisions
+        ),
       managedByEntraAccessGroup: Boolean(fields.EntraObjectId),
       canAdmin,
       canProjectAdmin,
@@ -1640,6 +2036,9 @@ const SharePointDataProvider = {
       r: user.role,
       p: projects,
 
+      // Additional divisions explicitly granted by Admin/System Owner.
+      md: [...(user.managementDivisions || [])],
+
       // New company-wide per-project permission map.
       pa: projectAccess,
 
@@ -1682,9 +2081,58 @@ const SharePointDataProvider = {
         this.getProjectAccessRows()
       ]);
 
+      let employeeDirectory = [];
+
+      try {
+        employeeDirectory =
+          await this.getAhtEmployeeDirectory();
+
+        this._employeeDirectory =
+          employeeDirectory;
+      } catch (error) {
+        console.warn(
+          "AHT Employee Directory Cache could not be loaded; Division enrichment is unavailable.",
+          error
+        );
+
+        this._employeeDirectory = [];
+      }
+
+      const employeeByEmail =
+        new Map(
+          employeeDirectory.map(employee => [
+            String(employee.email || "")
+              .trim()
+              .toLowerCase(),
+            employee
+          ])
+        );
+
       const sharePointUsers = rows
         .map(row => {
           const user = this.dashboardAccessUser(row);
+
+          const employeeEmail =
+            String(user.email || "")
+              .trim()
+              .toLowerCase();
+
+          const employee =
+            employeeByEmail.get(employeeEmail);
+
+          if (employee) {
+            user.division =
+              employee.division || "";
+
+            user.department =
+              employee.department || "";
+
+            user.employeeDirectoryId =
+              employee.id;
+          } else {
+            user.division =
+              String(user.division || "").trim();
+          }
 
           const profileKey =
             String(row.fields?.ProfileKey || "")
@@ -2004,12 +2452,31 @@ const SharePointDataProvider = {
       }
 
       if (isExternal) {
-        // External identities remain external even if limited edit
-        // rights are permitted later.
-        role =
-          role === "Editor"
-            ? "Editor"
-            : "External Viewer";
+        /*
+         * Normal Entra guests remain External Viewer only.
+         *
+         * A guest explicitly marked RoleTestingEnabled may simulate the
+         * dashboard roles for permission testing while remaining an
+         * external Entra identity. System Owner authority is never derived
+         * from this role.
+         */
+        const roleTestingEnabled =
+          user.roleTestingEnabled === true;
+
+        if (roleTestingEnabled) {
+          role =
+            [
+              "External Viewer",
+              "Viewer",
+              "Editor",
+              "Project Admin",
+              "Admin"
+            ].includes(role)
+              ? role
+              : "External Viewer";
+        } else {
+          role = "External Viewer";
+        }
       } else if (
         ![
           "Admin",
@@ -2067,7 +2534,16 @@ const SharePointDataProvider = {
           isExternal ? "Guest" : "Member",
 
         RoleTestingEnabled:
-          user.roleTestingEnabled === true
+          user.roleTestingEnabled === true,
+
+        ManagementDivisions:
+          Array.isArray(user.managementDivisions)
+            ? [...new Set(
+                user.managementDivisions
+                  .map(value => String(value || "").trim())
+                  .filter(Boolean)
+              )].join(";")
+            : ""
       };
 
       const sharePointAccessId =
@@ -2420,6 +2896,21 @@ const FallbackDataProvider = {
   async getDashboardAccessProfile(graphUser) {
     if (this.fallbackWasUsed) return null;
     return SharePointDataProvider.getDashboardAccessProfile(graphUser);
+  },
+
+  getCachedEmployeeDirectory() {
+    if (this.fallbackWasUsed) return [];
+    return SharePointDataProvider.getCachedEmployeeDirectory();
+  },
+
+  async refreshAhtEmployeeDirectoryCache() {
+    if(this.fallbackWasUsed){
+      throw new Error(
+        "Employee directory refresh is unavailable while SharePoint fallback mode is active."
+      );
+    }
+
+    return SharePointDataProvider.refreshAhtEmployeeDirectoryCache();
   },
 
   async loadProjectWorkItems() {

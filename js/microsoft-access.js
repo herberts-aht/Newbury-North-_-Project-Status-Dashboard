@@ -605,6 +605,34 @@ const MicrosoftAccess = (() => {
     throw lastError || new Error("Could not add the user to the Project Control access group.");
   }
 
+  async function grantInternalAccess(email, role = "Viewer") {
+    const normalized = normalizeEmail(email);
+
+    if (!normalized) {
+      throw new Error("The selected AHT employee does not have an email address.");
+    }
+
+    const user = await graph(
+      `/users/${encodeURIComponent(normalized)}?$select=id,displayName,mail,userPrincipalName,userType,accountEnabled`
+    );
+
+    await addMemberObjectId(user.id);
+    await syncSharePointEditAccess(user.id, role);
+
+    if (!directoryMembers.some(item => item.id === user.id)) {
+      directoryMembers.push(user);
+      directoryMembers.sort(
+        (a,b) =>
+          String(a.displayName || "")
+            .localeCompare(String(b.displayName || ""))
+      );
+    }
+
+    await refresh();
+
+    return user;
+  }
+
   async function addInternal() {
     const input = el("internalUserEmail");
     const email = normalizeEmail(input?.value);
@@ -1051,7 +1079,8 @@ const MicrosoftAccess = (() => {
     initialize,
     onAdminView,
     refresh,
-    renderInviteProjects
+    renderInviteProjects,
+    grantInternalAccess
   };
 })();
 

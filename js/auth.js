@@ -76,7 +76,8 @@ function normalizeDashboardRole(value, isGuest = false) {
     "Admin",
     "Project Admin",
     "Editor",
-    "Viewer"
+    "Viewer",
+    "External Viewer"
   ].includes(role)
     ? role
     : "Viewer";
@@ -165,18 +166,22 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
   const shared = sharedProfile && typeof sharedProfile === "object" ? sharedProfile : null;
 
   if (adminEmails.includes(email)) {
+    /*
+     * A configured System Owner must always retain the dashboard profile
+     * matched to their actual Entra identity. Never borrow another Admin
+     * profile simply because that account currently has the Admin role.
+     *
+     * This is especially important while a RoleTestingEnabled guest is
+     * temporarily simulating Admin.
+     */
     const admin =
-      USERS.find(
-        item =>
-          item.active !== false &&
-          (
-            item.canAdmin ||
-            normalizeDashboardRole(
-              item.role,
-              false
-            ) === "Admin"
-          )
-      ) || user;
+      user && user.active !== false
+        ? user
+        : USERS.find(
+            item =>
+              item.active !== false &&
+              normalizeEmail(item.email) === email
+          ) || null;
 
     if (admin) {
       const role = "Admin";
@@ -242,6 +247,10 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
       role,
       active: true,
       projects,
+      managementDivisions:
+        Array.isArray(shared?.md)
+          ? [...shared.md]
+          : [...(externalUser?.managementDivisions || [])],
       projectAccess,
       canViewProjectPlan:
         typeof shared?.pp === "boolean"
@@ -289,6 +298,10 @@ function dashboardUserForAccount(account, graphUser = null, sharedProfile = null
       role,
       active: true,
       projects: Array.isArray(shared?.p) ? shared.p : (user?.projects || ["*"]),
+      managementDivisions:
+        Array.isArray(shared?.md)
+          ? [...shared.md]
+          : [...(user?.managementDivisions || [])],
       canViewProjectPlan: true,
       canViewSiteOperations: true,
       ...dashboardRoleCapabilities(

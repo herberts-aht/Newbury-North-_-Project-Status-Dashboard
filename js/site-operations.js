@@ -1,4 +1,36 @@
 const SiteOperations = (() => {
+
+  const collapsedOperationIds = new Set();
+
+  function parseStructuredOperationIds(value) {
+    if (Array.isArray(value)) {
+      return value
+        .map(Number)
+        .filter(id => Number.isFinite(id) && id > 0);
+    }
+
+    const raw = String(value || "").trim();
+
+    if (!raw) return [];
+
+    try {
+      const parsed = JSON.parse(raw);
+
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(Number)
+          .filter(id => Number.isFinite(id) && id > 0);
+      }
+    } catch (_) {
+      // Support legacy/simple comma-delimited values if ever encountered.
+    }
+
+    return raw
+      .split(",")
+      .map(value => Number(String(value).trim()))
+      .filter(id => Number.isFinite(id) && id > 0);
+  }
+
   const state = {
     locations: [],
     operations: [],
@@ -541,7 +573,164 @@ const SiteOperations = (() => {
     `;
   }
 
-  function compactOperationRow(op) {
+  function operationSort(a, b) {
+    return (
+      String(a.targetDate || "9999-12-31")
+        .localeCompare(String(b.targetDate || "9999-12-31")) ||
+      String(b.activityDate || "")
+        .localeCompare(String(a.activityDate || "")) ||
+      Number(b.id) - Number(a.id)
+    );
+  }
+
+  function operationHierarchyRows(operations) {
+    const items =
+      (operations || [])
+        .slice();
+
+    const byId =
+      new Map(
+        items.map(operation => [
+          Number(operation.id),
+          operation
+        ])
+      );
+
+    const childrenByParent =
+      new Map();
+
+    items.forEach(operation => {
+      const parentId =
+        Number(operation.parentOperationId || 0);
+
+      if (
+        !parentId ||
+        !byId.has(parentId)
+      ) {
+        return;
+      }
+
+      if (!childrenByParent.has(parentId)) {
+        childrenByParent.set(parentId, []);
+      }
+
+      childrenByParent
+        .get(parentId)
+        .push(operation);
+    });
+
+    childrenByParent.forEach(children =>
+      children.sort(operationSort)
+    );
+
+    const roots =
+      items
+        .filter(operation => {
+          const parentId =
+            Number(operation.parentOperationId || 0);
+
+          return (
+            !parentId ||
+            !byId.has(parentId)
+          );
+        })
+        .sort(operationSort);
+
+    const rows = [];
+    const visited = new Set();
+
+    const walk = (operation, level = 0) => {
+      const id =
+        Number(operation.id);
+
+      if (!id || visited.has(id)) {
+        return;
+      }
+
+      visited.add(id);
+
+      const children =
+        childrenByParent.get(id) || [];
+
+      const hasChildren =
+        children.length > 0;
+
+      const expanded =
+        !collapsedOperationIds.has(id);
+
+      rows.push(
+        compactOperationRow(
+          operation,
+          level,
+          hasChildren,
+          expanded
+        )
+      );
+
+      if (
+        hasChildren &&
+        expanded
+      ) {
+        children.forEach(child =>
+          walk(child, level + 1)
+        );
+      }
+    };
+
+    roots.forEach(root =>
+      walk(root, 0)
+    );
+
+    // Safety fallback only for true orphan records.
+    // Valid children of a collapsed parent must stay hidden rather
+    // than being re-added as top-level rows.
+    items
+      .filter(operation => {
+        const id =
+          Number(operation.id);
+
+        const parentId =
+          Number(operation.parentOperationId || 0);
+
+        return (
+          !visited.has(id) &&
+          (
+            !parentId ||
+            !byId.has(parentId)
+          )
+        );
+      })
+      .sort(operationSort)
+      .forEach(operation =>
+        walk(operation, 0)
+      );
+
+    return rows.join("");
+  }
+
+  function toggleOperationChildren(id) {
+    const operationId =
+      Number(id);
+
+    if (!operationId) return;
+
+    if (collapsedOperationIds.has(operationId)) {
+      collapsedOperationIds.delete(operationId);
+    } else {
+      collapsedOperationIds.add(operationId);
+    }
+
+    if (state.currentLocationId) {
+      render();
+    }
+  }
+
+  function compactOperationRow(
+    op,
+    level = 0,
+    hasChildren = false,
+    expanded = true
+  ) {
     const pct = op.trackProgress ? clampPercent(op.percentComplete) : null;
     const phase = op.sitePhase || op.system || op.entryType || "Site Item";
     const activityDate = op.activityDate ? displayDate(op.activityDate) : "—";
@@ -556,8 +745,33 @@ const SiteOperations = (() => {
 
     return `
       <${tag} class="so-operation-row ${canDrill ? "so-operation-row-drill" : "so-operation-row-readonly"}"${action}>
-        <span class="so-operation-row-main">
-          <strong>${escapeHtml(op.title)}</strong>
+        <span
+          class="so-operation-row-main"
+          style="--so-task-level:${Math.max(0, Number(level) || 0)}"
+        >
+          <span class="so-operation-row-title-line">
+            ${
+              hasChildren
+                ? `<span
+                     class="so-operation-hierarchy-toggle"
+                     role="button"
+                     tabindex="0"
+                     title="${expanded ? "Collapse Subtasks" : "Expand Subtasks"}"
+                     onclick="event.stopPropagation();SiteOperations.toggleOperationChildren(${Number(op.id)})"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();SiteOperations.toggleOperationChildren(${Number(op.id)})}"
+                   >${expanded ? "▾" : "▸"}</span>`
+                : `<span class="so-operation-hierarchy-spacer"></span>`
+            }
+
+            <strong>${escapeHtml(op.title)}</strong>
+
+            ${
+              String(op.itemType || "Task") === "Milestone"
+                ? `<span class="so-operation-itemtype">Milestone</span>`
+                : ""
+            }
+          </span>
+
           <span>${escapeHtml(phase)}</span>
         </span>
         <span class="so-operation-row-details" title="${escapeHtml(op.details || "")}">
@@ -939,15 +1153,7 @@ const SiteOperations = (() => {
               <span>Target</span>
               <span></span>
             </div>
-            ${directOperations
-              .slice()
-              .sort((a, b) =>
-                String(a.targetDate || "9999-12-31").localeCompare(String(b.targetDate || "9999-12-31")) ||
-                String(b.activityDate || "").localeCompare(String(a.activityDate || "")) ||
-                Number(b.id) - Number(a.id)
-              )
-              .map(compactOperationRow)
-              .join("")}
+            ${operationHierarchyRows(directOperations)}
           `
           : `<div class="so-empty">
               <strong>No direct Site Operations items here yet.</strong>
@@ -1085,6 +1291,19 @@ const SiteOperations = (() => {
             trackProgress: Boolean(fields.TrackProgress),
             activityDate: graphDate(fields.ActivityDate),
             targetDate: graphDate(fields.TargetDate),
+
+            // Structured Site schedule relationships.
+            // Existing records default to a normal top-level Task with
+            // no predecessors, preserving all previous behavior.
+            parentOperationId:
+              Number(fields.ParentOperationId || 0),
+
+            predecessorIds:
+              parseStructuredOperationIds(fields.PredecessorIds),
+
+            itemType:
+              fields.ItemType || "Task",
+
             details: fields.Details || "",
             blockerDependency: fields.BlockerDependency || "",
             leadResponsible: fields.LeadResponsible || "",
@@ -1397,8 +1616,173 @@ const SiteOperations = (() => {
     `;
   }
 
+  function siteOperationDescendantIds(operationId) {
+    const rootId = Number(operationId || 0);
+
+    if (!rootId) return new Set();
+
+    const descendants = new Set();
+    const queue = [rootId];
+
+    while (queue.length) {
+      const currentId = queue.shift();
+
+      state.operations.forEach(operation => {
+        const operationIdValue = Number(operation.id || 0);
+        const parentIdValue = Number(operation.parentOperationId || 0);
+
+        if (
+          operationIdValue &&
+          parentIdValue === currentId &&
+          !descendants.has(operationIdValue)
+        ) {
+          descendants.add(operationIdValue);
+          queue.push(operationIdValue);
+        }
+      });
+    }
+
+    return descendants;
+  }
+
+  function togglePredecessorChoice(button) {
+    const checkbox =
+      button?.querySelector(
+        'input[name="predecessorIds"]'
+      );
+
+    if (!checkbox) return;
+
+    checkbox.checked =
+      !checkbox.checked;
+
+    button.classList.toggle(
+      "selected",
+      checkbox.checked
+    );
+
+    button.setAttribute(
+      "aria-pressed",
+      checkbox.checked ? "true" : "false"
+    );
+
+    const marker =
+      button.querySelector(
+        ".so-schedule-choice-marker"
+      );
+
+    if (marker) {
+      marker.textContent =
+        checkbox.checked ? "✓" : "";
+    }
+  }
+
+  function siteOperationOptionLabel(operation) {
+    const location =
+      state.locations.find(
+        item => Number(item.id) === Number(operation.locationId)
+      );
+
+    const locationName =
+      location
+        ? locationDisplayName(location)
+        : "";
+
+    return locationName
+      ? `${operation.title} · ${locationName}`
+      : operation.title;
+  }
+
   function operationFields(record = null) {
     const defaultLocationId = record?.locationId || state.currentLocationId || state.locations[0]?.id || "";
+
+    const recordId =
+      Number(record?.id || 0);
+
+    const descendantIds =
+      siteOperationDescendantIds(recordId);
+
+    const parentCandidates =
+      state.operations
+        .filter(operation =>
+          Number(operation.id) !== recordId &&
+          !descendantIds.has(Number(operation.id))
+        )
+        .sort((a,b) =>
+          String(a.title || "")
+            .localeCompare(String(b.title || ""))
+        );
+
+    const predecessorCandidates =
+      state.operations
+        .filter(operation =>
+          Number(operation.id) !== recordId
+        )
+        .sort((a,b) =>
+          String(a.title || "")
+            .localeCompare(String(b.title || ""))
+        );
+
+    const selectedPredecessorIds =
+      new Set(
+        Array.isArray(record?.predecessorIds)
+          ? record.predecessorIds.map(Number)
+          : []
+      );
+
+    const parentOptions = [
+      `<option value="">None — Top-Level Task</option>`,
+      ...parentCandidates.map(operation =>
+        `<option value="${Number(operation.id)}" ${
+          Number(record?.parentOperationId || 0) === Number(operation.id)
+            ? "selected"
+            : ""
+        }>${escapeHtml(siteOperationOptionLabel(operation))}</option>`
+      )
+    ].join("");
+
+    const predecessorMarkup =
+      predecessorCandidates.length
+        ? predecessorCandidates.map(operation => `
+            <button
+              class="so-schedule-choice ${
+                selectedPredecessorIds.has(Number(operation.id))
+                  ? "selected"
+                  : ""
+              }"
+              type="button"
+              aria-pressed="${
+                selectedPredecessorIds.has(Number(operation.id))
+                  ? "true"
+                  : "false"
+              }"
+              onclick="SiteOperations.togglePredecessorChoice(this)"
+            >
+              <input
+                type="checkbox"
+                name="predecessorIds"
+                value="${Number(operation.id)}"
+                ${
+                  selectedPredecessorIds.has(Number(operation.id))
+                    ? "checked"
+                    : ""
+                }
+                tabindex="-1"
+                aria-hidden="true"
+              >
+              <span class="so-schedule-choice-marker" aria-hidden="true">
+                ${
+                  selectedPredecessorIds.has(Number(operation.id))
+                    ? "✓"
+                    : ""
+                }
+              </span>
+              <span class="so-schedule-choice-label">
+                ${escapeHtml(siteOperationOptionLabel(operation))}
+              </span>
+            </button>
+          `).join("")
+        : `<div class="small">No other Site Tasks are available yet.</div>`;
 
     return `
       ${field(
@@ -1418,6 +1802,57 @@ const SiteOperations = (() => {
           required:true
         })
       )}
+
+      <div class="field full so-form-divider so-schedule-divider">
+        <label>Schedule Relationships</label>
+        <div class="small">
+          Use Higher-Level Task for Task/Subtask hierarchy. Use Predecessors only when another Site Task must finish before this one can begin.
+        </div>
+      </div>
+
+      ${field(
+        "Item Type",
+        select(
+          "itemType",
+          ["Task","Milestone"],
+          record?.itemType || "Task"
+        )
+      )}
+
+      ${field(
+        "Higher-Level Task",
+        `<select name="parentOperationId">${parentOptions}</select>`
+      )}
+
+      ${field(
+        "Activity / Start Date",
+        textInput(
+          "activityDate",
+          record?.activityDate || new Date().toISOString().slice(0, 10),
+          "date"
+        )
+      )}
+
+      ${field(
+        "Target Date",
+        textInput(
+          "targetDate",
+          record?.targetDate || "",
+          "date"
+        )
+      )}
+
+      <div class="field full">
+        <label>Predecessor(s)</label>
+
+        <div class="so-schedule-choice-list">
+          ${predecessorMarkup}
+        </div>
+
+        <div class="small so-schedule-help">
+          Select only Tasks that must be completed before this Task can begin.
+        </div>
+      </div>
 
       ${field(
         "Entry Type",
@@ -1452,16 +1887,6 @@ const SiteOperations = (() => {
       ${field(
         "Progress Weight",
         textInput("progressWeight", record?.progressWeight ?? 1, "number", "min='0.01' step='0.01'")
-      )}
-
-      ${field(
-        "Activity Date",
-        textInput("activityDate", record?.activityDate || new Date().toISOString().slice(0, 10), "date")
-      )}
-
-      ${field(
-        "Target Date",
-        textInput("targetDate", record?.targetDate || "", "date")
       )}
 
       <div class="field full so-track-progress-field">
@@ -1609,6 +2034,47 @@ const SiteOperations = (() => {
 
     const data = new FormData(form);
 
+    const parentOperationId =
+      Number(data.get("parentOperationId") || 0);
+
+    const predecessorIds =
+      [...form.querySelectorAll(
+        'input[name="predecessorIds"]:checked'
+      )]
+        .map(input => Number(input.value))
+        .filter(id =>
+          Number.isFinite(id) &&
+          id > 0
+        );
+
+    if (
+      record?.id &&
+      parentOperationId === Number(record.id)
+    ) {
+      throw new Error(
+        "A Site Task cannot be its own Higher-Level Task."
+      );
+    }
+
+    if (
+      record?.id &&
+      siteOperationDescendantIds(record.id)
+        .has(parentOperationId)
+    ) {
+      throw new Error(
+        "That Higher-Level Task would create a circular Task/Subtask hierarchy."
+      );
+    }
+
+    if (
+      record?.id &&
+      predecessorIds.includes(Number(record.id))
+    ) {
+      throw new Error(
+        "A Site Task cannot be its own predecessor."
+      );
+    }
+
     const fields = {
       Title: String(data.get("title") || "").trim(),
       ProjectLookupId: String(project.sharePointId),
@@ -1627,6 +2093,16 @@ const SiteOperations = (() => {
       TargetDate: data.get("targetDate")
         ? `${data.get("targetDate")}T12:00:00Z`
         : null,
+
+      ParentOperationId:
+        parentOperationId || null,
+
+      PredecessorIds:
+        JSON.stringify(predecessorIds),
+
+      ItemType:
+        String(data.get("itemType") || "Task"),
+
       Details: String(data.get("details") || "").trim(),
       BlockerDependency: String(data.get("blockerDependency") || "").trim(),
       LeadResponsible: String(data.get("leadResponsible") || "").trim(),
@@ -2141,6 +2617,8 @@ const SiteOperations = (() => {
     editOperation,
     deleteLocation,
     deleteOperation,
+    toggleOperationChildren,
+    togglePredecessorChoice,
     getScheduleData,
     openScheduleItem,
     filterChildLocations,

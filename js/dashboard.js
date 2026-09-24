@@ -301,6 +301,117 @@ function executiveTaskDate(item){
   );
 }
 
+function executiveDependencyScheduleConflicts(item){
+  if(
+    !item ||
+    !item.startDate ||
+    executiveTaskComplete(item)
+  ){
+    return [];
+  }
+
+  const dependentStart=
+    new Date(`${String(item.startDate).slice(0,10)}T12:00:00`);
+
+  if(Number.isNaN(dependentStart.getTime())){
+    return [];
+  }
+
+  return executiveIncompletePredecessors(item)
+    .map(predecessor=>{
+      const predecessorFinishValue=
+        predecessor.targetDate ||
+        "";
+
+      if(!predecessorFinishValue){
+        return null;
+      }
+
+      const predecessorFinish=
+        new Date(
+          `${String(predecessorFinishValue).slice(0,10)}T12:00:00`
+        );
+
+      if(Number.isNaN(predecessorFinish.getTime())){
+        return null;
+      }
+
+      if(predecessorFinish <= dependentStart){
+        return null;
+      }
+
+      const days=
+        Math.ceil(
+          (
+            predecessorFinish.getTime() -
+            dependentStart.getTime()
+          ) /
+          86400000
+        );
+
+      return {
+        predecessor,
+        dependentStart:
+          String(item.startDate).slice(0,10),
+        predecessorFinish:
+          String(predecessorFinishValue).slice(0,10),
+        days
+      };
+    })
+    .filter(Boolean);
+}
+
+function executiveUpstreamScheduleConflicts(item){
+  if(!item){
+    return [];
+  }
+
+  const conflicts=[];
+  const seenConflicts=new Set();
+  const visited=new Set();
+
+  const walk=current=>{
+    if(!current?.id){
+      return;
+    }
+
+    const currentId=
+      String(current.id);
+
+    if(visited.has(currentId)){
+      return;
+    }
+
+    visited.add(currentId);
+
+    executiveDependencyScheduleConflicts(current)
+      .forEach(conflict=>{
+        const key=
+          `${currentId}::${String(conflict.predecessor?.id??"")}`;
+
+        if(seenConflicts.has(key)){
+          return;
+        }
+
+        seenConflicts.add(key);
+
+        conflicts.push({
+          item:current,
+          ...conflict
+        });
+      });
+
+    executiveTaskPredecessors(current)
+      .forEach(predecessor=>
+        walk(predecessor)
+      );
+  };
+
+  walk(item);
+
+  return conflicts;
+}
+
 function executiveProjectPlanSnapshot(){
   const items=executiveProjectPlanItems();
 
@@ -334,11 +445,27 @@ function executiveProjectPlanSnapshot(){
     .map(item=>({
       item,
       predecessors:
-        executiveIncompletePredecessors(item)
+        executiveIncompletePredecessors(item),
+      scheduleConflicts:
+        executiveDependencyScheduleConflicts(item)
     }))
     .filter(record=>
       !executiveTaskComplete(record.item) &&
       record.predecessors.length
+    );
+
+  const milestoneRisks=items
+    .filter(item=>
+      !executiveTaskComplete(item) &&
+      String(item.itemType||"")==="Milestone"
+    )
+    .map(item=>({
+      item,
+      conflicts:
+        executiveUpstreamScheduleConflicts(item)
+    }))
+    .filter(record=>
+      record.conflicts.length
     );
 
   const upcoming=items
@@ -359,7 +486,194 @@ function executiveProjectPlanSnapshot(){
     active,
     waiting,
     blocked,
+    milestoneRisks,
     upcoming
+  };
+}
+
+function executiveSiteComplete(item){
+  return (
+    String(item?.status||"")==="Complete" ||
+    Number(item?.percentComplete||0)>=100
+  );
+}
+
+function executiveSitePredecessorIds(item){
+  return [
+    ...new Set(
+      (
+        Array.isArray(item?.predecessorIds)
+          ? item.predecessorIds
+          : []
+      )
+        .map(id=>String(id))
+        .filter(Boolean)
+    )
+  ];
+}
+
+function executiveSiteClickableAttrs(item){
+  if(!item?.id)return "";
+
+  const id=String(item.id)
+    .replaceAll("\\","\\\\")
+    .replaceAll("'","\\'");
+
+  return ` role="button" tabindex="0" onclick="openScheduleSource('site','${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openScheduleSource('site','${id}');}"`;
+}
+
+function executiveSiteScheduleSnapshot(){
+  const items=siteScheduleRecords();
+
+  const byId=new Map(
+    items.map(item=>[
+      String(item.id),
+      item
+    ])
+  );
+
+  const predecessorsFor=item=>
+    executiveSitePredecessorIds(item)
+      .map(id=>byId.get(id))
+      .filter(Boolean);
+
+  const scheduleConflictsFor=item=>{
+    if(
+      executiveSiteComplete(item) ||
+      !item?.startDate
+    ){
+      return [];
+    }
+
+    const dependentStart=new Date(
+      `${String(item.startDate).slice(0,10)}T12:00:00`
+    );
+
+    if(Number.isNaN(dependentStart.getTime())){
+      return [];
+    }
+
+    return predecessorsFor(item)
+      .filter(predecessor=>
+        !executiveSiteComplete(predecessor)
+      )
+      .map(predecessor=>{
+        const finishValue=
+          predecessor.date ||
+          predecessor.targetDate ||
+          "";
+
+        if(!finishValue)return null;
+
+        const predecessorFinish=new Date(
+          `${String(finishValue).slice(0,10)}T12:00:00`
+        );
+
+        if(
+          Number.isNaN(predecessorFinish.getTime()) ||
+          predecessorFinish<=dependentStart
+        ){
+          return null;
+        }
+
+        return {
+          predecessor,
+          dependentStart:
+            String(item.startDate).slice(0,10),
+          predecessorFinish:
+            String(finishValue).slice(0,10),
+          days:
+            Math.ceil(
+              (
+                predecessorFinish.getTime() -
+                dependentStart.getTime()
+              ) /
+              86400000
+            )
+        };
+      })
+      .filter(Boolean);
+  };
+
+  const upstreamConflictsFor=item=>{
+    const conflicts=[];
+    const visited=new Set();
+    const seenConflicts=new Set();
+
+    const walk=current=>{
+      const currentId=String(current?.id??"");
+
+      if(
+        !currentId ||
+        visited.has(currentId)
+      ){
+        return;
+      }
+
+      visited.add(currentId);
+
+      scheduleConflictsFor(current)
+        .forEach(conflict=>{
+          const key=
+            `${currentId}:${String(conflict.predecessor?.id??"")}`;
+
+          if(seenConflicts.has(key)){
+            return;
+          }
+
+          seenConflicts.add(key);
+
+          conflicts.push({
+            item:current,
+            ...conflict
+          });
+        });
+
+      predecessorsFor(current)
+        .forEach(predecessor=>
+          walk(predecessor)
+        );
+    };
+
+    walk(item);
+
+    return conflicts;
+  };
+
+  const blocked=items
+    .map(item=>({
+      item,
+      predecessors:
+        predecessorsFor(item)
+          .filter(predecessor=>
+            !executiveSiteComplete(predecessor)
+          ),
+      scheduleConflicts:
+        scheduleConflictsFor(item)
+    }))
+    .filter(record=>
+      !executiveSiteComplete(record.item) &&
+      record.predecessors.length
+    );
+
+  const milestoneRisks=items
+    .filter(item=>
+      !executiveSiteComplete(item) &&
+      String(item.itemType||"")==="Milestone"
+    )
+    .map(item=>({
+      item,
+      conflicts:
+        upstreamConflictsFor(item)
+    }))
+    .filter(record=>
+      record.conflicts.length
+    );
+
+  return {
+    items,
+    blocked,
+    milestoneRisks
   };
 }
 
@@ -1027,6 +1341,7 @@ function render(){
   };
 });
  const executivePlan=executiveProjectPlanSnapshot();
+ const executiveSite=executiveSiteScheduleSnapshot();
 
  // ==========================================================
  // CURRENT WORK
@@ -1264,7 +1579,250 @@ function render(){
        `
      })),
 
+   ...executiveSite.milestoneRisks
+     .map(record=>{
+       const item=record.item;
+
+       const conflictCount=
+         record.conflicts.length;
+
+       const affectedTasks=[
+         ...new Set(
+           record.conflicts
+             .map(conflict=>
+               conflict.item?.title ||
+               conflict.predecessor?.title ||
+               ""
+             )
+             .filter(Boolean)
+         )
+       ];
+
+       return {
+         kind:"dependency",
+         date:
+           item.date ||
+           item.targetDate ||
+           "",
+         title:
+           item.title ||
+           item.deliverable ||
+           "",
+         html:`
+           <div class="item exec-summary-item exec-source-site exec-milestone-risk"${executiveSiteClickableAttrs(item)}>
+             <span class="dot" style="background:var(--red)"></span>
+
+             <div class="exec-summary-content">
+               <div class="exec-summary-title-line">
+                 <strong>${esc(item.title||item.deliverable)}</strong>
+                 <span class="exec-milestone-risk-badge">
+                   Milestone at Risk
+                 </span>
+                 <span class="exec-source-tag">Site Operations</span>
+               </div>
+
+               <div class="small">
+                 ${conflictCount}
+                 upstream schedule conflict${conflictCount===1?"":"s"}
+                 ${
+                   affectedTasks.length
+                     ? ` · ${esc(affectedTasks.join(", "))}`
+                     : ""
+                 }
+                 ${
+                   item.date
+                     ? ` · milestone ${fmtDate(item.date)}`
+                     : ""
+                 }
+               </div>
+             </div>
+           </div>
+         `
+       };
+     }),
+
+   ...executiveSite.blocked
+     .filter(record=>{
+       const item=record.item;
+
+       if(
+         String(item?.itemType||"")!=="Milestone"
+       ){
+         return true;
+       }
+
+       const milestoneRisk=
+         executiveSite.milestoneRisks
+           .some(risk=>
+             String(risk.item?.id??"")===
+             String(item?.id??"")
+           );
+
+       return !milestoneRisk;
+     })
+     .map(record=>{
+       const item=record.item;
+
+       const names=
+         record.predecessors
+           .map(predecessor=>
+             predecessor.title ||
+             predecessor.deliverable
+           )
+           .join(", ");
+
+       const conflicts=
+         Array.isArray(record.scheduleConflicts)
+           ? record.scheduleConflicts
+           : [];
+
+       const hasScheduleConflict=
+         conflicts.length>0;
+
+       const riskDate=
+         hasScheduleConflict
+           ? (
+               item.startDate ||
+               item.date ||
+               ""
+             )
+           : (
+               item.date ||
+               item.targetDate ||
+               ""
+             );
+
+       const conflictDetail=
+         conflicts
+           .map(conflict=>
+             `${conflict.predecessor.title||conflict.predecessor.deliverable} finishes ${fmtDate(conflict.predecessorFinish)}; ${item.title||item.deliverable} starts ${fmtDate(conflict.dependentStart)}`
+           )
+           .join(" · ");
+
+       return {
+         kind:"dependency",
+         date:riskDate,
+         title:
+           item.title ||
+           item.deliverable ||
+           "",
+         html:`
+           <div class="item exec-summary-item exec-source-site"${executiveSiteClickableAttrs(item)}>
+             <span class="dot" style="background:var(--red)"></span>
+
+             <div class="exec-summary-content">
+               <div class="exec-summary-title-line">
+                 <strong>${esc(item.title||item.deliverable)}</strong>
+
+                 ${
+                   hasScheduleConflict
+                     ? `<span class="exec-dependency-conflict-badge">Dependency Conflict</span>`
+                     : `<span class="exec-blocked-label">blocked by ${record.predecessors.length} ${record.predecessors.length===1?"Task":"Tasks"}</span>`
+                 }
+
+                 <span class="exec-source-tag">Site Operations</span>
+               </div>
+
+               <div class="small">
+                 ${
+                   hasScheduleConflict
+                     ? esc(conflictDetail)
+                     : `
+                         ${esc(names)}
+                         ${
+                           riskDate
+                             ? ` · ${fmtDate(riskDate)}`
+                             : ""
+                         }
+                       `
+                 }
+               </div>
+             </div>
+           </div>
+         `
+       };
+     }),
+
+   ...executivePlan.milestoneRisks
+     .map(record=>{
+       const item=
+         record.item;
+
+       const conflictCount=
+         record.conflicts.length;
+
+       const affectedTasks=
+         [
+           ...new Set(
+             record.conflicts
+               .map(conflict=>
+                 conflict.item?.title ||
+                 conflict.predecessor?.title ||
+                 ""
+               )
+               .filter(Boolean)
+           )
+         ];
+
+       return {
+         kind:"dependency",
+         date:
+           item.targetDate ||
+           item.requiredBy ||
+           "",
+         title:item.title||"",
+         html:`
+           <div class="item exec-summary-item exec-source-project exec-milestone-risk"${executiveTaskClickableAttrs(item)}>
+             <span class="dot" style="background:var(--red)"></span>
+
+             <div class="exec-summary-content">
+               <div class="exec-summary-title-line">
+                 <strong>${esc(item.title)}</strong>
+                 <span class="exec-milestone-risk-badge">
+                   Milestone at Risk
+                 </span>
+                 <span class="exec-source-tag">Project Plan</span>
+               </div>
+
+               <div class="small">
+                 ${conflictCount}
+                 upstream schedule conflict${conflictCount===1?"":"s"}
+                 ${
+                   affectedTasks.length
+                     ? ` · ${esc(affectedTasks.join(", "))}`
+                     : ""
+                 }
+                 ${
+                   item.targetDate
+                     ? ` · milestone ${fmtDate(item.targetDate)}`
+                     : ""
+                 }
+               </div>
+             </div>
+           </div>
+         `
+       };
+     }),
+
    ...executivePlan.blocked
+     .filter(record=>{
+       const item=record.item;
+
+       if(
+         String(item?.itemType||"")!=="Milestone"
+       ){
+         return true;
+       }
+
+       const milestoneRisk=
+         executivePlan.milestoneRisks
+           .some(risk=>
+             String(risk.item?.id??"")===
+             String(item?.id??"")
+           );
+
+       return !milestoneRisk;
+     })
      .map(record=>{
        const item=record.item;
 
@@ -1273,8 +1831,28 @@ function render(){
            .map(predecessor=>predecessor.title)
            .join(", ");
 
+       const conflicts=
+         Array.isArray(record.scheduleConflicts)
+           ? record.scheduleConflicts
+           : [];
+
+       const hasScheduleConflict=
+         conflicts.length>0;
+
        const riskDate=
-         executiveBlockedRiskDate(record);
+         hasScheduleConflict
+           ? (
+               item.startDate ||
+               executiveBlockedRiskDate(record)
+             )
+           : executiveBlockedRiskDate(record);
+
+       const conflictDetail=
+         conflicts
+           .map(conflict=>
+             `${conflict.predecessor.title} finishes ${fmtDate(conflict.predecessorFinish)}; ${item.title} starts ${fmtDate(conflict.dependentStart)}`
+           )
+           .join(" · ");
 
        return {
          kind:"dependency",
@@ -1285,18 +1863,26 @@ function render(){
              <span class="dot" style="background:var(--red)"></span>
              <div class="exec-summary-content">
                <div class="exec-summary-title-line">
-                 <strong>
-                   ${esc(item.title)} blocked by ${record.predecessors.length}
-                   ${record.predecessors.length===1?"Task":"Tasks"}
-                 </strong>
+                 <strong>${esc(item.title)}</strong>
+                 ${
+                   hasScheduleConflict
+                     ? `<span class="exec-dependency-conflict-badge">Dependency Conflict</span>`
+                     : `<span class="exec-blocked-label">blocked by ${record.predecessors.length} ${record.predecessors.length===1?"Task":"Tasks"}</span>`
+                 }
                  <span class="exec-source-tag">Project Plan</span>
                </div>
                <div class="small">
-                 ${esc(names)}
                  ${
-                   riskDate
-                     ? ` · ${fmtDate(riskDate)}`
-                     : ""
+                   hasScheduleConflict
+                     ? esc(conflictDetail)
+                     : `
+                         ${esc(names)}
+                         ${
+                           riskDate
+                             ? ` · ${fmtDate(riskDate)}`
+                             : ""
+                         }
+                       `
                  }
                </div>
              </div>
@@ -1335,7 +1921,9 @@ filtered=ds.filter(x=>{
  applyProjectControlViewModes();
  const statuses=[...new Set(ds.map(x=>x.status))].sort(),disciplines=[...new Set(ds.map(x=>x.discipline))].sort(),oldS=filterStatus.value,oldD=filterDiscipline.value;filterStatus.innerHTML='<option value="">All statuses</option>'+statuses.map(s=>`<option>${esc(s)}</option>`).join("");filterStatus.value=oldS;filterDiscipline.innerHTML='<option value="">All disciplines</option>'+disciplines.map(s=>`<option>${esc(s)}</option>`).join("");filterDiscipline.value=oldD;
  updateScheduleModeButtons();
- if((calendarScheduleMode!=="project"||ganttScheduleMode!=="project")&&!siteScheduleSnapshot.loaded&&!siteScheduleSnapshot.loading){ensureSiteSchedule(false).then(()=>render());}
+ if(!siteScheduleSnapshot.loaded&&!siteScheduleSnapshot.loading){
+   ensureSiteSchedule(false).then(()=>render());
+ }
  timelineTrack.innerHTML=renderGantt(scheduleRecordsForGantt(ds));
  requestAnimationFrame(bindGanttBottomScroll);
   const projectCalendarRecords=projectScheduleRecords(ds);
@@ -1842,7 +2430,7 @@ function ganttStartFor(record){
  const target=ganttDate(record.date);if(!target)return null;
 
  if(
-   record.scheduleKind==="projectPlan" &&
+   ["projectPlan","site"].includes(record.scheduleKind) &&
    String(record.itemType||"")==="Milestone"
  ){
    return target;
@@ -1870,19 +2458,25 @@ function ganttGroupStatusClass(items){
 let ganttExpandedGroups=new Set();
 
 /*
- * Separate expansion state for Project Plan Tasks inside a
- * Workstream. Site Operations continues using only the normal
- * Gantt group expansion behavior.
+ * Separate expansion state for structured Task/Subtask hierarchy
+ * inside Project Plan and Site Operations Gantt groups.
+ *
+ * Keys include the source so identical SharePoint item IDs from
+ * different schedule sources cannot collide in Combined mode.
  */
 let ganttExpandedProjectTasks=new Set();
 
-function toggleGanttProjectTask(encodedId){
-  const id=decodeURIComponent(encodedId);
+function ganttHierarchyKey(record){
+  return `${String(record?.scheduleKind||"projectPlan")}:${String(record?.id??"")}`;
+}
 
-  if(ganttExpandedProjectTasks.has(id)){
-    ganttExpandedProjectTasks.delete(id);
+function toggleGanttProjectTask(encodedKey){
+  const key=decodeURIComponent(encodedKey);
+
+  if(ganttExpandedProjectTasks.has(key)){
+    ganttExpandedProjectTasks.delete(key);
   }else{
-    ganttExpandedProjectTasks.add(id);
+    ganttExpandedProjectTasks.add(key);
   }
 
   rememberGanttScrollAnchor();
@@ -1957,6 +2551,139 @@ function renderGantt(records){
    .map(record=>({record,start:ganttStartFor(record),end:ganttDate(record.date)}))
    .filter(item=>item.start&&item.end);
  const unscheduled=records.filter(record=>!ganttDate(record.date));
+
+ const ganttRecordKey=(record,id=record?.id)=>
+   `${String(record?.scheduleKind||"project")}:${String(id??"")}`;
+
+ const ganttRecordById=new Map(
+   scheduled
+     .filter(item=>item.record?.id!=null)
+     .map(item=>[
+       ganttRecordKey(item.record),
+       item
+     ])
+ );
+
+ const ganttPredecessorIds=record=>
+   [
+     ...new Set(
+       (
+         (
+           Array.isArray(record?.predecessorIds) &&
+           record.predecessorIds.length
+         )
+           ? record.predecessorIds
+           : record?.predecessorId
+             ? [record.predecessorId]
+             : []
+       )
+         .map(id=>String(id))
+         .filter(Boolean)
+     )
+   ];
+
+ const ganttEntryComplete=entry=>
+   String(entry?.record?.status||"")==="Complete" ||
+   Number(entry?.record?.calculatedProgress||0)>=100;
+
+ /*
+  * A hard schedule conflict requires an explicit dependent
+  * Start Date. Inferred Gantt starts are intentionally ignored.
+  */
+ const ganttScheduleConflicts=record=>{
+   if(
+     !["projectPlan","site"].includes(record?.scheduleKind) ||
+     !record?.startDate
+   ){
+     return [];
+   }
+
+   const dependentStart=
+     ganttDate(record.startDate);
+
+   if(!dependentStart){
+     return [];
+   }
+
+   return ganttPredecessorIds(record)
+     .map(id=>
+       ganttRecordById.get(
+         ganttRecordKey(record,id)
+       )
+     )
+     .filter(Boolean)
+     .filter(entry=>!ganttEntryComplete(entry))
+     .map(entry=>{
+       const predecessorFinish=
+         ganttDate(entry.record.date);
+
+       if(
+         !predecessorFinish ||
+         predecessorFinish<=dependentStart
+       ){
+         return null;
+       }
+
+       return {
+         entry,
+         days:
+           Math.ceil(
+             (
+               predecessorFinish.getTime() -
+               dependentStart.getTime()
+             ) /
+             86400000
+           )
+       };
+     })
+     .filter(Boolean);
+ };
+
+ /*
+  * Walk predecessor chains so Milestones can report how many
+  * upstream tasks contain actual date conflicts.
+  */
+ const ganttUpstreamConflictIds=record=>{
+   const conflicts=new Set();
+   const visited=new Set();
+
+   const walk=current=>{
+     const currentId=
+       String(current?.id??"");
+
+     if(
+       !currentId ||
+       visited.has(currentId)
+     ){
+       return;
+     }
+
+     visited.add(currentId);
+
+     ganttScheduleConflicts(current)
+       .forEach(conflict=>
+         conflicts.add(
+           String(conflict.entry.record.id)
+         )
+       );
+
+     ganttPredecessorIds(current)
+       .forEach(id=>{
+         const predecessor=
+           ganttRecordById.get(
+             ganttRecordKey(current,id)
+           )?.record;
+
+         if(predecessor){
+           walk(predecessor);
+         }
+       });
+   };
+
+   walk(record);
+
+   return conflicts;
+ };
 
  if(!scheduled.length){
    return `<div class="gantt-empty">No Project Plan tasks currently have schedule dates.${currentUser.canEdit?" Add Start and Target dates in Project Plan to build the schedule.":""}</div>`;
@@ -2063,73 +2790,211 @@ function renderGantt(records){
      const safeId=ganttJsString(record.id);
 
      const isProjectPlan=kind==="projectPlan";
+     const isSite=kind==="site";
+     const hasStructuredDependencies=
+       isProjectPlan || isSite;
+
+     const predecessorIds=
+       hasStructuredDependencies
+         ? ganttPredecessorIds(record)
+         : [];
+
+     const predecessorEntries=
+       predecessorIds
+         .map(id=>
+           ganttRecordById.get(
+             ganttRecordKey(record,id)
+           )
+         )
+         .filter(Boolean);
+
+     const predecessorComplete=entry=>
+       String(entry?.record?.status||"")==="Complete" ||
+       Number(entry?.record?.calculatedProgress||0)>=100;
+
+     const incompletePredecessors=
+       predecessorEntries.filter(
+         entry=>!predecessorComplete(entry)
+       );
+
+     const hasIncompletePredecessor=
+       incompletePredecessors.length>0;
+
+     const scheduleConflicts=
+       hasStructuredDependencies
+         ? ganttScheduleConflicts(record)
+         : [];
+
+     const hasScheduleConflict=
+       scheduleConflicts.length>0;
+
+     const upstreamConflictCount=
+       hasStructuredDependencies &&
+       String(record.itemType||"")==="Milestone"
+         ? ganttUpstreamConflictIds(record).size
+         : 0;
+
+     const predecessorLabelEntries=
+       hasIncompletePredecessor
+         ? incompletePredecessors
+         : predecessorEntries;
+
+     const dependencyTitle=
+       predecessorLabelEntries.length
+         ? `${hasIncompletePredecessor?"Blocked by":"Predecessor"}: ${
+             predecessorLabelEntries
+               .map(entry=>entry.record.deliverable)
+               .join(", ")
+           }`
+         : "";
+
     const isMilestone=
-      isProjectPlan &&
+      hasStructuredDependencies &&
       String(record.itemType||"")==="Milestone";
-     const hasProjectChildren=Boolean(
-       isProjectPlan &&
+     const hierarchyParentField=
+       isSite
+         ? "parentOperationId"
+         : "parentWorkItemId";
+
+     const hasHierarchyChildren=Boolean(
+       hasStructuredDependencies &&
        items.some(
          candidate =>
-           String(candidate.record.parentWorkItemId??"")===
+           String(candidate.record?.[hierarchyParentField]??"")===
            String(record.id??"")
        )
      );
 
+     const hierarchyKey=
+       ganttHierarchyKey(record);
+
      const taskExpanded=
-       hasProjectChildren &&
-       ganttExpandedProjectTasks.has(String(record.id));
+       hasHierarchyChildren &&
+       ganttExpandedProjectTasks.has(hierarchyKey);
 
      const childCount=
-       isProjectPlan
+       hasStructuredDependencies
          ? items.filter(
              candidate =>
-               String(candidate.record.parentWorkItemId??"")===
+               String(candidate.record?.[hierarchyParentField]??"")===
                String(record.id??"")
            ).length
          : 0;
 
      const hierarchyToggle=
-       hasProjectChildren
+       hasHierarchyChildren
          ? `<button
               class="gantt-task-toggle"
               type="button"
               aria-label="${taskExpanded?"Collapse":"Expand"} ${esc(record.deliverable)}"
               aria-expanded="${taskExpanded?"true":"false"}"
-              onclick="event.stopPropagation();toggleGanttProjectTask('${encodeURIComponent(String(record.id))}')"
+              onclick="event.stopPropagation();toggleGanttProjectTask('${encodeURIComponent(hierarchyKey)}')"
             >${taskExpanded?"▼":"▶"}</button>`
          : `<span class="gantt-task-toggle-spacer"></span>`;
 
-     const projectLabelAction=
-       hasProjectChildren
-         ? `toggleGanttProjectTask('${encodeURIComponent(String(record.id))}')`
+     const hierarchyLabelAction=
+       hasHierarchyChildren
+         ? `toggleGanttProjectTask('${encodeURIComponent(hierarchyKey)}')`
          : `openScheduleSource('${safeKind}','${safeId}')`;
 
-     return `<div class="gantt-row ${isProjectPlan?"gantt-project-plan-row":""}">
+     return `<div class="gantt-row ${isProjectPlan?"gantt-project-plan-row":""} ${isSite?"gantt-site-row":""}">
        <div
          class="gantt-label"
-         style="${isProjectPlan?`--gantt-task-depth:${depth}`:""}"
-         onclick="${isProjectPlan?projectLabelAction:`openScheduleSource('${safeKind}','${safeId}')`}"
+         style="${hasStructuredDependencies?`--gantt-task-depth:${depth}`:""}"
+         onclick="${hasStructuredDependencies?hierarchyLabelAction:`openScheduleSource('${safeKind}','${safeId}')`}"
        >
          <span class="gantt-task-label-main">
-           ${isProjectPlan?hierarchyToggle:""}
+           ${hasStructuredDependencies?hierarchyToggle:""}
            <strong title="${esc(record.deliverable)}">${esc(record.deliverable)}</strong>
            ${
-             hasProjectChildren
+             hasHierarchyChildren
                ? `<span class="gantt-task-child-count">${childCount} subtask${childCount===1?"":"s"}</span>`
                : ""
            }
          </span>
+
+         ${
+           predecessorLabelEntries.length
+             ? `<div class="gantt-dependency-meta ${hasIncompletePredecessor?"blocked":""}">
+                  <span class="gantt-dependency-caption">
+                    ${hasIncompletePredecessor?"Blocked by":"Predecessor"}:
+                  </span>
+
+                  <span class="gantt-dependency-links">
+                    ${
+                      predecessorLabelEntries
+                        .map(entry=>{
+                          const predecessorKind=
+                            ganttJsString(
+                              entry.record.scheduleKind||
+                              "projectPlan"
+                            );
+
+                          const predecessorId=
+                            ganttJsString(
+                              entry.record.id
+                            );
+
+                          return `<button
+                            type="button"
+                            class="gantt-dependency-link"
+                            onclick="event.stopPropagation();openScheduleSource('${predecessorKind}','${predecessorId}')"
+                            title="Open ${esc(entry.record.deliverable)}"
+                          >${esc(entry.record.deliverable)}</button>`;
+                        })
+                        .join('<span class="gantt-dependency-separator">·</span>')
+                    }
+                  </span>
+                </div>`
+             : ""
+         }
+
+         ${
+           hasScheduleConflict
+             ? `<div class="gantt-schedule-conflict">
+                  <strong>Dependency Conflict</strong>
+                  <span>
+                    ${
+                      scheduleConflicts
+                        .map(conflict=>
+                          `${esc(conflict.entry.record.deliverable)} finishes ${fmtDate(conflict.entry.record.date)}, ${conflict.days} day${conflict.days===1?"":"s"} after this task starts`
+                        )
+                        .join(" · ")
+                    }
+                  </span>
+                </div>`
+             : ""
+         }
+
+         ${
+           upstreamConflictCount
+             ? `<div class="gantt-milestone-risk">
+                  ${upstreamConflictCount} upstream schedule conflict${upstreamConflictCount===1?"":"s"}
+                </div>`
+             : ""
+         }
+
          <span>${badge(record.status)}</span>
        </div>
 
-       <div class="gantt-lane" style="--gantt-week:${weekGridWidth}%">
+       <div class="gantt-lane ${hasIncompletePredecessor?"gantt-lane-dependency-blocked":""} ${hasScheduleConflict?"gantt-lane-schedule-conflict":""}" style="--gantt-week:${weekGridWidth}%">
          ${todayOffset>=0&&todayOffset<=100?`<i class="gantt-today" style="left:${todayOffset}%" title="Today"></i>`:""}
 
+         ${
+           predecessorEntries.length
+             ? `<i
+                  class="gantt-dependency-anchor ${hasIncompletePredecessor?"blocked":""}"
+                  style="left:${left}%"
+                  title="${esc(dependencyTitle)}"
+                ></i>`
+             : ""
+         }
+
          <button
-           class="${isMilestone?"gantt-milestone":"gantt-bar"} ${ganttStatusClass(record)}"
+           class="${isMilestone?"gantt-milestone":"gantt-bar"} ${ganttStatusClass(record)} ${hasIncompletePredecessor?"gantt-has-incomplete-predecessor":""} ${hasScheduleConflict?"gantt-has-schedule-conflict":""}"
            style="left:${left}%;width:${isMilestone?0:width}%"
            onclick="openScheduleSource('${safeKind}','${safeId}')"
-           title="${esc(record.deliverable)}: ${fmtDate(ganttIso(start))} – ${fmtDate(ganttIso(end))}${inferred?" (start estimated)":""}"
+           title="${esc(record.deliverable)}: ${fmtDate(ganttIso(start))} – ${fmtDate(ganttIso(end))}${inferred?" (start estimated)":""}${dependencyTitle?` | ${esc(dependencyTitle)}`:""}"
          >
            ${width>=9?`<span>${ganttShort(ganttIso(start))} → ${ganttShort(record.date)}</span>`:""}
          </button>
@@ -2140,13 +3005,26 @@ function renderGantt(records){
    let rows="";
 
    if(!collapsed){
-     const projectPlanGroup=
+     const structuredGroup=
        items.length>0 &&
-       items.every(
-         item => item.record.scheduleKind==="projectPlan"
+       (
+         items.every(
+           item => item.record.scheduleKind==="projectPlan"
+         ) ||
+         items.every(
+           item => item.record.scheduleKind==="site"
+         )
        );
 
-     if(projectPlanGroup){
+     if(structuredGroup){
+       const scheduleKind=
+         items[0].record.scheduleKind;
+
+       const parentField=
+         scheduleKind==="site"
+           ? "parentOperationId"
+           : "parentWorkItemId";
+
        const byId=new Map(
          items.map(item=>[
            String(item.record.id),
@@ -2159,7 +3037,7 @@ function renderGantt(records){
        items.forEach(item=>{
          const parentId=
            String(
-             item.record.parentWorkItemId??""
+             item.record?.[parentField]??""
            );
 
          if(
@@ -2190,7 +3068,7 @@ function renderGantt(records){
          .filter(item=>{
            const parentId=
              String(
-               item.record.parentWorkItemId??""
+               item.record?.[parentField]??""
              );
 
            return !parentId || !byId.has(parentId);
@@ -2198,11 +3076,20 @@ function renderGantt(records){
          .sort(sortHierarchy);
 
        const renderBranch=(entry,depth=0)=>{
-         const id=String(entry.record.id);
-         let html=renderScheduleRow(entry,depth);
+         const hierarchyKey=
+           ganttHierarchyKey(entry.record);
+
+         const id=
+           String(entry.record.id);
+
+         let html=
+           renderScheduleRow(
+             entry,
+             depth
+           );
 
          if(
-           ganttExpandedProjectTasks.has(id)
+           ganttExpandedProjectTasks.has(hierarchyKey)
          ){
            const children=
              (childrenByParent.get(id)||[])
@@ -2223,12 +3110,14 @@ function renderGantt(records){
        };
 
        rows=roots
-         .map(root=>renderBranch(root,0))
+         .map(root=>
+           renderBranch(
+             root,
+             0
+           )
+         )
          .join("");
      }else{
-       /*
-        * Site Operations retains the existing flat row behavior.
-        */
        rows=items
          .map(item=>renderScheduleRow(item,0))
          .join("");
@@ -2473,6 +3362,41 @@ function bindGanttBottomScroll(){
  });
 }
 
+function effectiveManagementDivisions(user=currentUser){
+ const divisions=[];
+
+ const add=value=>{
+   const clean=String(value||"").trim();
+   if(!clean)return;
+
+   if(
+     !divisions.some(
+       item=>item.toLowerCase()===clean.toLowerCase()
+     )
+   ){
+     divisions.push(clean);
+   }
+ };
+
+ // AHT Employee List remains authoritative for Home Division.
+ // External role-testing users intentionally have no Home Division.
+ if(user?.isInternal!==false){
+   add(user?.division);
+ }
+
+ (user?.managementDivisions||[])
+   .forEach(add);
+
+ return divisions;
+}
+
+function managementDivisionKeys(user=currentUser){
+ return new Set(
+   effectiveManagementDivisions(user)
+     .map(value=>value.toLowerCase())
+ );
+}
+
 function renderAdmin(){
  const canOpenAdministration=
    Boolean(
@@ -2486,7 +3410,442 @@ function renderAdmin(){
    );
 
  if(!canOpenAdministration)return;
- projectAdminList.innerHTML=state.projects.map(p=>`
+
+ const hasOrganizationWideAdminScope =
+   Boolean(
+     currentUser?.canAdmin ||
+     currentUser?.isSystemOwner ||
+     currentUser?.projects?.includes("*")
+   );
+
+ const operatorManagementDivisions =
+   effectiveManagementDivisions(currentUser);
+
+ const operatorManagementDivisionKeys =
+   new Set(
+     operatorManagementDivisions.map(
+       value=>value.toLowerCase()
+     )
+   );
+
+ const useExplicitProjectManagementScope =
+   !operatorManagementDivisionKeys.size;
+
+ const managementProjectIds =
+   hasOrganizationWideAdminScope
+     ? new Set(
+         state.projects.map(project=>project.id)
+       )
+     : useExplicitProjectManagementScope
+       ? new Set(
+           (currentUser?.projects||[])
+             .filter(projectId=>projectId!=="*")
+         )
+       : new Set(
+           state.projects
+             .filter(project=>
+               operatorManagementDivisionKeys.has(
+                 String(project.division||"")
+                   .trim()
+                   .toLowerCase()
+               )
+             )
+             .map(project=>project.id)
+         );
+
+ const manageableProjects =
+   state.projects.filter(project=>
+     managementProjectIds.has(project.id)
+   );
+
+ const addAhtProjectSearch=
+   document.getElementById("addAhtProjectSearch");
+
+ const addAhtProjectCount=
+   document.getElementById("addAhtProjectCount");
+
+ const adminProjectSearch=
+   document.getElementById("adminProjectSearch");
+
+ const adminProjectCount=
+   document.getElementById("adminProjectCount");
+
+ const adminUserSearch=
+   document.getElementById("adminUserSearch");
+
+ const addProjectFilterText=
+   String(addAhtProjectSearch?.value||"")
+     .trim()
+     .toLowerCase();
+
+ const manageProjectFilterText=
+   String(adminProjectSearch?.value||"")
+     .trim()
+     .toLowerCase();
+
+ const userFilterText=
+   String(adminUserSearch?.value||"")
+     .trim()
+     .toLowerCase();
+
+ const addAhtUserCard=
+   document.getElementById("addAhtUserCard");
+
+ const addAhtUserProjects=
+   document.getElementById("addAhtUserProjects");
+
+ const addAhtUserRole=
+   document.getElementById("addAhtUserRole");
+
+ const addAhtUserEmployee=
+   document.getElementById("addAhtUserEmployee");
+
+ if(addAhtUserCard){
+   addAhtUserCard.classList.toggle(
+     "hidden",
+     !currentUser?.canManageInternalUsers
+   );
+ }
+
+ if(addAhtUserRole){
+   const operatorCanAssignAdmin=
+     Boolean(
+       currentUser?.canAdmin ||
+       currentUser?.isSystemOwner
+     );
+
+   addAhtUserRole.innerHTML=
+     operatorCanAssignAdmin
+       ? '<option>Editor</option>'+
+         '<option>Viewer</option>'+
+         '<option>Project Admin</option>'+
+         '<option>Admin</option>'
+       : '<option>Editor</option>'+
+         '<option>Viewer</option>'+
+         '<option>Project Admin</option>';
+ }
+
+ if(addAhtUserEmployee){
+   const addAhtEmployeeSearch=
+     document.getElementById("addAhtEmployeeSearch");
+
+   const addAhtEmployeeList=
+     document.getElementById("addAhtEmployeeList");
+
+   const addAhtEmployeeCount=
+     document.getElementById("addAhtEmployeeCount");
+
+   const employeeDirectory=
+     typeof DataProvider?.getCachedEmployeeDirectory==="function"
+       ? DataProvider.getCachedEmployeeDirectory()
+       : [];
+
+   const existingEmails=
+     new Set(
+       USERS
+         .map(user=>
+           String(user.email||"")
+             .trim()
+             .toLowerCase()
+         )
+         .filter(Boolean)
+     );
+
+   const operatorCanSeeAllEmployees=
+     Boolean(
+       currentUser?.canAdmin ||
+       currentUser?.isSystemOwner
+     );
+
+   const employeeDivisionKeys=
+     new Set(
+       effectiveManagementDivisions(currentUser)
+         .map(value=>value.toLowerCase())
+     );
+
+   const employeeSearchText=
+     String(addAhtEmployeeSearch?.value||"")
+       .trim()
+       .toLowerCase();
+
+   const previousEmployee=
+     addAhtUserEmployee.value;
+
+   const availableEmployees=
+     employeeDirectory
+       .filter(employee=>
+         employee.email &&
+         !existingEmails.has(
+           String(employee.email)
+             .trim()
+             .toLowerCase()
+         )
+       )
+       .filter(employee=>{
+         const name=
+           String(employee.name||"").trim();
+
+         const email=
+           String(employee.email||"")
+             .trim()
+             .toLowerCase();
+
+         /*
+          * Exclude obvious division/office mailbox records such as
+          * "AHT Naples / naples.office@ahtglobal.com".
+          * Do not broadly exclude Office-department employees.
+          */
+         const obviousOfficeAlias=
+           /^AHT\s+/i.test(name) &&
+           (
+             email.includes(".office@") ||
+             email.includes("office@")
+           );
+
+         return !obviousOfficeAlias;
+       })
+       .filter(employee=>
+         operatorCanSeeAllEmployees ||
+         employeeDivisionKeys.has(
+           String(employee.division||"")
+             .trim()
+             .toLowerCase()
+         )
+       )
+       .filter(employee=>
+         !employeeSearchText ||
+         [
+           employee.name,
+           employee.email,
+           employee.jobTitle,
+           employee.department,
+           employee.division
+         ].some(value=>
+           String(value||"")
+             .toLowerCase()
+             .includes(employeeSearchText)
+         )
+       )
+       .slice()
+       .sort((a,b)=>{
+         const divisionCompare=
+           String(a.division||"")
+             .localeCompare(
+               String(b.division||"")
+             );
+
+         if(divisionCompare)return divisionCompare;
+
+         return String(a.name||a.email)
+           .localeCompare(
+             String(b.name||b.email)
+           );
+       });
+
+   /*
+    * Keep the hidden native select populated so the existing
+    * Add AHT User save/validation path continues to work unchanged.
+    */
+   addAhtUserEmployee.innerHTML=
+     '<option value="">Select AHT employee…</option>'+
+     availableEmployees
+       .map(employee=>`
+         <option
+           value="${esc(employee.email)}"
+           data-name="${esc(employee.name||"")}"
+           data-division="${esc(employee.division||"")}"
+           data-job-title="${esc(employee.jobTitle||"")}"
+           data-department="${esc(employee.department||"")}"
+         >
+           ${esc(employee.name||employee.email)}
+         </option>
+       `)
+       .join("");
+
+   if(
+     previousEmployee &&
+     availableEmployees.some(employee=>
+       String(employee.email||"")
+         .toLowerCase()===
+       String(previousEmployee)
+         .toLowerCase()
+     )
+   ){
+     addAhtUserEmployee.value=
+       previousEmployee;
+   }
+
+   if(addAhtEmployeeCount){
+     addAhtEmployeeCount.textContent=
+       `${availableEmployees.length} available`;
+   }
+
+   if(addAhtEmployeeList){
+     const byDivision=
+       new Map();
+
+     availableEmployees.forEach(employee=>{
+       const division=
+         String(employee.division||"Unassigned").trim() ||
+         "Unassigned";
+
+       if(!byDivision.has(division)){
+         byDivision.set(division,[]);
+       }
+
+       byDivision.get(division).push(employee);
+     });
+
+     if(!availableEmployees.length){
+       addAhtEmployeeList.innerHTML=
+         '<div class="employee-directory-empty">No matching employees.</div>';
+
+     }else{
+       addAhtEmployeeList.innerHTML=
+         [...byDivision.entries()]
+           .map(([division,employees])=>`
+             <section class="employee-directory-group">
+               <div class="employee-directory-division">
+                 <span>${esc(division)}</span>
+                 <span>${employees.length}</span>
+               </div>
+
+               <div class="employee-directory-header">
+                 <span>Name</span>
+                 <span>Job Title</span>
+               </div>
+
+               ${employees.map(employee=>{
+                 const selected=
+                   String(addAhtUserEmployee.value||"")
+                     .toLowerCase()===
+                   String(employee.email||"")
+                     .toLowerCase();
+
+                 return `
+                   <button
+                     type="button"
+                     class="employee-directory-row ${selected?"selected":""}"
+                     data-employee-email="${esc(employee.email)}"
+                   >
+                     <span class="employee-directory-name">
+                       <strong>${esc(employee.name||employee.email)}</strong>
+                       <small>${esc(employee.department||"")}</small>
+                     </span>
+
+                     <span class="employee-directory-title">
+                       ${esc(employee.jobTitle||"—")}
+                     </span>
+                   </button>
+                 `;
+               }).join("")}
+             </section>
+           `)
+           .join("");
+     }
+
+     addAhtEmployeeList
+       .querySelectorAll(".employee-directory-row")
+       .forEach(row=>{
+         row.onclick=()=>{
+           const email=
+             String(
+               row.dataset.employeeEmail||""
+             ).trim();
+
+           const employee=
+             availableEmployees.find(item=>
+               String(item.email||"")
+                 .toLowerCase()===
+               email.toLowerCase()
+             );
+
+           if(!employee)return;
+
+           addAhtUserEmployee.value=
+             employee.email;
+
+           const nameInput=
+             document.getElementById(
+               "addAhtUserName"
+             );
+
+           const emailInput=
+             document.getElementById(
+               "addAhtUserEmail"
+             );
+
+           if(nameInput){
+             nameInput.value=
+               employee.name||"";
+           }
+
+           if(emailInput){
+             emailInput.value=
+               employee.email||"";
+           }
+
+           addAhtEmployeeList
+             .querySelectorAll(
+               ".employee-directory-row"
+             )
+             .forEach(button=>
+               button.classList.toggle(
+                 "selected",
+                 button===row
+               )
+             );
+         };
+       });
+   }
+
+   if(
+     addAhtEmployeeSearch &&
+     !addAhtEmployeeSearch.dataset.bound
+   ){
+     addAhtEmployeeSearch.dataset.bound="true";
+     addAhtEmployeeSearch.addEventListener(
+       "input",
+       renderAdmin
+     );
+   }
+ }
+
+ if(addAhtUserProjects){
+   const visibleAddProjects=
+     manageableProjects.filter(project=>
+       !addProjectFilterText ||
+       String(project.name||"").toLowerCase().includes(addProjectFilterText) ||
+       String(project.subtitle||"").toLowerCase().includes(addProjectFilterText) ||
+       String(project.id||"").toLowerCase().includes(addProjectFilterText)
+     );
+
+   addAhtUserProjects.innerHTML=
+     visibleAddProjects.length
+       ? visibleAddProjects.map(project=>`
+           <label class="admin-project-assignment-option">
+             <input
+               type="checkbox"
+               value="${esc(project.id)}"
+               class="add-aht-user-project"
+             />
+             <span>${esc(project.name)}</span>
+           </label>
+         `).join("")
+       : '<div class="small" style="padding:9px">No matching projects.</div>';
+
+   if(addAhtProjectCount){
+     addAhtProjectCount.textContent=
+       `${visibleAddProjects.length} of ${manageableProjects.length}`;
+   }
+
+   if(addAhtProjectSearch && !addAhtProjectSearch.dataset.bound){
+     addAhtProjectSearch.dataset.bound="true";
+     addAhtProjectSearch.addEventListener("input",renderAdmin);
+   }
+ }
+
+ projectAdminList.innerHTML=manageableProjects.map(p=>`
    <div class="project-admin-row ${p.archived?"archived":""}">
      <div><strong>${esc(p.name)}</strong><div class="small">${esc(p.subtitle||"Naples, FL")}</div></div>
      <div><span class="small">Phase</span><br><strong>${esc(p.phase||"Planning")}</strong><div class="small">${esc(p.executiveLead||"No Executive Lead")} · ${esc(p.seniorProjectManager||"No SPM")}</div></div>
@@ -2498,15 +3857,89 @@ function renderAdmin(){
    </div>`).join("");
 
  const previousSelection=adminUserSelect.value;
- const includeArchived=showArchivedUsers.checked;
+
+ const includeArchived=
+   hasOrganizationWideAdminScope &&
+   showArchivedUsers.checked;
+
+ document
+   .querySelectorAll(".organization-wide-user-control")
+   .forEach(element=>
+     element.classList.toggle(
+       "hidden",
+       !hasOrganizationWideAdminScope
+     )
+   );
+
  const visibleUsers=USERS
    .filter(user=>includeArchived||user.active!==false)
+   .filter(user=>{
+     if(hasOrganizationWideAdminScope)return true;
+
+     if(user.id===currentUser?.id)return true;
+
+     // Keep the user currently being edited visible until Save completes.
+     // This prevents a Project Admin from being bounced to another user
+     // when an unsaved change removes the last in-scope project.
+     if(window.adminEditingUserId===user.id)return true;
+
+     if(
+       user.canAdmin ||
+       user.isSystemOwner ||
+       user.projects?.includes("*")
+     ){
+       return false;
+     }
+
+     if(!useExplicitProjectManagementScope){
+       const userDivision=
+         String(user.division||"")
+           .trim()
+           .toLowerCase();
+
+       if(
+         user.isInternal!==false &&
+         userDivision
+       ){
+         return operatorManagementDivisionKeys.has(
+           userDivision
+         );
+       }
+
+       // External users have no AHT Home Division.
+       // Their scope follows their assigned projects.
+       return (user.projects||[]).some(projectId=>
+         managementProjectIds.has(projectId)
+       );
+     }
+
+     return (user.projects||[]).some(projectId=>
+       managementProjectIds.has(projectId)
+     );
+   })
+   .filter(user=>
+     window.adminEditingUserId===user.id ||
+     !userFilterText ||
+     [
+       user.name,
+       user.email,
+       user.company,
+       user.role
+     ].some(value=>
+       String(value||"").toLowerCase().includes(userFilterText)
+     )
+   )
    .slice()
    .sort((a,b)=>a.name.localeCompare(b.name));
 
  adminUserSelect.innerHTML='<option value="">Select user…</option>'+visibleUsers
    .map(u=>`<option value="${u.id}">${esc(u.name)}${u.active===false?" (Archived)":""}</option>`)
    .join("");
+
+ if(adminUserSearch && !adminUserSearch.dataset.bound){
+   adminUserSearch.dataset.bound="true";
+   adminUserSearch.addEventListener("input",renderAdmin);
+ }
 
  if(creatingUser){
    adminUserSelect.value="";
@@ -2521,42 +3954,150 @@ function renderAdmin(){
  adminUserEmail.value=selected.email||"";
  adminUserCompany.value=selected.company||"";
  const isConfiguredAdmin=(APP_CONFIG.entra.adminEmails||[]).map(x=>String(x).toLowerCase()).includes(String(selected.email||"").toLowerCase());
+
+ const operatorCanAssignAdmin =
+   Boolean(
+     currentUser?.canAdmin ||
+     currentUser?.isSystemOwner
+   );
+
  if(
    selected.entraUserType==="Guest" &&
    selected.roleTestingEnabled===true
  ){
    adminRoleSelect.innerHTML=
-     '<option>External Viewer</option>'+
-     '<option>Viewer</option>'+
-     '<option>Editor</option>'+
-     '<option>Project Admin</option>'+
-     '<option>Admin</option>';
+     operatorCanAssignAdmin
+       ? '<option>External Viewer</option>'+
+         '<option>Viewer</option>'+
+         '<option>Editor</option>'+
+         '<option>Project Admin</option>'+
+         '<option>Admin</option>'
+       : '<option>External Viewer</option>'+
+         '<option>Viewer</option>'+
+         '<option>Editor</option>'+
+         '<option>Project Admin</option>';
+
    adminRoleSelect.disabled=false;
+
  }else if(selected.entraUserType==="Guest"){
-   adminRoleSelect.innerHTML='<option>External Viewer</option>';
+   adminRoleSelect.innerHTML=
+     '<option>External Viewer</option>';
+
    adminRoleSelect.disabled=true;
- }else if(selected.entraUserType==="Member"&&!isConfiguredAdmin){
-   adminRoleSelect.innerHTML='<option>Admin</option><option>Project Admin</option><option>Viewer</option><option>Editor</option>';
-   adminRoleSelect.disabled=false;
+
  }else if(isConfiguredAdmin){
-   adminRoleSelect.innerHTML='<option>Admin</option>';
+   adminRoleSelect.innerHTML=
+     '<option>Admin</option>';
+
    adminRoleSelect.disabled=true;
+
+ }else if(operatorCanAssignAdmin){
+   adminRoleSelect.innerHTML=
+     '<option>Admin</option>'+
+     '<option>Project Admin</option>'+
+     '<option>Viewer</option>'+
+     '<option>Editor</option>';
+
+   adminRoleSelect.disabled=false;
+
  }else{
-   adminRoleSelect.innerHTML='<option>Admin</option><option>Project Admin</option><option>Viewer</option><option>Editor</option><option>External Viewer</option>';
+   adminRoleSelect.innerHTML=
+     '<option>Project Admin</option>'+
+     '<option>Viewer</option>'+
+     '<option>Editor</option>';
+
    adminRoleSelect.disabled=false;
  }
+
  adminRoleSelect.value=
    selected.role || "Viewer";
+
+ const adminHomeDivision=
+   document.getElementById("adminHomeDivision");
+
+ const adminManagementDivisions=
+   document.getElementById("adminManagementDivisions");
+
+ if(adminHomeDivision){
+   adminHomeDivision.textContent=
+     selected.isInternal===false
+       ? "— External / role-testing account"
+       : (selected.division||"—");
+ }
+
+ if(adminManagementDivisions){
+   const selectedManagementDivisions=
+     new Set(
+       (selected.managementDivisions||[])
+         .map(value=>
+           String(value||"")
+             .trim()
+             .toLowerCase()
+         )
+     );
+
+   adminManagementDivisions.innerHTML=
+     AHT_DIVISIONS
+       .map(division=>`
+         <label class="admin-project-assignment-option">
+           <input
+             type="checkbox"
+             class="admin-management-division"
+             value="${esc(division)}"
+             ${
+               selectedManagementDivisions.has(
+                 division.toLowerCase()
+               )
+                 ? "checked"
+                 : ""
+             }
+           >
+           <span>${esc(division)}</span>
+         </label>
+       `)
+       .join("");
+ }
+
  adminPasswordProfile.value=selected.id==="stacy"?"stacy":selected.passwordProfile||(selected.isInternal?"aht":"external");
  adminPasswordProfile.disabled=selected.id==="stacy";
  adminUserActive.checked=selected.active!==false;
  archiveUserBtn.textContent=selected.active===false?"Archived":"Archive User";
  archiveUserBtn.disabled=selected.active===false||selected.id===currentUser?.id||(selected.role==="Admin"&&activeAdministratorCount()<=1);
 
- projectAssignmentList.innerHTML=state.projects.map(p=>{
-   const checked=selected.projects.includes("*")||selected.projects.includes(p.id);
-   return `<label class="admin-project-assignment-option"><input type="checkbox" value="${p.id}" ${checked?"checked":""}><span>${esc(p.name)}</span></label>`;
- }).join("");
+ const visibleManageProjects=
+   manageableProjects.filter(project=>
+     !manageProjectFilterText ||
+     String(project.name||"").toLowerCase().includes(manageProjectFilterText) ||
+     String(project.subtitle||"").toLowerCase().includes(manageProjectFilterText) ||
+     String(project.id||"").toLowerCase().includes(manageProjectFilterText)
+   );
+
+ projectAssignmentList.innerHTML=
+   visibleManageProjects.length
+     ? visibleManageProjects.map(p=>{
+         const checked=
+           selected.projects.includes("*")||
+           selected.projects.includes(p.id);
+
+         return `<label class="admin-project-assignment-option"><input type="checkbox" value="${p.id}" ${checked?"checked":""}><span>${esc(p.name)}</span></label>`;
+       }).join("")
+     : '<div class="small" style="padding:9px">No matching projects.</div>';
+
+ if(adminProjectCount){
+   const selectedInScope=
+     manageableProjects.filter(project=>
+       selected.projects.includes("*") ||
+       selected.projects.includes(project.id)
+     ).length;
+
+   adminProjectCount.textContent=
+     `${selectedInScope} selected · ${visibleManageProjects.length} shown`;
+ }
+
+ if(adminProjectSearch && !adminProjectSearch.dataset.bound){
+   adminProjectSearch.dataset.bound="true";
+   adminProjectSearch.addEventListener("input",renderAdmin);
+ }
 
  projectAssignmentList
    .querySelectorAll('input[type="checkbox"]')
@@ -2604,7 +4145,7 @@ function renderAdmin(){
      selected.role==="External Viewer";
 
    const assignedProjects=
-     state.projects.filter(p=>
+     manageableProjects.filter(p=>
        selected.projects.includes("*") ||
        selected.projects.includes(p.id)
      );
