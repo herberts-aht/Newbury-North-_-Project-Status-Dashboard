@@ -26,13 +26,17 @@ function toggleCalendarDay(key){
 }
 window.toggleCalendarDay=toggleCalendarDay;
 
-function toggleCalendarAgendaTask(encodedId){
-  const id=decodeURIComponent(encodedId);
+function calendarAgendaKey(source,id){
+  return `${String(source||"projectPlan")}:${String(id??"")}`;
+}
 
-  if(calendarExpandedAgendaTasks.has(id)){
-    calendarExpandedAgendaTasks.delete(id);
+function toggleCalendarAgendaTask(encodedKey){
+  const key=decodeURIComponent(encodedKey);
+
+  if(calendarExpandedAgendaTasks.has(key)){
+    calendarExpandedAgendaTasks.delete(key);
   }else{
-    calendarExpandedAgendaTasks.add(id);
+    calendarExpandedAgendaTasks.add(key);
   }
 
   render();
@@ -1927,6 +1931,63 @@ filtered=ds.filter(x=>{
  timelineTrack.innerHTML=renderGantt(scheduleRecordsForGantt(ds));
  requestAnimationFrame(bindGanttBottomScroll);
   const projectCalendarRecords=projectScheduleRecords(ds);
+
+  const siteCalendarRecords=siteScheduleRecords();
+
+  const siteCalendarRecordById=new Map(
+    siteCalendarRecords.map(record=>[
+      String(record.id),
+      record
+    ])
+  );
+
+  const siteCalendarConflictFor=record=>{
+    if(
+      !record?.startDate ||
+      !Array.isArray(record.predecessorIds)
+    ){
+      return [];
+    }
+
+    const dependentStart=ganttDate(record.startDate);
+
+    if(!dependentStart){
+      return [];
+    }
+
+    return record.predecessorIds
+      .map(id=>
+        siteCalendarRecordById.get(
+          String(id)
+        )
+      )
+      .filter(Boolean)
+      .filter(predecessor=>
+        String(predecessor.status||"")!=="Complete"
+      )
+      .map(predecessor=>{
+        const predecessorFinish=
+          ganttDate(
+            predecessor.date ||
+            predecessor.targetDate
+          );
+
+        if(
+          !predecessorFinish ||
+          predecessorFinish<=dependentStart
+        ){
+          return null;
+        }
+
+        return {
+          predecessor,
+          predecessorFinish,
+          dependentStart
+        };
+      })
+      .filter(Boolean);
+  };
+
   const projectEvents=projectCalendarRecords
     .filter(record=>record.date)
     .map(record=>({
@@ -1943,10 +2004,62 @@ filtered=ds.filter(x=>{
       sourceId:record.id,
       scheduleKind:"project",
       itemType:record.itemType||"Task",
+      parentId:record.parentWorkItemId||0,
       level:Number(record.level||0),
       path:Array.isArray(record.path)?record.path:[]
     }));
- const siteEvents=siteScheduleSnapshot.operations.flatMap(x=>{const dates=[];if(x.activityDate)dates.push({date:x.activityDate,title:x.title,type:x.status==="Complete"?"green":/risk|blocked/i.test(x.status||"")?"orange":"",source:"site",sourceId:x.id,scheduleKind:"site"});if(x.targetDate&&x.targetDate!==x.activityDate)dates.push({date:x.targetDate,title:x.title,type:x.status==="Complete"?"green":/risk|blocked/i.test(x.status||"")?"orange":"",source:"site",sourceId:x.id,scheduleKind:"site"});return dates;});
+
+  const siteEvents=siteCalendarRecords.flatMap(record=>{
+    const dates=[];
+
+    const conflicts=
+      siteCalendarConflictFor(record);
+
+    const hasConflict=
+      conflicts.length>0;
+
+    const type=
+      record.status==="Complete"
+        ?"green"
+        :hasConflict ||
+         /risk|blocked/i.test(record.status||"")
+          ?"orange"
+          :"";
+
+    const common={
+      title:record.deliverable||record.title,
+      type,
+      source:"site",
+      sourceId:record.id,
+      scheduleKind:"site",
+      itemType:record.itemType||"Task",
+      parentId:record.parentOperationId||0,
+      hasScheduleConflict:hasConflict,
+      scheduleConflicts:conflicts
+    };
+
+    if(record.activityDate){
+      dates.push({
+        ...common,
+        date:record.activityDate,
+        siteDateKind:"start"
+      });
+    }
+
+    if(
+      record.targetDate &&
+      record.targetDate!==record.activityDate
+    ){
+      dates.push({
+        ...common,
+        date:record.targetDate,
+        siteDateKind:"target"
+      });
+    }
+
+    return dates;
+  });
+
  const events=(
    calendarScheduleMode==="site"
      ?siteEvents
@@ -1967,10 +2080,14 @@ filtered=ds.filter(x=>{
 
  
   /*
-   * Calendar month grid:
-   * - Always show top-level Tasks.
-   * - Show Subtasks only while their Task is expanded in the Agenda.
-   * - Agenda continues to receive the complete hierarchy.
+   * Calendar month grid hierarchy:
+   *
+   * Project Plan uses parentWorkItemId.
+   * Site Operations uses parentOperationId.
+   *
+   * Children remain independently visible when their scheduled
+   * date occurs before the dated parent. Otherwise they follow
+   * the parent expansion state.
    */
   const projectRecordById=new Map(
     projectCalendarRecords.map(record=>[
@@ -1979,72 +2096,115 @@ filtered=ds.filter(x=>{
     ])
   );
 
+  const siteRecordById=new Map(
+    siteCalendarRecords.map(record=>[
+      String(record.id),
+      record
+    ])
+  );
+
   const calendarVisibilityMemo=new Map();
 
-  const projectRecordVisibleOnCalendar=record=>{
+  const structuredRecordVisibleOnCalendar=(record,source)=>{
     const id=String(record?.id??"");
+    const memoKey=calendarAgendaKey(source,id);
 
-    if(calendarVisibilityMemo.has(id)){
-      return calendarVisibilityMemo.get(id);
+    if(calendarVisibilityMemo.has(memoKey)){
+      return calendarVisibilityMemo.get(memoKey);
     }
 
+    const isSite=
+      source==="site";
+
     const parentId=String(
-      record?.parentWorkItemId??""
+      isSite
+        ? record?.parentOperationId??""
+        : record?.parentWorkItemId??""
     );
 
     if(!parentId){
-      calendarVisibilityMemo.set(id,true);
+      calendarVisibilityMemo.set(memoKey,true);
       return true;
     }
 
-    const parentRecord=projectRecordById.get(parentId);
+    const recordById=
+      isSite
+        ? siteRecordById
+        : projectRecordById;
 
-    /*
-     * Calendar Task / Subtask rule:
-     *
-     * - No dated higher Task:
-     *     show this record as a normal Calendar Task.
-     *
-     * - Due BEFORE its dated higher Task:
-     *     also show as a normal Calendar Task.
-     *
-     * - Due ON or AFTER its dated higher Task:
-     *     treat it as a Subtask and show it only while that
-     *     higher Task is expanded in the Agenda.
-     */
+    const parentRecord=
+      recordById.get(parentId);
+
     if(!parentRecord){
-      calendarVisibilityMemo.set(id,true);
+      calendarVisibilityMemo.set(memoKey,true);
       return true;
     }
 
-    const recordDate=String(record?.date||"");
-    const parentDate=String(parentRecord?.date||"");
+    const recordDate=String(
+      record?.date ||
+      record?.targetDate ||
+      ""
+    );
+
+    const parentDate=String(
+      parentRecord?.date ||
+      parentRecord?.targetDate ||
+      ""
+    );
 
     if(
       recordDate &&
       parentDate &&
       recordDate < parentDate
     ){
-      calendarVisibilityMemo.set(id,true);
+      calendarVisibilityMemo.set(memoKey,true);
       return true;
     }
 
     const visible=
-      calendarExpandedAgendaTasks.has(parentId) &&
-      projectRecordVisibleOnCalendar(parentRecord);
+      calendarExpandedAgendaTasks.has(
+        calendarAgendaKey(
+          source,
+          parentId
+        )
+      ) &&
+      structuredRecordVisibleOnCalendar(
+        parentRecord,
+        source
+      );
 
-    calendarVisibilityMemo.set(id,visible);
+    calendarVisibilityMemo.set(
+      memoKey,
+      visible
+    );
+
     return visible;
   };
 
   const calendarGridEvents=events.filter(event=>{
-    if(event.source!=="projectPlan")return true;
+    if(
+      event.source!=="projectPlan" &&
+      event.source!=="site"
+    ){
+      return true;
+    }
 
-    const record=projectRecordById.get(
-      String(event.sourceId)
+    const record=
+      event.source==="site"
+        ? siteRecordById.get(
+            String(event.sourceId)
+          )
+        : projectRecordById.get(
+            String(event.sourceId)
+          );
+
+    return (
+      !record ||
+      structuredRecordVisibleOnCalendar(
+        record,
+        event.source
+      )
     );
-
-    return !record || projectRecordVisibleOnCalendar(record);
   });
 
   const calendarGridGrouped={};
@@ -2055,74 +2215,110 @@ filtered=ds.filter(x=>{
 
 agendaList.innerHTML=Object.entries(grouped)
    .map(([date,items])=>{
-     const projectItems=items.filter(
-       item=>item.source==="projectPlan"
-     );
+     const structuredItems=
+       items.filter(item=>
+         item.source==="projectPlan" ||
+         item.source==="site"
+       );
 
-     const projectById=new Map(
-       projectItems.map(item=>[
-         String(item.sourceId),
+     const structuredByKey=new Map(
+       structuredItems.map(item=>[
+         calendarAgendaKey(
+           item.source,
+           item.sourceId
+         ),
          item
        ])
      );
 
      /*
-      * Only treat a child as nested when its Higher-Level Task
-      * is also present on this same agenda date.
+      * Nest a child only when its Higher-Level Task is present
+      * on the same agenda date.
       *
-      * If the dates differ, the child remains visible on its
-      * own actual scheduled date.
+      * If parent and child dates differ, each stays visible on
+      * its own real scheduled date.
       */
      const sameDateChildren=new Map();
 
-     projectItems.forEach(item=>{
-       const scheduleRecord=
-         projectCalendarRecords.find(
-           record=>
-             String(record.id)===
-             String(item.sourceId)
-         );
+     structuredItems.forEach(item=>{
+       const record=
+         item.source==="site"
+           ? siteRecordById.get(
+               String(item.sourceId)
+             )
+           : projectRecordById.get(
+               String(item.sourceId)
+             );
 
        const parentId=String(
-         scheduleRecord?.parentWorkItemId??""
+         item.source==="site"
+           ? record?.parentOperationId??""
+           : record?.parentWorkItemId??""
        );
 
-       if(
-         parentId &&
-         projectById.has(parentId)
-       ){
-         if(!sameDateChildren.has(parentId)){
-           sameDateChildren.set(parentId,[]);
-         }
+       if(!parentId)return;
 
-         sameDateChildren
-           .get(parentId)
-           .push(item);
+       const parentKey=
+         calendarAgendaKey(
+           item.source,
+           parentId
+         );
+
+       if(!structuredByKey.has(parentKey)){
+         return;
        }
+
+       if(!sameDateChildren.has(parentKey)){
+         sameDateChildren.set(
+           parentKey,
+           []
+         );
+       }
+
+       sameDateChildren
+         .get(parentKey)
+         .push(item);
      });
 
-     const nestedIds=new Set();
+     const nestedKeys=new Set();
 
      sameDateChildren.forEach(children=>{
        children.forEach(child=>
-         nestedIds.add(
-           String(child.sourceId)
+         nestedKeys.add(
+           calendarAgendaKey(
+             child.source,
+             child.sourceId
+           )
          )
        );
      });
 
-     const rootItems=items.filter(item=>
-       item.source!=="projectPlan" ||
-       !nestedIds.has(String(item.sourceId))
-     );
+     const rootItems=
+       items.filter(item=>
+         !nestedKeys.has(
+           calendarAgendaKey(
+             item.source,
+             item.sourceId
+           )
+         )
+       );
 
      const renderAgendaItem=(item,depth=0)=>{
-       if(item.source==="projectPlan"){
-         const safeId=ganttJsString(item.sourceId);
+       if(
+         item.source==="projectPlan" ||
+         item.source==="site"
+       ){
+         const safeId=
+           ganttJsString(item.sourceId);
+
+         const key=
+           calendarAgendaKey(
+             item.source,
+             item.sourceId
+           );
+
          const children=
-           sameDateChildren.get(
-             String(item.sourceId)
-           )||[];
+           sameDateChildren.get(key)||[];
 
          const hasChildren=
            children.length>0;
@@ -2130,7 +2326,7 @@ agendaList.innerHTML=Object.entries(grouped)
          const expanded=
            hasChildren &&
            calendarExpandedAgendaTasks.has(
-             String(item.sourceId)
+             key
            );
 
          const childLabel=
@@ -2140,11 +2336,30 @@ agendaList.innerHTML=Object.entries(grouped)
                 </span>`
              : "";
 
+         const sourceLabel=
+           item.source==="site"
+             ?"Site Operations"
+             :"Project Plan";
+
+         const sourceKind=
+           item.source==="site"
+             ?"site"
+             :"projectPlan";
+
+         const hierarchyPath=
+           item.source==="projectPlan"
+             ? (item.path||[]).join(" › ")
+             : "";
+
          let html=`
            <div
-             class="agenda-pill ${item.type} calendar-project-event"
-             style="--calendar-task-depth:${depth}"
-             title="${esc((item.path||[]).join(" › "))}"
+             class="agenda-pill ${item.type} calendar-project-event ${item.source==="site"?"calendar-site-event":""}"
+             style="--calendar-task-depth:${depth};cursor:pointer"
+             title="${esc(hierarchyPath)}"
+             role="button"
+             tabindex="0"
+             onclick="openScheduleSource('${sourceKind}','${safeId}')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openScheduleSource('${sourceKind}','${safeId}');}"
            >
              <span
                class="calendar-event-title ${hasChildren?"calendar-agenda-expandable":""}"
@@ -2152,8 +2367,8 @@ agendaList.innerHTML=Object.entries(grouped)
                  hasChildren
                    ? `role="button"
                       tabindex="0"
-                      onclick="toggleCalendarAgendaTask('${encodeURIComponent(String(item.sourceId))}')"
-                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCalendarAgendaTask('${encodeURIComponent(String(item.sourceId))}')}" `
+                      onclick="event.stopPropagation();toggleCalendarAgendaTask('${encodeURIComponent(key)}')"
+                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();toggleCalendarAgendaTask('${encodeURIComponent(key)}')}" `
                    : ""
                }
              >
@@ -2164,30 +2379,35 @@ agendaList.innerHTML=Object.entries(grouped)
                }
 
                <span class="calendar-agenda-title-text">
-                ${
-                  String(item.itemType||"")==="Milestone"
-                    ? `<span class="calendar-milestone-label">Milestone</span>`
-                    : ""
-                }
-                ${
-                  String(item.itemType||"")==="Milestone" &&
-                  String(item.title||"").trim().toLowerCase()==="milestone"
-                    ? ""
-                    : esc(item.title)
-                }
-              </span>
+                 ${
+                   String(item.itemType||"")==="Milestone"
+                     ? `<span class="calendar-milestone-label">Milestone</span>`
+                     : ""
+                 }
+
+                 ${
+                   String(item.itemType||"")==="Milestone" &&
+                   String(item.title||"").trim().toLowerCase()==="milestone"
+                     ? ""
+                     : esc(item.title)
+                 }
+
+                 ${
+                   item.source==="site" &&
+                   item.hasScheduleConflict
+                     ? `<span class="calendar-dependency-conflict-label">Dependency Conflict</span>`
+                     : ""
+                 }
+
+                 ${
+                   item.source==="site"
+                     ? `<span class="calendar-source-label">${sourceLabel}</span>`
+                     : ""
+                 }
+               </span>
 
                ${childLabel}
-             </span>
-
-             <button
-               class="linkbtn agenda-edit"
-               type="button"
-               onclick="event.stopPropagation();openScheduleSource('projectPlan','${safeId}')"
-             >
-               View task
-             </button>
-           </div>
+             </span>           </div>
          `;
 
          if(expanded){
@@ -2207,16 +2427,6 @@ agendaList.innerHTML=Object.entries(grouped)
        return `
          <div class="agenda-pill ${item.type}">
            <span>${esc(item.title)}</span>
-
-           ${
-             item.source==="site"
-               ? `<button
-                    class="linkbtn agenda-edit"
-                    type="button"
-                    onclick="openScheduleSource('site',${item.sourceId})"
-                  >View</button>`
-               : ""
-           }
          </div>
        `;
      };
@@ -2228,7 +2438,10 @@ agendaList.innerHTML=Object.entries(grouped)
          <div class="agenda-items">
            ${rootItems
              .map(item=>
-               renderAgendaItem(item,0)
+               renderAgendaItem(
+                 item,
+                 0
+               )
              )
              .join("")}
          </div>
@@ -2297,9 +2510,17 @@ for(let day=1;day<=daysInMonth;day++){
           }" style="cursor:pointer" title="Open source record"`
         :""
     }>${
-      e.source==="projectPlan" &&
+      (
+        e.source==="projectPlan" ||
+        e.source==="site"
+      ) &&
       String(e.itemType||"")==="Milestone"
         ? "◆ "
+        : ""
+    }${
+      e.source==="site" &&
+      e.hasScheduleConflict
+        ? "⚠ "
         : ""
     }${esc(e.title)}</div>`).join("")}
     ${

@@ -4438,3 +4438,33 @@ main.container{
   position:relative !important;
   z-index:4 !important;
 }
+
+/* === CALENDAR SITE SCHEDULE PARITY === */
+
+.calendar-dependency-conflict-label{
+  display:inline-flex;
+  align-items:center;
+  margin-left:5px;
+  padding:1px 5px;
+  border-radius:999px;
+  background:#fff3f2;
+  color:#9a3e38;
+  font-size:8px;
+  font-weight:800;
+  line-height:1.3;
+  text-transform:uppercase;
+  letter-spacing:.025em;
+}
+
+.calendar-source-label{
+  display:inline-flex;
+  align-items:center;
+  margin-left:5px;
+  font-size:8px;
+  font-weight:700;
+  color:#607487;
+}
+
+.calendar-site-event{
+  --calendar-source-accent:#607487;
+}
