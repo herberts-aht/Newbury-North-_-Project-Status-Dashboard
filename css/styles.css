@@ -6554,3 +6554,80 @@ main.container{
 .field-help-options li:last-child{
   margin-bottom:0;
 }
+
+/* === SUPPORT REQUEST MODAL VIEWPORT / SCROLL FIX === */
+
+.support-request-detail-modal{
+  display:flex;
+  flex-direction:column;
+  max-height:88vh;
+  overflow:hidden;
+}
+
+.support-request-detail-heading{
+  flex:0 0 auto;
+}
+
+.support-request-detail-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+.support-request-detail-footer{
+  flex:0 0 auto;
+  position:sticky;
+  bottom:0;
+  z-index:2;
+  margin-top:0;
+  padding:14px 22px 18px;
+  background:#fff;
+  border-top:1px solid var(--line);
+}
+
+.support-request-detail-message{
+  flex:0 0 auto;
+  margin:0;
+  padding:0 22px 10px;
+  background:#fff;
+}
+
+@media(max-height:760px){
+  .support-request-detail-modal{
+    max-height:94vh;
+  }
+
+  .support-request-detail-heading{
+    padding-top:14px;
+    padding-bottom:12px;
+  }
+
+  .support-request-detail-body{
+    padding-top:14px;
+  }
+}
+
+/* === PREDECESSOR FIELD HELP ICON POSITION FIX === */
+
+.field-help-label-wrap{
+  position:relative;
+  z-index:3;
+}
+
+.field-help-button{
+  position:relative;
+  z-index:4;
+  flex:0 0 auto;
+}
+
+#ptePredecessor{
+  position:relative;
+  z-index:1;
+}
+
+#ptePredecessor .field-help-button,
+#ptePredecessor .field-help-popover{
+  position:relative;
+}
+

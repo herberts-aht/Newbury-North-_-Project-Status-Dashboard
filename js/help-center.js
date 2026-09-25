@@ -4280,14 +4280,26 @@
   ){
     if(!field)return;
 
+    const directHeading=
+      field.matches?.("label")
+        ? null
+        : field.querySelector?.(":scope > span");
+
     const label=
       field.matches?.("label")
         ? field
-        : field.querySelector?.("label");
+        : (
+            field.querySelector?.(":scope > label") ||
+            null
+          );
+
+    const target=
+      directHeading ||
+      label;
 
     if(
-      !label ||
-      label.querySelector(
+      !target ||
+      field.querySelector(
         `[data-field-help="${key}"]`
       )
     ){
@@ -4301,8 +4313,29 @@
 
     button.dataset.fieldHelp=key;
 
+    if(
+      directHeading &&
+      directHeading.children.length===0
+    ){
+      const wrap=
+        document.createElement("span");
+
+      wrap.className=
+        "field-help-label-wrap";
+
+      directHeading.parentNode.insertBefore(
+        wrap,
+        directHeading
+      );
+
+      wrap.appendChild(directHeading);
+      wrap.appendChild(button);
+
+      return;
+    }
+
     const labelText=
-      label.querySelector(
+      label?.querySelector(
         "span"
       );
 
@@ -4327,7 +4360,7 @@
       return;
     }
 
-    label.appendChild(button);
+    target.appendChild(button);
   }
 
 
