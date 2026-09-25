@@ -7,7 +7,7 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css?v=1790281073" />
+<link rel="stylesheet" href="css/styles.css?v=1790366651" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
@@ -91,6 +91,17 @@
 
         <button class="nav-section-item" data-view="timeline">
           Gantt
+        </button>
+
+
+        <div class="nav-section-label">Support</div>
+
+        <button
+          class="nav-section-item"
+          type="button"
+          id="sidebarHelpBtn"
+        >
+          Help & Support
         </button>
 
 
@@ -632,6 +643,248 @@
           <button class="btn primary" id="saveAccessBtn">Save User</button>
         </div>
       </div>
+
+
+      <div class="admin-panel support-request-admin-panel">
+        <div class="support-request-panel-heading">
+          <div>
+            <div class="eyebrow">Dashboard Support</div>
+            <h3>Help Tickets</h3>
+            <p class="small">
+              Dashboard questions, functionality issues, data concerns, and improvement requests.
+            </p>
+          </div>
+
+          <div class="support-request-heading-actions">
+            <span
+              id="helpTicketQueueCount"
+              class="support-request-count"
+            >—</span>
+
+            <button
+              class="btn"
+              id="refreshHelpTicketQueueBtn"
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div class="support-request-toolbar">
+          <select id="helpTicketQueueStatus">
+            <option value="">All statuses</option>
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>Waiting</option>
+            <option>Resolved</option>
+            <option>Closed</option>
+          </select>
+
+          <input
+            id="helpTicketQueueSearch"
+            type="search"
+            placeholder="Search tickets…"
+          />
+        </div>
+
+        <div
+          id="helpTicketQueue"
+          class="support-request-queue"
+        >
+          <div class="small">
+            Open Administration to load help tickets.
+          </div>
+        </div>
+      </div>
+
+
+      <div class="admin-panel support-request-admin-panel">
+        <div class="support-request-panel-heading">
+          <div>
+            <div class="eyebrow">Access Administration</div>
+            <h3>Access & User Requests</h3>
+            <p class="small">
+              Internal users, external users, role changes, project access, and removal requests.
+            </p>
+          </div>
+
+          <div class="support-request-heading-actions">
+            <span
+              id="accessRequestQueueCount"
+              class="support-request-count"
+            >—</span>
+
+            <button
+              class="btn"
+              id="refreshAccessRequestQueueBtn"
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div class="support-request-toolbar">
+          <select id="accessRequestQueueStatus">
+            <option value="">All statuses</option>
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>Waiting</option>
+            <option>Approved</option>
+            <option>Completed</option>
+            <option>Denied</option>
+            <option>Closed</option>
+          </select>
+
+          <input
+            id="accessRequestQueueSearch"
+            type="search"
+            placeholder="Search requests…"
+          />
+        </div>
+
+        <div
+          id="accessRequestQueue"
+          class="support-request-queue"
+        >
+          <div class="small">
+            Open Administration to load access requests.
+          </div>
+        </div>
+      </div>
+
+
+      <div
+        class="modal-backdrop"
+        id="supportRequestDetailBackdrop"
+      >
+        <div class="modal support-request-detail-modal">
+          <div class="support-request-detail-heading">
+            <div>
+              <div
+                id="supportRequestDetailEyebrow"
+                class="eyebrow"
+              >
+                Request
+              </div>
+
+              <h3 id="supportRequestDetailTitle">
+                Request Detail
+              </h3>
+
+              <div
+                id="supportRequestDetailMeta"
+                class="small"
+              ></div>
+            </div>
+
+            <button
+              class="btn"
+              id="closeSupportRequestDetailBtn"
+              type="button"
+            >
+              Close
+            </button>
+          </div>
+
+          <div
+            id="supportRequestDetailBody"
+            class="support-request-detail-body"
+          ></div>
+
+          <div class="support-request-workflow">
+
+            <div class="support-request-workflow-grid">
+
+              <div class="field support-assignee-field">
+                <label>Assigned To</label>
+
+                <div class="support-assignee-picker">
+                  <input
+                    id="supportRequestAssigneeSearch"
+                    type="search"
+                    placeholder="Search AHT employee…"
+                    autocomplete="off"
+                  />
+
+                  <div
+                    id="supportRequestAssigneeResults"
+                    class="support-assignee-results hidden"
+                  ></div>
+
+                  <div
+                    id="supportRequestAssigneeSelected"
+                    class="support-assignee-selected"
+                  >
+                    <div>
+                      <strong>Unassigned</strong>
+                      <span>No employee selected</span>
+                    </div>
+
+                    <button
+                      class="btn support-assignee-clear hidden"
+                      id="clearSupportRequestAssigneeBtn"
+                      type="button"
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <input
+                    id="supportRequestAssignedTo"
+                    type="hidden"
+                  />
+
+                  <input
+                    id="supportRequestAssignedToEmail"
+                    type="hidden"
+                  />
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Status</label>
+                <select id="supportRequestDetailStatus"></select>
+              </div>
+
+              <div class="field full">
+                <label>Internal Notes / Resolution</label>
+                <textarea
+                  id="supportRequestInternalNotes"
+                  rows="4"
+                  maxlength="5000"
+                  placeholder="Internal follow-up, troubleshooting, resolution, or administrative notes…"
+                ></textarea>
+              </div>
+
+            </div>
+
+            <div
+              id="supportRequestResolutionMeta"
+              class="support-request-resolution-meta hidden"
+            ></div>
+
+            <div class="support-request-workflow-actions">
+              <button
+                class="btn primary"
+                id="saveSupportRequestStatusBtn"
+                type="button"
+              >
+                Save Changes
+              </button>
+            </div>
+
+          </div>
+
+          <div
+            id="supportRequestDetailMessage"
+            class="support-request-detail-message"
+            aria-live="polite"
+          ></div>
+        </div>
+      </div>
+
       <div class="note">Microsoft Entra controls sign-in access. Dashboard profiles control application edit level and project visibility only.</div>
     </section>
 
@@ -705,8 +958,48 @@
   </div>
 </div>
 
+
+<div class="modal-backdrop" id="helpCenterBackdrop">
+  <div class="modal help-center-modal" role="dialog" aria-modal="true" aria-labelledby="helpCenterTitle">
+    <div class="help-center-heading">
+      <div>
+        <div class="eyebrow">Support & Guidance</div>
+        <h3 id="helpCenterTitle">Project Control Help Center</h3>
+        <div class="small">User guidance, frequently asked questions, and support requests.</div>
+      </div>
+      <button class="btn" id="closeHelpCenterBtn" type="button">Close</button>
+    </div>
+
+    <div class="help-tabs" role="tablist" aria-label="Help Center sections">
+      <button type="button" data-help-tab="guide">User Guide</button>
+      <button type="button" data-help-tab="howto">How To</button>
+      <button type="button" data-help-tab="faq">FAQ</button>
+      <button type="button" data-help-tab="ticket">Help Ticket</button>
+      <button type="button" data-help-tab="access" class="hidden">Access & User Request</button>
+    </div>
+
+    <div id="helpCenterContent" class="help-center-content"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="helpTopicBackdrop">
+  <div class="modal help-topic-modal" role="dialog" aria-modal="true" aria-labelledby="helpTopicTitle">
+    <div class="help-center-heading">
+      <div>
+        <div class="eyebrow">Context Help</div>
+        <h3 id="helpTopicTitle"></h3>
+        <div class="small" id="helpTopicSummary"></div>
+      </div>
+      <button class="btn" id="closeHelpTopicBtn" type="button">Close</button>
+    </div>
+
+    <div id="helpTopicBody" class="help-topic-body"></div>
+
+  </div>
+</div>
+
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
-<script src="js/config.js?v=0.14.62"></script>
+<script src="js/config.js?v=1790360986"></script>
 <script src="data/projects.js"></script>
 <script src="js/data-provider.js?v=1790256735"></script>
 <script src="js/storage.js"></script>
@@ -719,7 +1012,8 @@
 <script src="js/project-work-view.js?v=0.15.14"></script>
 <script src="js/project-task-editor.js?v=0.15.20"></script>
 <script src="js/site-operations.js?v=1790277011"></script>
-  <script src="js/dashboard.js?v=1790344592"></script>
+  <script src="js/dashboard.js?v=1790365281"></script>
+<script src="js/help-center.js?v=1790366651"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js?v=0.15.2"></script>
@@ -2368,7 +2662,7 @@ importBackupBtn.onclick=()=>{
 };
 importBackupFileInput.onchange=e=>importBackupFile(e.target.files?.[0]);
 
-document.querySelectorAll(".sidebar-nav button").forEach(b=>b.onclick=()=>showView(b.dataset.view));projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
+document.querySelectorAll(".sidebar-nav button[data-view]").forEach(b=>b.onclick=()=>showView(b.dataset.view));projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
 window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");addSiteLocationBtn.onclick=()=>SiteOperations.openLocationEditor();
 addSiteOperationBtn.onclick=()=>SiteOperations.openOperationEditor();cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
 document.addEventListener("keydown",e=>{

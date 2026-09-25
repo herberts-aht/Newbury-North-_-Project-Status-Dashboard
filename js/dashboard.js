@@ -202,13 +202,10 @@ function projectScheduleRecords(fallbackRecords=[]){
 
 function executiveProjectPlanItems(){
   /*
-   * Project Plan is currently an administrator-only prototype.
-   * Keep its Executive Summary intelligence behind the same
-   * access boundary until Project Plan visibility rules are
-   * intentionally opened to other roles.
+   * Executive Summary uses the same read visibility as Project Plan.
+   * Edit permissions remain enforced by the normal Project Plan controls.
    */
   if(
-    !currentUser?.canAdmin ||
     !window.ProjectWorkItems?.getItems
   ){
     return [];
@@ -3618,6 +3615,1587 @@ function managementDivisionKeys(user=currentUser){
  );
 }
 
+
+const supportRequestQueueState={
+  helpTickets:[],
+  accessRequests:[],
+  loading:false,
+  loaded:false,
+  loadToken:0,
+  activeRequest:null,
+  managementProjectIds:new Set(),
+  organizationWide:false
+};
+
+
+function supportRequestText(value){
+  return String(value??"").trim();
+}
+
+
+function supportRequestDate(value){
+  if(!value)return "";
+
+  const date=new Date(value);
+
+  if(Number.isNaN(date.getTime())){
+    return supportRequestText(value);
+  }
+
+  return date.toLocaleString(
+    "en-US",
+    {
+      month:"short",
+      day:"numeric",
+      year:"numeric",
+      hour:"numeric",
+      minute:"2-digit"
+    }
+  );
+}
+
+
+function supportRequestProjectId(fields){
+  const projectKey=
+    supportRequestText(fields?.ProjectKey);
+
+  const projectSharePointId=
+    Number(fields?.ProjectSharePointId||0);
+
+  const projectName=
+    supportRequestText(fields?.ProjectName)
+      .toLowerCase();
+
+  const project=
+    state.projects.find(item=>
+      (
+        projectKey &&
+        String(item.id||"")===projectKey
+      ) ||
+      (
+        projectSharePointId &&
+        Number(item.sharePointId||0)===
+          projectSharePointId
+      ) ||
+      (
+        projectName &&
+        String(item.name||"")
+          .trim()
+          .toLowerCase()===projectName
+      )
+    );
+
+  return project?.id||"";
+}
+
+
+function supportRequestWithinScope(fields){
+  if(supportRequestQueueState.organizationWide){
+    return true;
+  }
+
+  const projectId=
+    supportRequestProjectId(fields);
+
+  if(!projectId){
+    return false;
+  }
+
+  return supportRequestQueueState
+    .managementProjectIds
+    .has(projectId);
+}
+
+
+function supportRequestRow(item,type){
+  const fields=item.fields||{};
+
+  const title=
+    supportRequestText(fields.Title)||
+    (
+      type==="help"
+        ?"Untitled Help Ticket"
+        :"Untitled Access Request"
+    );
+
+  const requester=
+    supportRequestText(fields.RequesterName)||
+    supportRequestText(fields.RequesterEmail)||
+    "Unknown requester";
+
+  const project=
+    supportRequestText(fields.ProjectName)||
+    "No project";
+
+  const status=
+    supportRequestText(fields.Status)||
+    "Open";
+
+  const requestType=
+    supportRequestText(fields.RequestType);
+
+  const urgency=
+    type==="help"
+      ? supportRequestText(fields.Urgency)
+      : "";
+
+  const created=
+    supportRequestDate(fields.Created);
+
+  const statusClass=
+    status
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,"-");
+
+  return `
+    <button
+      type="button"
+      class="support-request-row"
+      data-support-request-type="${type}"
+      data-support-request-id="${Number(item.id)}"
+    >
+      <div class="support-request-row-main">
+        <div class="support-request-row-title">
+          <strong>${esc(title)}</strong>
+          <span class="support-request-status status-${statusClass}">
+            ${esc(status)}
+          </span>
+        </div>
+
+        <div class="support-request-row-meta">
+          <span>${esc(project)}</span>
+          <span>·</span>
+          <span>${esc(requester)}</span>
+          ${
+            requestType
+              ? `<span>·</span><span>${esc(requestType)}</span>`
+              : ""
+          }
+          ${
+            urgency
+              ? `<span>·</span><span>${esc(urgency)}</span>`
+              : ""
+          }
+        </div>
+      </div>
+
+      <div class="support-request-row-side">
+        <span class="small">${esc(created)}</span>
+        <span class="support-request-open-label">Open ›</span>
+      </div>
+    </button>
+  `;
+}
+
+
+function filteredSupportRequests(type){
+  const items=
+    type==="help"
+      ? supportRequestQueueState.helpTickets
+      : supportRequestQueueState.accessRequests;
+
+  const statusEl=
+    document.getElementById(
+      type==="help"
+        ?"helpTicketQueueStatus"
+        :"accessRequestQueueStatus"
+    );
+
+  const searchEl=
+    document.getElementById(
+      type==="help"
+        ?"helpTicketQueueSearch"
+        :"accessRequestQueueSearch"
+    );
+
+  const selectedStatus=
+    supportRequestText(statusEl?.value);
+
+  const search=
+    supportRequestText(searchEl?.value)
+      .toLowerCase();
+
+  return items
+    .filter(item=>
+      supportRequestWithinScope(item.fields||{})
+    )
+    .filter(item=>
+      !selectedStatus ||
+      supportRequestText(item.fields?.Status)===
+        selectedStatus
+    )
+    .filter(item=>{
+      if(!search)return true;
+
+      const haystack=
+        JSON.stringify(item.fields||{})
+          .toLowerCase();
+
+      return haystack.includes(search);
+    })
+    .sort((a,b)=>
+      new Date(b.fields?.Created||0)-
+      new Date(a.fields?.Created||0)
+    );
+}
+
+
+function renderSupportRequestQueue(type){
+  const container=
+    document.getElementById(
+      type==="help"
+        ?"helpTicketQueue"
+        :"accessRequestQueue"
+    );
+
+  const count=
+    document.getElementById(
+      type==="help"
+        ?"helpTicketQueueCount"
+        :"accessRequestQueueCount"
+    );
+
+  if(!container)return;
+
+  if(supportRequestQueueState.loading){
+    container.innerHTML=
+      '<div class="small">Loading requests…</div>';
+
+    if(count)count.textContent="…";
+    return;
+  }
+
+  const visible=
+    filteredSupportRequests(type);
+
+  const allInScope=
+    (
+      type==="help"
+        ?supportRequestQueueState.helpTickets
+        :supportRequestQueueState.accessRequests
+    )
+      .filter(item=>
+        supportRequestWithinScope(item.fields||{})
+      );
+
+  const openCount=
+    allInScope.filter(item=>
+      ![
+        "Resolved",
+        "Closed",
+        "Completed",
+        "Denied"
+      ].includes(
+        supportRequestText(item.fields?.Status)
+      )
+    ).length;
+
+  if(count){
+    count.textContent=
+      `${openCount} open · ${allInScope.length} total`;
+  }
+
+  container.innerHTML=
+    visible.length
+      ? visible
+          .map(item=>
+            supportRequestRow(item,type)
+          )
+          .join("")
+      : '<div class="support-request-empty">No requests match the current filters.</div>';
+
+  container
+    .querySelectorAll(
+      "[data-support-request-id]"
+    )
+    .forEach(button=>{
+      button.onclick=()=>{
+        openSupportRequestDetail(
+          button.dataset.supportRequestType,
+          Number(button.dataset.supportRequestId)
+        );
+      };
+    });
+}
+
+
+function renderSupportRequestQueues(){
+  renderSupportRequestQueue("help");
+  renderSupportRequestQueue("access");
+}
+
+
+async function loadSupportRequestQueues(
+  managementProjectIds,
+  organizationWide,
+  force=false
+){
+  if(
+    !document.getElementById("helpTicketQueue") ||
+    !document.getElementById("accessRequestQueue")
+  ){
+    return;
+  }
+
+  supportRequestQueueState.managementProjectIds=
+    new Set(managementProjectIds||[]);
+
+  supportRequestQueueState.organizationWide=
+    Boolean(organizationWide);
+
+  if(
+    supportRequestQueueState.loaded &&
+    !force
+  ){
+    renderSupportRequestQueues();
+    return;
+  }
+
+  const token=
+    ++supportRequestQueueState.loadToken;
+
+  supportRequestQueueState.loading=true;
+  renderSupportRequestQueues();
+
+  try{
+    const [helpTickets,accessRequests]=
+      await Promise.all([
+        SharePointDataProvider.getListRows(
+          APP_CONFIG.sharePoint.lists.dashboardHelpTickets
+        ),
+        SharePointDataProvider.getListRows(
+          APP_CONFIG.sharePoint.lists.accessUserRequests
+        )
+      ]);
+
+    if(
+      token!==supportRequestQueueState.loadToken
+    ){
+      return;
+    }
+
+    supportRequestQueueState.helpTickets=
+      Array.isArray(helpTickets)
+        ?helpTickets
+        :[];
+
+    supportRequestQueueState.accessRequests=
+      Array.isArray(accessRequests)
+        ?accessRequests
+        :[];
+
+    supportRequestQueueState.loaded=true;
+
+  }catch(error){
+    console.error(
+      "Support request queues could not be loaded.",
+      error
+    );
+
+    const message=
+      esc(
+        error?.message ||
+        "Requests could not be loaded."
+      );
+
+    const help=
+      document.getElementById(
+        "helpTicketQueue"
+      );
+
+    const access=
+      document.getElementById(
+        "accessRequestQueue"
+      );
+
+    if(help){
+      help.innerHTML=
+        `<div class="support-request-error">${message}</div>`;
+    }
+
+    if(access){
+      access.innerHTML=
+        `<div class="support-request-error">${message}</div>`;
+    }
+
+  }finally{
+    if(
+      token===supportRequestQueueState.loadToken
+    ){
+      supportRequestQueueState.loading=false;
+
+      if(supportRequestQueueState.loaded){
+        renderSupportRequestQueues();
+      }
+    }
+  }
+}
+
+
+function supportRequestFieldHtml(
+  label,
+  value,
+  options={}
+){
+  const text=
+    supportRequestText(value);
+
+  if(!text && !options.showEmpty){
+    return "";
+  }
+
+  return `
+    <div class="support-request-detail-field ${
+      options.full?"full":""
+    }">
+      <div class="support-request-detail-label">
+        ${esc(label)}
+      </div>
+      <div class="support-request-detail-value">
+        ${
+          options.multiline
+            ? esc(text||"—")
+                .replace(/\n/g,"<br>")
+            : esc(text||"—")
+        }
+      </div>
+    </div>
+  `;
+}
+
+
+
+function supportRequestDetailRow(
+  label,
+  value,
+  options={}
+){
+  const text=supportRequestText(value);
+
+  if(!text && !options.showEmpty){
+    return "";
+  }
+
+  return `
+    <div class="support-detail-row">
+      <div class="support-detail-row-label">
+        ${esc(label)}
+      </div>
+      <div class="support-detail-row-value">
+        ${
+          options.multiline
+            ? esc(text||"—").replace(/\n/g,"<br>")
+            : esc(text||"—")
+        }
+      </div>
+    </div>
+  `;
+}
+
+
+function supportRequestDetailSection(
+  title,
+  content,
+  options={}
+){
+  if(!String(content||"").trim()){
+    return "";
+  }
+
+  return `
+    <section class="support-detail-section ${
+      options.primary?"primary":""
+    }">
+      <div class="support-detail-section-title">
+        ${esc(title)}
+      </div>
+
+      <div class="support-detail-section-body">
+        ${content}
+      </div>
+    </section>
+  `;
+}
+
+
+function supportRequestStatusBadge(status){
+  const text=supportRequestText(status)||"Open";
+
+  const cls=
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,"-");
+
+  return `
+    <span class="support-request-status status-${cls}">
+      ${esc(text)}
+    </span>
+  `;
+}
+
+
+
+
+function supportRequestEmployeeDirectory(){
+  if(
+    typeof DataProvider?.getCachedEmployeeDirectory!=="function"
+  ){
+    return [];
+  }
+
+  return DataProvider
+    .getCachedEmployeeDirectory()
+    .filter(employee=>
+      employee &&
+      employee.email &&
+      (
+        !employee.employmentStatus ||
+        employee.employmentStatus==="Employed"
+      )
+    )
+    .sort((a,b)=>
+      String(a.name||a.email)
+        .localeCompare(
+          String(b.name||b.email)
+        )
+    );
+}
+
+
+function supportRequestAssigneeText(employee){
+  return [
+    employee?.jobTitle,
+    employee?.department,
+    employee?.division
+  ]
+    .map(value=>supportRequestText(value))
+    .filter(Boolean)
+    .join(" · ");
+}
+
+
+function setSupportRequestAssignee(
+  name="",
+  email="",
+  employee=null
+){
+  const nameInput=
+    document.getElementById(
+      "supportRequestAssignedTo"
+    );
+
+  const emailInput=
+    document.getElementById(
+      "supportRequestAssignedToEmail"
+    );
+
+  const selected=
+    document.getElementById(
+      "supportRequestAssigneeSelected"
+    );
+
+  const clearButton=
+    document.getElementById(
+      "clearSupportRequestAssigneeBtn"
+    );
+
+  const search=
+    document.getElementById(
+      "supportRequestAssigneeSearch"
+    );
+
+  const cleanName=supportRequestText(name);
+  const cleanEmail=
+    supportRequestText(email).toLowerCase();
+
+  if(nameInput){
+    nameInput.value=cleanName;
+  }
+
+  if(emailInput){
+    emailInput.value=cleanEmail;
+  }
+
+  if(search){
+    search.value="";
+  }
+
+  if(selected){
+    if(cleanName || cleanEmail){
+      const secondary=
+        employee
+          ? supportRequestAssigneeText(employee)
+          : cleanEmail;
+
+      selected.innerHTML=`
+        <div>
+          <strong>${esc(cleanName||cleanEmail)}</strong>
+          ${
+            secondary
+              ? `<span>${esc(secondary)}</span>`
+              : ""
+          }
+        </div>
+
+        <button
+          class="btn support-assignee-clear"
+          id="clearSupportRequestAssigneeBtn"
+          type="button"
+        >
+          Clear
+        </button>
+      `;
+    }else{
+      selected.innerHTML=`
+        <div>
+          <strong>Unassigned</strong>
+          <span>No employee selected</span>
+        </div>
+
+        <button
+          class="btn support-assignee-clear hidden"
+          id="clearSupportRequestAssigneeBtn"
+          type="button"
+        >
+          Clear
+        </button>
+      `;
+    }
+  }
+
+  bindSupportRequestAssigneeClear();
+}
+
+
+function bindSupportRequestAssigneeClear(){
+  const clearButton=
+    document.getElementById(
+      "clearSupportRequestAssigneeBtn"
+    );
+
+  if(
+    clearButton &&
+    !clearButton.dataset.bound
+  ){
+    clearButton.dataset.bound="1";
+
+    clearButton.onclick=()=>{
+      setSupportRequestAssignee();
+
+      const results=
+        document.getElementById(
+          "supportRequestAssigneeResults"
+        );
+
+      if(results){
+        results.classList.add("hidden");
+      }
+    };
+  }
+}
+
+
+function renderSupportRequestAssigneeResults(){
+  const search=
+    document.getElementById(
+      "supportRequestAssigneeSearch"
+    );
+
+  const results=
+    document.getElementById(
+      "supportRequestAssigneeResults"
+    );
+
+  if(!search || !results)return;
+
+  const query=
+    supportRequestText(search.value)
+      .toLowerCase();
+
+  if(!query){
+    results.classList.add("hidden");
+    results.innerHTML="";
+    return;
+  }
+
+  const employees=
+    supportRequestEmployeeDirectory()
+      .filter(employee=>{
+        const haystack=[
+          employee.name,
+          employee.email,
+          employee.jobTitle,
+          employee.department,
+          employee.division
+        ]
+          .map(value=>
+            supportRequestText(value)
+              .toLowerCase()
+          )
+          .join(" ");
+
+        return haystack.includes(query);
+      })
+      .slice(0,12);
+
+  if(!employees.length){
+    results.innerHTML=`
+      <div class="support-assignee-empty">
+        No matching AHT employees.
+      </div>
+    `;
+
+    results.classList.remove("hidden");
+    return;
+  }
+
+  results.innerHTML=
+    employees
+      .map(employee=>`
+        <button
+          type="button"
+          class="support-assignee-result"
+          data-assignee-email="${esc(employee.email)}"
+        >
+          <strong>
+            ${esc(employee.name||employee.email)}
+          </strong>
+
+          <span>
+            ${esc(employee.email)}
+          </span>
+
+          ${
+            supportRequestAssigneeText(employee)
+              ? `<small>${esc(
+                  supportRequestAssigneeText(employee)
+                )}</small>`
+              : ""
+          }
+        </button>
+      `)
+      .join("");
+
+  results.classList.remove("hidden");
+
+  results
+    .querySelectorAll(
+      "[data-assignee-email]"
+    )
+    .forEach(button=>{
+      button.onclick=()=>{
+        const email=
+          supportRequestText(
+            button.dataset.assigneeEmail
+          ).toLowerCase();
+
+        const employee=
+          supportRequestEmployeeDirectory()
+            .find(item=>
+              supportRequestText(item.email)
+                .toLowerCase()===email
+            );
+
+        if(!employee)return;
+
+        setSupportRequestAssignee(
+          employee.name||employee.email,
+          employee.email,
+          employee
+        );
+
+        results.classList.add("hidden");
+      };
+    });
+}
+
+
+function bindSupportRequestAssigneePicker(){
+  const search=
+    document.getElementById(
+      "supportRequestAssigneeSearch"
+    );
+
+  const results=
+    document.getElementById(
+      "supportRequestAssigneeResults"
+    );
+
+  if(
+    search &&
+    !search.dataset.bound
+  ){
+    search.dataset.bound="1";
+
+    search.oninput=
+      renderSupportRequestAssigneeResults;
+
+    search.onfocus=()=>{
+      if(search.value.trim()){
+        renderSupportRequestAssigneeResults();
+      }
+    };
+
+    search.onkeydown=event=>{
+      if(event.key==="Escape"){
+        if(results){
+          results.classList.add("hidden");
+        }
+      }
+    };
+  }
+
+  bindSupportRequestAssigneeClear();
+}
+
+
+function supportRequestIsTerminalStatus(type,status){
+  const value=supportRequestText(status);
+
+  if(type==="help"){
+    return [
+      "Resolved",
+      "Closed"
+    ].includes(value);
+  }
+
+  return [
+    "Completed",
+    "Denied",
+    "Closed"
+  ].includes(value);
+}
+
+
+function supportRequestResolutionMetaHtml(fields){
+  const resolvedBy=
+    supportRequestText(fields?.ResolvedBy);
+
+  const resolvedOn=
+    supportRequestDate(fields?.ResolvedOn);
+
+  if(!resolvedBy && !resolvedOn){
+    return "";
+  }
+
+  return `
+    <span class="support-resolution-label">
+      Resolution
+    </span>
+
+    ${
+      resolvedBy
+        ? `<span><strong>By:</strong> ${esc(resolvedBy)}</span>`
+        : ""
+    }
+
+    ${
+      resolvedOn
+        ? `<span><strong>On:</strong> ${esc(resolvedOn)}</span>`
+        : ""
+    }
+  `;
+}
+
+
+function updateSupportRequestResolutionMeta(fields){
+  const meta=
+    document.getElementById(
+      "supportRequestResolutionMeta"
+    );
+
+  if(!meta)return;
+
+  const html=
+    supportRequestResolutionMetaHtml(fields);
+
+  meta.innerHTML=html;
+  meta.classList.toggle("hidden",!html);
+}
+
+
+function openSupportRequestDetail(type,id){
+  const list=
+    type==="help"
+      ?supportRequestQueueState.helpTickets
+      :supportRequestQueueState.accessRequests;
+
+  const item=
+    list.find(row=>
+      Number(row.id)===Number(id)
+    );
+
+  if(!item)return;
+
+  const fields=item.fields||{};
+
+  supportRequestQueueState.activeRequest={
+    type,
+    id:Number(item.id)
+  };
+
+  const backdrop=
+    document.getElementById(
+      "supportRequestDetailBackdrop"
+    );
+
+  const eyebrow=
+    document.getElementById(
+      "supportRequestDetailEyebrow"
+    );
+
+  const title=
+    document.getElementById(
+      "supportRequestDetailTitle"
+    );
+
+  const meta=
+    document.getElementById(
+      "supportRequestDetailMeta"
+    );
+
+  const body=
+    document.getElementById(
+      "supportRequestDetailBody"
+    );
+
+  const status=
+    document.getElementById(
+      "supportRequestDetailStatus"
+    );
+
+  const message=
+    document.getElementById(
+      "supportRequestDetailMessage"
+    );
+
+  const assignedTo=
+    document.getElementById(
+      "supportRequestAssignedTo"
+    );
+
+  const assignedToEmail=
+    document.getElementById(
+      "supportRequestAssignedToEmail"
+    );
+
+  const internalNotes=
+    document.getElementById(
+      "supportRequestInternalNotes"
+    );
+
+  if(
+    !backdrop ||
+    !title ||
+    !body ||
+    !status
+  ){
+    return;
+  }
+
+  const requestNumber=
+    type==="help"
+      ?`HELP-${item.id}`
+      :`ACCESS-${item.id}`;
+
+  const currentStatus=
+    supportRequestText(fields.Status)||
+    "Open";
+
+  if(eyebrow){
+    eyebrow.textContent=requestNumber;
+  }
+
+  title.textContent=
+    supportRequestText(fields.Title)||
+    (
+      type==="help"
+        ?"Help Ticket"
+        :"Access Request"
+    );
+
+  if(meta){
+    meta.innerHTML=`
+      ${supportRequestStatusBadge(currentStatus)}
+
+      ${
+        supportRequestText(fields.ProjectName)
+          ? `<span>${esc(fields.ProjectName)}</span>`
+          : ""
+      }
+
+      ${
+        supportRequestText(fields.RequesterName)
+          ? `<span>Submitted by ${esc(fields.RequesterName)}</span>`
+          : ""
+      }
+
+      ${
+        fields.Created
+          ? `<span>${esc(supportRequestDate(fields.Created))}</span>`
+          : ""
+      }
+    `;
+  }
+
+
+  if(type==="help"){
+    const requestContent=[
+      supportRequestDetailRow(
+        "Request Type",
+        fields.RequestType
+      ),
+      supportRequestDetailRow(
+        "Urgency",
+        fields.Urgency
+      ),
+      supportRequestDetailRow(
+        "Page / Area",
+        fields.PageArea
+      ),
+      supportRequestDetailRow(
+        "Project",
+        fields.ProjectName
+      )
+    ].join("");
+
+    const submitterContent=[
+      supportRequestDetailRow(
+        "Name",
+        fields.RequesterName
+      ),
+      supportRequestDetailRow(
+        "Email",
+        fields.RequesterEmail
+      ),
+      supportRequestDetailRow(
+        "Dashboard Role",
+        fields.RequesterRole
+      ),
+      supportRequestDetailRow(
+        "Submitted",
+        supportRequestDate(fields.Created)
+      )
+    ].join("");
+
+    const detailContent=
+      supportRequestDetailRow(
+        "Description",
+        fields.Description,
+        {
+          multiline:true,
+          showEmpty:true
+        }
+      );
+
+    const sourceContent=
+      supportRequestDetailRow(
+        "Source",
+        fields.SourceUrl
+      );
+
+    body.innerHTML=`
+      <div class="support-detail-layout">
+
+        ${supportRequestDetailSection(
+          "Request",
+          requestContent
+        )}
+
+        ${supportRequestDetailSection(
+          "Submitted By",
+          submitterContent
+        )}
+
+        ${supportRequestDetailSection(
+          "Details",
+          detailContent,
+          {primary:true}
+        )}
+
+        ${
+          sourceContent
+            ? `
+              <div class="support-detail-source">
+                ${sourceContent}
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+    `;
+
+    status.innerHTML=`
+      <option>Open</option>
+      <option>In Progress</option>
+      <option>Waiting</option>
+      <option>Resolved</option>
+      <option>Closed</option>
+    `;
+
+  }else{
+    const requestContent=[
+      supportRequestDetailRow(
+        "Request Type",
+        fields.RequestType
+      ),
+      supportRequestDetailRow(
+        "Project",
+        fields.ProjectName
+      )
+    ].join("");
+
+    const accessContent=[
+      supportRequestDetailRow(
+        "Person",
+        fields.PersonName
+      ),
+      supportRequestDetailRow(
+        "Email",
+        fields.PersonEmail
+      ),
+      supportRequestDetailRow(
+        "User Type",
+        fields.UserType
+      ),
+      supportRequestDetailRow(
+        "Requested Role",
+        fields.RequestedRole
+      )
+    ].join("");
+
+    const submitterContent=[
+      supportRequestDetailRow(
+        "Name",
+        fields.RequesterName
+      ),
+      supportRequestDetailRow(
+        "Email",
+        fields.RequesterEmail
+      ),
+      supportRequestDetailRow(
+        "Dashboard Role",
+        fields.RequesterRole
+      ),
+      supportRequestDetailRow(
+        "Submitted",
+        supportRequestDate(fields.Created)
+      )
+    ].join("");
+
+    const detailContent=
+      supportRequestDetailRow(
+        "Reason / Details",
+        fields.Details,
+        {
+          multiline:true,
+          showEmpty:true
+        }
+      );
+
+    const sourceContent=
+      supportRequestDetailRow(
+        "Source",
+        fields.SourceUrl
+      );
+
+    body.innerHTML=`
+      <div class="support-detail-layout">
+
+        ${supportRequestDetailSection(
+          "Request",
+          requestContent
+        )}
+
+        ${supportRequestDetailSection(
+          "User / Access",
+          accessContent
+        )}
+
+        ${supportRequestDetailSection(
+          "Submitted By",
+          submitterContent
+        )}
+
+        ${supportRequestDetailSection(
+          "Details",
+          detailContent,
+          {primary:true}
+        )}
+
+        ${
+          sourceContent
+            ? `
+              <div class="support-detail-source">
+                ${sourceContent}
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+    `;
+
+    status.innerHTML=`
+      <option>Open</option>
+      <option>In Progress</option>
+      <option>Waiting</option>
+      <option>Approved</option>
+      <option>Completed</option>
+      <option>Denied</option>
+      <option>Closed</option>
+    `;
+  }
+
+  status.value=currentStatus;
+
+  bindSupportRequestAssigneePicker();
+
+  const savedAssigneeEmail=
+    supportRequestText(
+      fields.AssignedToEmail
+    ).toLowerCase();
+
+  const savedAssigneeEmployee=
+    savedAssigneeEmail
+      ? supportRequestEmployeeDirectory()
+          .find(employee=>
+            supportRequestText(employee.email)
+              .toLowerCase()===
+            savedAssigneeEmail
+          )
+      : null;
+
+  setSupportRequestAssignee(
+    fields.AssignedTo,
+    fields.AssignedToEmail,
+    savedAssigneeEmployee
+  );
+
+  if(internalNotes){
+    internalNotes.value=
+      supportRequestText(fields.InternalNotes);
+  }
+
+  updateSupportRequestResolutionMeta(fields);
+
+  if(message){
+    message.textContent="";
+    message.className=
+      "support-request-detail-message";
+  }
+
+  backdrop.style.display="flex";
+}
+
+
+function closeSupportRequestDetail(){
+  const backdrop=
+    document.getElementById(
+      "supportRequestDetailBackdrop"
+    );
+
+  if(backdrop){
+    backdrop.style.display="none";
+  }
+
+  supportRequestQueueState.activeRequest=null;
+}
+
+
+async function saveSupportRequestStatus(){
+  const active=
+    supportRequestQueueState.activeRequest;
+
+  if(!active)return;
+
+  const status=
+    document.getElementById(
+      "supportRequestDetailStatus"
+    );
+
+  const assignedTo=
+    document.getElementById(
+      "supportRequestAssignedTo"
+    );
+
+  const assignedToEmail=
+    document.getElementById(
+      "supportRequestAssignedToEmail"
+    );
+
+  const internalNotes=
+    document.getElementById(
+      "supportRequestInternalNotes"
+    );
+
+  const saveButton=
+    document.getElementById(
+      "saveSupportRequestStatusBtn"
+    );
+
+  const message=
+    document.getElementById(
+      "supportRequestDetailMessage"
+    );
+
+  if(!status)return;
+
+  const localList=
+    active.type==="help"
+      ?supportRequestQueueState.helpTickets
+      :supportRequestQueueState.accessRequests;
+
+  const item=
+    localList.find(row=>
+      Number(row.id)===Number(active.id)
+    );
+
+  if(!item)return;
+
+  item.fields||={};
+
+  const previousStatus=
+    supportRequestText(item.fields.Status)||
+    "Open";
+
+  const nextStatus=
+    supportRequestText(status.value)||
+    "Open";
+
+  const wasTerminal=
+    supportRequestIsTerminalStatus(
+      active.type,
+      previousStatus
+    );
+
+  const isTerminal=
+    supportRequestIsTerminalStatus(
+      active.type,
+      nextStatus
+    );
+
+  const listName=
+    active.type==="help"
+      ?APP_CONFIG.sharePoint.lists.dashboardHelpTickets
+      :APP_CONFIG.sharePoint.lists.accessUserRequests;
+
+  const fields={
+    Status:nextStatus,
+
+    AssignedTo:
+      supportRequestText(
+        assignedTo?.value
+      ),
+
+    AssignedToEmail:
+      supportRequestText(
+        assignedToEmail?.value
+      ).toLowerCase(),
+
+    InternalNotes:
+      supportRequestText(
+        internalNotes?.value
+      )
+  };
+
+  if(isTerminal && !wasTerminal){
+    fields.ResolvedBy=
+      supportRequestText(
+        currentUser?.name ||
+        currentUser?.email ||
+        "Project Control"
+      );
+
+    fields.ResolvedOn=
+      new Date().toISOString();
+
+  }else if(!isTerminal && wasTerminal){
+    fields.ResolvedBy=null;
+    fields.ResolvedOn=null;
+
+  }else if(isTerminal){
+    fields.ResolvedBy=
+      supportRequestText(
+        item.fields.ResolvedBy
+      ) ||
+      supportRequestText(
+        currentUser?.name ||
+        currentUser?.email ||
+        "Project Control"
+      );
+
+    fields.ResolvedOn=
+      item.fields.ResolvedOn ||
+      new Date().toISOString();
+  }
+
+  try{
+    if(saveButton){
+      saveButton.disabled=true;
+      saveButton.textContent="Saving…";
+    }
+
+    if(message){
+      message.className=
+        "support-request-detail-message";
+
+      message.textContent=
+        "Saving changes…";
+    }
+
+    await SharePointDataProvider.updateItem(
+      listName,
+      active.id,
+      fields
+    );
+
+    item.fields={
+      ...item.fields,
+      ...fields
+    };
+
+    renderSupportRequestQueues();
+
+    updateSupportRequestResolutionMeta(
+      item.fields
+    );
+
+    if(message){
+      message.className=
+        "support-request-detail-message success";
+
+      message.textContent=
+        "Request updated successfully.";
+    }
+
+  }catch(error){
+    console.error(
+      "Support request update failed.",
+      error
+    );
+
+    if(message){
+      message.className=
+        "support-request-detail-message error";
+
+      message.textContent=
+        error?.message ||
+        "Request could not be updated.";
+    }
+
+  }finally{
+    if(saveButton){
+      saveButton.disabled=false;
+      saveButton.textContent="Save Changes";
+    }
+  }
+}
+
+function bindSupportRequestQueueControls(){
+  const helpStatus=
+    document.getElementById(
+      "helpTicketQueueStatus"
+    );
+
+  const helpSearch=
+    document.getElementById(
+      "helpTicketQueueSearch"
+    );
+
+  const accessStatus=
+    document.getElementById(
+      "accessRequestQueueStatus"
+    );
+
+  const accessSearch=
+    document.getElementById(
+      "accessRequestQueueSearch"
+    );
+
+  const refreshHelp=
+    document.getElementById(
+      "refreshHelpTicketQueueBtn"
+    );
+
+  const refreshAccess=
+    document.getElementById(
+      "refreshAccessRequestQueueBtn"
+    );
+
+  const close=
+    document.getElementById(
+      "closeSupportRequestDetailBtn"
+    );
+
+  const save=
+    document.getElementById(
+      "saveSupportRequestStatusBtn"
+    );
+
+  if(helpStatus && !helpStatus.dataset.bound){
+    helpStatus.dataset.bound="1";
+    helpStatus.onchange=()=>
+      renderSupportRequestQueue("help");
+  }
+
+  if(helpSearch && !helpSearch.dataset.bound){
+    helpSearch.dataset.bound="1";
+    helpSearch.oninput=()=>
+      renderSupportRequestQueue("help");
+  }
+
+  if(accessStatus && !accessStatus.dataset.bound){
+    accessStatus.dataset.bound="1";
+    accessStatus.onchange=()=>
+      renderSupportRequestQueue("access");
+  }
+
+  if(accessSearch && !accessSearch.dataset.bound){
+    accessSearch.dataset.bound="1";
+    accessSearch.oninput=()=>
+      renderSupportRequestQueue("access");
+  }
+
+  if(refreshHelp && !refreshHelp.dataset.bound){
+    refreshHelp.dataset.bound="1";
+    refreshHelp.onclick=()=>{
+      supportRequestQueueState.loaded=false;
+
+      loadSupportRequestQueues(
+        supportRequestQueueState.managementProjectIds,
+        supportRequestQueueState.organizationWide,
+        true
+      );
+    };
+  }
+
+  if(refreshAccess && !refreshAccess.dataset.bound){
+    refreshAccess.dataset.bound="1";
+    refreshAccess.onclick=()=>{
+      supportRequestQueueState.loaded=false;
+
+      loadSupportRequestQueues(
+        supportRequestQueueState.managementProjectIds,
+        supportRequestQueueState.organizationWide,
+        true
+      );
+    };
+  }
+
+  if(close && !close.dataset.bound){
+    close.dataset.bound="1";
+    close.onclick=closeSupportRequestDetail;
+  }
+
+  if(save && !save.dataset.bound){
+    save.dataset.bound="1";
+    save.onclick=saveSupportRequestStatus;
+  }
+}
+
+
 function renderAdmin(){
  const canOpenAdministration=
    Boolean(
@@ -3678,6 +5256,14 @@ function renderAdmin(){
    state.projects.filter(project=>
      managementProjectIds.has(project.id)
    );
+
+
+ bindSupportRequestQueueControls();
+
+ loadSupportRequestQueues(
+   managementProjectIds,
+   hasOrganizationWideAdminScope
+ );
 
  const addAhtProjectSearch=
    document.getElementById("addAhtProjectSearch");

@@ -94,7 +94,9 @@ const APP_CONFIG = Object.freeze({
       siteOperations: "Site Operations",
       projectWorkItems: "Project Work Items",
       comments: "Project Comments",
-      commentNotifications: "Project Comment Notifications"
+      commentNotifications: "Project Comment Notifications",
+      dashboardHelpTickets: "Dashboard Help Tickets",
+      accessUserRequests: "Access & User Requests"
     })
   }),
 
