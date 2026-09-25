@@ -2248,6 +2248,150 @@ const ProjectWorkView = (() => {
     `;
   }
 
+  async function deleteProjectPlanTask(item) {
+
+    if (!item) {
+      return;
+    }
+
+    const canEdit =
+      Boolean(
+        currentUser?.canEdit ||
+        currentUser?.canAdmin
+      );
+
+    if (!canEdit) {
+      return;
+    }
+
+    const children =
+      ProjectWorkItems.childrenOf(item.id) || [];
+
+    if (children.length) {
+      alert(
+        `"${item.title}" cannot be deleted because it contains ` +
+        `${children.length} Subtask${children.length === 1 ? "" : "s"}.\n\n` +
+        `Delete or move the Subtask${children.length === 1 ? "" : "s"} first, then delete this Task.`
+      );
+      return;
+    }
+
+    if (!confirm(
+      `Permanently delete "${item.title}"?\n\n` +
+      `This Project Plan Task will be removed from SharePoint and cannot be undone.`
+    )) {
+      return;
+    }
+
+    const originalItems =
+      ProjectWorkItems.getItems().slice();
+
+    const deletedId =
+      String(item.id);
+
+    const parentId =
+      item.parentWorkItemId || null;
+
+    /*
+     * Remove the deleted Task and also remove it from any
+     * remaining predecessor relationships.
+     */
+    const next =
+      originalItems
+        .filter(record =>
+          String(record.id) !== deletedId
+        )
+        .map(record => ({
+          ...record,
+          predecessorIds:
+            Array.isArray(record.predecessorIds)
+              ? record.predecessorIds.filter(
+                  predecessorId =>
+                    String(predecessorId) !== deletedId
+                )
+              : []
+        }));
+
+    try {
+      /*
+       * Match Site Operations behavior: permanently remove the
+       * SharePoint row rather than merely archiving it.
+       */
+      if (
+        item.sharePointId &&
+        typeof SharePointDataProvider !== "undefined" &&
+        typeof SharePointDataProvider.deleteItem === "function"
+      ) {
+        await SharePointDataProvider.deleteItem(
+          APP_CONFIG.sharePoint.lists.projectWorkItems,
+          item.sharePointId
+        );
+      } else {
+        throw new Error(
+          "The SharePoint record ID for this Task is not available."
+        );
+      }
+
+      ProjectWorkItems.setItems(next);
+
+      if (
+        typeof DataProvider !== "undefined" &&
+        typeof DataProvider.saveProjectWorkItems === "function"
+      ) {
+        await DataProvider.saveProjectWorkItems(
+          ProjectWorkItems.getItems()
+        );
+      }
+
+      const project =
+        typeof currentProject === "function"
+          ? currentProject()
+          : null;
+
+      if (
+        project &&
+        typeof logChange === "function"
+      ) {
+        logChange(
+          "Delete",
+          project.id,
+          "Project Plan",
+          item.title,
+          "Project Plan Task permanently deleted."
+        );
+
+        if (typeof save === "function") {
+          await save();
+        }
+      }
+
+      currentWorkItemId =
+        parentId || null;
+
+      window.__projectPlanSelectedTaskId =
+        currentWorkItemId;
+
+      render();
+
+    } catch (error) {
+      console.error(
+        "Project Plan delete failed",
+        error
+      );
+
+      ProjectWorkItems.setItems(
+        originalItems
+      );
+
+      alert(
+        `Project Plan Task could not be deleted: ${error.message}`
+      );
+
+      render();
+    }
+  }
+
+
   function syncProjectPlanHeaderActions() {
 
     const editButton =
@@ -2269,15 +2413,65 @@ const ProjectWorkView = (() => {
           )
         : null;
 
-    editButton.hidden = !item;
+    const canEdit =
+      Boolean(
+        currentUser?.canEdit ||
+        currentUser?.canAdmin
+      );
+
+    /*
+     * Keep Delete beside Edit so Project Plan matches
+     * Site Operations without adding another permanent
+     * action to the page when no Task is selected.
+     */
+    let deleteButton =
+      document.getElementById(
+        "deleteProjectTaskHeaderBtn"
+      );
+
+    if (!deleteButton) {
+      deleteButton =
+        document.createElement("button");
+
+      deleteButton.type =
+        "button";
+
+      deleteButton.id =
+        "deleteProjectTaskHeaderBtn";
+
+      deleteButton.className =
+        "btn danger";
+
+      deleteButton.textContent =
+        "Delete";
+
+      editButton.insertAdjacentElement(
+        "afterend",
+        deleteButton
+      );
+    }
+
+    editButton.hidden =
+      !item || !canEdit;
+
+    deleteButton.hidden =
+      !item || !canEdit;
 
     editButton.onclick =
-      item
+      item && canEdit
         ? () => {
             window.ProjectTaskEditor?.open({
               id: item.id
             });
           }
+        : null;
+
+    deleteButton.onclick =
+      item && canEdit
+        ? () =>
+            deleteProjectPlanTask(
+              item
+            )
         : null;
   }
 
