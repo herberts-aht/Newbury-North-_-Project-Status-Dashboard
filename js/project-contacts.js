@@ -154,6 +154,29 @@ const ProjectContacts = (() => {
     });
   }
 
+  function removeContactsByIds(ids = []) {
+    const removeIds = new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map(id => String(id || ""))
+        .filter(Boolean)
+    );
+
+    if (!removeIds.size) {
+      return getContacts();
+    }
+
+    contacts = contacts.filter(
+      contact =>
+        !removeIds.has(String(contact.id || ""))
+    );
+
+    persistLocal();
+
+    return getContacts();
+  }
+
+
+
   function setActive(id, active) {
     const index = contacts.findIndex(
       contact => String(contact.id) === String(id)
@@ -199,6 +222,7 @@ const ProjectContacts = (() => {
     setContacts,
     setProjectContacts,
     saveContact,
+    removeContactsByIds,
     setActive,
     getContacts,
     forProject,

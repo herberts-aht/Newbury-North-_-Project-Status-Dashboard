@@ -173,6 +173,528 @@ const ProjectTaskEditor = (() => {
   }
 
 
+  function ownerNames(existing = "") {
+    const values = ["AHT"];
+
+    const directory =
+      typeof DataProvider?.getCachedEmployeeDirectory === "function"
+        ? DataProvider.getCachedEmployeeDirectory()
+        : [];
+
+    directory
+      .filter(employee =>
+        employee &&
+        String(
+          employee.employmentStatus ||
+          employee.status ||
+          "Employed"
+        ).toLowerCase() !== "terminated"
+      )
+      .map(employee =>
+        String(
+          employee.name ||
+          employee.displayName ||
+          employee.title ||
+          employee.email ||
+          ""
+        ).trim()
+      )
+      .filter(Boolean)
+      .forEach(name => values.push(name));
+
+    const current = String(existing || "").trim();
+
+    if (
+      current &&
+      !values.some(
+        value =>
+          value.toLowerCase() === current.toLowerCase()
+      )
+    ) {
+      values.push(current);
+    }
+
+    return [
+      ...new Set(values)
+    ].sort((a,b) => {
+      if(a==="AHT") return -1;
+      if(b==="AHT") return 1;
+      return a.localeCompare(b);
+    });
+  }
+
+
+
+  function ownerDirectoryRecords(existing = "") {
+    const directory =
+      typeof DataProvider !== "undefined" &&
+      typeof DataProvider.getCachedEmployeeDirectory === "function"
+        ? DataProvider.getCachedEmployeeDirectory()
+        : [];
+
+    const records = [];
+
+    records.push({
+      name: "AHT",
+      email: "",
+      division: "",
+      department: "",
+      jobTitle: "",
+      pinned: true
+    });
+
+    directory
+      .filter(employee => {
+        if (!employee) return false;
+
+        const status = String(
+          employee.employmentStatus ||
+          employee.status ||
+          "Employed"
+        ).trim().toLowerCase();
+
+        return ![
+          "terminated",
+          "inactive",
+          "former",
+          "separated"
+        ].includes(status);
+      })
+      .forEach(employee => {
+        const name = String(
+          employee.name ||
+          employee.displayName ||
+          employee.title ||
+          employee.email ||
+          ""
+        ).trim();
+
+        if (!name) return;
+
+        records.push({
+          name,
+          email: String(employee.email || "").trim(),
+          division: String(employee.division || "").trim(),
+          department: String(employee.department || "").trim(),
+          jobTitle: String(
+            employee.jobTitle ||
+            employee.position ||
+            ""
+          ).trim(),
+          pinned: false
+        });
+      });
+
+    /*
+     * Deduplicate by employee display name because OwnerName
+     * is currently stored as plain text in SharePoint.
+     */
+    const byName = new Map();
+
+    records.forEach(record => {
+      const key = record.name.toLowerCase();
+
+      if (!byName.has(key)) {
+        byName.set(key, record);
+      }
+    });
+
+    const current = String(existing || "").trim();
+
+    if (
+      current &&
+      !byName.has(current.toLowerCase())
+    ) {
+      byName.set(current.toLowerCase(), {
+        name: current,
+        email: "",
+        division: "",
+        department: "",
+        jobTitle: "Current saved owner",
+        pinned: false,
+        legacy: true
+      });
+    }
+
+    return [...byName.values()];
+  }
+
+
+  function ownerPickerCurrentValue() {
+    return String(
+      document.getElementById("pteOwner")?.value || ""
+    ).trim();
+  }
+
+
+  function ownerPickerMeta(record) {
+    if (record?.legacy) {
+      return "Current saved owner";
+    }
+
+    return [
+      record?.division,
+      record?.jobTitle
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+
+  function closeOwnerPicker() {
+    const menu =
+      document.getElementById("pteOwnerMenu");
+
+    const trigger =
+      document.getElementById("pteOwnerButton");
+
+    menu?.classList.remove("is-open");
+
+    trigger?.setAttribute(
+      "aria-expanded",
+      "false"
+    );
+  }
+
+
+  function renderOwnerPickerResults() {
+    const results =
+      document.getElementById("pteOwnerResults");
+
+    const search =
+      String(
+        document.getElementById("pteOwnerSearch")?.value ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+    const division =
+      String(
+        document.getElementById("pteOwnerDivision")?.value ||
+        ""
+      ).trim();
+
+    if (!results) return;
+
+    const current =
+      ownerPickerCurrentValue();
+
+    let records =
+      ownerDirectoryRecords(current);
+
+    records = records.filter(record => {
+      if (record.pinned) return true;
+
+      if (
+        division &&
+        record.division !== division
+      ) {
+        return false;
+      }
+
+      if (!search) return true;
+
+      const haystack = [
+        record.name,
+        record.email,
+        record.division,
+        record.department,
+        record.jobTitle
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(search);
+    });
+
+
+    const pinned =
+      records.filter(record => record.pinned);
+
+    const employees =
+      records
+        .filter(record => !record.pinned)
+        .sort((a,b) => {
+          const divisionCompare =
+            String(a.division || "Other")
+              .localeCompare(
+                String(b.division || "Other")
+              );
+
+          if (divisionCompare !== 0) {
+            return divisionCompare;
+          }
+
+          return a.name.localeCompare(b.name);
+        });
+
+
+    const groups = new Map();
+
+    employees.forEach(record => {
+      const key =
+        record.division ||
+        "Other / Unassigned";
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+
+      groups.get(key).push(record);
+    });
+
+
+    const optionHtml = record => {
+      const selected =
+        record.name === current;
+
+      const meta =
+        ownerPickerMeta(record);
+
+      return `
+        <button
+          class="pte-owner-option${selected ? " is-selected" : ""}"
+          type="button"
+          role="option"
+          aria-selected="${selected ? "true" : "false"}"
+          data-owner-value="${esc(record.name)}"
+        >
+          <span class="pte-owner-option-main">
+            ${esc(record.name)}
+          </span>
+
+          ${
+            meta
+              ? `
+                <span class="pte-owner-option-meta">
+                  ${esc(meta)}
+                </span>
+              `
+              : ""
+          }
+        </button>
+      `;
+    };
+
+
+    const pinnedHtml =
+      pinned.length
+        ? `
+          <div class="pte-owner-pinned">
+            ${pinned.map(optionHtml).join("")}
+          </div>
+        `
+        : "";
+
+
+    const groupedHtml =
+      [...groups.entries()]
+        .map(([group,items]) => `
+          <div class="pte-owner-group">
+            <div class="pte-owner-group-title">
+              ${esc(group)}
+            </div>
+
+            ${items.map(optionHtml).join("")}
+          </div>
+        `)
+        .join("");
+
+
+    results.innerHTML =
+      pinnedHtml ||
+      groupedHtml
+        ? pinnedHtml + groupedHtml
+        : `
+          <div class="pte-owner-empty">
+            No employees match this search.
+          </div>
+        `;
+
+
+    results
+      .querySelectorAll(".pte-owner-option")
+      .forEach(button => {
+        button.addEventListener(
+          "click",
+          () => {
+            const value =
+              String(
+                button.dataset.ownerValue || ""
+              );
+
+            const native =
+              document.getElementById("pteOwner");
+
+            if (native) {
+              /*
+               * Ensure the selected value exists in the
+               * hidden native select before assigning it.
+               */
+              if (
+                ![...native.options].some(
+                  option => option.value === value
+                )
+              ) {
+                native.add(
+                  new Option(value,value)
+                );
+              }
+
+              native.value = value;
+            }
+
+            const display =
+              document.getElementById(
+                "pteOwnerSelected"
+              );
+
+            if (display) {
+              display.textContent =
+                value || "— Unassigned —";
+            }
+
+            closeOwnerPicker();
+          }
+        );
+      });
+  }
+
+
+  function populateOwnerDivisionFilter(existing = "") {
+    const select =
+      document.getElementById("pteOwnerDivision");
+
+    if (!select) return;
+
+    const previous =
+      select.value;
+
+    const divisions = [
+      ...new Set(
+        ownerDirectoryRecords(existing)
+          .map(record => record.division)
+          .filter(Boolean)
+      )
+    ].sort((a,b) => a.localeCompare(b));
+
+    select.innerHTML =
+      '<option value="">All Divisions</option>' +
+      divisions
+        .map(division =>
+          `<option value="${esc(division)}">${esc(division)}</option>`
+        )
+        .join("");
+
+    if (
+      previous &&
+      divisions.includes(previous)
+    ) {
+      select.value = previous;
+    }
+  }
+
+
+  function initializeOwnerPicker(existing = "") {
+    const native =
+      document.getElementById("pteOwner");
+
+    const trigger =
+      document.getElementById("pteOwnerButton");
+
+    const display =
+      document.getElementById("pteOwnerSelected");
+
+    const menu =
+      document.getElementById("pteOwnerMenu");
+
+    const search =
+      document.getElementById("pteOwnerSearch");
+
+    const division =
+      document.getElementById("pteOwnerDivision");
+
+    if (
+      !native ||
+      !trigger ||
+      !display ||
+      !menu
+    ) {
+      return;
+    }
+
+
+    const current =
+      String(existing || "").trim();
+
+    /*
+     * Keep the native select populated because all existing
+     * save logic reads pteOwner.value.
+     */
+    native.innerHTML =
+      selectOptions(
+        ownerNames(current),
+        current,
+        "— Unassigned —"
+      );
+
+    native.value = current;
+
+    display.textContent =
+      current || "— Unassigned —";
+
+
+    populateOwnerDivisionFilter(current);
+
+
+    if (search) {
+      search.value = "";
+
+      search.oninput =
+        renderOwnerPickerResults;
+    }
+
+    if (division) {
+      division.value = "";
+
+      division.onchange =
+        renderOwnerPickerResults;
+    }
+
+
+    trigger.onclick = event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const opening =
+        !menu.classList.contains("is-open");
+
+      closeOwnerPicker();
+
+      if (!opening) return;
+
+      menu.classList.add("is-open");
+
+      trigger.setAttribute(
+        "aria-expanded",
+        "true"
+      );
+
+      renderOwnerPickerResults();
+
+      setTimeout(
+        () => search?.focus(),
+        0
+      );
+    };
+
+
+    renderOwnerPickerResults();
+  }
+
+
+
   function contactNames(existing = "") {
     seedContactsIfNeeded();
 
@@ -447,7 +969,60 @@ const ProjectTaskEditor = (() => {
 
               <label class="field pte-field">
                 <span>Owner / Responsible</span>
-                <select id="pteOwner"></select>
+                <select
+                  id="pteOwner"
+                  class="pte-owner-native"
+                  tabindex="-1"
+                  aria-hidden="true"
+                ></select>
+
+                <div
+                  class="pte-owner-picker"
+                  id="pteOwnerPicker"
+                >
+                  <button
+                    class="pte-owner-trigger"
+                    id="pteOwnerButton"
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                  >
+                    <span id="pteOwnerSelected">— Unassigned —</span>
+                    <span
+                      class="pte-owner-trigger-chevron"
+                      aria-hidden="true"
+                    >▼</span>
+                  </button>
+
+                  <div
+                    class="pte-owner-menu"
+                    id="pteOwnerMenu"
+                  >
+                    <div class="pte-owner-picker-toolbar">
+                      <input
+                        id="pteOwnerSearch"
+                        class="pte-owner-search"
+                        type="search"
+                        placeholder="Search employees…"
+                        autocomplete="off"
+                      >
+
+                      <select
+                        id="pteOwnerDivision"
+                        class="pte-owner-division"
+                        aria-label="Filter employees by division"
+                      >
+                        <option value="">All Divisions</option>
+                      </select>
+                    </div>
+
+                    <div
+                      class="pte-owner-results"
+                      id="pteOwnerResults"
+                      role="listbox"
+                    ></div>
+                  </div>
+                </div>
               </label>
 
               <label class="field pte-field">
@@ -783,16 +1358,9 @@ const ProjectTaskEditor = (() => {
     );
 
 
-    document.getElementById(
-      "pteOwner"
-    ).innerHTML =
-      selectOptions(
-        contactNames(
-          item.owner || ""
-        ),
-        item.owner || "",
-        "— Unassigned —"
-      );
+    initializeOwnerPicker(
+      item.owner || ""
+    );
 
 
     document.getElementById(
@@ -1349,6 +1917,31 @@ const ProjectTaskEditor = (() => {
     window.ProjectWorkView
       ?.openItem?.(record.id);
   }
+
+
+  document.addEventListener(
+    "click",
+    event => {
+      if (
+        !event.target.closest(
+          "#pteOwnerPicker"
+        )
+      ) {
+        closeOwnerPicker();
+      }
+    }
+  );
+
+
+  document.addEventListener(
+    "keydown",
+    event => {
+      if (event.key === "Escape") {
+        closeOwnerPicker();
+      }
+    }
+  );
+
 
 
   return {

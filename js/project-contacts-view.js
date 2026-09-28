@@ -44,92 +44,16 @@ const ProjectContactsView = (() => {
   }
 
   function seedPrototypeContacts() {
-    const key = projectKey();
-    if (!key) return;
-
-    const existing = ProjectContacts.forProject(
-      key,
-      { includeInactive: true }
-    );
-
-    if (existing.length) {
-      seededProjects.add(key);
-      return;
-    }
-
-    if (seededProjects.has(key)) {
-      return;
-    }
-
-    seededProjects.add(key);
-
-    ProjectContacts.setProjectContacts(key, [
-      {
-        id: `${key}-aht`,
-        name: "AHT Global",
-        type: "Internal",
-        role: "Technology Integrator",
-        dashboardUser: true,
-        active: true,
-        sortOrder: 10
-      },
-      {
-        id: `${key}-newbury`,
-        name: "Newbury North",
-        type: "Builder",
-        role: "Builder / Project Team",
-        dashboardUser: false,
-        active: true,
-        sortOrder: 20
-      },
-      {
-        id: `${key}-russell`,
-        name: "Russell Edwards",
-        type: "Consultant",
-        role: "AV Consultant",
-        dashboardUser: false,
-        active: true,
-        sortOrder: 30
-      },
-      {
-        id: `${key}-ces`,
-        name: "CES",
-        contactPerson: "Eli",
-        type: "Engineer / Trade",
-        role: "Electrical Engineer",
-        dashboardUser: false,
-        active: true,
-        sortOrder: 40
-      },
-      {
-        id: `${key}-cmea`,
-        name: "CMEA",
-        type: "Engineer",
-        role: "MEP / Engineering Coordination",
-        dashboardUser: false,
-        active: true,
-        sortOrder: 50
-      },
-      {
-        id: `${key}-aquatics`,
-        name: "Martin Aquatics",
-        type: "Consultant",
-        role: "Aquatics Design",
-        dashboardUser: false,
-        active: true,
-        sortOrder: 60
-      },
-      {
-        id: `${key}-landscape`,
-        name: "Landscape / Builder",
-        type: "Project Team",
-        role: "Landscape / Exterior Coordination",
-        dashboardUser: false,
-        active: true,
-        sortOrder: 70
-      }
-    ]);
+    /*
+     * Prototype auto-seeding has been disabled.
+     *
+     * Project Contacts are intentionally project-specific and should
+     * only contain contacts actually associated with the selected
+     * project.
+     */
+    return;
   }
+
 
   function contactCard(contact) {
     return `
