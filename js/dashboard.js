@@ -697,6 +697,390 @@ function executiveTaskClickableAttrs(item){
   return ` role="button" tabindex="0" onclick="openExecutiveProjectTask('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExecutiveProjectTask('${id}');}"`;
 }
 
+
+/* ============================================================
+ * PROJECT HEALTH DRIVER DRILLDOWN
+ * ============================================================ */
+
+function projectHealthDriverRecords(project){
+  const h=projectHealthSnapshot(project);
+
+  const groups=[
+    {
+      key:"overdueDeliverables",
+      kind:"deliverable",
+      context:"Deliverable",
+      records:(h.overdueDeliverables||[])
+        .map(record=>record?.item||record)
+        .filter(Boolean)
+    },
+    {
+      key:"overduePlanTasks",
+      kind:"projectPlan",
+      context:"Project Plan",
+      records:h.overduePlanTasks||[]
+    },
+    {
+      key:"blockedPlanTasks",
+      kind:"projectPlan",
+      context:"Project Plan",
+      records:(h.blockedPlanTasks||[])
+        .map(record=>record?.item||record)
+        .filter(Boolean)
+    },
+    {
+      key:"overdueInfo",
+      kind:"info",
+      context:"Information Required",
+      records:h.overdueInfo||[]
+    },
+    {
+      key:"dueSoonInfo",
+      kind:"info",
+      context:"Information Required",
+      records:h.dueSoonInfo||[]
+    },
+    {
+      key:"siteAtRisk",
+      kind:"site",
+      context:"Site Operations",
+      records:h.siteAtRisk||[]
+    }
+  ].filter(group=>group.records.length);
+
+  const labels=projectHealthSummaryParts(project);
+
+  return groups.map((group,index)=>({
+    ...group,
+    label:labels[index]||group.context
+  }));
+}
+
+function projectHealthDriverClass(key){
+  let cls="project-health-driver";
+
+  if(key==="blockedPlanTasks"){
+    cls+=" project-health-driver-project";
+  }else if(
+    key==="overdueDeliverables" ||
+    key==="overduePlanTasks" ||
+    key==="overdueInfo"
+  ){
+    cls+=" project-health-driver-overdue";
+  }else if(key==="dueSoonInfo"){
+    cls+=" project-health-driver-soon";
+  }else if(key==="siteAtRisk"){
+    cls+=" project-health-driver-site";
+  }
+
+  return cls;
+}
+
+function projectHealthRecordId(record){
+  return (
+    record?.id ??
+    record?.sharePointId ??
+    record?.operationId ??
+    ""
+  );
+}
+
+function projectHealthRecordTitle(record){
+  return (
+    record?.title ||
+    record?.deliverable ||
+    record?.item ||
+    record?.operation ||
+    record?.name ||
+    record?.location ||
+    "Open item"
+  );
+}
+
+function projectHealthRecordMeta(kind,record){
+  if(kind==="projectPlan"){
+    const parts=[
+      record?.status,
+      record?.waitingOn
+        ? `Waiting on ${record.waitingOn}`
+        : ""
+    ].filter(Boolean);
+
+    return parts.join(" · ") || "Project Plan";
+  }
+
+  if(kind==="info"){
+    const parts=[
+      record?.from
+        ? `From ${record.from}`
+        : "",
+      record?.neededBy
+        ? `Needed ${fmtDate(record.neededBy)}`
+        : ""
+    ].filter(Boolean);
+
+    return parts.join(" · ") || "Information Required";
+  }
+
+  if(kind==="deliverable"){
+    return [
+      record?.discipline,
+      record?.status
+    ].filter(Boolean).join(" · ") || "Deliverable";
+  }
+
+  if(kind==="site"){
+    return [
+      record?.location,
+      record?.status
+    ].filter(Boolean).join(" · ") || "Site Operations";
+  }
+
+  return "";
+}
+
+function closeProjectHealthDriverMenus(except=null){
+  document
+    .querySelectorAll(".project-health-driver-menu.is-open")
+    .forEach(menu=>{
+      if(menu!==except){
+        menu.classList.remove("is-open");
+      }
+    });
+
+  document
+    .querySelectorAll(".project-health-driver-action[aria-expanded='true']")
+    .forEach(trigger=>{
+      const menu=trigger
+        .closest(".project-health-driver-wrap")
+        ?.querySelector(".project-health-driver-menu");
+
+      if(menu!==except){
+        trigger.setAttribute("aria-expanded","false");
+      }
+    });
+}
+
+function openProjectHealthDriverItem(kind,id){
+  closeProjectHealthDriverMenus();
+
+  if(kind==="projectPlan"){
+    openExecutiveProjectTask(id);
+    return;
+  }
+
+  if(kind==="info"){
+    openProjectControlDetail(
+      "Information Required",
+      Number(id)
+    );
+    return;
+  }
+
+  if(kind==="deliverable"){
+    openProjectControlDetail(
+      "Deliverable",
+      Number(id)
+    );
+    return;
+  }
+
+  if(kind==="site"){
+    openScheduleSource("site",id);
+  }
+}
+
+function openProjectHealthDriverElement(element){
+  if(!element)return;
+
+  openProjectHealthDriverItem(
+    element.dataset.healthKind,
+    element.dataset.healthId
+  );
+}
+
+function toggleProjectHealthDriverMenu(event,trigger){
+  event?.preventDefault();
+  event?.stopPropagation();
+
+  const wrap=trigger?.closest(
+    ".project-health-driver-wrap"
+  );
+
+  const menu=wrap?.querySelector(
+    ".project-health-driver-menu"
+  );
+
+  if(!menu)return;
+
+  const opening=
+    !menu.classList.contains("is-open");
+
+  closeProjectHealthDriverMenus(menu);
+
+  menu.classList.toggle("is-open",opening);
+
+  trigger.setAttribute(
+    "aria-expanded",
+    opening ? "true" : "false"
+  );
+}
+
+function projectHealthDriverHtml(project){
+  if(activeProjectHealthOverride(project)){
+    return `
+      <span class="project-health-driver project-health-driver-manual">
+        ${esc(
+          project.healthOverrideReason ||
+          "Manual project health override"
+        )}
+      </span>
+    `;
+  }
+
+  const drivers=projectHealthDriverRecords(project);
+
+  if(!drivers.length){
+    return `
+      <span class="project-health-driver project-health-driver-clear">
+        No significant schedule or dependency issues
+      </span>
+    `;
+  }
+
+  return drivers.map(driver=>{
+    const cls=projectHealthDriverClass(driver.key);
+    const records=driver.records||[];
+
+    if(records.length===1){
+      const record=records[0];
+      const id=projectHealthRecordId(record);
+
+      if(id==="" || id===null || id===undefined){
+        return `
+          <span class="${cls}">
+            ${esc(driver.label)}
+          </span>
+        `;
+      }
+
+      return `
+        <span
+          class="${cls} project-health-driver-action"
+          role="button"
+          tabindex="0"
+          data-health-kind="${esc(driver.kind)}"
+          data-health-id="${esc(String(id))}"
+          onclick="openProjectHealthDriverElement(this)"
+          onkeydown="
+            if(event.key==='Enter'||event.key===' '){
+              event.preventDefault();
+              openProjectHealthDriverElement(this);
+            }
+          "
+          title="Open item"
+        >
+          ${esc(driver.label)}
+        </span>
+      `;
+    }
+
+    const rows=records.map(record=>{
+      const id=projectHealthRecordId(record);
+
+      if(id==="" || id===null || id===undefined){
+        return "";
+      }
+
+      const title=projectHealthRecordTitle(record);
+      const meta=projectHealthRecordMeta(
+        driver.kind,
+        record
+      );
+
+      return `
+        <button
+          class="project-health-driver-menu-item"
+          type="button"
+          data-health-kind="${esc(driver.kind)}"
+          data-health-id="${esc(String(id))}"
+          onclick="
+            event.stopPropagation();
+            openProjectHealthDriverElement(this);
+          "
+        >
+          <span class="project-health-driver-menu-title">
+            ${esc(title)}
+          </span>
+          ${
+            meta
+              ? `<span class="project-health-driver-menu-meta">${esc(meta)}</span>`
+              : ""
+          }
+        </button>
+      `;
+    }).join("");
+
+    return `
+      <span class="project-health-driver-wrap">
+        <span
+          class="${cls} project-health-driver-action"
+          role="button"
+          tabindex="0"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          onclick="toggleProjectHealthDriverMenu(event,this)"
+          onkeydown="
+            if(event.key==='Enter'||event.key===' '){
+              event.preventDefault();
+              toggleProjectHealthDriverMenu(event,this);
+            }
+          "
+        >
+          <span>${esc(driver.label)}</span>
+          <span
+            class="project-health-driver-chevron"
+            aria-hidden="true"
+          >▼</span>
+        </span>
+
+        <span
+          class="project-health-driver-menu"
+          role="menu"
+        >
+          ${rows}
+        </span>
+      </span>
+    `;
+  }).join("");
+}
+
+document.addEventListener("click",event=>{
+  if(
+    !event.target.closest(
+      ".project-health-driver-wrap"
+    )
+  ){
+    closeProjectHealthDriverMenus();
+  }
+});
+
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"){
+    closeProjectHealthDriverMenus();
+  }
+});
+
+window.openProjectHealthDriverItem=
+  openProjectHealthDriverItem;
+
+window.openProjectHealthDriverElement=
+  openProjectHealthDriverElement;
+
+window.toggleProjectHealthDriverMenu=
+  toggleProjectHealthDriverMenu;
+
+
 const executiveSummaryExpanded = {
   currentWork:false,
   requiredOthers:false,
@@ -1215,33 +1599,7 @@ function render(){
    return;
  }
  if(!projects.some(p=>p.id===state.currentProjectId))state.currentProjectId=projects[0].id;const p=currentProject(),ds=visibleDeliverables(p),infoRecords=visibleInfo(p);
- userLabel.textContent=currentUser.name;roleLabel.textContent=currentUser.role;avatarInitials.textContent=currentUser.name.split(" ").map(x=>x[0]).join("").slice(0,2);projectSubtitle.textContent=`${p.name} · ${p.subtitle}`;welcomeTitle.textContent=`Welcome, ${currentUser.name.split(" ")[0]}`;const displayedHealth=displayedProjectHealth(p);summaryHealth.textContent=displayedHealth;summaryHealthDot.style.background=healthColor(displayedHealth);const projectHealthIsManual=activeProjectHealthOverride(p);summaryHealthMode.textContent=projectHealthIsManual?"Manual override":"";summaryHealthMode.classList.toggle("hidden",!projectHealthIsManual);summaryHealthNote.innerHTML=projectHealthIsManual
-  ? `<span class="project-health-driver project-health-driver-manual">${esc(p.healthOverrideReason||"Manual project health override")}</span>`
-  : (
-      projectHealthSummaryParts(p).length
-        ? projectHealthSummaryParts(p)
-            .map(item=>{
-              let cls="project-health-driver";
-
-              if(/blocked Project Plan Task/i.test(item)){
-                cls+=" project-health-driver-project";
-              }else if(/overdue information request/i.test(item)){
-                cls+=" project-health-driver-overdue";
-              }else if(/due within 7 days/i.test(item)){
-                cls+=" project-health-driver-soon";
-              }else if(/Site Operation/i.test(item)){
-                cls+=" project-health-driver-site";
-              }else if(/overdue Deliverable/i.test(item)){
-                cls+=" project-health-driver-overdue";
-              }else if(/overdue Project Plan Task/i.test(item)){
-                cls+=" project-health-driver-overdue";
-              }
-
-              return `<span class="${cls}">${esc(item)}</span>`;
-            })
-            .join("")
-        : '<span class="project-health-driver project-health-driver-clear">No significant schedule or dependency issues</span>'
-    );summaryExecutiveLead.textContent=p.executiveLead||"—";summarySeniorProjectManager.textContent=p.seniorProjectManager||"—";summaryProjectManagerSiteLead.textContent=p.projectManagerSiteLead||"—";summaryUpdated.textContent=formatLastUpdated(p);
+ userLabel.textContent=currentUser.name;roleLabel.textContent=currentUser.role;avatarInitials.textContent=currentUser.name.split(" ").map(x=>x[0]).join("").slice(0,2);projectSubtitle.textContent=`${p.name} · ${p.subtitle}`;welcomeTitle.textContent=`Welcome, ${currentUser.name.split(" ")[0]}`;const displayedHealth=displayedProjectHealth(p);summaryHealth.textContent=displayedHealth;summaryHealthDot.style.background=healthColor(displayedHealth);const projectHealthIsManual=activeProjectHealthOverride(p);summaryHealthMode.textContent=projectHealthIsManual?"Manual override":"";summaryHealthMode.classList.toggle("hidden",!projectHealthIsManual);summaryHealthNote.innerHTML=projectHealthDriverHtml(p);summaryExecutiveLead.textContent=p.executiveLead||"—";summarySeniorProjectManager.textContent=p.seniorProjectManager||"—";summaryProjectManagerSiteLead.textContent=p.projectManagerSiteLead||"—";summaryUpdated.textContent=formatLastUpdated(p);
 
  const executiveOverall=weightedProjectProgress(p);
  const executivePlanning=displayedPhaseProgress(p,"Planning");

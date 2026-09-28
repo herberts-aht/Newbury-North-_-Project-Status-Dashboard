@@ -6631,3 +6631,95 @@ main.container{
   position:relative;
 }
 
+
+/* === PROJECT HEALTH DRIVER DRILLDOWN === */
+
+.project-health-driver-wrap{
+  position:relative;
+  display:inline-flex;
+}
+
+.project-health-driver-action{
+  cursor:pointer;
+  user-select:none;
+}
+
+.project-health-driver-action:focus-visible{
+  outline:2px solid currentColor;
+  outline-offset:2px;
+}
+
+.project-health-driver-chevron{
+  display:inline-block;
+  margin-left:5px;
+  font-size:.68em;
+  line-height:1;
+  vertical-align:middle;
+  opacity:.72;
+  transform:translateY(-1px);
+}
+
+.project-health-driver-menu{
+  display:none;
+  position:absolute;
+  z-index:500;
+  top:calc(100% + 7px);
+  left:0;
+  width:max-content;
+  min-width:270px;
+  max-width:min(420px,calc(100vw - 32px));
+  padding:6px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:9px;
+  box-shadow:0 10px 28px rgba(15,23,42,.16);
+}
+
+.project-health-driver-menu.is-open{
+  display:flex;
+  flex-direction:column;
+}
+
+.project-health-driver-menu-item{
+  appearance:none;
+  width:100%;
+  border:0;
+  background:transparent;
+  text-align:left;
+  padding:9px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  font:inherit;
+}
+
+.project-health-driver-menu-item:hover,
+.project-health-driver-menu-item:focus-visible{
+  background:var(--soft);
+  outline:none;
+}
+
+.project-health-driver-menu-title{
+  display:block;
+  font-size:13px;
+  font-weight:650;
+  line-height:1.3;
+}
+
+.project-health-driver-menu-meta{
+  display:block;
+  margin-top:3px;
+  font-size:11px;
+  line-height:1.3;
+  color:var(--muted);
+}
+
+@media(max-width:700px){
+  .project-health-driver-menu{
+    position:fixed;
+    left:16px;
+    right:16px;
+    top:auto;
+    width:auto;
+    max-width:none;
+  }
+}
