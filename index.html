@@ -999,7 +999,7 @@
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
 <script src="js/config.js?v=20260928151951"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js?v=1790256735"></script>
+<script src="js/data-provider.js?v=20260929-relatedplan1"></script>
 <script src="js/storage.js"></script>
 <script src="js/auth.js?v=1790194991"></script>
 <script src="js/microsoft-access.js?v=1790254956"></script>
@@ -1010,7 +1010,7 @@
 <script src="js/project-work-view.js?v=0.15.14"></script>
 <script src="js/project-task-editor.js?v=20260928154732"></script>
 <script src="js/site-operations.js?v=1790277011"></script>
-  <script src="js/dashboard.js?v=20260928141442"></script>
+  <script src="js/dashboard.js?v=20260929-relatedplan1"></script>
 <script src="js/help-center.js?v=20260925-1718"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
@@ -1704,6 +1704,48 @@ function parseDeliveryPhases(value){
     )
   ];
 }
+
+function deliverableRelatedProjectPlanField(d){
+  const selected=String(d?.relatedWorkItemKey||"");
+
+  const items=projectHealthProjectPlanItems(currentProject())
+    .slice()
+    .sort((a,b)=>{
+      const aw=String(a.workstream||"");
+      const bw=String(b.workstream||"");
+
+      return (
+        aw.localeCompare(bw) ||
+        String(a.title||"").localeCompare(String(b.title||""))
+      );
+    });
+
+  const options=[
+    '<option value="">— None —</option>',
+    ...items.map(item=>{
+      const key=String(item.id||"");
+      const label=[
+        item.title||"Untitled Task",
+        item.itemType||"",
+        item.status||""
+      ].filter(Boolean).join(" · ");
+
+      return `<option value="${esc(key)}" ${key===selected?"selected":""}>${esc(label)}</option>`;
+    })
+  ].join("");
+
+  return `
+    <div class="field full">
+      <label>Related Project Plan Task</label>
+      <select name="relatedWorkItemKey">${options}</select>
+      <div class="small">
+        Optional. Links this Deliverable to the Project Plan branch that produces it.
+        Progress shown from this relationship is read-only and does not change the Deliverable status or dates.
+      </div>
+    </div>
+  `;
+}
+
 function openModal(type,obj){if(type==="project"&&!currentUser?.canManageProjects)return;if(type!=="project"&&!currentUser?.canEdit)return;editContext={type,id:obj?.id??null};deleteRecordBtn.classList.toggle("hidden",!obj||type==="project");modalTitle.textContent=(obj?"Edit ":"Add ")+(type==="deliverable"?"Deliverable":type==="info"?"Information Request":"Project");const d=obj||{};formFields.innerHTML=type==="project"?`
     ${field("address","Project Address",d.address||d.name||"")}
     ${field("city","City",d.city||((d.subtitle||"").split(",")[0])||"Naples")}
@@ -1749,7 +1791,7 @@ function openModal(type,obj){if(type==="project"&&!currentUser?.canManageProject
       <div class="health-control-note">Automatic Project Health evaluates Deliverables, Project Plan schedule and dependencies, Information Required, and Site Operations. Use Manual only when the calculated result does not reflect the known overall project condition.</div>
     </div>`:""}
     <div class="field full"><label>Assigned Users</label><div class="checkbox-list">${USERS.map(u=>`<label><input type="checkbox" name="assignedUsers" value="${u.id}" ${(d.assignedUsers||[]).includes(u.id)||u.id==="stacy"||u.id==="bill"||u.id==="shaun"?"checked":""}> ${esc(u.name)}</label>`).join("")}</div></div>
-  `:type==="deliverable"?`${selectField("progressPhase","Progress Phase",["","Planning","Engineering","Installation","Exclude"],d.progressPhase||"")}${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${selectField("status","Operational Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${dateField("startDate","Start Date",d.startDate)}${dateField("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}
+  `:type==="deliverable"?`${selectField("progressPhase","Progress Phase",["","Planning","Engineering","Installation","Exclude"],d.progressPhase||"")}${field("discipline","Discipline",d.discipline)}${field("deliverable","Deliverable",d.deliverable)}${deliverableRelatedProjectPlanField(d)}${selectField("status","Operational Status",["Not Started","Pending","In Progress","Awaiting Review","Waiting on Information","Blocked","Complete"],d.status)}${field("owner","Owner",d.owner)}${field("current","Current Activity",d.current,"full")}${field("waitingOn","Waiting On",d.waitingOn)}${field("nextStep","Next Step",d.nextStep)}${dateField("startDate","Start Date",d.startDate)}${dateField("date","Target Date",d.date)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("risk","Risk",d.risk,"full","textarea")}
     <div class="field full health-override-section">
       <label>Schedule Health</label>
       <div class="automatic-health-preview">Automatic result: <strong>${calculateDeliverableHealth(d)}</strong></div>

@@ -1370,6 +1370,49 @@ function projectControlMetaItem(label,value,raw=false){
   return `<div class="project-control-detail-meta-item"><span>${esc(label)}</span><div>${content}</div></div>`;
 }
 
+
+function deliverableRelatedPlanSnapshot(deliverable){
+  const key=String(deliverable?.relatedWorkItemKey||"").trim();
+
+  if(
+    !key ||
+    !window.ProjectWorkItems?.getItems
+  ){
+    return null;
+  }
+
+  const item=window.ProjectWorkItems
+    .getItems()
+    .find(candidate=>
+      !candidate.archived &&
+      String(candidate.id||"")===key
+    );
+
+  if(!item)return null;
+
+  let progress=Number(item.percentComplete||0);
+
+  if(window.ProjectWorkItems?.displayedProgress){
+    const calculated=Number(
+      window.ProjectWorkItems.displayedProgress(item.id)
+    );
+
+    if(Number.isFinite(calculated)){
+      progress=calculated;
+    }
+  }
+
+  progress=Math.max(
+    0,
+    Math.min(100,Math.round(progress))
+  );
+
+  return {
+    item,
+    progress
+  };
+}
+
 function openProjectControlDetail(recordType,id){
   const project=currentProject();
   if(!project)return;
@@ -1388,6 +1431,8 @@ function openProjectControlDetail(recordType,id){
   let editAction="";
 
   if(deliverable){
+    const relatedPlan=deliverableRelatedPlanSnapshot(deliverable);
+
     title=deliverable.deliverable||"Deliverable";
     kicker=deliverable.discipline||"Deliverable";
     metaHtml=[
@@ -1400,6 +1445,20 @@ function openProjectControlDetail(recordType,id){
       projectControlDetailRow("Owner",deliverable.owner),
       projectControlDetailRow("Waiting On",deliverable.waitingOn),
       projectControlDetailRow("Next Step",deliverable.nextStep),
+      ...(relatedPlan ? [
+        projectControlDetailRow(
+          "Related Project Plan Task",
+          relatedPlan.item.title
+        ),
+        projectControlDetailRow(
+          "Project Plan Status",
+          relatedPlan.item.status || "—"
+        ),
+        projectControlDetailRow(
+          "Project Plan Progress",
+          `${relatedPlan.progress}%`
+        )
+      ] : []),
       projectControlDetailRow("Target",fmtDate(deliverable.date)),
       projectControlDetailRow("Risk",deliverable.risk)
     ].join("");

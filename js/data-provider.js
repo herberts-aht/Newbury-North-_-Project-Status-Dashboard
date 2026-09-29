@@ -926,6 +926,7 @@ const SharePointDataProvider = {
       name: title,
       discipline: fields.Discipline || "",
       progressPhase: fields.ProgressPhase || "",
+      relatedWorkItemKey: fields.RelatedWorkItemKey || "",
       status: fields.OperationalStatus || "Pending",
       owner: fields.Owner || "",
       current,
@@ -1180,7 +1181,7 @@ const SharePointDataProvider = {
     const [projectItems, deliverableItems, informationItems] = await Promise.all([
       this.getProjectRows(),
       this.getListRows(this.config.lists.deliverables, [
-        "Title","Project","ProjectLookupId","LegacyId","Discipline","ProgressPhase","OperationalStatus","Owner",
+        "Title","Project","ProjectLookupId","LegacyId","Discipline","ProgressPhase","RelatedWorkItemKey","OperationalStatus","Owner",
         "CurrentActivity","WaitingOn","NextStep","StartDate","TargetDate","Risk",
         "Visibility","Archived","HealthMode","HealthOverride",
         "HealthOverrideReason","HealthOverrideUntil"
@@ -1646,6 +1647,7 @@ const SharePointDataProvider = {
       LegacyId: Number(record.legacyId || 0),
       Discipline: record.discipline || "",
       ProgressPhase: record.progressPhase || null,
+      RelatedWorkItemKey: record.relatedWorkItemKey || "",
       OperationalStatus: record.status || "Pending",
       Owner: record.owner || "",
       CurrentActivity: record.current || record.currentActivity || "",
