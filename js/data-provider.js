@@ -1070,6 +1070,68 @@ const SharePointDataProvider = {
     };
   },
 
+  async sendTeamsProjectCommentNotification(project, recordType, record, comment, recipient) {
+    const email = String(recipient?.email || "").trim();
+    if (!email) throw new Error("Teams notification recipient email is missing.");
+
+    const token = await getMicrosoftAccessToken(["TeamsActivity.Send"]);
+
+    const recordName =
+      record.deliverable ||
+      record.item ||
+      record.name ||
+      (recordType === "Project" ? "General Project Comment" : "Project record");
+
+    const author =
+      comment.authorName ||
+      comment.author ||
+      comment.authorEmail ||
+      "AHT Project Control";
+
+    const preview = String(comment.text || comment.comment || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 150);
+
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}/teamwork/sendActivityNotification`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          topic: {
+            source: "text",
+            value: `${project.name || "Project"} - ${recordName}`,
+            webUrl: "https://newburynorth.ahtglobal.com/"
+          },
+          activityType: APP_CONFIG.entra.teams.activityType,
+          previewText: {
+            content: preview || `${author} mentioned you in a project comment.`
+          },
+          teamsAppId: APP_CONFIG.entra.teams.appId,
+          templateParameters: [
+            {
+              name: "actor",
+              value: author
+            }
+          ]
+        })
+      }
+    );
+
+    if (response.status !== 204) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(
+        `Teams notification failed (${response.status})${detail ? `: ${detail}` : ""}`
+      );
+    }
+
+    return true;
+  },
+
   async queueProjectCommentNotifications(project, recordType, record, comment, createdCommentId) {
     const emails = Array.isArray(comment.mentionEmails) ? comment.mentionEmails : [];
     const names = Array.isArray(comment.mentionNames) ? comment.mentionNames : [];
@@ -1084,12 +1146,20 @@ const SharePointDataProvider = {
     });
     if (!recipients.length) return [];
 
-    const results = await Promise.allSettled(recipients.map(recipient =>
-      this.createItem(
+    const results = await Promise.allSettled(recipients.map(async recipient => {
+      await this.createItem(
         this.config.lists.commentNotifications,
         this.projectCommentNotificationFields(project, recordType, record, comment, createdCommentId, recipient)
-      )
-    ));
+      );
+
+      await this.sendTeamsProjectCommentNotification(
+        project,
+        recordType,
+        record,
+        comment,
+        recipient
+      );
+    }));
     return results.map((result, index) => ({
       recipient: recipients[index],
       ok: result.status === "fulfilled",
@@ -2978,6 +3048,7 @@ function selectDataProvider() {
 }
 
 let DataProvider = selectDataProvider();
+
 
 
 

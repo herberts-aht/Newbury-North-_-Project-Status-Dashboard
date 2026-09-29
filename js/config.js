@@ -49,7 +49,7 @@ const APP_CONFIG = Object.freeze({
 
     // Microsoft Graph delegated scopes configured on the Entra app.
     // No client secret is used by this browser application.
-    scopes: Object.freeze(["User.Read", "Sites.ReadWrite.All", "Group.Read.All"]),
+    scopes: Object.freeze(["User.Read", "Sites.ReadWrite.All", "Group.Read.All", "TeamsActivity.Send"]),
 
     // Accounts listed here receive the existing dashboard Administrator profile.
     // Other AHT accounts are matched to a configured dashboard user by email/name,
@@ -77,7 +77,13 @@ const APP_CONFIG = Object.freeze({
     // external users out of SharePoint while making assignments available on
     // every browser/device.
     accessProfileExtensionName: "com.ahtglobal.projectcontrol.profiles",
-    accessProfileReadScopes: Object.freeze(["Group.Read.All"])
+    accessProfileReadScopes: Object.freeze(["Group.Read.All"]),
+
+    teams: Object.freeze({
+      appId: "8a438db4-23d7-4604-bccd-0f502dd4a783",
+      activityType: "projectCommentMention",
+      internalUsersGroupId: "b13e0189-f4f5-4dc5-b782-2ad3f4dd83bb"
+    })
   }),
 
   sharePoint: Object.freeze({
@@ -102,5 +108,7 @@ const APP_CONFIG = Object.freeze({
 
   backupFormatVersion: 2
 });
+
+
 
 
