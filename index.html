@@ -1747,6 +1747,7 @@ function deliverableRelatedProjectPlanField(d){
 }
 
 function openModal(type,obj){if(type==="project"&&!currentUser?.canManageProjects)return;if(type!=="project"&&!currentUser?.canEdit)return;editContext={type,id:obj?.id??null};deleteRecordBtn.classList.toggle("hidden",!obj||type==="project");modalTitle.textContent=(obj?"Edit ":"Add ")+(type==="deliverable"?"Deliverable":type==="info"?"Information Request":"Project");const d=obj||{};formFields.innerHTML=type==="project"?`
+    ${field("projectName","Project Name",d.name||d.address||"")}
     ${field("address","Project Address",d.address||d.name||"")}
     ${field("city","City",d.city||((d.subtitle||"").split(",")[0])||"Naples")}
     ${field("state","State",d.state||((d.subtitle||"").split(",")[1]||"FL").trim())}
@@ -2719,6 +2720,7 @@ editForm.onsubmit=e=>{
  if(editContext.type==="project"){
    const assignedUsers=fd.getAll("assignedUsers");
    const address=String(obj.address||"").trim();
+   const projectName=String(obj.projectName||address).trim()||address;
    const city=String(obj.city||"").trim();
    const stateCode=String(obj.state||"").trim();
    const description=String(obj.description||"").trim();
@@ -2782,7 +2784,7 @@ editForm.onsubmit=e=>{
    if(currentUser?.canManageProjects&&obj.healthMode==="manual"&&!String(obj.healthOverrideReason||"").trim()){alert("Enter the reason for the manual project-health override.");return;}
    if(editContext.id){
      const p=state.projects.find(x=>x.id===editContext.id),before=snapshot(p);
-     p.name=address;
+     p.name=projectName;
      p.address=address;
      p.city=city;
      p.state=stateCode;
@@ -2826,7 +2828,7 @@ editForm.onsubmit=e=>{
      touchProject(p);
      logChange("Update",p.id,"Project",p.name,summarizeChanges(before,p));
    }else{
-     const baseId=String(address||"PROJECT")
+     const baseId=String(projectName||address||"PROJECT")
   .trim()
   .toUpperCase()
   .replace(/\b(DRIVE|DR|STREET|ST|ROAD|RD|AVENUE|AVE|LANE|LN|COURT|CT|BOULEVARD|BLVD|WAY|PLACE|PL)\b\.?/g,"")
@@ -2845,7 +2847,7 @@ if(state.projects.some(project=>String(project.id).toUpperCase()===id)){
 }
      const p={
        id,
-       name:address,
+       name:projectName,
        address,
        city,
        state:stateCode,
@@ -3222,3 +3224,4 @@ initializeApplication();
 <!-- Dedicated low-voltage wall pathway under development with Newbury Engineering to simplify routing, avoid post-tension slab fastening, and reduce conflicts with mechanical, plumbing, and electrical trades. -->
 </body>
 </html>
+
