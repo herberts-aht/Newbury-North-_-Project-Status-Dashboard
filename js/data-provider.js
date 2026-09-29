@@ -1597,10 +1597,9 @@ const SharePointDataProvider = {
     );
   },
 
-  projectFields(project) {
-    return {
+  projectFields(project, includeProjectKey = true) {
+    const fields = {
       Title: project.name || project.address || "Untitled Project",
-      ProjectKey: String(project.id || ""),
       ProjectAddress: project.address || "",
       ProjectCity: project.city || "",
       ProjectState: project.state || "",
@@ -1638,6 +1637,12 @@ const SharePointDataProvider = {
       HealthOverrideReason: project.healthMode === "manual" ? (project.healthOverrideReason || "") : "",
       HealthOverrideUntil: project.healthMode === "manual" ? this.graphDate(project.healthOverrideUntil) : null
     };
+
+    if (includeProjectKey) {
+      fields.ProjectKey = String(project.id || "");
+    }
+
+    return fields;
   },
 
   deliverableFields(record, projectSharePointId) {
@@ -1703,12 +1708,12 @@ const SharePointDataProvider = {
       } else if (
         !before ||
         projectWasTouched ||
-        this.comparable(this.projectFields(before)) !== this.comparable(this.projectFields(project))
+        this.comparable(this.projectFields(before, false)) !== this.comparable(this.projectFields(project, false))
       ) {
         await this.updateItem(
           this.config.lists.projects,
           project.sharePointId,
-          this.projectFields(project)
+          this.projectFields(project, false)
         );
       }
 
@@ -2973,3 +2978,6 @@ function selectDataProvider() {
 }
 
 let DataProvider = selectDataProvider();
+
+
+
