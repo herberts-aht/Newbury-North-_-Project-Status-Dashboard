@@ -17,8 +17,6 @@ param(
 
     [string]$ClientLastName,
 
-    [switch]$NDA,
-
     [string]$ProjectKey,
 
     [string]$ProjectManagerSiteLead,
@@ -66,10 +64,7 @@ $newProjectParams = @{
     Phase    = $Phase
 }
 
-if ($NDA) {
-    $newProjectParams["NDA"] = $true
-}
-elseif ($ClientLastName) {
+if (-not [string]::IsNullOrWhiteSpace($ClientLastName)) {
     $newProjectParams["ClientLastName"] = $ClientLastName
 }
 
@@ -142,7 +137,7 @@ if ($ProjectKey) {
     $resolvedProjectKey = ConvertTo-AHTProjectKey -Value $ProjectKey
 }
 else {
-    if ($NDA) {
+    if ([string]::IsNullOrWhiteSpace($ClientLastName)) {
         $resolvedProjectName = $Address.Trim()
     }
     else {
@@ -262,3 +257,4 @@ else {
 }
 
 Write-Host ""
+

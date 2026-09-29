@@ -17,8 +17,6 @@ param(
 
     [string]$ClientLastName,
 
-    [switch]$NDA,
-
     [string]$ProjectKey,
 
     [string]$ProjectManagerSiteLead,
@@ -78,21 +76,14 @@ if (-not $connection) {
 # VALIDATE NAMING
 # ============================================================
 
-if ($NDA -and $ClientLastName) {
-    throw "Use either -NDA or -ClientLastName, not both."
-}
-
-if (-not $NDA -and [string]::IsNullOrWhiteSpace($ClientLastName)) {
-    throw "ClientLastName is required unless -NDA is specified."
-}
-
-$Address = $Address.Trim()
-$City    = $City.Trim()
-$State   = $State.Trim()
+$Address  = $Address.Trim()
+$City     = $City.Trim()
+$State    = $State.Trim()
 $Division = $Division.Trim()
 $Phase    = $Phase.Trim()
 
-if ($NDA) {
+if ([string]::IsNullOrWhiteSpace($ClientLastName)) {
+    $ClientLastName = $null
     $ProjectName = $Address
 }
 else {
@@ -197,11 +188,11 @@ Write-Host "City / State : $City, $State"
 Write-Host "Division     : $Division"
 Write-Host "Phase        : $Phase"
 
-if ($NDA) {
-    Write-Host "Client Name  : Omitted (NDA)"
+if ($ClientLastName) {
+    Write-Host "Client       : $ClientLastName"
 }
 else {
-    Write-Host "Client       : $ClientLastName"
+    Write-Host "Client       : Not specified"
 }
 
 Write-Host ""
@@ -238,6 +229,7 @@ if ($PSCmdlet.ShouldProcess(
         State       = $State
         Division    = $Division
         Phase       = $Phase
-        NDA         = [bool]$NDA
+        ClientLastName = $ClientLastName
     }
 }
+
