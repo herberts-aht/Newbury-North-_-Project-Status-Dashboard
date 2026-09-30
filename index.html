@@ -14,6 +14,36 @@
   <link rel="stylesheet" href="css/project-work.css?v=0.15.04" />
   <link rel="stylesheet" href="css/project-contacts.css?v=0.14.89" />
   <link rel="stylesheet" href="css/project-task-editor.css?v=0.15.11" />
+<style>
+  #roomBuilderSelectCleanBtn,
+  #roomBuilderSelectAllBtn,
+  #roomBuilderClearBtn,
+  #roomBuilderExportBtn {
+    background: transparent !important;
+    border: 1px solid #b9c7d3 !important;
+    color: #4f6475 !important;
+  }
+
+  #roomBuilderSelectCleanBtn:hover,
+  #roomBuilderSelectAllBtn:hover,
+  #roomBuilderClearBtn:hover,
+  #roomBuilderExportBtn:hover {
+    border-color: #8fa5b6 !important;
+    color: #344b5d !important;
+  }
+</style>
+<style>
+  #roomBuilderClearBtn {
+    background: transparent !important;
+    border: 1px solid #d47a63 !important;
+    color: #b94f35 !important;
+  }
+
+  #roomBuilderClearBtn:hover {
+    border-color: #b94f35 !important;
+    color: #963b26 !important;
+  }
+</style>
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -395,6 +425,95 @@
       <div class="admin-panel manage-projects-only">
         <h3 style="margin-top:0">Projects</h3>
         <div id="projectAdminList" class="project-admin-list"></div>
+      </div>
+
+      <div class="admin-panel manage-projects-only" id="roomBuilderPanel">
+        <div class="admin-card-heading" style="margin-bottom:12px">
+          <div>
+            <div class="eyebrow">Project Setup</div>
+            <h3 style="margin:2px 0 4px">Build Rooms from Plans</h3>
+            <p class="small" style="margin:0">
+              Analyze an architectural PDF, review detected room numbers and names,
+              then approve the locations before anything is written to SharePoint.
+            </p>
+          </div>
+        </div>
+
+        <div class="room-builder-toolbar">
+          <div>
+            <label>Project</label>
+            <select id="roomBuilderProject">
+              <option value="">Select project…</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Architectural PDF</label>
+            <input id="roomBuilderFile" type="file" accept="application/pdf,.pdf" />
+            <div id="roomBuilderFileName" class="small" style="margin-top:4px"></div>
+          </div>
+
+          <div>
+            <button class="btn primary" id="roomBuilderAnalyzeBtn" type="button">
+              Analyze PDF
+            </button>
+          </div>
+        </div>
+
+        <div id="roomBuilderSummary" class="small room-builder-summary">
+          No plan has been analyzed yet.
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn" id="roomBuilderSelectCleanBtn" type="button">
+            Include Clean Rows Only
+          </button>
+          <button class="btn" id="roomBuilderSelectAllBtn" type="button">
+            Include All
+          </button>
+          <button class="btn" id="roomBuilderClearBtn" type="button">
+            Clear
+          </button>
+          <button class="btn" id="roomBuilderExportBtn" type="button">
+            Export Review CSV
+          </button>
+        </div>
+
+        <div class="room-builder-table-wrap">
+          <table class="room-builder-table">
+            <thead>
+              <tr>
+                <th>Include</th>
+                <th>Floor</th>
+                <th>Room #</th>
+                <th>Room Name</th>
+                <th>Page</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="roomBuilderRows">
+              <tr>
+                <td colspan="8" class="small">
+                  Analyze a PDF to build the review list.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="room-builder-actions">
+          <button
+            class="btn primary"
+            id="roomBuilderCreateBtn"
+            type="button"
+            disabled
+            title="SharePoint creation will be enabled after browser extraction is verified."
+          >
+            Create Locations
+          </button>
+        </div>
       </div>
 
       <div class="admin-panel entra-access-panel manage-access-only" id="entraAccessPanel">
@@ -999,7 +1118,7 @@
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
 <script src="js/config.js?v=20260928151951"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js?v=20260929-relatedplan1"></script>
+<script src="js/data-provider.js?v=20260930-projectdelete2"></script>
 <script src="js/storage.js"></script>
 <script src="js/auth.js?v=1790194991"></script>
 <script src="js/microsoft-access.js?v=1790254956"></script>
@@ -1010,6 +1129,8 @@
 <script src="js/project-work-view.js?v=0.15.14"></script>
 <script src="js/project-task-editor.js?v=20260928154732"></script>
 <script src="js/site-operations.js?v=1790277011"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="js/room-builder.js?v=20260930-1"></script>
   <script src="js/dashboard.js?v=20260929-relatedplan1"></script>
 <script src="js/help-center.js?v=20260925-1718"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -1808,13 +1929,23 @@ function openModal(type,obj){if(type==="project"&&!currentUser?.canManageProject
     Boolean(editContext?.id) &&
     (
       editContext.type === "project"
-        ? Boolean(currentUser?.isSystemOwner)
+        ? Boolean(
+            currentUser?.isSystemOwner ||
+            currentUser?.canAdmin
+          )
         : Boolean(currentUser?.canEdit)
     );
 
   deleteRecordBtn.classList.toggle("hidden", !canDeleteCurrent);
-  deleteRecordBtn.textContent =
-    editContext.type === "project" ? "Delete Project" : "Delete";
+
+  if(editContext.type === "project"){
+    deleteRecordBtn.textContent =
+      currentUser?.isSystemOwner
+        ? "Delete Project"
+        : "Request Deletion";
+  }else{
+    deleteRecordBtn.textContent = "Delete";
+  }
 
   modalBackdrop.style.display="flex";
   syncProjectProgressControls();
@@ -2928,13 +3059,130 @@ deleteRecordBtn.onclick=async()=>{
  if(!editContext?.id)return;
 
  if(editContext.type==="project"){
-   if(!currentUser?.isSystemOwner)return;
-
    const i=state.projects.findIndex(x=>x.id===editContext.id);
    if(i<0)return;
 
    const project=state.projects[i];
    const name=project.name||project.address||project.id;
+
+   // Admins may request permanent deletion, but only the
+   // System Owner may actually perform it.
+   if(!currentUser?.isSystemOwner){
+     if(!currentUser?.canAdmin)return;
+
+     if(!confirm(
+       `Request permanent deletion of "${name}"?` +
+       `\n\nThe project will NOT be deleted now.` +
+       `\nA Help Ticket will be created for the System Owner to review.`
+     ))return;
+
+     const reason=prompt(
+       `Reason for requesting deletion of "${name}":`
+     );
+
+     if(reason===null)return;
+
+     const trimmedReason=String(reason||"").trim();
+
+     if(!trimmedReason){
+       alert("Please enter a reason for the deletion request.");
+       return;
+     }
+
+     deleteRecordBtn.disabled=true;
+     deleteRecordBtn.textContent="Submitting...";
+
+     try{
+       if(
+         typeof SharePointDataProvider==="undefined" ||
+         typeof SharePointDataProvider.createItem!=="function"
+       ){
+         throw new Error("SharePoint connection is unavailable.");
+       }
+
+       const fields={
+         Title:`Project Deletion Request - ${name}`,
+
+         RequesterName:
+           String(currentUser?.name||"").trim(),
+
+         RequesterEmail:
+           String(currentUser?.email||"").trim(),
+
+         RequesterRole:
+           String(currentUser?.role||"Admin").trim(),
+
+         RequesterUserId:
+           String(currentUser?.id||"").trim(),
+
+         ProjectName:
+           String(name||"").trim(),
+
+         ProjectKey:
+           String(
+             project?.projectKey ||
+             project?.id ||
+             ""
+           ).trim(),
+
+         ProjectSharePointId:
+           Number(project?.sharePointId||0) || null,
+
+         PageArea:"Administration / Projects",
+
+         RequestType:"Other",
+
+         Urgency:"Important",
+
+         Description:
+           `Permanent project deletion requested.\n\n` +
+           `Project: ${name}\n` +
+           `Project Key: ${project?.projectKey||project?.id||""}\n` +
+           `Requested By: ${currentUser?.name||currentUser?.email||"Admin"}\n\n` +
+           `Reason:\n${trimmedReason}`,
+
+         Status:"Open",
+
+         SourceUrl:
+           String(window.location.href||""),
+
+         BrowserInfo:
+           String(navigator.userAgent||"")
+       };
+
+       const created=
+         await SharePointDataProvider.createItem(
+           APP_CONFIG.sharePoint.lists.dashboardHelpTickets,
+           fields
+         );
+
+       const ticketNumber=
+         created?.id
+           ? `HELP-${created.id}`
+           : "submitted";
+
+       alert(
+         `Deletion request ${ticketNumber} was submitted for "${name}".\n\n` +
+         `The project has not been deleted.`
+       );
+
+       modalBackdrop.style.display="none";
+     }catch(error){
+       console.error(
+         "Project deletion request failed.",
+         error
+       );
+
+       alert(
+         `Deletion request could not be submitted: ${error?.message||error}`
+       );
+     }finally{
+       deleteRecordBtn.disabled=false;
+       deleteRecordBtn.textContent="Request Deletion";
+     }
+
+     return;
+   }
 
    if(!confirm(
      `Permanently delete "${name}"?\n\n`+
@@ -2947,7 +3195,7 @@ deleteRecordBtn.onclick=async()=>{
    if(String(typed||"").trim().toUpperCase()!=="DELETE")return;
 
    deleteRecordBtn.disabled=true;
-   deleteRecordBtn.textContent="Deleting...";
+   deleteRecordBtn.textContent="Deleting... Please keep this page open";
 
    try{
      if(typeof DataProvider?.deleteProject==="function"){
@@ -3224,4 +3472,10 @@ initializeApplication();
 <!-- Dedicated low-voltage wall pathway under development with Newbury Engineering to simplify routing, avoid post-tension slab fastening, and reduce conflicts with mechanical, plumbing, and electrical trades. -->
 </body>
 </html>
+
+
+
+
+
+
 

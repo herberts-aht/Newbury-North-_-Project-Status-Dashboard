@@ -1659,12 +1659,20 @@ const SharePointDataProvider = {
 
   async deleteItem(displayName, itemId) {
     if (!itemId) return;
+
     const site = await this.getSite();
     const listId = await this.getListId(displayName);
-    await this.graph(
-      `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}`,
-      { method: "DELETE" }
-    );
+
+    try {
+      await this.graph(
+        `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(itemId)}`,
+        { method: "DELETE" }
+      );
+    } catch (error) {
+      throw new Error(
+        `Delete failed in "${displayName}" for item ${itemId}: ${error?.message || error}`
+      );
+    }
   },
 
   projectFields(project, includeProjectKey = true) {
@@ -1854,56 +1862,394 @@ const SharePointDataProvider = {
   },
 
   async deleteProject(project) {
-    if (!project) throw new Error("Project was not supplied for deletion.");
+    if (!project) {
+      throw new Error("Project was not supplied for deletion.");
+    }
 
-    // Delete child records first so SharePoint lookup relationships cannot
-    // leave orphaned records behind.
-    for (const record of project.deliverables || []) {
-      const itemId = record.sharePointId || record.id;
-      if (itemId) {
-        await this.deleteItem(this.config.lists.deliverables, itemId);
+    const projectKey =
+      String(
+        project.projectKey ||
+        project.id ||
+        ""
+      ).trim();
+
+    const projectSharePointId =
+      Number(project.sharePointId || 0);
+
+    if (!projectKey) {
+      throw new Error("Project key is missing.");
+    }
+
+    if (!projectSharePointId) {
+      throw new Error("Project SharePoint ID is missing.");
+    }
+
+    const deleted = {};
+
+    const rowId = row =>
+      Number(row?.id || row?.sharePointId || 0);
+
+    const fieldsOf = row =>
+      row?.fields || {};
+
+    const deleteRows = async (
+      listName,
+      rows,
+      label
+    ) => {
+      if (!listName || !Array.isArray(rows) || !rows.length) {
+        deleted[label] = 0;
+        return;
       }
-    }
 
-    for (const record of project.info || []) {
-      const itemId = record.sharePointId || record.id;
-      if (itemId) {
-        await this.deleteItem(this.config.lists.informationRequired, itemId);
+      let count = 0;
+
+      for (const row of rows) {
+        const id = rowId(row);
+        if (!id) continue;
+
+        await this.deleteItem(
+          listName,
+          id
+        );
+
+        count++;
       }
+
+      deleted[label] = count;
+    };
+
+    const rowsForLookupProject = rows =>
+      (rows || []).filter(row =>
+        Number(
+          this.projectLookupId(
+            fieldsOf(row)
+          )
+        ) === projectSharePointId
+      );
+
+    const rowsForProjectKey = rows =>
+      (rows || []).filter(row =>
+        String(
+          fieldsOf(row).ProjectKey || ""
+        ).trim() === projectKey
+      );
+
+    const rowsForSharePointId = rows =>
+      (rows || []).filter(row =>
+        Number(
+          fieldsOf(row).ProjectSharePointId || 0
+        ) === projectSharePointId
+      );
+
+    /*
+     * 1. Comments / notifications / project activity.
+     *
+     * These use ProjectKey rather than a Projects lookup.
+     * Remove notifications before comments because notifications
+     * may reference the comment record.
+     */
+    const [
+      notificationRows,
+      commentRows,
+      activityRows
+    ] = await Promise.all([
+      this.getListRows(
+        this.config.lists.commentNotifications
+      ),
+      this.getListRows(
+        this.config.lists.comments
+      ),
+      this.getListRows(
+        this.config.lists.projectActivity
+      )
+    ]);
+
+    await deleteRows(
+      this.config.lists.commentNotifications,
+      rowsForProjectKey(notificationRows),
+      "commentNotifications"
+    );
+
+    await deleteRows(
+      this.config.lists.comments,
+      rowsForProjectKey(commentRows),
+      "comments"
+    );
+
+    await deleteRows(
+      this.config.lists.projectActivity,
+      rowsForProjectKey(activityRows),
+      "projectActivity"
+    );
+
+    /*
+     * 2. Site Operations.
+     *
+     * These may reference Project Locations, so Site Operations
+     * must go before locations.
+     */
+    const siteOperationRows =
+      await this.getListRows(
+        this.config.lists.siteOperations
+      );
+
+    await deleteRows(
+      this.config.lists.siteOperations,
+      rowsForLookupProject(siteOperationRows),
+      "siteOperations"
+    );
+
+    /*
+     * 3. Project Locations.
+     *
+     * Locations can reference other locations through ParentLocation.
+     * Delete leaf locations first, then work upward through the tree.
+     */
+    const allLocationRows =
+      await this.getListRows(
+        this.config.lists.projectLocations
+      );
+
+    const projectLocations =
+      rowsForLookupProject(allLocationRows)
+        .filter(row => rowId(row));
+
+    /*
+     * Break the ParentLocation self-lookup before deleting.
+     *
+     * SharePoint can block deletion of a location while another
+     * Project Locations item still references it, even when we
+     * attempt child-first deletion. Clearing the parent lookup
+     * removes that relationship completely.
+     */
+    for (const row of projectLocations) {
+      const id = rowId(row);
+
+      const parentFields = fieldsOf(row);
+
+      const parentId =
+        Number(
+          parentFields.ParentLocationLookupId ||
+          parentFields.ParentLocationId ||
+          parentFields.ParentLocation?.LookupId ||
+          parentFields.ParentLocation?.lookupId ||
+          0
+        );
+
+      if (!id || !parentId) continue;
+
+      await this.updateItem(
+        this.config.lists.projectLocations,
+        id,
+        {
+          ParentLocationLookupId: null
+        }
+      );
     }
 
-    // Remove the project row itself.
-    if (project.sharePointId) {
-      await this.deleteItem(this.config.lists.projects, project.sharePointId);
-    }
+    /*
+     * With the hierarchy detached, every Project Location is now
+     * independent and can be deleted safely.
+     */
+    await deleteRows(
+      this.config.lists.projectLocations,
+      projectLocations,
+      "projectLocations"
+    );
 
-    // Remove this project key from users with explicit assignments.
-    // "*" remains all-project access and needs no change.
-    const accessRows = await this.getDashboardAccessRows();
+    /*
+     * 4. Project Plan.
+     *
+     * Project Work Items use ProjectSharePointId / ProjectKey
+     * instead of a Projects lookup.
+     */
+    const projectWorkRows =
+      await this.getListRows(
+        this.config.lists.projectWorkItems
+      );
+
+    const projectWorkMatches =
+      (projectWorkRows || []).filter(row => {
+        const fields = fieldsOf(row);
+
+        return (
+          Number(
+            fields.ProjectSharePointId || 0
+          ) === projectSharePointId ||
+          String(
+            fields.ProjectKey || ""
+          ).trim() === projectKey
+        );
+      });
+
+    await deleteRows(
+      this.config.lists.projectWorkItems,
+      projectWorkMatches,
+      "projectWorkItems"
+    );
+
+    /*
+     * 5. Deliverables and Information Required.
+     *
+     * These have Restrict relationships to Projects, so every
+     * matching SharePoint row must be removed before the Project.
+     * Read directly from SharePoint instead of trusting the
+     * currently loaded project state so archived records are
+     * included too.
+     */
+    const [
+      deliverableRows,
+      informationRows
+    ] = await Promise.all([
+      this.getListRows(
+        this.config.lists.deliverables
+      ),
+      this.getListRows(
+        this.config.lists.informationRequired
+      )
+    ]);
+
+    await deleteRows(
+      this.config.lists.deliverables,
+      rowsForLookupProject(deliverableRows),
+      "deliverables"
+    );
+
+    await deleteRows(
+      this.config.lists.informationRequired,
+      rowsForLookupProject(informationRows),
+      "informationRequired"
+    );
+
+    /*
+     * 6. Existing Change Log entries.
+     *
+     * Change Log has a Restrict Project lookup and therefore must
+     * be cleared before the Project item itself can be deleted.
+     *
+     * The UI can still write a new "Project Deleted" audit entry
+     * afterward without a Project lookup.
+     */
+    const changeLogRows =
+      await this.getListRows(
+        this.config.lists.changeLog
+      );
+
+    await deleteRows(
+      this.config.lists.changeLog,
+      rowsForLookupProject(changeLogRows),
+      "changeLog"
+    );
+
+    /*
+     * 7. Project Access.
+     *
+     * These use ProjectSharePointId / ProjectKey and should be
+     * permanently removed with the project.
+     */
+    const projectAccessRows =
+      await this.getProjectAccessRows();
+
+    const projectAccessMatches =
+      (projectAccessRows || []).filter(row => {
+        const fields = fieldsOf(row);
+
+        return (
+          Number(
+            fields.ProjectSharePointId || 0
+          ) === projectSharePointId ||
+          String(
+            fields.ProjectKey || ""
+          ).trim() === projectKey
+        );
+      });
+
+    await deleteRows(
+      this.config.lists.projectAccess,
+      projectAccessMatches,
+      "projectAccess"
+    );
+
+    /*
+     * 8. Remove this project key from Dashboard Access records.
+     *
+     * "*" remains organization-wide access and is intentionally
+     * left unchanged.
+     */
+    const accessRows =
+      await this.getDashboardAccessRows();
+
+    let dashboardAccessUpdated = 0;
 
     for (const row of accessRows) {
-      const raw = String(row.fields?.ProjectKeys || "").trim();
+      const raw =
+        String(
+          row.fields?.ProjectKeys || ""
+        ).trim();
+
       if (!raw || raw === "*") continue;
 
-      const keys = raw
-        .split(/[;,|]/)
-        .map(value => value.trim())
-        .filter(Boolean);
+      const keys =
+        raw
+          .split(/[;,|]/)
+          .map(value => value.trim())
+          .filter(Boolean);
 
-      if (!keys.includes(project.id)) continue;
+      if (!keys.includes(projectKey)) {
+        continue;
+      }
 
-      const updated = keys
-        .filter(value => value !== project.id)
-        .join(";");
+      const updated =
+        keys
+          .filter(
+            value => value !== projectKey
+          )
+          .join(";");
 
       await this.updateItem(
         this.config.lists.dashboardAccess,
         row.id,
-        { ProjectKeys: updated }
+        {
+          ProjectKeys: updated
+        }
       );
-    }
-  },
 
+      dashboardAccessUpdated++;
+    }
+
+    deleted.dashboardAccessUpdated =
+      dashboardAccessUpdated;
+
+    /*
+     * 9. Delete the Project LAST.
+     *
+     * At this point all known dependent/project-owned records have
+     * been removed and SharePoint Restrict lookups should no longer
+     * block deletion.
+     */
+    await this.deleteItem(
+      this.config.lists.projects,
+      projectSharePointId
+    );
+
+    deleted.project = 1;
+
+    console.info(
+      "Permanent project deletion completed.",
+      {
+        projectKey,
+        projectSharePointId,
+        deleted
+      }
+    );
+
+    return {
+      projectKey,
+      projectSharePointId,
+      deleted
+    };
+  },
   async getDashboardAccessRows() {
     return this.getListRows(this.config.lists.dashboardAccess, [
       "Title",
@@ -3048,6 +3394,11 @@ function selectDataProvider() {
 }
 
 let DataProvider = selectDataProvider();
+
+
+
+
+
 
 
 
