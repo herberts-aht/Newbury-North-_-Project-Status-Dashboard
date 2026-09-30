@@ -429,17 +429,36 @@ const MicrosoftAuthProvider = {
   },
 
   async signIn() {
-    // Redirect is more reliable than popup auth for Safari, mobile browsers,
-    // Azure Static Web Apps, and cases where the app is itself opened in a popup.
+    const embedded =
+      window.self !== window.top;
+
+    if (embedded) {
+      const result = await msalInstance.loginPopup({
+        scopes: APP_CONFIG.entra.scopes,
+        prompt: "select_account"
+      });
+
+      microsoftAccount =
+        result?.account ||
+        msalInstance.getAllAccounts()[0] ||
+        null;
+
+      if (!microsoftAccount) {
+        throw new Error("Microsoft sign-in completed, but no account was returned.");
+      }
+
+      msalInstance.setActiveAccount(microsoftAccount);
+
+      return await this.restoreSession();
+    }
+
+    // Normal browser sign-in continues to use redirect.
     await msalInstance.loginRedirect({
       scopes: APP_CONFIG.entra.scopes,
       prompt: "select_account",
       redirectStartPage: window.location.href
     });
 
-    // Navigation normally occurs before this line. Keep the return explicit so
-    // the caller never treats a redirect-based sign-in as an authenticated user
-    // before MSAL handles the redirect response on the next page load.
     return null;
   },
 
@@ -585,3 +604,5 @@ async function initializeAuthentication({ deferRender = false } = {}) {
   }
   return currentUser;
 }
+
+
