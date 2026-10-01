@@ -1121,7 +1121,7 @@
 <script src="data/projects.js"></script>
 <script src="js/data-provider.js?v=20260930-projectdelete2"></script>
 <script src="js/storage.js"></script>
-<script src="js/auth.js?v=20260930-teams1"></script>
+<script src="js/auth.js?v=20261001-teams2"></script>
 <script src="js/microsoft-access.js?v=1790254956"></script>
 <script src="js/permissions.js"></script>
 <script src="js/project-contacts.js?v=20260928163552"></script>
@@ -1925,7 +1925,7 @@ function openModal(type,obj){if(type==="project"&&!currentUser?.canManageProject
       </div>
       ${field("healthOverrideReason","Override Reason",d.healthOverrideReason||"","full","textarea")}
       <div class="health-control-note">Use a manual override only when the displayed schedule health does not reflect a known, approved project condition. A reason is required. If an expiration date is entered, automatic health resumes after that date.</div>
-    </div>`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${field("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;
+    </div>`:`${field("item","Item Needed",d.item)}${field("from","Requested From",d.from)}${selectField("status","Status",["Outstanding","Pending","Received","No Longer Needed"],d.status)}${field("blocking","Blocking",d.blocking)}${dateField("neededBy","Needed By",d.neededBy)}${selectField("visibility","Visibility",["Shared","AHT Internal","Admin Only"],d.visibility||"Shared")}${field("notes","Notes",d.notes,"full","textarea")}`;
   const canDeleteCurrent =
     Boolean(editContext?.id) &&
     (
@@ -3473,6 +3473,11 @@ initializeApplication();
 <!-- Dedicated low-voltage wall pathway under development with Newbury Engineering to simplify routing, avoid post-tension slab fastening, and reduce conflicts with mechanical, plumbing, and electrical trades. -->
 </body>
 </html>
+
+
+
+
+
 
 
 
