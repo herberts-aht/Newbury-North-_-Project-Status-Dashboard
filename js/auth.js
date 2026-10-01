@@ -6,6 +6,7 @@
 let currentUser = null;
 let msalInstance = null;
 let microsoftAccount = null;
+let teamsAccessToken = null;
 
 const TEMP_PASSWORDS = {
   stacy: "ahtadmin8626",
@@ -433,21 +434,26 @@ const MicrosoftAuthProvider = {
       window.self !== window.top;
 
     if (embedded) {
-      const result = await msalInstance.loginPopup({
-        scopes: APP_CONFIG.entra.scopes,
-        prompt: "select_account"
+      await microsoftTeams.app.initialize();
+
+      const result = await new Promise((resolve, reject) => {
+        microsoftTeams.authentication.authenticate({
+          url: `${window.location.origin}/teams-auth.html`,
+          width: 600,
+          height: 535,
+          successCallback: resolve,
+          failureCallback: reject
+        });
       });
 
-      microsoftAccount =
-        result?.account ||
-        msalInstance.getAllAccounts()[0] ||
-        null;
+      const authResult = JSON.parse(result);
 
-      if (!microsoftAccount) {
-        throw new Error("Microsoft sign-in completed, but no account was returned.");
+      if (!authResult?.accessToken || !authResult?.account) {
+        throw new Error("Teams authentication completed without a usable Microsoft account or access token.");
       }
 
-      msalInstance.setActiveAccount(microsoftAccount);
+      teamsAccessToken = authResult.accessToken;
+      microsoftAccount = authResult.account;
 
       return await this.restoreSession();
     }
@@ -474,9 +480,13 @@ const MicrosoftAuthProvider = {
   },
 
   async restoreSession() {
-    microsoftAccount = msalInstance?.getActiveAccount() || msalInstance?.getAllAccounts()[0] || null;
+    if (!teamsAccessToken) {
+      microsoftAccount = msalInstance?.getActiveAccount() || msalInstance?.getAllAccounts()[0] || null;
+      if (!microsoftAccount) return null;
+      msalInstance.setActiveAccount(microsoftAccount);
+    }
+
     if (!microsoftAccount) return null;
-    msalInstance.setActiveAccount(microsoftAccount);
 
     // User.Read is sufficient for /me and lets Entra tell us whether the
     // authenticated identity is an internal Member or a B2B Guest.
@@ -506,6 +516,13 @@ async function getMicrosoftAccessToken(scopes = APP_CONFIG.entra.scopes, { inter
   if (!msalInstance) throw new Error("Microsoft authentication has not been initialized.");
   const account = microsoftAccount || msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
   if (!account) throw new Error("Sign in with Microsoft before accessing SharePoint.");
+
+  // Teams desktop authentication supplies the Graph token through the
+  // Teams authentication flow. Use it directly instead of opening another
+  // MSAL browser popup inside the Teams desktop webview.
+  if (teamsAccessToken) {
+    return teamsAccessToken;
+  }
 
   try {
     const result = await msalInstance.acquireTokenSilent({ account, scopes });
@@ -604,5 +621,8 @@ async function initializeAuthentication({ deferRender = false } = {}) {
   }
   return currentUser;
 }
+
+
+
 
 
