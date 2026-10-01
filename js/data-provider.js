@@ -842,11 +842,21 @@ const SharePointDataProvider = {
       }
 
       if (existing) {
-        await this.updateItem(
-          listName,
-          existing.id,
-          fields
-        );
+        const existingFields =
+          this.projectWorkItemFields(
+            this.mapProjectWorkItem(existing)
+          );
+
+        if (
+          this.comparable(existingFields) !==
+          this.comparable(fields)
+        ) {
+          await this.updateItem(
+            listName,
+            existing.id,
+            fields
+          );
+        }
 
         item.sharePointId =
           Number(existing.id);
@@ -1068,6 +1078,52 @@ const SharePointDataProvider = {
       NotificationTime: comment.timestamp || new Date().toISOString(),
       DashboardUrl: "https://newburynorth.ahtglobal.com/"
     };
+  },
+
+  async sendTeamsActivityNotification({
+    recipientEmail,
+    activityType,
+    topic,
+    previewText,
+    templateParameters = []
+  }) {
+    const email = String(recipientEmail || "").trim();
+    if (!email) throw new Error("Teams notification recipient email is missing.");
+
+    const token = await getMicrosoftAccessToken(["TeamsActivity.Send"]);
+
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}/teamwork/sendActivityNotification`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          topic: {
+            source: "text",
+            value: String(topic || "AHT Project Control Dashboard"),
+            webUrl: "https://newburynorth.ahtglobal.com/"
+          },
+          activityType: String(activityType || ""),
+          previewText: {
+            content: String(previewText || "AHT Project Control Dashboard notification.")
+          },
+          teamsAppId: APP_CONFIG.entra.teams.appId,
+          templateParameters
+        })
+      }
+    );
+
+    if (response.status !== 204) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(
+        `Teams notification failed (${response.status})${detail ? `: ${detail}` : ""}`
+      );
+    }
+
+    return true;
   },
 
   async sendTeamsProjectCommentNotification(project, recordType, record, comment, recipient) {
@@ -3394,6 +3450,7 @@ function selectDataProvider() {
 }
 
 let DataProvider = selectDataProvider();
+
 
 
 

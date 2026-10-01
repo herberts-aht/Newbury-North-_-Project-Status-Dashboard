@@ -3415,10 +3415,33 @@
         String(navigator.userAgent||"")
     };
 
-    return SharePointDataProvider.createItem(
+    const created = await SharePointDataProvider.createItem(
       APP_CONFIG.sharePoint.lists.dashboardHelpTickets,
       fields
     );
+
+    try {
+      await SharePointDataProvider.sendTeamsActivityNotification({
+        recipientEmail: user.email,
+        activityType: "helpTicketSubmitted",
+        topic: `Help Ticket - ${subject}`,
+        previewText: `${user.name || "A user"} submitted help ticket "${subject}".`,
+        templateParameters: [
+          {
+            name: "actor",
+            value: user.name || "AHT user"
+          },
+          {
+            name: "ticketId",
+            value: String(created?.id || "")
+          }
+        ]
+      });
+    } catch (notificationError) {
+      console.warn("Help ticket saved, but Teams notification failed.", notificationError);
+    }
+
+    return created;
   }
 
 
