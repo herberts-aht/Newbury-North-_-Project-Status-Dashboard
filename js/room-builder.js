@@ -4,6 +4,7 @@
   const state = {
     rows: [],
     fileName: "",
+    sourceFile: null,
     pagesScanned: 0,
     lastCreatedIds: []
   };
@@ -291,8 +292,123 @@
     return projects.length;
   }
 
+  /*
+   * Room Builder workflow controller.
+   *
+   * Step 1: Select Project
+   * Step 2: Find SharePoint Plans
+   * Step 3: Select / Load Plan
+   * Step 4: Analyze Plan
+   */
+  function updateWorkflowUI() {
+    const projectSelect = $("roomBuilderProject");
+    const findButton = $("roomBuilderFindPlansBtn");
+    const planSelect = $("roomBuilderSharePointFile");
+    const useButton = $("roomBuilderUseSharePointBtn");
+    const analyzeButton = $("roomBuilderAnalyzeBtn");
+    const fileInput = $("roomBuilderFile");
+
+    const hasProject =
+      !!String(projectSelect?.value || "").trim();
+
+    const hasPlan =
+      !!String(planSelect?.value || "").trim();
+
+    const hasSourceFile =
+      !!(
+        state.sourceFile ||
+        window.__ahtRoomBuilderSharePointFile ||
+        fileInput?.files?.[0]
+      );
+
+    /*
+     * Step 2 — Find SharePoint Plans
+     */
+    if (findButton) {
+      findButton.disabled = !hasProject;
+
+      findButton.classList.toggle(
+        "room-builder-step-ready",
+        hasProject
+      );
+    }
+
+    /*
+     * Step 3 — Select Plan
+     */
+    if (planSelect) {
+      const hasOptions =
+        [...planSelect.options].some(
+          option => !!String(option.value || "").trim()
+        );
+
+      /*
+       * Once SharePoint plans have been found, the document
+       * picker must remain editable. The user may go back and
+       * choose a different plan at any time.
+       */
+      planSelect.disabled =
+        !hasProject || !hasOptions ? false : false;
+
+      planSelect.classList.toggle(
+        "room-builder-step-ready",
+        hasOptions
+      );
+    }
+
+    /*
+     * Use Selected Document becomes available only
+     * after an actual SharePoint document is selected.
+     */
+    if (useButton) {
+      useButton.disabled =
+        !hasProject || !hasPlan;
+
+      useButton.classList.toggle(
+        "room-builder-step-ready",
+        hasPlan
+      );
+    }
+
+    /*
+     * Step 4 — Analyze Plan
+     */
+    if (analyzeButton) {
+      analyzeButton.disabled = !hasSourceFile;
+
+      analyzeButton.classList.toggle(
+        "room-builder-step-ready",
+        hasSourceFile
+      );
+    }
+
+    /*
+     * Keep the status area synchronized with the actual
+     * workflow rather than leaving contradictory messages.
+     */
+    const status = $("roomBuilderSharePointStatus");
+
+    if (status && !hasProject) {
+      status.textContent =
+        "Select a project first.";
+    } else if (status && !hasPlan && !hasSourceFile) {
+      status.textContent =
+        "Find SharePoint plans or upload a PDF from your computer.";
+    } else if (status && hasPlan && !hasSourceFile) {
+      status.textContent =
+        "Select a SharePoint document, then load it.";
+    } else if (status && hasSourceFile) {
+      status.textContent =
+        "Plan loaded. Click Analyze PDF to process it.";
+    }
+  }
+
   function waitForProjects(attempt = 0) {
     const count = renderProjectOptions();
+
+    if (count) {
+      updateWorkflowUI();
+    }
 
     if (!count && attempt < 40) {
       setTimeout(() => waitForProjects(attempt + 1), 500);
@@ -477,8 +593,584 @@
     updateSummary();
   }
 
+  async function findSharePointPlanDocuments() {
+    const project = selectedProject();
+
+    if (!project) {
+      alert("Select a project first.");
+      return;
+    }
+
+    if (
+      typeof SharePointDataProvider === "undefined" ||
+      typeof SharePointDataProvider.getSite !== "function" ||
+      typeof SharePointDataProvider.graph !== "function"
+    ) {
+      throw new Error("SharePoint connection is unavailable.");
+    }
+
+    const select = $("roomBuilderSharePointFile");
+    const status = $("roomBuilderSharePointStatus");
+    const useButton = $("roomBuilderUseSharePointBtn");
+
+    if (!select || !status) return;
+
+    select.innerHTML = '<option value="">Searching SharePoint…</option>';
+
+    if (useButton) {
+      useButton.disabled = true;
+    }
+
+    status.textContent =
+      "Searching the SharePoint Received documents…";
+
+    try {
+      /*
+       * Room Builder documents live in the office SharePoint site,
+       * not necessarily the dashboard's primary SharePoint site.
+       */
+      const documentSiteUrl =
+        APP_CONFIG.sharePoint.roomBuilderSiteUrl ||
+        "https://ahtglobalteam.sharepoint.com/sites/Naples";
+
+      const documentSiteParsed =
+        new URL(documentSiteUrl);
+
+      const documentSitePath =
+        documentSiteParsed.pathname.replace(/^\/+/, "");
+
+      const site =
+        await SharePointDataProvider.graph(
+          `/sites/${encodeURIComponent(documentSiteParsed.hostname)}:/${documentSitePath}?$select=id,displayName,webUrl`
+        );
+
+      /*
+       * Resolve the actual Projects document library.
+       * We use the SharePoint list because the browser's Graph session
+       * may not enumerate every document-library drive even when the
+       * library itself is accessible.
+       */
+      const lists = await SharePointDataProvider.graph(
+        `/sites/${encodeURIComponent(site.id)}/lists?$select=id,displayName,webUrl`
+      );
+
+      const projectsList = (lists?.value || []).find(
+        item =>
+          String(item?.displayName || "")
+            .trim()
+            .toLowerCase() === "projects"
+      );
+
+      if (!projectsList?.id) {
+        throw new Error(
+          `The Projects document library was not found on SharePoint site "${site.displayName || site.webUrl || "this office"}".`
+        );
+      }
+
+      /*
+       * Resolve the actual project folder through Microsoft Graph Search.
+       *
+       * Do NOT constrain the query with a SharePoint path. Graph Search
+       * can return the DriveItem and its SharePoint list/drive metadata,
+       * which lets us verify that the result belongs to this office's
+       * Projects document library.
+       */
+      /*
+       * Projects folders follow the office's normal convention:
+       *
+       *   [Client / Company] - [Address]
+       *
+       * The address is therefore the reliable cross-office identifier.
+       */
+      const projectAddress =
+        String(project.address || "")
+          .trim();
+
+      if (!projectAddress) {
+        throw new Error(
+          "The selected project does not contain an address."
+        );
+      }
+
+      function normalizeAddress(value) {
+        return String(value || "")
+          .toLowerCase()
+          .replace(/[.,#]/g, " ")
+          .replace(/\b(street|st)\b/g, "st")
+          .replace(/\b(avenue|ave)\b/g, "ave")
+          .replace(/\b(road|rd)\b/g, "rd")
+          .replace(/\b(drive|dr)\b/g, "dr")
+          .replace(/\b(boulevard|blvd)\b/g, "blvd")
+          .replace(/\b(lane|ln)\b/g, "ln")
+          .replace(/\b(court|ct)\b/g, "ct")
+          .replace(/\b(place|pl)\b/g, "pl")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      const normalizedAddress =
+        normalizeAddress(projectAddress);
+
+      /*
+       * The Projects library is a SharePoint document library.
+       * Resolve its Drive by matching its SharePoint list ID.
+       */
+      /*
+       * Resolve the document-library drive directly from the
+       * SharePoint Projects list.
+       *
+       * The Projects list ID is already known, so there is no reason
+       * to enumerate every drive on the site and guess which one
+       * belongs to Projects.
+       */
+      /*
+       * TEMPORARY DIAGNOSTIC:
+       * Ask the dashboard's own Graph token which document libraries
+       * it can actually see on this SharePoint site.
+       */
+      const visibleDrives =
+        await SharePointDataProvider.graph(
+          `/sites/${encodeURIComponent(site.id)}/drives?$select=id,name,webUrl,sharepointIds`
+        );
+
+      const visibleDriveSummary =
+        (visibleDrives?.value || []).map(item => ({
+          id: item?.id || "",
+          name: item?.name || "",
+          webUrl: item?.webUrl || "",
+          listId: item?.sharepointIds?.listId || ""
+        }));
+
+      console.log(
+        "ROOM BUILDER BROWSER GRAPH DRIVES:",
+        visibleDriveSummary
+      );
+
+      const projectsDrive =
+        (visibleDrives?.value || []).find(item =>
+          String(item?.name || "").trim().toLowerCase() === "projects"
+        );
+
+      if (!projectsDrive?.id) {
+        throw new Error(
+          [
+            "The dashboard's Graph token cannot see the Projects document library as a drive.",
+            "",
+            "Drives visible to the dashboard token:",
+            visibleDriveSummary.length
+              ? visibleDriveSummary
+                  .map(item =>
+                    `${item.name} | ${item.webUrl} | ListId: ${item.listId}`
+                  )
+                  .join("\n")
+              : "(none)"
+          ].join("\n")
+        );
+      }
+
+      const driveId =
+        String(projectsDrive.id);
+
+      /*
+       * TEMPORARY GRAPH ACCESS DIAGNOSTIC
+       */
+      try {
+        const diagnosticDrive =
+          await SharePointDataProvider.graph(
+            `/drives/${encodeURIComponent(driveId)}?$select=id,name,webUrl,sharepointIds`
+          );
+
+        console.log(
+          "ROOM BUILDER GRAPH DRIVE TEST:",
+          diagnosticDrive
+        );
+      } catch (diagnosticError) {
+        console.error(
+          "ROOM BUILDER GRAPH DRIVE TEST FAILED:",
+          diagnosticError
+        );
+
+        throw new Error(
+          `Graph can reach the SharePoint site and Projects library, but the dashboard token cannot open the Projects drive: ${diagnosticError.message || diagnosticError}`
+        );
+      }
+
+      /*
+       * Read the root of Projects.
+       */
+      const rootResult =
+        await SharePointDataProvider.graph(
+          `/drives/${encodeURIComponent(driveId)}/root/children?$select=id,name,webUrl,parentReference,folder,file&$top=500`
+        );
+
+      const rootItems =
+        rootResult?.value || [];
+
+      /*
+       * Match the project folder by address.
+       *
+       * Example:
+       *   2200 Gordon Dr
+       *       matches
+       *   Newbury North Associates - 2200 Gordon Dr
+       */
+      const projectFolders =
+        rootItems.filter(item => {
+          if (!item?.folder) return false;
+
+          const folderAddress =
+            normalizeAddress(item.name || "");
+
+          return (
+            folderAddress.includes(normalizedAddress)
+          );
+        });
+
+      if (!projectFolders.length) {
+        const available =
+          rootItems
+            .filter(item => item?.folder)
+            .map(item => item.name)
+            .filter(Boolean)
+            .slice(0, 100);
+
+        throw new Error(
+          [
+            "The Projects document library was opened, but the project folder could not be matched.",
+            "",
+            `Dashboard address: ${projectAddress}`,
+            `Normalized address: ${normalizedAddress}`,
+            "",
+            "Folders returned by Graph:",
+            available.length
+              ? available.join("\n")
+              : "(none)"
+          ].join("\n")
+        );
+      }
+
+      projectFolders.sort((a, b) => {
+        const aName =
+          normalizeAddress(a.name || "");
+
+        const bName =
+          normalizeAddress(b.name || "");
+
+        return (
+          (aName === normalizedAddress ? 0 : 1) -
+          (bName === normalizedAddress ? 0 : 1)
+        );
+      });
+
+      const driveItem =
+        projectFolders[0];
+
+      if (!driveItem?.id) {
+        throw new Error(
+          `The SharePoint project folder could not be opened.`
+        );
+      }
+
+      if (!driveId) {
+        throw new Error(
+          `The SharePoint project folder was found, but Graph did not return its document-library drive ID.`
+        );
+      }
+
+      /*
+       * Walk a DriveItem tree recursively.
+       *
+       * This is intentionally scoped to the selected project folder,
+       * so we do not search the entire Projects library.
+       */
+      async function getChildren(itemId) {
+        const rows = [];
+        let next =
+          `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/children?$select=id,name,size,lastModifiedDateTime,webUrl,parentReference,folder,file,@microsoft.graph.downloadUrl&$top=200`;
+
+        while (next) {
+          const data =
+            await SharePointDataProvider.graph(next);
+
+          rows.push(...(data?.value || []));
+
+          next =
+            data?.["@odata.nextLink"] || "";
+        }
+
+        return rows;
+      }
+
+      const receivedFolders = [];
+
+      const projectChildren =
+        await getChildren(driveItem.id);
+
+      for (const item of projectChildren) {
+        if (
+          item?.folder &&
+          String(item.name || "")
+            .trim()
+            .toLowerCase() === "received"
+        ) {
+          receivedFolders.push(item);
+        }
+      }
+
+      if (!receivedFolders.length) {
+        throw new Error(
+          `The project folder was found, but its Received folder could not be found.`
+        );
+      }
+
+      const documents = [];
+      const visited = new Set();
+
+      async function walkFolder(folderItem) {
+        const folderId =
+          String(folderItem?.id || "");
+
+        if (!folderId || visited.has(folderId)) {
+          return;
+        }
+
+        visited.add(folderId);
+
+        const children =
+          await getChildren(folderId);
+
+        for (const item of children) {
+          if (item?.file && /\.pdf$/i.test(String(item.name || ""))) {
+            documents.push(item);
+            continue;
+          }
+
+          if (item?.folder) {
+            await walkFolder(item);
+          }
+        }
+      }
+
+      for (const received of receivedFolders) {
+        await walkFolder(received);
+      }
+
+      documents.sort((a, b) =>
+        String(b.lastModifiedDateTime || "")
+          .localeCompare(
+            String(a.lastModifiedDateTime || "")
+          )
+      );
+
+      select.innerHTML = "";
+
+      if (!documents.length) {
+        select.innerHTML =
+          '<option value="">No matching PDF plans found</option>';
+
+        status.textContent =
+          "No PDF plans were found in the selected project's SharePoint Received folder.";
+
+        return;
+      }
+
+      /*
+       * Show several documents at once so it is obvious that
+       * multiple SharePoint plans are available.
+       * Keep the existing width; only increase the visible rows.
+       */
+      select.size = Math.min(5, documents.length);
+
+      documents.forEach(item => {
+        const option =
+          document.createElement("option");
+
+        option.value = item.id;
+
+        option.textContent =
+          `${item.name} — ${new Date(item.lastModifiedDateTime).toLocaleDateString()}`;
+
+        option.dataset.downloadUrl =
+          item["@microsoft.graph.downloadUrl"] || "";
+
+        option.dataset.webUrl =
+          item.webUrl || "";
+
+        option.dataset.name =
+          item.name || "";
+
+        /*
+         * Keep the drive ID on the option as a fallback/debug value.
+         */
+        option.dataset.driveId =
+          driveId;
+
+        select.appendChild(option);
+      });
+
+      if (useButton) {
+        useButton.disabled = false;
+      }
+
+      status.textContent =
+        `${documents.length} matching Received PDF${documents.length === 1 ? "" : "s"} found.`;
+
+    } catch (error) {
+      console.error(
+        "Room Builder SharePoint search failed:",
+        error
+      );
+
+      select.innerHTML =
+        '<option value="">SharePoint search failed</option>';
+
+      status.textContent =
+        `SharePoint search failed: ${error.message || error}`;
+
+      alert(
+        `Room Builder could not search SharePoint.\n\n${error.message || error}`
+      );
+    }
+  }
+
+  async function useSelectedSharePointDocument() {
+    const select = $("roomBuilderSharePointFile");
+    const option = select?.selectedOptions?.[0];
+
+    if (!option?.value) {
+      alert("Select a SharePoint document first.");
+      return;
+    }
+
+    const driveId =
+      option.dataset.driveId || "";
+
+    const itemId =
+      option.value || "";
+
+    const name =
+      option.dataset.name ||
+      option.textContent ||
+      "SharePoint PDF";
+
+    if (!driveId || !itemId) {
+      throw new Error(
+        "SharePoint document information is incomplete. The drive ID or document ID is missing."
+      );
+    }
+
+    const useButton = $("roomBuilderUseSharePointBtn");
+
+    if (useButton) {
+      useButton.disabled = true;
+      useButton.textContent = "Loading…";
+    }
+
+    try {
+      /*
+       * Download the actual SharePoint file through Microsoft Graph.
+       *
+       * We intentionally do not depend on @microsoft.graph.downloadUrl.
+       * Graph does not always return that property for these DriveItems.
+       */
+      const token =
+        await SharePointDataProvider.getAccessToken();
+
+      const response =
+        await fetch(
+          `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/content`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+      if (!response.ok) {
+        let detail = "";
+
+        try {
+          const body = await response.json();
+          detail =
+            body?.error?.message ||
+            body?.error?.code ||
+            "";
+        } catch (_) {
+          detail = await response.text();
+        }
+
+        throw new Error(
+          `SharePoint document download failed (${response.status})` +
+          (detail ? `: ${detail}` : ".")
+        );
+      }
+
+      const bytes =
+        await response.arrayBuffer();
+
+      const file = new File(
+        [bytes],
+        name,
+        { type: "application/pdf" }
+      );
+
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+
+      const input = $("roomBuilderFile");
+
+      if (!input) {
+        throw new Error("Room Builder PDF input was not found.");
+      }
+
+      /*
+       * Keep the SharePoint File directly in Room Builder state.
+       * Do not depend on programmatically assigning <input type="file">.
+       */
+      state.sourceFile = file;
+      window.__ahtRoomBuilderSharePointFile = file;
+
+      console.log(
+        "ROOM BUILDER SHAREPOINT FILE STORED:",
+        file.name,
+        file.size,
+        file.type
+      );
+
+      $("roomBuilderFileName").textContent =
+        `${name} — loaded from SharePoint Received documents`;
+
+      $("roomBuilderSharePointStatus").textContent =
+        "SharePoint document loaded. Click Analyze PDF to process it.";
+
+      updateWorkflowUI();
+
+    } catch (error) {
+      console.error(
+        "Room Builder SharePoint document load failed:",
+        error
+      );
+
+      alert(
+        `Room Builder could not load the SharePoint document.\n\n${error.message || error}`
+      );
+    } finally {
+      if (useButton) {
+        useButton.disabled = false;
+        useButton.textContent = "Use Selected Document";
+      }
+    }
+  }
+
   async function analyzePdf() {
-    const file = $("roomBuilderFile")?.files?.[0];
+    /*
+     * SharePoint documents are stored directly in state.
+     * Local computer uploads continue to use the file input.
+     */
+    const file =
+      state.sourceFile ||
+      window.__ahtRoomBuilderSharePointFile ||
+      $("roomBuilderFile")?.files?.[0];
 
     if (!file) {
       alert("Choose a PDF plan set first.");
@@ -681,21 +1373,75 @@
         return lookupId(fields, "Project") === projectId;
       });
 
-      const existingRoomNumbers = new Set(
-        projectLocations
-          .map(item => clean(rowFields(item).LocationNumber))
-          .filter(Boolean)
-      );
+      const existingRoomsByNumber = new Map();
 
-      const rowsToCreate = rows.filter(
-        row => !existingRoomNumbers.has(clean(row.roomNumber))
-      );
+      for (const item of projectLocations) {
+        const fields = rowFields(item);
+        const number = clean(fields.LocationNumber);
+        if (!number) continue;
 
-      const skipped = rows.length - rowsToCreate.length;
+        existingRoomsByNumber.set(number, {
+          id: rowId(item),
+          number,
+          name: clean(fields.Title),
+          floor: clean(fields.PlanLevel)
+        });
+      }
+
+      const rowsToCreate = [];
+      const unchangedRows = [];
+      const changedRows = [];
+
+      for (const row of rows) {
+        const number = clean(row.roomNumber);
+        const incomingName = clean(row.roomName);
+        const existing = existingRoomsByNumber.get(number);
+
+        if (!existing) {
+          rowsToCreate.push(row);
+          continue;
+        }
+
+        const sameName =
+          existing.name.toUpperCase() === incomingName.toUpperCase();
+
+        if (sameName) {
+          unchangedRows.push({
+            row,
+            existing
+          });
+        } else {
+          changedRows.push({
+            row,
+            existing
+          });
+        }
+      }
+
+      if (changedRows.length) {
+        const changedList = changedRows
+          .map(({ row, existing }) =>
+            `${row.roomNumber}: "${existing.name}" → "${row.roomName}"`
+          )
+          .join("\n");
+
+        alert(
+          `Revised plan changes detected.\n\n` +
+          `${changedRows.length} existing room${changedRows.length === 1 ? "" : "s"} have a different room name in this plan set:\n\n` +
+          `${changedList}\n\n` +
+          `No SharePoint locations were changed.\n\n` +
+          `Review these room changes before creating any new locations.`
+        );
+
+        return;
+      }
+
+      const skipped = unchangedRows.length;
 
       if (!rowsToCreate.length) {
         alert(
-          `Nothing to create.\n\nAll ${rows.length} included room${rows.length === 1 ? "" : "s"} already exist for ${project.name || "this project"}.`
+          `Nothing to create.\n\n` +
+          `${unchangedRows.length} included room${unchangedRows.length === 1 ? "" : "s"} already exist and match the current SharePoint locations for ${project.name || "this project"}.`
         );
         return;
       }
@@ -955,7 +1701,10 @@
 
     $("roomBuilderProject")?.addEventListener("focus", renderProjectOptions);
     $("roomBuilderProject")?.addEventListener("mousedown", renderProjectOptions);
-    $("roomBuilderProject")?.addEventListener("change", updateSummary);
+    $("roomBuilderProject")?.addEventListener("change", () => {
+      updateSummary();
+      updateWorkflowUI();
+    });
 
     if (window.pdfjsLib) {
       window.pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -963,6 +1712,28 @@
     }
 
     $("roomBuilderAnalyzeBtn")?.addEventListener("click", analyzePdf);
+
+    $("roomBuilderFindPlansBtn")?.addEventListener(
+      "click",
+      async () => {
+        try {
+          await findSharePointPlanDocuments();
+        } catch (error) {
+          console.error("SharePoint plan search failed:", error);
+        }
+      }
+    );
+
+    $("roomBuilderUseSharePointBtn")?.addEventListener(
+      "click",
+      async () => {
+        try {
+          await useSelectedSharePointDocument();
+        } catch (error) {
+          console.error("SharePoint document load failed:", error);
+        }
+      }
+    );
     $("roomBuilderExportBtn")?.addEventListener("click", exportReviewCsv);
     $("roomBuilderCreateBtn")?.addEventListener("click", createLocations);
 
@@ -984,9 +1755,25 @@
       state.fileName = "";
       state.pagesScanned = 0;
       state.lastCreatedIds = [];
+      state.sourceFile = null;
+      window.__ahtRoomBuilderSharePointFile = null;
 
       if ($("roomBuilderFile")) $("roomBuilderFile").value = "";
       if ($("roomBuilderFileName")) $("roomBuilderFileName").textContent = "";
+
+      if ($("roomBuilderSharePointFile")) {
+        $("roomBuilderSharePointFile").innerHTML =
+          '<option value="">No SharePoint plans loaded</option>';
+      }
+
+      if ($("roomBuilderSharePointStatus")) {
+        $("roomBuilderSharePointStatus").textContent =
+          "Select a project, then find plans from its SharePoint Received documents.";
+      }
+
+      if ($("roomBuilderUseSharePointBtn")) {
+        $("roomBuilderUseSharePointBtn").disabled = true;
+      }
 
       renderRows();
     });
@@ -998,4 +1785,5 @@
     init();
   }
 })();
+
 

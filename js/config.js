@@ -88,6 +88,7 @@ const APP_CONFIG = Object.freeze({
 
   sharePoint: Object.freeze({
     siteUrl: "https://ahtglobalteam.sharepoint.com/sites/NewburyNorth",
+    roomBuilderSiteUrl: "https://ahtglobalteam.sharepoint.com/sites/Naples",
     lists: Object.freeze({
       projects: "Projects",
       deliverables: "Deliverables",

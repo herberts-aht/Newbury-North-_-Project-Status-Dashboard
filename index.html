@@ -44,6 +44,103 @@
     color: #963b26 !important;
   }
 </style>
+
+<style>
+/* ROOM BUILDER PLAN PICKER LAYOUT */
+.room-builder-plan-source-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: start;
+  margin-top: 10px;
+}
+
+.room-builder-plan-picker select {
+  display: block;
+  width: 100%;
+  min-height: 142px;
+  height: 142px;
+  box-sizing: border-box;
+  background: var(--panel, #fff);
+  color: inherit;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.room-builder-plan-picker select option {
+  padding: 5px 7px;
+}
+
+.room-builder-local-upload {
+  min-height: 142px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  background: transparent;
+}
+
+.room-builder-source-label {
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-transform: none;
+}
+
+.room-builder-local-upload-box {
+  height: 142px;
+  box-sizing: border-box;
+  padding: 12px;
+  background: var(--panel, #fff);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 6px;
+}
+
+.room-builder-upload-help {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.room-builder-local-upload input[type="file"] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+}
+
+.room-builder-local-upload input[type="file"]::file-selector-button {
+  background: #1769aa;
+  color: #fff;
+  border: 1px solid #1769aa;
+  border-radius: 6px;
+  padding: 7px 12px;
+  margin-right: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.room-builder-local-upload input[type="file"]::file-selector-button:hover {
+  background: #12588e;
+  border-color: #12588e;
+}
+
+@media (max-width: 850px) {
+  .room-builder-plan-source-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .room-builder-local-upload {
+    min-height: auto;
+  }
+}
+</style>
+
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -439,26 +536,156 @@
           </div>
         </div>
 
-        <div class="room-builder-toolbar">
-          <div>
-            <label>Project</label>
-            <select id="roomBuilderProject">
-              <option value="">Select project…</option>
-            </select>
+        <div class="room-builder-flow">
+
+          <section class="room-builder-step" id="roomBuilderStep1">
+            <div class="room-builder-step-head">
+              <div class="room-builder-step-number">1</div>
+              <div>
+                <div class="room-builder-step-title">Select Project</div>
+                <div class="room-builder-step-state" id="roomBuilderStep1State">
+                  Select the project you are building rooms for.
+                </div>
+              </div>
+            </div>
+
+            <div class="room-builder-step-body">
+              <label for="roomBuilderProject">Project</label>
+              <select id="roomBuilderProject"></select>
+            </div>
+          </section>
+
+
+          <section class="room-builder-step" id="roomBuilderStep2">
+            <div class="room-builder-step-head">
+              <div class="room-builder-step-number">2</div>
+              <div>
+                <div class="room-builder-step-title">Find SharePoint Plans</div>
+                <div class="room-builder-step-state" id="roomBuilderStep2State">
+                  Select a project first.
+                </div>
+              </div>
+            </div>
+
+            <div class="room-builder-step-body">
+              <button class="btn" id="roomBuilderFindPlansBtn" type="button" disabled>
+                Find SharePoint Plans
+              </button>
+            </div>
+          </section>
+
+
+          <section class="room-builder-step" id="roomBuilderStep3">
+          <div class="room-builder-step-head">
+            <div class="room-builder-step-number">3</div>
+            <div>
+              <div class="room-builder-step-title">Select Plan</div>
+              <div class="room-builder-step-state" id="roomBuilderStep3State">
+                Find SharePoint plans first.
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label>Architectural PDF</label>
-            <input id="roomBuilderFile" type="file" accept="application/pdf,.pdf" />
-            <div id="roomBuilderFileName" class="small" style="margin-top:4px"></div>
-          </div>
+          <div class="room-builder-plan-source-layout">
 
-          <div>
-            <button class="btn primary" id="roomBuilderAnalyzeBtn" type="button">
-              Analyze PDF
-            </button>
+            <div class="room-builder-plan-picker">
+              <div class="room-builder-source-label">
+                SharePoint Plans
+              </div>
+
+              <select
+                id="roomBuilderSharePointFile"
+                size="5"
+                aria-label="Available SharePoint PDF plans"
+              >
+                <option value="">No SharePoint plans loaded</option>
+              </select>
+
+              <div
+                id="roomBuilderSharePointStatus"
+                class="small room-builder-inline-status"
+              >
+                Select a project, then find plans from its SharePoint Received documents.
+              </div>
+
+              <button
+                class="btn"
+                id="roomBuilderUseSharePointBtn"
+                type="button"
+                disabled
+              >
+                Use Selected Document
+              </button>
+
+              <div
+                id="roomBuilderFileName"
+                class="small room-builder-file-name"
+              ></div>
+            </div>
+
+            <div class="room-builder-local-upload">
+              <div class="room-builder-source-label">
+                Upload from computer
+              </div>
+
+              <div class="room-builder-local-upload-box">
+                <div class="room-builder-upload-help">
+                  Choose a PDF from your computer instead of SharePoint.
+                </div>
+
+                <input
+                  id="roomBuilderFile"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                />
+              </div>
+            </div>
+
           </div>
+        </section>
+
+        
+
+
+          <section class="room-builder-step" id="roomBuilderStep4">
+            <div class="room-builder-step-head">
+              <div class="room-builder-step-number">4</div>
+              <div>
+                <div class="room-builder-step-title">Analyze Plan</div>
+                <div class="room-builder-step-state" id="roomBuilderStep4State">
+                  Select and load a plan first.
+                </div>
+              </div>
+            </div>
+
+            <div class="room-builder-step-body">
+              <button
+                class="btn primary"
+                id="roomBuilderAnalyzeBtn"
+                type="button"
+                disabled
+              >
+                Analyze PDF
+              </button>
+            </div>
+          </section>
+
+
+          
+
         </div>
+
+        <section class="room-builder-step room-builder-step-review" id="roomBuilderStep5">
+          <div class="room-builder-step-head">
+            <div class="room-builder-step-number">5</div>
+            <div>
+              <div class="room-builder-step-title">Review &amp; Create Locations</div>
+              <div class="room-builder-step-state" id="roomBuilderStep5State">
+                Analyze a plan first.
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div id="roomBuilderSummary" class="small room-builder-summary">
           No plan has been analyzed yet.
@@ -1131,7 +1358,209 @@
 <script src="js/project-task-editor.js?v=20260928154732"></script>
 <script src="js/site-operations.js?v=1790277011"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="js/room-builder.js?v=20260930-2"></script>
+<style id="room-builder-workflow-styles">
+  .room-builder-flow{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .room-builder-step{
+    border:1px solid var(--border,#d8dee6);
+    border-radius:10px;
+    background:var(--panel,#fff);
+    padding:14px 16px;
+    transition:border-color .15s ease,box-shadow .15s ease,opacity .15s ease;
+  }
+
+  .room-builder-step.is-current{
+    border-color:#2f855a;
+    box-shadow:0 0 0 1px rgba(47,133,90,.10);
+  }
+
+  .room-builder-step.is-complete{
+    border-color:#d8dee6;
+  }
+
+  .room-builder-step.is-disabled{
+    opacity:.55;
+  }
+
+  .room-builder-step-head{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    margin-bottom:10px;
+  }
+
+  .room-builder-step-number{
+    width:28px;
+    height:28px;
+    min-width:28px;
+    border:1px solid #9aa4af;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:13px;
+    background:#fff;
+    color:#4b5563;
+  }
+
+  .room-builder-step.is-current .room-builder-step-number{
+    border-color:#2f855a;
+    color:#2f855a;
+  }
+
+  .room-builder-step.is-complete .room-builder-step-number{
+    border-color:#2f855a;
+    color:#2f855a;
+  }
+
+  .room-builder-step-title{
+    font-weight:700;
+    font-size:15px;
+  }
+
+  .room-builder-step-state{
+    font-size:12px;
+    color:#6b7280;
+    margin-top:2px;
+  }
+
+  .room-builder-step-body{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+
+  .room-builder-step-body label{
+    font-weight:600;
+  }
+
+  #roomBuilderProject{
+    min-width:360px;
+    background:#fff;
+  }
+
+  #roomBuilderSharePointFile{
+    width:100%;
+    min-width:0;
+    max-width:none;
+    background:#fff;
+    color:inherit;
+    border:1px solid #cbd5df;
+    border-radius:6px;
+    padding:7px 9px;
+    font:inherit;
+  }
+
+  #roomBuilderSharePointFile[size="5"]{
+    height:152px;
+  }
+
+  .room-builder-inline-status{
+    width:100%;
+    margin-top:2px;
+  }
+
+  .room-builder-upload{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    margin-top:4px;
+  }
+
+  .room-builder-file-name{
+    width:100%;
+  }
+
+  .room-builder-workflow-status{
+    border:1px solid #d8dee6;
+    border-radius:10px;
+    background:#f8fafc;
+    padding:12px 15px;
+  }
+
+  .room-builder-workflow-status-title{
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.08em;
+    margin-bottom:8px;
+  }
+
+  .room-builder-status-row{
+    display:grid;
+    grid-template-columns:10px 170px 1fr;
+    gap:8px;
+    align-items:center;
+    min-height:26px;
+    font-size:13px;
+  }
+
+  .room-builder-status-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#b8c0ca;
+  }
+
+  .room-builder-status-row.is-current .room-builder-status-dot{
+    background:#2f855a;
+  }
+
+  .room-builder-status-row.is-complete .room-builder-status-dot{
+    background:#2f855a;
+  }
+
+  .room-builder-status-row.is-error .room-builder-status-dot{
+    background:#c2410c;
+  }
+
+  .room-builder-status-text{
+    color:#6b7280;
+  }
+
+  .room-builder-step-review{
+    margin-top:14px;
+  }
+
+  .room-builder-step button:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+
+  .room-builder-step button:not(:disabled){
+    border-color:#2f855a;
+    color:#2f855a;
+    background:transparent;
+  }
+
+  .room-builder-step button.primary:not(:disabled){
+    background:transparent;
+    border-color:#2f855a;
+    color:#2f855a;
+  }
+
+  @media (max-width:700px){
+    #roomBuilderProject{
+      min-width:0;
+      width:100%;
+    }
+
+    .room-builder-status-row{
+      grid-template-columns:10px 1fr;
+    }
+
+    .room-builder-status-text{
+      grid-column:2;
+    }
+  }
+</style>
+<script src="js/room-builder.js?v=20261002-1"></script>
   <script src="js/dashboard.js?v=20260929-relatedplan1"></script>
 <script src="js/help-center.js?v=20260925-1718"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
