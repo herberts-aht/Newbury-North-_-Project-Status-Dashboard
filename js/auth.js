@@ -436,9 +436,34 @@ const MicrosoftAuthProvider = {
     if (embedded) {
       await microsoftTeams.app.initialize();
 
+      let teamsLoginHint = "";
+
+      try {
+        const context =
+          await microsoftTeams.app.getContext();
+
+        teamsLoginHint =
+          context?.user?.loginHint ||
+          context?.user?.userPrincipalName ||
+          "";
+      } catch (error) {
+        console.warn(
+          "Could not read Teams login hint.",
+          error
+        );
+      }
+
+      const authUrl =
+        `${window.location.origin}/teams-auth.html` +
+        (
+          teamsLoginHint
+            ? `?loginHint=${encodeURIComponent(teamsLoginHint)}`
+            : ""
+        );
+
       const result = await new Promise((resolve, reject) => {
         microsoftTeams.authentication.authenticate({
-          url: `${window.location.origin}/teams-auth.html`,
+          url: authUrl,
           width: 600,
           height: 535,
           successCallback: resolve,
