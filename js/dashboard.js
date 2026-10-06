@@ -1362,6 +1362,9 @@ function projectControlDetailRow(label,value,raw=false){
 }
 
 function closeProjectControlDetail(){
+  document.body.classList.remove(
+    "project-control-detail-open"
+  );
   document.getElementById("projectControlDetailBackdrop")?.remove();
 }
 
@@ -1423,6 +1426,10 @@ function openProjectControlDetail(recordType,id){
   if(!record)return;
 
   closeProjectControlDetail();
+
+  document.body.classList.add(
+    "project-control-detail-open"
+  );
 
   let title="";
   let kicker="";
@@ -4236,11 +4243,16 @@ function filteredSupportRequests(type){
     .filter(item=>
       supportRequestWithinScope(item.fields||{})
     )
-    .filter(item=>
-      !selectedStatus ||
-      supportRequestText(item.fields?.Status)===
-        selectedStatus
-    )
+    .filter(item=>{
+      const itemStatus=
+        supportRequestText(item.fields?.Status);
+
+      if(selectedStatus){
+        return itemStatus===selectedStatus;
+      }
+
+      return itemStatus!=="Archived";
+    })
     .filter(item=>{
       if(!search)return true;
 
@@ -4986,6 +4998,16 @@ function openSupportRequestDetail(type,id){
       "supportRequestDetailMessage"
     );
 
+  const archiveButton=
+    document.getElementById(
+      "archiveSupportRequestBtn"
+    );
+
+  const deleteButton=
+    document.getElementById(
+      "deleteSupportRequestBtn"
+    );
+
   const assignedTo=
     document.getElementById(
       "supportRequestAssignedTo"
@@ -5018,6 +5040,24 @@ function openSupportRequestDetail(type,id){
   const currentStatus=
     supportRequestText(fields.Status)||
     "Open";
+
+  if(archiveButton){
+    const canArchive=
+      type==="help" &&
+      currentStatus!=="Archived";
+
+    archiveButton.classList.toggle(
+      "hidden",
+      !canArchive
+    );
+  }
+
+  if(deleteButton){
+    deleteButton.classList.toggle(
+      "hidden",
+      type!=="help"
+    );
+  }
 
   if(eyebrow){
     eyebrow.textContent=requestNumber;
@@ -5321,6 +5361,250 @@ function closeSupportRequestDetail(){
 }
 
 
+async function deleteSupportRequest(){
+  const active=
+    supportRequestQueueState.activeRequest;
+
+  if(
+    !active ||
+    active.type!=="help"
+  ){
+    return;
+  }
+
+  const item=
+    supportRequestQueueState.helpTickets
+      .find(row=>
+        Number(row.id)===Number(active.id)
+      );
+
+  if(!item){
+    return;
+  }
+
+  const firstConfirm=
+    window.confirm(
+      `Permanently delete HELP-${active.id}?
+
+This cannot be undone and the ticket will be removed from SharePoint.`
+    );
+
+  if(!firstConfirm){
+    return;
+  }
+
+  const typed=
+    window.prompt(
+      `Type DELETE to permanently remove HELP-${active.id}.`
+    );
+
+  if(typed!=="DELETE"){
+    if(typed!==null){
+      window.alert(
+        "Delete cancelled. You must type DELETE exactly."
+      );
+    }
+
+    return;
+  }
+
+  const deleteButton=
+    document.getElementById(
+      "deleteSupportRequestBtn"
+    );
+
+  const archiveButton=
+    document.getElementById(
+      "archiveSupportRequestBtn"
+    );
+
+  const saveButton=
+    document.getElementById(
+      "saveSupportRequestStatusBtn"
+    );
+
+  const message=
+    document.getElementById(
+      "supportRequestDetailMessage"
+    );
+
+  try{
+    if(deleteButton){
+      deleteButton.disabled=true;
+      deleteButton.textContent=
+        "Deleting…";
+    }
+
+    if(archiveButton){
+      archiveButton.disabled=true;
+    }
+
+    if(saveButton){
+      saveButton.disabled=true;
+    }
+
+    if(message){
+      message.className=
+        "support-request-detail-message";
+
+      message.textContent=
+        "Permanently deleting ticket…";
+    }
+
+    await SharePointDataProvider.deleteItem(
+      APP_CONFIG.sharePoint.lists.dashboardHelpTickets,
+      active.id
+    );
+
+    supportRequestQueueState.helpTickets=
+      supportRequestQueueState.helpTickets
+        .filter(row=>
+          Number(row.id)!==Number(active.id)
+        );
+
+    renderSupportRequestQueues();
+    closeSupportRequestDetail();
+
+  }catch(error){
+    console.error(
+      "Help Ticket delete failed.",
+      error
+    );
+
+    if(message){
+      message.className=
+        "support-request-detail-message error";
+
+      message.textContent=
+        error?.message ||
+        "Ticket could not be deleted.";
+    }
+
+  }finally{
+    if(deleteButton){
+      deleteButton.disabled=false;
+      deleteButton.textContent=
+        "Delete Ticket";
+    }
+
+    if(archiveButton){
+      archiveButton.disabled=false;
+    }
+
+    if(saveButton){
+      saveButton.disabled=false;
+    }
+  }
+}
+
+async function archiveSupportRequest(){
+  const active=
+    supportRequestQueueState.activeRequest;
+
+  if(
+    !active ||
+    active.type!=="help"
+  ){
+    return;
+  }
+
+  const item=
+    supportRequestQueueState.helpTickets
+      .find(row=>
+        Number(row.id)===Number(active.id)
+      );
+
+  if(!item){
+    return;
+  }
+
+  const confirmed=
+    window.confirm(
+      `Archive HELP-${active.id}?
+
+The ticket will be removed from the active queue but retained in SharePoint and available from the Archived filter.`
+    );
+
+  if(!confirmed){
+    return;
+  }
+
+  const archiveButton=
+    document.getElementById(
+      "archiveSupportRequestBtn"
+    );
+
+  const saveButton=
+    document.getElementById(
+      "saveSupportRequestStatusBtn"
+    );
+
+  const message=
+    document.getElementById(
+      "supportRequestDetailMessage"
+    );
+
+  try{
+    if(archiveButton){
+      archiveButton.disabled=true;
+      archiveButton.textContent=
+        "Archiving…";
+    }
+
+    if(saveButton){
+      saveButton.disabled=true;
+    }
+
+    if(message){
+      message.className=
+        "support-request-detail-message";
+
+      message.textContent=
+        "Archiving ticket…";
+    }
+
+    await SharePointDataProvider.updateItem(
+      APP_CONFIG.sharePoint.lists.dashboardHelpTickets,
+      active.id,
+      {
+        Status:"Archived"
+      }
+    );
+
+    item.fields||={};
+    item.fields.Status="Archived";
+
+    renderSupportRequestQueues();
+    closeSupportRequestDetail();
+
+  }catch(error){
+    console.error(
+      "Help Ticket archive failed.",
+      error
+    );
+
+    if(message){
+      message.className=
+        "support-request-detail-message error";
+
+      message.textContent=
+        error?.message ||
+        "Ticket could not be archived.";
+    }
+
+  }finally{
+    if(archiveButton){
+      archiveButton.disabled=false;
+      archiveButton.textContent=
+        "Archive Ticket";
+    }
+
+    if(saveButton){
+      saveButton.disabled=false;
+    }
+  }
+}
+
 async function saveSupportRequestStatus(){
   const active=
     supportRequestQueueState.activeRequest;
@@ -5551,6 +5835,16 @@ function bindSupportRequestQueueControls(){
       "saveSupportRequestStatusBtn"
     );
 
+  const archive=
+    document.getElementById(
+      "archiveSupportRequestBtn"
+    );
+
+  const deleteButton=
+    document.getElementById(
+      "deleteSupportRequestBtn"
+    );
+
   if(helpStatus && !helpStatus.dataset.bound){
     helpStatus.dataset.bound="1";
     helpStatus.onchange=()=>
@@ -5610,10 +5904,210 @@ function bindSupportRequestQueueControls(){
     save.dataset.bound="1";
     save.onclick=saveSupportRequestStatus;
   }
+
+  if(archive && !archive.dataset.bound){
+    archive.dataset.bound="1";
+    archive.onclick=archiveSupportRequest;
+  }
+
+  if(deleteButton && !deleteButton.dataset.bound){
+    deleteButton.dataset.bound="1";
+    deleteButton.onclick=deleteSupportRequest;
+  }
 }
 
 
+const ADMIN_SECTION_GROUPS = Object.freeze({
+  projects:{
+    title:"Projects & Setup",
+    ids:[
+      "adminProjectsPanel",
+      "roomBuilderPanel"
+    ]
+  },
+
+  access:{
+    title:"Users & Access",
+    ids:[
+      "entraAccessPanel",
+      "dashboardProfilePanel"
+    ]
+  },
+
+  support:{
+    title:"Support",
+    ids:[
+      "adminHelpTicketsPanel",
+      "adminAccessRequestsPanel"
+    ]
+  }
+});
+
+
+function adminManagedPanelIds(){
+  return Object.values(
+    ADMIN_SECTION_GROUPS
+  ).flatMap(group=>group.ids);
+}
+
+
+function showAdminCover(){
+  const cover=
+    document.getElementById(
+      "adminCover"
+    );
+
+  const toolbar=
+    document.getElementById(
+      "adminSectionToolbar"
+    );
+
+  cover?.classList.remove("hidden");
+  toolbar?.classList.add("hidden");
+
+  adminManagedPanelIds()
+    .forEach(id=>{
+      document
+        .getElementById(id)
+        ?.classList.add(
+          "admin-section-hidden"
+        );
+    });
+}
+
+
+function showAdminSection(section){
+  if(section==="audit"){
+    const auditNav=
+      document.querySelector(
+        '[data-view="audit"]'
+      );
+
+    if(auditNav){
+      auditNav.click();
+    }
+
+    return;
+  }
+
+  const config=
+    ADMIN_SECTION_GROUPS[section];
+
+  if(!config){
+    return;
+  }
+
+  const cover=
+    document.getElementById(
+      "adminCover"
+    );
+
+  const toolbar=
+    document.getElementById(
+      "adminSectionToolbar"
+    );
+
+  const title=
+    document.getElementById(
+      "adminSectionTitle"
+    );
+
+  cover?.classList.add("hidden");
+  toolbar?.classList.remove("hidden");
+
+  if(title){
+    title.textContent=config.title;
+  }
+
+  adminManagedPanelIds()
+    .forEach(id=>{
+      document
+        .getElementById(id)
+        ?.classList.toggle(
+          "admin-section-hidden",
+          !config.ids.includes(id)
+        );
+    });
+
+  document
+    .getElementById("admin")
+    ?.scrollIntoView({
+      block:"start"
+    });
+}
+
+
+function bindAdminSectionNavigation(){
+  const cover=
+    document.getElementById(
+      "adminCover"
+    );
+
+  if(
+    cover &&
+    !cover.dataset.adminNavBound
+  ){
+    cover.dataset.adminNavBound="1";
+
+    cover.addEventListener(
+      "click",
+      event=>{
+        const button=
+          event.target.closest(
+            "[data-admin-section]"
+          );
+
+        if(!button){
+          return;
+        }
+
+        showAdminSection(
+          button.dataset.adminSection
+        );
+      }
+    );
+  }
+
+  const adminNav=
+    document.querySelector(
+      '[data-view="admin"]'
+    );
+
+  if(
+    adminNav &&
+    !adminNav.dataset.adminCoverBound
+  ){
+    adminNav.dataset.adminCoverBound="1";
+
+    adminNav.addEventListener(
+      "click",
+      ()=>{
+        setTimeout(
+          showAdminCover,
+          0
+        );
+      }
+    );
+  }
+
+  const back=
+    document.getElementById(
+      "adminBackToCoverBtn"
+    );
+
+  if(
+    back &&
+    !back.dataset.adminNavBound
+  ){
+    back.dataset.adminNavBound="1";
+
+    back.onclick=showAdminCover;
+  }
+}
+
 function renderAdmin(){
+ bindAdminSectionNavigation();
+
  const canOpenAdministration=
    Boolean(
      currentUser?.canManageProjects ||
@@ -5626,6 +6120,18 @@ function renderAdmin(){
    );
 
  if(!canOpenAdministration)return;
+
+ const entraAccessPanel=
+   document.getElementById(
+     "entraAccessPanel"
+   );
+
+ if(entraAccessPanel){
+   entraAccessPanel.classList.toggle(
+     "project-admin-access-layout",
+     !currentUser?.canManageExternalUsers
+   );
+ }
 
  const hasOrganizationWideAdminScope =
    Boolean(

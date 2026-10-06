@@ -3181,54 +3181,236 @@
 
     return `
       <form id="dashboardHelpTicketForm" class="help-request-form">
+
         <div class="help-form-note">
-          Use this for dashboard usage questions, something not working correctly, or data/display issues.
-          Access and user changes should use <strong>Access & User Request</strong>.
+          Tell us what you need help with and we’ll route it appropriately.
         </div>
 
-        <div class="form-grid">
-          <div class="field">
-            <label>Project</label>
-            <input name="project" value="${esc(project?.name||"")}" readonly />
+        <!-- STEP 1 -->
+        <div class="help-ticket-step help-ticket-step-primary">
+
+          <div class="help-ticket-step-heading">
+            <div class="help-ticket-step-number">1</div>
+
+            <div>
+              <div class="help-ticket-step-title">
+                What do you need help with?
+              </div>
+
+              <div class="help-ticket-step-subtitle">
+                Choose the type of request you want to send.
+              </div>
+            </div>
           </div>
 
-          <div class="field">
-            <label>Page / Area</label>
-            <input name="area" value="${esc(document.querySelector(".view.active h2")?.textContent||"")}" readonly />
+          <div class="help-ticket-step-content">
+            <div class="field full">
+              <select
+                name="category"
+                id="helpRequestCategory"
+                required
+              >
+                <option value="Dashboard Issue">
+                  Dashboard Issue
+                </option>
+
+                <option value="Project Issue">
+                  Project Issue
+                </option>
+
+                <option value="Alert AHT Team Member">
+                  Alert an AHT Team Member
+                </option>
+              </select>
+            </div>
           </div>
 
-          <div class="field full">
-            <label>Subject</label>
-            <input name="subject" maxlength="160" required />
+        </div>
+
+        <!-- STEP 2: NORMAL HELP REQUEST -->
+        <div
+          id="helpTicketIssueStep"
+          class="help-ticket-step"
+        >
+
+          <div class="help-ticket-step-heading">
+
+            <div class="help-ticket-step-number">2</div>
+
+            <div>
+              <div class="help-ticket-step-title">
+                Tell us about the issue
+              </div>
+
+              <div class="help-ticket-step-subtitle">
+                Give us enough information to understand what you need.
+              </div>
+            </div>
+
           </div>
 
-          <div class="field">
-            <label>Type</label>
-            <select name="type">
-              <option>How do I…?</option>
-              <option>Something is not working</option>
-              <option>Data appears incorrect</option>
-              <option>Suggestion / Improvement</option>
-              <option>Other</option>
-            </select>
+          <div class="help-ticket-step-content">
+
+            <div class="form-grid">
+
+              <div class="field">
+                <label>Project</label>
+                <input
+                  name="project"
+                  value="${esc(project?.name||"")}"
+                  readonly
+                />
+              </div>
+
+              <div class="field">
+                <label>Page / Area</label>
+                <input
+                  name="area"
+                  value="${esc(document.querySelector(".view.active h2")?.textContent||"")}"
+                  readonly
+                />
+              </div>
+
+              <div class="field full">
+                <label>Subject</label>
+                <input
+                  name="subject"
+                  maxlength="160"
+                  required
+                />
+              </div>
+
+              <div class="field">
+                <label>Type</label>
+
+                <select name="type">
+                  <option>How do I…?</option>
+                  <option>Something is not working</option>
+                  <option>Data appears incorrect</option>
+                  <option>Suggestion / Improvement</option>
+                  <option>Other</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Urgency</label>
+
+                <select name="urgency">
+                  <option>Normal</option>
+                  <option>Important</option>
+                  <option>Blocking my work</option>
+                </select>
+              </div>
+
+              <div class="field full">
+                <label>Description</label>
+
+                <textarea
+                  name="description"
+                  rows="5"
+                  maxlength="3000"
+                  required
+                  placeholder="Describe what you were trying to do, what happened, and what you expected."
+                ></textarea>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- STEP 2: AHT TEAM ALERT -->
+        <div
+          id="ahtTeamAlertPanel"
+          class="help-ticket-step"
+          hidden
+        >
+
+          <div class="help-ticket-step-heading">
+
+            <div class="help-ticket-step-number">2</div>
+
+            <div>
+              <div class="help-ticket-step-title">
+                Alert an AHT Team Member
+              </div>
+
+              <div class="help-ticket-step-subtitle">
+                Choose who should receive the alert and enter your message.
+              </div>
+            </div>
+
           </div>
 
-          <div class="field">
-            <label>Urgency</label>
-            <select name="urgency">
-              <option>Normal</option>
-              <option>Important</option>
-              <option>Blocking my work</option>
-            </select>
-          </div>
+          <div class="help-ticket-step-content">
 
-          <div class="field full">
-            <label>Description</label>
-            <textarea name="description" rows="5" maxlength="3000" required placeholder="Describe what you were trying to do, what happened, and what you expected."></textarea>
+            <div class="form-grid">
+              <div class="field full">
+                <label>Project Context</label>
+                <select
+                  name="alertProject"
+                  id="ahtAlertProject"
+                >
+                  <option value="">General / No specific project</option>
+                  ${project?.name
+                    ? `<option value="${esc(project.name)}" selected>${esc(project.name)}</option>`
+                    : ""
+                  }
+                </select>
+              </div>
+
+
+              <div class="field">
+                <label>Division</label>
+
+                <select
+                  name="alertDivision"
+                  id="ahtAlertDivision"
+                >
+                  <option value="">
+                    Select division…
+                  </option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>AHT Team Member</label>
+
+                <select
+                  name="alertRecipient"
+                  id="ahtAlertRecipient"
+                  disabled
+                >
+                  <option value="">
+                    Select team member…
+                  </option>
+                </select>
+              </div>
+
+              <div class="field full">
+                <label>Message</label>
+
+                <textarea
+                  name="alertMessage"
+                  id="ahtAlertMessage"
+                  rows="5"
+                  maxlength="3000"
+                  placeholder="Enter the message you want to send to this AHT team member."
+                ></textarea>
+              </div>
+
+            </div>
+
+            <div class="help-form-note">
+              This sends an alert through Microsoft Teams.
+              Please continue the conversation in Teams after the alert is received.
+            </div>
+
           </div>
         </div>
 
         <div class="help-request-actions">
+
           <div
             id="dashboardHelpTicketStatus"
             class="help-request-status"
@@ -3241,9 +3423,248 @@
           >
             Submit Help Ticket
           </button>
+
         </div>
+
       </form>
     `;
+  }
+  function updateHelpRequestCategoryUI(){
+    const form =
+      document.getElementById("dashboardHelpTicketForm");
+
+    const category =
+      document.getElementById("helpRequestCategory");
+
+    if(!form || !category){
+      return;
+    }
+
+    const isTeamAlert =
+      category.value === "Alert AHT Team Member";
+
+    const issueStep =
+      document.getElementById("helpTicketIssueStep");
+
+    const alertPanel =
+      document.getElementById("ahtTeamAlertPanel");
+
+    if(issueStep){
+      issueStep.hidden = isTeamAlert;
+    }
+
+    if(alertPanel){
+      alertPanel.hidden = !isTeamAlert;
+    }
+
+    ["subject","description"].forEach(
+      name=>{
+        const control =
+          form.querySelector(`[name="${name}"]`);
+
+        if(control){
+          control.required = !isTeamAlert;
+        }
+      }
+    );
+
+    [
+      "alertDivision",
+      "alertRecipient",
+      "alertMessage"
+    ].forEach(
+      name=>{
+        const control =
+          form.querySelector(`[name="${name}"]`);
+
+        if(control){
+          control.required = isTeamAlert;
+        }
+      }
+    );
+
+    const submitButton =
+      form.querySelector('button[type="submit"]');
+
+    if(submitButton){
+      submitButton.textContent =
+        isTeamAlert
+          ? "Send Alert"
+          : "Submit Help Ticket";
+    }
+
+    /*
+     * Do NOT change the Help Center modal heading here.
+     * Project Control Help Center remains the permanent title.
+     */
+  }
+
+  function bindAhtTeamAlertFields(){
+    const divisionSelect =
+      document.getElementById("ahtAlertDivision");
+
+    const recipientSelect =
+      document.getElementById("ahtAlertRecipient");
+
+    if(
+      !divisionSelect ||
+      !recipientSelect ||
+      divisionSelect.dataset.bound
+    ){
+      return;
+    }
+
+    divisionSelect.dataset.bound = "1";
+
+    const getEligibleUsers =
+      ()=>{
+        if(
+          typeof USERS === "undefined" ||
+          !Array.isArray(USERS)
+        ){
+          return [];
+        }
+
+        return USERS
+          .filter(user =>
+            user &&
+            user.active === true &&
+            user.division &&
+            user.entraObjectId &&
+            user.role !== "External Viewer"
+          )
+          .sort((a,b) =>
+            String(a.name || "").localeCompare(
+              String(b.name || "")
+            )
+          );
+      };
+
+    const users =
+      getEligibleUsers();
+
+    const divisions =
+      [...new Set(
+        users
+          .map(user => String(user.division || "").trim())
+          .filter(Boolean)
+      )].sort(
+        (a,b)=>a.localeCompare(b)
+      );
+
+    divisionSelect.innerHTML =
+      '<option value="">Select division…</option>' +
+      divisions
+        .map(division =>
+          `<option value="${esc(division)}">${esc(division)}</option>`
+        )
+        .join("");
+
+    const updateRecipients =
+      ()=>{
+        const division =
+          String(
+            divisionSelect.value || ""
+          ).trim();
+
+        const matchingUsers =
+          users
+            .filter(user =>
+              String(user.division || "").trim() === division
+            )
+            .sort((a,b) =>
+              String(a.name || "").localeCompare(
+                String(b.name || "")
+              )
+            );
+
+        recipientSelect.innerHTML =
+          '<option value="">Select team member…</option>' +
+          matchingUsers
+            .map(user => {
+              const id =
+                String(user.entraObjectId || "").trim();
+
+              const name =
+                String(
+                  user.name ||
+                  user.email ||
+                  "AHT Team Member"
+                ).trim();
+
+              return `
+                <option value="${esc(id)}">
+                  ${esc(name)}
+                </option>
+              `;
+            })
+            .join("");
+
+        recipientSelect.disabled =
+          matchingUsers.length === 0;
+      };
+
+    divisionSelect.addEventListener(
+      "change",
+      updateRecipients
+    );
+
+    updateRecipients();
+  }
+
+  function bindHelpRequestCategory(){
+    const form =
+      document.getElementById("dashboardHelpTicketForm");
+
+    const category =
+      document.getElementById("helpRequestCategory");
+
+    if(
+      !form ||
+      !category ||
+      form.dataset.categoryBound
+    ){
+      return;
+    }
+
+    form.dataset.categoryBound = "1";
+
+    const updateCategory =
+      ()=>{
+        const isTeamAlert =
+          category.value === "Alert AHT Team Member";
+
+        const ticketFields =
+          form.querySelectorAll(
+            ".help-ticket-fields"
+          );
+
+        ticketFields.forEach(
+          field=>{
+            field.hidden = isTeamAlert;
+          }
+        );
+
+        const alertPanel =
+          form.querySelector(
+            "#ahtTeamAlertPanel"
+          );
+
+        if(alertPanel){
+          alertPanel.hidden = !isTeamAlert;
+        }
+      };
+
+    category.addEventListener(
+      "change",
+      ()=>{
+        updateCategory();
+        updateHelpRequestCategoryUI();
+      }
+    );
+
+    updateCategory();
+    updateHelpRequestCategoryUI();
   }
 
   function accessRequestHtml(){
@@ -3397,6 +3818,9 @@
       PageArea:
         String(data.get("area")||"").trim(),
 
+      RequestCategory:
+        String(data.get("category")||"Dashboard Issue").trim(),
+
       RequestType:
         String(data.get("type")||"").trim(),
 
@@ -3422,7 +3846,7 @@
 
     try {
       await SharePointDataProvider.sendTeamsActivityNotification({
-        recipientEmail: user.email,
+        recipientObjectId: APP_CONFIG.entra.adminObjectId,
         activityType: "helpTicketSubmitted",
         topic: `Help Ticket - ${subject}`,
         previewText: `${user.name || "A user"} submitted help ticket "${subject}".`,
@@ -3566,7 +3990,170 @@
   }
 
 
+  async function submitAhtTeamAlert(form){
+    const sender =
+      helpCurrentUser();
+
+    if(!sender){
+      throw new Error(
+        "Signed-in user information is unavailable."
+      );
+    }
+
+    if(
+      typeof SharePointDataProvider === "undefined" ||
+      typeof SharePointDataProvider.sendTeamsActivityNotification !== "function"
+    ){
+      throw new Error(
+        "Teams notification connection is unavailable."
+      );
+    }
+
+    const data =
+      new FormData(form);
+
+    const recipientObjectId =
+      String(
+        data.get("alertRecipient") || ""
+      ).trim();
+
+    const division =
+      String(
+        data.get("alertDivision") || ""
+      ).trim();
+
+    const projectContext =
+      String(
+        data.get("alertProject") || ""
+      ).trim();
+
+    const message =
+      String(
+        data.get("alertMessage") || ""
+      ).replace(/\s+/g," ").trim();
+
+    if(!division){
+      throw new Error(
+        "Select an AHT division."
+      );
+    }
+
+    if(!recipientObjectId){
+      throw new Error(
+        "Select an AHT team member."
+      );
+    }
+
+    if(!message){
+      throw new Error(
+        "Enter a message."
+      );
+    }
+
+    const recipient =
+      (
+        typeof USERS !== "undefined" &&
+        Array.isArray(USERS)
+      )
+        ? USERS.find(user =>
+            String(
+              user?.entraObjectId || ""
+            ).trim() === recipientObjectId
+          )
+        : null;
+
+    if(
+      !recipient ||
+      recipient.active !== true ||
+      recipient.role === "External Viewer"
+    ){
+      throw new Error(
+        "The selected AHT team member is not available for Teams alerts."
+      );
+    }
+
+    const recipientName =
+      String(
+        recipient.name ||
+        recipient.email ||
+        "AHT Team Member"
+      ).trim();
+
+    const senderName =
+      String(
+        sender.name ||
+        sender.email ||
+        "AHT User"
+      ).trim();
+
+    let prefix =
+      projectContext
+        ? `${senderName} • ${projectContext}: `
+        : `${senderName}: `;
+
+    const suffix =
+      ` — Reply to ${senderName} in Teams.`;
+
+    /*
+     * Teams displays the first 150 characters of previewText.
+     * Keep the reply instruction visible.
+     */
+    let available =
+      150 -
+      prefix.length -
+      suffix.length;
+
+    if(available < 25){
+      prefix =
+        `${senderName}: `;
+
+      available =
+        150 -
+        prefix.length -
+        suffix.length;
+    }
+
+    const alertMessage =
+      message.length > available
+        ? (
+            message
+              .slice(
+                0,
+                Math.max(
+                  1,
+                  available - 1
+                )
+              )
+              .trimEnd() +
+            "…"
+          )
+        : message;
+
+    const previewText =
+      `${prefix}${alertMessage}${suffix}`;
+
+    await SharePointDataProvider
+      .sendTeamsActivityNotification({
+        recipientObjectId,
+        activityType:
+          "systemDefault",
+        topic:
+          "AHT Project Control Alert",
+        previewText,
+        templateParameters:[]
+      });
+
+    return {
+      recipientName,
+      projectContext
+    };
+  }
+
   function bindRequestForms(){
+    bindHelpRequestCategory();
+    bindAhtTeamAlertFields();
+    updateHelpRequestCategoryUI();
+
     const helpForm=
       document.getElementById(
         "dashboardHelpTicketForm"
@@ -3583,6 +4170,17 @@
         async event=>{
           event.preventDefault();
 
+          const requestCategory =
+            String(
+              helpForm.querySelector(
+                '[name="category"]'
+              )?.value || ""
+            ).trim();
+
+          const isTeamAlert =
+            requestCategory ===
+            "Alert AHT Team Member";
+
           const status=
             document.getElementById(
               "dashboardHelpTicketStatus"
@@ -3596,7 +4194,11 @@
           try{
             if(button){
               button.disabled=true;
-              button.textContent="Submitting…";
+
+              button.textContent=
+                isTeamAlert
+                  ? "Sending…"
+                  : "Submitting…";
             }
 
             if(status){
@@ -3604,7 +4206,35 @@
                 "help-request-status working";
 
               status.textContent=
-                "Submitting help ticket…";
+                isTeamAlert
+                  ? "Sending Teams alert…"
+                  : "Submitting help ticket…";
+            }
+
+            if(isTeamAlert){
+              const result =
+                await submitAhtTeamAlert(
+                  helpForm
+                );
+
+              if(status){
+                status.className=
+                  "help-request-status success";
+
+                status.textContent=
+                  `Alert sent to ${result.recipientName}. Continue the conversation in Microsoft Teams.`;
+              }
+
+              const alertMessage =
+                helpForm.querySelector(
+                  '[name="alertMessage"]'
+                );
+
+              if(alertMessage){
+                alertMessage.value="";
+              }
+
+              return;
             }
 
             const created=
@@ -3638,7 +4268,9 @@
 
           }catch(error){
             console.error(
-              "Help Ticket submission failed.",
+              isTeamAlert
+                ? "AHT Team Alert failed."
+                : "Help Ticket submission failed.",
               error
             );
 
@@ -3648,13 +4280,19 @@
 
               status.textContent=
                 error?.message ||
-                "Help ticket could not be submitted.";
+                (
+                  isTeamAlert
+                    ? "Teams alert could not be sent."
+                    : "Help ticket could not be submitted."
+                );
             }
           }finally{
             if(button){
               button.disabled=false;
               button.textContent=
-                "Submit Help Ticket";
+                isTeamAlert
+                  ? "Send Alert"
+                  : "Submit Help Ticket";
             }
           }
         }
@@ -3678,6 +4316,17 @@
         async event=>{
           event.preventDefault();
 
+          const requestCategory =
+            String(
+              helpForm.querySelector(
+                '[name="category"]'
+              )?.value || ""
+            ).trim();
+
+          const isTeamAlert =
+            requestCategory ===
+            "Alert AHT Team Member";
+
           const status=
             document.getElementById(
               "dashboardAccessRequestStatus"
@@ -3691,7 +4340,11 @@
           try{
             if(button){
               button.disabled=true;
-              button.textContent="Submitting…";
+
+              button.textContent=
+                isTeamAlert
+                  ? "Sending…"
+                  : "Submitting…";
             }
 
             if(status){
@@ -3755,7 +4408,188 @@
     );
   }
 
+  function showHelpHome(){
+    const content=
+      document.getElementById(
+        "helpCenterContent"
+      );
+
+    const tabs=
+      document.getElementById(
+        "helpCenterTabs"
+      );
+
+    const toolbar=
+      document.getElementById(
+        "helpCenterSectionToolbar"
+      );
+
+    if(!content)return;
+
+    tabs?.classList.add("hidden");
+    toolbar?.classList.add("hidden");
+
+    document
+      .querySelectorAll("[data-help-tab]")
+      .forEach(button=>{
+        button.classList.remove("active");
+        button.setAttribute(
+          "aria-selected",
+          "false"
+        );
+      });
+
+    const accessCard=
+      adminRequestAllowed()
+        ? `
+          <button
+            type="button"
+            class="help-home-card help-home-card-action"
+            data-help-home-tab="access"
+          >
+            <span class="help-home-card-head">
+              Access & User Request
+            </span>
+
+            <span class="help-home-card-text">
+              Request users, role changes, project access,
+              removals, or other access assistance.
+            </span>
+
+            <span class="help-home-card-open">
+              Open Access & User Request ›
+            </span>
+          </button>
+        `
+        : "";
+
+    content.innerHTML=`
+      <div class="help-home">
+
+        <div class="help-home-heading">
+          <div class="help-section-kicker">
+            Help Center
+          </div>
+
+          <h3>How can we help?</h3>
+
+          <p>
+            Choose an area below for guidance, quick answers,
+            or support.
+          </p>
+        </div>
+
+        <div class="help-home-grid">
+
+          <button
+            type="button"
+            class="help-home-card"
+            data-help-home-tab="guide"
+          >
+            <span class="help-home-card-head">
+              User Guide
+            </span>
+
+            <span class="help-home-card-text">
+              Learn Project Control and see guidance tailored
+              to your role and available features.
+            </span>
+
+            <span class="help-home-card-open">
+              Open User Guide ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="help-home-card"
+            data-help-home-tab="howto"
+          >
+            <span class="help-home-card-head">
+              How To
+            </span>
+
+            <span class="help-home-card-text">
+              Step-by-step instructions for common dashboard
+              tasks and workflows.
+            </span>
+
+            <span class="help-home-card-open">
+              Browse How To Guides ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="help-home-card"
+            data-help-home-tab="faq"
+          >
+            <span class="help-home-card-head">
+              FAQ
+            </span>
+
+            <span class="help-home-card-text">
+              Find quick answers to common dashboard,
+              schedule, role, and access questions.
+            </span>
+
+            <span class="help-home-card-open">
+              View Frequently Asked Questions ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="help-home-card help-home-card-action"
+            data-help-home-tab="ticket"
+          >
+            <span class="help-home-card-head">
+              Help Ticket
+            </span>
+
+            <span class="help-home-card-text">
+              Report a dashboard issue, data concern,
+              functionality problem, or request assistance.
+            </span>
+
+            <span class="help-home-card-open">
+              Submit Help Ticket ›
+            </span>
+          </button>
+
+          ${accessCard}
+
+        </div>
+      </div>
+    `;
+
+    content
+      .querySelectorAll(
+        "[data-help-home-tab]"
+      )
+      .forEach(button=>{
+        button.onclick=()=>{
+          setTab(
+            button.dataset.helpHomeTab
+          );
+        };
+      });
+  }
+
   function setTab(tab){
+    document
+      .getElementById("helpCenterTabs")
+      ?.classList.add("hidden");
+
+    document
+      .getElementById(
+        "helpCenterSectionToolbar"
+      )
+      ?.classList.remove("hidden");
+
     document.querySelectorAll("[data-help-tab]").forEach(button=>{
       const active=button.dataset.helpTab===tab;
       button.classList.toggle("active",active);
@@ -3908,9 +4742,11 @@
     }
   }
 
-  function open(tab="guide"){
-    const backdrop=document.getElementById("helpCenterBackdrop");
-    if(!backdrop)return;
+  function open(tab=null){
+    const helpView=
+      document.getElementById("help");
+
+    if(!helpView)return;
 
     const accessTab=document.querySelector('[data-help-tab="access"]');
     if(accessTab){
@@ -3927,21 +4763,29 @@
       tab="guide";
     }
 
-    backdrop.style.display="flex";
-    setTab(tab);
+    if(typeof showView==="function"){
+      showView("help");
+    }else{
+      document
+        .querySelectorAll(".view")
+        .forEach(view=>
+          view.classList.toggle(
+            "active",
+            view.id==="help"
+          )
+        );
+    }
 
-    const closeButton=
-      document.getElementById("closeHelpCenterBtn");
-
-    closeButton?.focus();
+    if(tab){
+      setTab(tab);
+    }else{
+      showHelpHome();
+    }
   }
 
   function close(){
-    const backdrop=
-      document.getElementById("helpCenterBackdrop");
-
-    if(backdrop){
-      backdrop.style.display="none";
+    if(typeof showView==="function"){
+      showView("projects");
     }
   }
 
@@ -4621,13 +5465,22 @@
     );
 
     document.getElementById("sidebarHelpBtn")
-      ?.addEventListener("click",()=>open("guide"));
+      ?.addEventListener(
+        "click",
+        ()=>open()
+      );
 
     document.getElementById("adminAccessRequestBtn")
       ?.addEventListener("click",()=>open("access"));
 
     document.getElementById("closeHelpCenterBtn")
       ?.addEventListener("click",close);
+
+    document.getElementById("backToHelpCenterBtn")
+      ?.addEventListener(
+        "click",
+        showHelpHome
+      );
 
     document.getElementById("closeHelpTopicBtn")
       ?.addEventListener("click",closeTopic);
@@ -4639,13 +5492,6 @@
           ()=>setTab(button.dataset.helpTab)
         )
       );
-
-    document.getElementById("helpCenterBackdrop")
-      ?.addEventListener("click",event=>{
-        if(event.target===event.currentTarget){
-          close();
-        }
-      });
 
     document.getElementById("helpTopicBackdrop")
       ?.addEventListener("click",event=>{
@@ -4673,13 +5519,6 @@
         closeTopic();
         return;
       }
-
-      const center=
-        document.getElementById("helpCenterBackdrop");
-
-      if(center?.style.display==="flex"){
-        close();
-      }
     });
   }
 
@@ -4687,6 +5526,7 @@
     openHowTo,
     open,
     close,
+    showHome:showHelpHome,
     setTab,
     openTopic,
     closeTopic,

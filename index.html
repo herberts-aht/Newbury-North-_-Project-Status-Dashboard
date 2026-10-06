@@ -7,7 +7,7 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css?v=20260928154437" />
+<link rel="stylesheet" href="css/styles.css?v=20261006-mobile-cleanup1" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
@@ -227,6 +227,7 @@
           class="nav-section-item"
           type="button"
           id="sidebarHelpBtn"
+          data-view="help"
         >
           Help & Support
         </button>
@@ -519,7 +520,121 @@
           <button class="btn primary manage-projects-only" id="newProjectBtn">Add Project</button>
         </div>
       </div>
-      <div class="admin-panel manage-projects-only">
+      <div id="adminCover" class="admin-cover">
+
+        <div class="admin-cover-heading">
+          <div class="eyebrow">Administration Center</div>
+          <h3>Select an area to manage</h3>
+          <p>
+            Project setup, user access, support requests, and system activity.
+          </p>
+        </div>
+
+        <div class="admin-cover-grid">
+
+          <button
+            type="button"
+            class="admin-cover-card manage-projects-only"
+            data-admin-section="projects"
+          >
+            <span class="admin-cover-card-head">
+              Projects &amp; Setup
+            </span>
+
+            <span class="admin-cover-card-text">
+              Manage projects and build project room structures.
+            </span>
+
+            <span class="admin-cover-card-open">
+              Open Projects &amp; Setup ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="admin-cover-card manage-access-only"
+            data-admin-section="access"
+          >
+            <span class="admin-cover-card-head">
+              Users &amp; Access
+            </span>
+
+            <span class="admin-cover-card-text">
+              Add AHT users, manage dashboard profiles, roles, and project access.
+            </span>
+
+            <span class="admin-cover-card-open">
+              Open Users &amp; Access ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="admin-cover-card"
+            data-admin-section="support"
+          >
+            <span class="admin-cover-card-head">
+              Support
+            </span>
+
+            <span class="admin-cover-card-text">
+              Review Help Tickets and Access &amp; User Requests.
+            </span>
+
+            <span class="admin-cover-card-open">
+              Open Support ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="admin-cover-card"
+            data-admin-section="audit"
+          >
+            <span class="admin-cover-card-head">
+              System
+            </span>
+
+            <span class="admin-cover-card-text">
+              Review the administrative Change Log and system activity.
+            </span>
+
+            <span class="admin-cover-card-open">
+              Open Change Log ›
+            </span>
+          </button>
+
+        </div>
+      </div>
+
+
+      <div
+        id="adminSectionToolbar"
+        class="admin-section-toolbar hidden"
+      >
+        <button
+          type="button"
+          class="btn"
+          id="adminBackToCoverBtn"
+        >
+          ← Back to Administration
+        </button>
+
+        <div>
+          <div class="eyebrow">
+            Administration
+          </div>
+
+          <h3 id="adminSectionTitle">
+            Administration
+          </h3>
+        </div>
+      </div>
+      <div id="adminProjectsPanel" class="admin-panel manage-projects-only">
+
         <h3 style="margin-top:0">Projects</h3>
         <div id="projectAdminList" class="project-admin-list"></div>
       </div>
@@ -989,7 +1104,10 @@
       </div>
 
 
-      <div class="admin-panel support-request-admin-panel">
+      <div
+        id="adminHelpTicketsPanel"
+        class="admin-panel support-request-admin-panel"
+      >
         <div class="support-request-panel-heading">
           <div>
             <div class="eyebrow">Dashboard Support</div>
@@ -1023,6 +1141,7 @@
             <option>Waiting</option>
             <option>Resolved</option>
             <option>Closed</option>
+            <option>Archived</option>
           </select>
 
           <input
@@ -1043,7 +1162,10 @@
       </div>
 
 
-      <div class="admin-panel support-request-admin-panel">
+      <div
+        id="adminAccessRequestsPanel"
+        class="admin-panel support-request-admin-panel"
+      >
         <div class="support-request-panel-heading">
           <div>
             <div class="eyebrow">Access Administration</div>
@@ -1210,6 +1332,26 @@
             ></div>
 
             <div class="support-request-workflow-actions">
+
+              <div class="support-request-destructive-actions">
+                <button
+                  class="btn support-archive-btn hidden"
+                  id="archiveSupportRequestBtn"
+                  type="button"
+                >
+                  Archive Ticket
+                </button>
+
+                <button
+                  class="btn support-delete-btn hidden"
+                  id="deleteSupportRequestBtn"
+                  type="button"
+                  title="Permanently delete this Help Ticket."
+                >
+                  Delete Ticket
+                </button>
+              </div>
+
               <button
                 class="btn primary"
                 id="saveSupportRequestStatusBtn"
@@ -1217,6 +1359,7 @@
               >
                 Save Changes
               </button>
+
             </div>
 
           </div>
@@ -1247,7 +1390,52 @@
         </table></div>
       </div>
     </section>
-  </main>
+  
+<section id="help" class="view">
+  <div class="page-header help-page-header">
+    <div>
+      <div class="eyebrow">Support & Guidance</div>
+      <h2 id="helpCenterTitle">Project Control Help Center</h2>
+      <p>User guidance, frequently asked questions, and support requests.</p>
+    </div>
+  </div>
+
+  <div class="help-page-shell">
+
+    <div
+      id="helpCenterSectionToolbar"
+      class="help-center-section-toolbar hidden"
+    >
+      <button
+        type="button"
+        class="btn"
+        id="backToHelpCenterBtn"
+      >
+        ← Back to Help Center
+      </button>
+    </div>
+
+    <div
+      id="helpCenterTabs"
+      class="help-tabs hidden"
+      role="tablist"
+      aria-label="Help Center sections"
+    >
+      <button type="button" data-help-tab="guide">User Guide</button>
+      <button type="button" data-help-tab="howto">How To</button>
+      <button type="button" data-help-tab="faq">FAQ</button>
+      <button type="button" data-help-tab="ticket">Help Ticket</button>
+      <button type="button" data-help-tab="access" class="hidden">Access & User Request</button>
+    </div>
+
+    <div
+      id="helpCenterContent"
+      class="help-center-content"
+    ></div>
+
+  </div>
+</section>
+</main>
     </div>
   </div>
 </div>
@@ -1303,29 +1491,6 @@
 </div>
 
 
-<div class="modal-backdrop" id="helpCenterBackdrop">
-  <div class="modal help-center-modal" role="dialog" aria-modal="true" aria-labelledby="helpCenterTitle">
-    <div class="help-center-heading">
-      <div>
-        <div class="eyebrow">Support & Guidance</div>
-        <h3 id="helpCenterTitle">Project Control Help Center</h3>
-        <div class="small">User guidance, frequently asked questions, and support requests.</div>
-      </div>
-      <button class="btn" id="closeHelpCenterBtn" type="button">Close</button>
-    </div>
-
-    <div class="help-tabs" role="tablist" aria-label="Help Center sections">
-      <button type="button" data-help-tab="guide">User Guide</button>
-      <button type="button" data-help-tab="howto">How To</button>
-      <button type="button" data-help-tab="faq">FAQ</button>
-      <button type="button" data-help-tab="ticket">Help Ticket</button>
-      <button type="button" data-help-tab="access" class="hidden">Access & User Request</button>
-    </div>
-
-    <div id="helpCenterContent" class="help-center-content"></div>
-  </div>
-</div>
-
 <div class="modal-backdrop" id="helpTopicBackdrop">
   <div class="modal help-topic-modal" role="dialog" aria-modal="true" aria-labelledby="helpTopicTitle">
     <div class="help-center-heading">
@@ -1344,11 +1509,11 @@
 
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
 <script src="https://res.cdn.office.net/teams-js/2.34.0/js/MicrosoftTeams.min.js"></script>
-<script src="js/config.js?v=20260928151951"></script>
+<script src="js/config.js?v=20261005-teamsfix1"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js?v=20260930-projectdelete2"></script>
+<script src="js/data-provider.js?v=20261005-teamsfix1"></script>
 <script src="js/storage.js"></script>
-<script src="js/auth.js?v=20261005-naa1"></script>
+<script src="js/auth.js?v=20261005-naa-stage2"></script>
 <script src="js/microsoft-access.js?v=1790254956"></script>
 <script src="js/permissions.js"></script>
 <script src="js/project-contacts.js?v=20260928163552"></script>
@@ -1561,8 +1726,8 @@
   }
 </style>
 <script src="js/room-builder.js?v=20261002-1"></script>
-  <script src="js/dashboard.js?v=20260929-relatedplan1"></script>
-<script src="js/help-center.js?v=20260925-1718"></script>
+  <script src="js/dashboard.js?v=20261006-mobile-cleanup1"></script>
+<script src="js/help-center.js?v=20261006-help-page1"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js?v=0.15.2"></script>
