@@ -1510,6 +1510,12 @@ window.closeProjectControlDetail=closeProjectControlDetail;
 
 let summaryDeliverableMode = "";
 
+function clearSummaryDeliverableMode(){
+  summaryDeliverableMode="";
+}
+
+window.clearSummaryDeliverableMode=clearSummaryDeliverableMode;
+
 function summaryRecordDestination(recordType,id){
   const project=currentProject();
   if(!project)return null;
@@ -9103,8 +9109,54 @@ async function downloadCurrentGanttPDF(){
       doc.setFont("helvetica","normal");
       doc.setFontSize(5.7);
       doc.setTextColor(...muted);
-      doc.text(fmtDate(ganttIso(item.start)),x1,y+21);
-      doc.text(fmtDate(ganttIso(item.end)),x2,y+21,{align:"right"});
+      const startIso=ganttIso(item.start);
+      const endIso=ganttIso(item.end);
+
+      const pdfGanttShortDate=iso=>{
+        const date=ganttDate(iso);
+        if(!date)return "";
+
+        const day=
+          String(date.getDate()).padStart(2,"0");
+
+        const month=
+          date
+            .toLocaleString(
+              "en-US",
+              {month:"short"}
+            )
+            .toUpperCase();
+
+        return `${day} ${month}`;
+      };
+
+      const startDate=ganttDate(startIso);
+      const endDate=ganttDate(endIso);
+
+      let ganttDateLabel="";
+
+      if(startIso===endIso){
+        ganttDateLabel=
+          pdfGanttShortDate(endIso);
+      }else if(
+        startDate &&
+        endDate &&
+        startDate.getFullYear()!==endDate.getFullYear()
+      ){
+        ganttDateLabel=
+          `${pdfGanttShortDate(startIso)} ${String(startDate.getFullYear()).slice(-2)} - `+
+          `${pdfGanttShortDate(endIso)} ${String(endDate.getFullYear()).slice(-2)}`;
+      }else{
+        ganttDateLabel=
+          `${pdfGanttShortDate(startIso)} - ${pdfGanttShortDate(endIso)}`;
+      }
+
+      doc.text(
+        ganttDateLabel,
+        (x1+x2)/2,
+        y+21,
+        {align:"center"}
+      );
     });
 
     footer();

@@ -3429,7 +3429,27 @@ importBackupBtn.onclick=()=>{
 };
 importBackupFileInput.onchange=e=>importBackupFile(e.target.files?.[0]);
 
-document.querySelectorAll(".sidebar-nav button[data-view]").forEach(b=>b.onclick=()=>showView(b.dataset.view));projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
+document.querySelectorAll(".sidebar-nav button[data-view]").forEach(b=>b.onclick=()=>{
+
+  const targetView=b.dataset.view;
+
+  if(
+    targetView==="deliverables" &&
+    window.clearSummaryDeliverableMode
+  ){
+    window.clearSummaryDeliverableMode();
+  }
+
+  showView(targetView);
+
+  if(
+    targetView==="deliverables" &&
+    typeof render==="function"
+  ){
+    render();
+  }
+
+});projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
 window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");addSiteLocationBtn.onclick=()=>SiteOperations.openLocationEditor();
 addSiteOperationBtn.onclick=()=>SiteOperations.openOperationEditor();cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
 document.addEventListener("keydown",e=>{
