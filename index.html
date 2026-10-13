@@ -523,7 +523,6 @@
       </div>
       <div class="tools-launcher-grid" id="aht-tools-launcher">
         <div class="card"><h3>Wire Label Printer</h3><p>Prepare and print AHT wire labels.</p><button class="btn primary" type="button" onclick="document.getElementById('aht-tools-launcher').hidden=true;document.getElementById('aht-wire-label-panel').hidden=false;">Open Wire Label Printer</button></div>
-        <div class="card"><h3>Keypad / PIR Layout</h3><p>Place lighting keypads and occupancy sensors on PDF plans.</p><button class="btn" type="button" data-aht-pir-pilot="1" onclick="showView('planEditorPilot')">Open Keypad / PIR</button></div>
         <div class="card"><h3>Speaker / Subwoofer Layout</h3><p>Mark audio devices and room layouts.</p><button class="btn" disabled>Coming soon</button></div>
         <div class="card"><h3>Shade Layout</h3><p>Plan and count window shade locations.</p><button class="btn" disabled>Coming soon</button></div>
         <div class="card"><h3>Access Control Layout</h3><p>Plan door hardware and access devices.</p><button class="btn" disabled>Coming soon</button></div>
@@ -587,21 +586,6 @@
 <script src="tools/aht-tools-hub.js?v=3"></script>
 <!-- AHT-TOOLS-HUB-V1: end -->
 </section>
-
-        <!-- AHT Keypad/PIR pilot: isolated existing editor, not a shared engine yet. -->
-    <section id="planEditorPilot" class="view">
-      <div class="page-header">
-        <div>
-          <div class="eyebrow">Tools &amp; Utilities / PDF Plan Editor Pilot</div>
-          <h2>Lighting Keypad / PIR Layout</h2>
-          <p>Existing layout editor. Work files are downloaded locally; project sync is not enabled.</p>
-        </div>
-        <div class="actions">
-          <button class="btn" type="button" onclick="showView('tools')">Back to Tools</button>
-        </div>
-      </div>
-      <iframe class="aht-pir-pilot-frame" title="AHT Keypad and PIR Location Tool" src="tools/AHT_pir_tool_flow_v1.html" loading="lazy"></iframe>
-    </section>
 
     <section id="admin" class="view">
       <div class="page-header">
