@@ -221,6 +221,9 @@
         </button>
 
 
+        <div class="nav-section-label">Tools</div>
+        <button class="nav-section-item" data-view="tools">Tools & Utilities</button>
+
         <div class="nav-section-label">Support</div>
 
         <button
@@ -509,6 +512,96 @@
     </div>
   </div>
 </section>
+
+    <section id="tools" class="view">
+      <div class="page-header">
+        <div>
+          <div class="eyebrow">AHT Project Control</div>
+          <h2>Tools & Utilities</h2>
+          <p>Project planning, device layouts, and production utilities.</p>
+        </div>
+      </div>
+      <div class="tools-launcher-grid" id="aht-tools-launcher">
+        <div class="card"><h3>Wire Label Printer</h3><p>Prepare and print AHT wire labels.</p><button class="btn primary" type="button" onclick="document.getElementById('aht-tools-launcher').hidden=true;document.getElementById('aht-wire-label-panel').hidden=false;">Open Wire Label Printer</button></div>
+        <div class="card"><h3>Keypad / PIR Layout</h3><p>Place lighting keypads and occupancy sensors on PDF plans.</p><button class="btn" type="button" data-aht-pir-pilot="1" onclick="showView('planEditorPilot')">Open Keypad / PIR</button></div>
+        <div class="card"><h3>Speaker / Subwoofer Layout</h3><p>Mark audio devices and room layouts.</p><button class="btn" disabled>Coming soon</button></div>
+        <div class="card"><h3>Shade Layout</h3><p>Plan and count window shade locations.</p><button class="btn" disabled>Coming soon</button></div>
+        <div class="card"><h3>Access Control Layout</h3><p>Plan door hardware and access devices.</p><button class="btn" disabled>Coming soon</button></div>
+        <div class="card"><h3>CCTV / Perimeter Layout</h3><p>Plan cameras, coverage, and perimeter devices.</p><button class="btn" disabled>Coming soon</button></div>
+      </div>
+
+      <div id="aht-wire-label-panel" hidden>
+        <button class="btn" type="button" style="margin:12px 0;" onclick="document.getElementById('aht-wire-label-panel').hidden=true;document.getElementById('aht-tools-launcher').hidden=false;">← Back to Tools</button>
+        <iframe id="aht-wire-label-frame" title="AHT Wire Label Printer"
+          src="tools/AHT_Wire_Label_Print_Tool.html"
+          style="width:100%;height:calc(100vh - 250px);min-height:670px;border:1px solid #d6dce3;background:white;display:block;"
+          loading="lazy"></iframe>
+      </div>
+
+<!-- AHT-TOOLS-HUB-V1: begin; confined to #tools view -->
+<link rel="stylesheet" href="tools/aht-tools-hub.css?v=3">
+<div id="aht-tools-hub">
+  <div data-aht-hub-menu>
+    <p class="aht-hub-intro">Open a planning tool to mark up a PDF, review proposed changes, and export the results. Save Work (JSON) before switching editors if you need to reopen your markups later.</p>
+    <div class="aht-hub-section"><h3>Plan Markup</h3><span>5 tools</span></div>
+    <div class="aht-hub-grid">
+      <button class="aht-hub-card" type="button" data-aht-tool="lighting">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 14a6 6 0 1 1 8 0c-1 1-1.5 2-1.5 3.5h-5C9.5 16 9 15 8 14Z"/><path d="M9.5 20h5M10.5 22h3"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Lighting / Keypads / PIR</span><span class="aht-hub-description">Keypads, motion sensors, gateways and lighting-device changes</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="shades">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16M6 7h12v11H6zM8 11h8M8 14h8M12 18v3"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Shades &amp; Drapery</span><span class="aht-hub-description">Shade runs, drapery, outlets and head-end locations</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="cctv">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 13-2 3 6-13 2-3-6ZM8 13l-1 3m1 0h10M13 13l2 3"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">CCTV Cameras</span><span class="aht-hub-description">Fixed and fisheye cameras, coverage and change annotations</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="speakers">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="7" r="1"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Speakers / Subwoofers</span><span class="aht-hub-description">Ceiling, wall, landscape, subwoofers and soundbars</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="access">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14a4 4 0 1 1 3.5-2L9 16H6v3H3v-4l5.5-5"/><circle cx="13.5" cy="8" r=".7"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Access Control</span><span class="aht-hub-description">Door openings, linked devices, systems and hardware schedules</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+    </div>
+    <div class="aht-hub-section"><h3>Production Tools</h3><span>1 tool</span></div>
+    <div class="aht-hub-grid">
+      <button class="aht-hub-card" type="button" data-aht-tool="labels">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h14l4 7-4 7H3V5Z"/><circle cx="7" cy="12" r="1.5"/><path d="M11 10h6m-6 4h6"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Wire Label Printer</span><span class="aht-hub-description">Prepare and print installation wire labels</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+    </div>
+  </div>
+  <div data-aht-hub-panel hidden>
+    <div class="aht-hub-toolbar">
+      <button type="button" class="aht-hub-back" data-aht-hub-back>← Back to Tools</button>
+      <span class="aht-hub-title" data-aht-hub-title></span>
+      <button type="button" class="aht-hub-fit" data-aht-hub-fit title="Show the complete PDF page in the available drawing area">⤢ Fit Drawing</button>
+
+    </div>
+    <iframe class="aht-hub-frame" data-aht-hub-frame title="AHT Project Markup Tool" src="about:blank" loading="eager"></iframe>
+  </div>
+</div>
+<script src="tools/aht-tools-hub.js?v=3"></script>
+<!-- AHT-TOOLS-HUB-V1: end -->
+</section>
+
+        <!-- AHT Keypad/PIR pilot: isolated existing editor, not a shared engine yet. -->
+    <section id="planEditorPilot" class="view">
+      <div class="page-header">
+        <div>
+          <div class="eyebrow">Tools &amp; Utilities / PDF Plan Editor Pilot</div>
+          <h2>Lighting Keypad / PIR Layout</h2>
+          <p>Existing layout editor. Work files are downloaded locally; project sync is not enabled.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button" onclick="showView('tools')">Back to Tools</button>
+        </div>
+      </div>
+      <iframe class="aht-pir-pilot-frame" title="AHT Keypad and PIR Location Tool" src="tools/AHT_pir_tool_flow_v1.html" loading="lazy"></iframe>
+    </section>
 
     <section id="admin" class="view">
       <div class="page-header">

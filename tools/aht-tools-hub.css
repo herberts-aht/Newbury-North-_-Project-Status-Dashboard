@@ -1,0 +1,62 @@
+/* AHT Tool Hub — isolated to the dashboard Tools view. No global styles. */
+#tools .tools-launcher-grid,
+#tools #aht-wire-label-panel { display:none !important; }
+#tools #aht-tools-hub [hidden] { display:none !important; }
+#tools #aht-tools-hub { margin:16px 0 22px; font:inherit; color:inherit; }
+#tools #aht-tools-hub * { box-sizing:border-box; }
+#tools #aht-tools-hub .aht-hub-intro { margin:0 0 18px; color:#627183; font-size:13px; line-height:1.5; }
+#tools #aht-tools-hub .aht-hub-section { margin:22px 0 8px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+#tools #aht-tools-hub .aht-hub-section h3 { margin:0; font-size:15px; color:#22364d; font-weight:700; }
+#tools #aht-tools-hub .aht-hub-section span { color:#718296; font-size:12px; }
+#tools #aht-tools-hub .aht-hub-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+#tools #aht-tools-hub button.aht-hub-card { all:unset; display:flex; align-items:flex-start; text-align:left; gap:12px; min-height:120px; padding:18px; cursor:pointer; border:1px solid #dbe3ec; border-radius:12px; background:#fff; box-shadow:0 1px 3px rgba(25,41,61,.045); transition:box-shadow .16s ease,border-color .16s ease,transform .16s ease; box-sizing:border-box; }
+#tools #aht-tools-hub button.aht-hub-card:hover { border-color:#80a9ce; box-shadow:0 5px 18px rgba(21,53,86,.10); transform:translateY(-1px); }
+#tools #aht-tools-hub button.aht-hub-card:focus-visible { outline:3px solid #357eaf; outline-offset:3px; }
+#tools #aht-tools-hub .aht-hub-icon { flex:0 0 auto; width:40px;height:40px; display:grid;place-items:center; border-radius:11px; background:#ebf3fa; color:#205e8f; }
+#tools #aht-tools-hub .aht-hub-icon svg { height:22px; width:22px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+#tools #aht-tools-hub .aht-hub-card-copy { min-width:0; display:flex; flex-direction:column; gap:5px; }
+#tools #aht-tools-hub .aht-hub-name { font-size:14px; font-weight:700; color:#1e344c; }
+#tools #aht-tools-hub .aht-hub-description { font-size:12px; color:#63758a; line-height:1.45; }
+#tools #aht-tools-hub .aht-hub-open { margin-top:4px; font-size:11px; color:#236798; font-weight:650; }
+#tools #aht-tools-hub .aht-hub-toolbar { display:flex;flex-wrap:wrap;align-items:center;gap:12px; margin:3px 0 12px; }
+#tools #aht-tools-hub .aht-hub-back { appearance:none;border:1px solid #c7d6e4; border-radius:8px; background:#fff; color:#23557f; padding:8px 12px; cursor:pointer; font:inherit; font-size:12px; font-weight:650; }
+#tools #aht-tools-hub .aht-hub-back:hover { background:#eff5fb; }
+#tools #aht-tools-hub .aht-hub-title { font-size:15px; font-weight:700; color:#1e344c; }
+#tools #aht-tools-hub .aht-hub-hint { margin-left:auto; font-size:11px; color:#7b603a; }
+#tools #aht-tools-hub iframe.aht-hub-frame { display:block; width:100%; height:calc(100vh - 225px); height:calc(100dvh - 225px); min-height:570px; max-height:1080px; border:1px solid #dbe3ec; border-radius:10px; background:white; }
+@media(max-width:1050px) {#tools #aht-tools-hub .aht-hub-grid {grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:650px) {#tools #aht-tools-hub .aht-hub-grid {grid-template-columns:1fr;}#tools #aht-tools-hub .aht-hub-hint {margin-left:0;}#tools #aht-tools-hub iframe.aht-hub-frame {min-height:650px;}}
+
+/* AHT Tool Hub v2: use the available dashboard workspace, not a full-screen takeover.
+   Only the OPEN editor breaks out of the dashboard content max-width.
+   Centre relative to the existing Tools column; keep nav, headers and menu unchanged. */
+#tools #aht-tools-hub [data-aht-hub-panel]:not([hidden]) {
+  position:relative;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(1440px, calc(100vw - 270px));
+  max-width:none;
+}
+#tools #aht-tools-hub .aht-hub-fit {
+  appearance:none; background:#f0f6fc; color:#205b87;
+  border:1px solid #b9d2e3; padding:8px 12px; border-radius:8px;
+  cursor:pointer; font:inherit; font-size:12px; font-weight:650;
+}
+#tools #aht-tools-hub .aht-hub-fit:hover { background:#dfedf8; }
+#tools #aht-tools-hub .aht-hub-fit:focus-visible { outline:3px solid #357eaf; outline-offset:2px; }
+#tools #aht-tools-hub .aht-hub-toolbar { row-gap:8px; }
+@media (max-width:950px) {
+  #tools #aht-tools-hub [data-aht-hub-panel]:not([hidden]) {
+    left:auto; transform:none; width:100%;
+  }
+  #tools #aht-tools-hub iframe.aht-hub-frame { min-height:600px; }
+}
+
+/* v3: compact editor toolbar; toolbar stays with the workspace, no floating reminder. */
+#tools #aht-tools-hub [data-aht-hub-panel] .aht-hub-toolbar {
+  display:flex; align-items:center; flex:0 0 auto;
+  gap:10px; padding:2px 2px 0; margin-bottom:8px;
+}
+#tools #aht-tools-hub [data-aht-hub-panel] iframe.aht-hub-frame {
+  flex:1 1 0; min-width:0; min-height:0; max-height:none;
+}
