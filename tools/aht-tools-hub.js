@@ -9,20 +9,33 @@
   const title = hub.querySelector('[data-aht-hub-title]');
   const back = hub.querySelector('[data-aht-hub-back]');
   const fitButton = hub.querySelector('[data-aht-hub-fit]');
+  const pageHeader = document.querySelector('#tools > .page-header');
+  const toolbar = panel.querySelector('.aht-hub-toolbar');
   let originalPanelStyle = null;
-  let editorTop = null;
-  if (!(menu && panel && frame && title && back)) return;
+  let originalHeaderStyle = null;
+  let headerTop = null;
+  if (!(menu && panel && frame && title && back && pageHeader && toolbar)) return;
 
   const tools = Object.freeze({
-    lighting: {name: 'Lighting / Keypads / PIR', path: 'tools/AHT_pir_tool_flow_v9_8.html'},
-    shades: {name: 'Shades & Drapery', path: 'tools/AHT_shades_tool_pilot_v2.html'},
-    cctv: {name: 'CCTV Cameras', path: 'tools/AHT_cctv_workflow_pilot_v2.html'},
-    speakers: {name: 'Speakers / Subwoofers', path: 'tools/AHT_speakers_workflow_pilot_v4.html'},
-    access: {name: 'Access Control', path: 'tools/AHT_access_workflow_pilot_v2.html'},
+    lighting: {name: 'Lighting / Keypads / PIR', path: 'tools/AHT_pir_tool_flow_v9_9.html'},
+    shades: {name: 'Shades & Drapery', path: 'tools/AHT_shades_tool_pilot_v3.html'},
+    cctv: {name: 'CCTV Cameras', path: 'tools/AHT_cctv_workflow_pilot_v3.html'},
+    speakers: {name: 'Speakers / Subwoofers', path: 'tools/AHT_speakers_workflow_pilot_v5.html'},
+    access: {name: 'Access Control', path: 'tools/AHT_access_workflow_pilot_v3.html'},
     labels: {name: 'Wire Label Printer', path: 'tools/AHT_Wire_Label_Print_Tool.html'}
   });
 
   let current = null;
+
+  // Dashboard capability check. Hiding navigation alone must never grant editor access.
+  // This is a UI/session guard, not a replacement for SharePoint authorization.
+  function canOpenToolHub() {
+    try {
+      return typeof currentUser !== 'undefined' && Boolean(currentUser && currentUser.canEdit);
+    } catch (_) {
+      return false;
+    }
+  }
 
   // The dashboard's normal content column intentionally has a modest max-width.
   // A CSS-only breakout can be clipped by one of its scroll containers.
@@ -51,17 +64,31 @@
     const left = Math.max(12, Math.round(rail + (rail ? 18 : 12)));
     const right = viewportWidth > 850 ? 20 : 12;
     const width = Math.max(320, viewportWidth - left - right);
-    // Set when first opened, before fixed positioning removes it from flow.
-    if (editorTop === null) editorTop = panel.getBoundingClientRect().top;
-    const maxTop = Math.max(125, Math.round(window.innerHeight * 0.33));
-    const top = Math.max(110, Math.min(Math.round(editorTop), maxTop));
+    // Header and drawing use identical workspace edges, clear of the sidebar.
+    // Capture the natural header position before taking it out of document flow.
+    if (headerTop === null) headerTop = pageHeader.getBoundingClientRect().top;
+    const maxHeaderTop = Math.max(100, Math.round(window.innerHeight * 0.27));
+    const headingTop = Math.max(86, Math.min(Math.round(headerTop), maxHeaderTop));
+    pageHeader.style.setProperty('position', 'fixed', 'important');
+    pageHeader.style.setProperty('top', headingTop + 'px', 'important');
+    pageHeader.style.setProperty('left', left + 'px', 'important');
+    pageHeader.style.setProperty('width', width + 'px', 'important');
+    pageHeader.style.setProperty('max-width', 'none', 'important');
+    pageHeader.style.setProperty('margin', '0', 'important');
+    pageHeader.style.setProperty('z-index', '61', 'important');
+    pageHeader.style.setProperty('display', 'flex', 'important');
+    pageHeader.style.setProperty('align-items', 'center', 'important');
+    pageHeader.style.setProperty('justify-content', 'space-between', 'important');
+    pageHeader.style.setProperty('gap', '12px', 'important');
+    // No separate toolbar row; begin the drawing directly beneath the header.
+    const top = Math.round(pageHeader.getBoundingClientRect().bottom + 10);
     const bottom = 14;
     panel.style.setProperty('position', 'fixed', 'important');
     panel.style.setProperty('top', top + 'px', 'important');
     panel.style.setProperty('left', left + 'px', 'important');
     panel.style.setProperty('width', width + 'px', 'important');
     panel.style.setProperty('max-width', 'none', 'important');
-    panel.style.setProperty('height', Math.max(390, window.innerHeight - top - bottom) + 'px', 'important');
+    panel.style.setProperty('height', Math.max(290, window.innerHeight - top - bottom) + 'px', 'important');
     panel.style.setProperty('transform', 'none', 'important');
     panel.style.setProperty('z-index', '60', 'important');
     panel.style.setProperty('display', 'flex', 'important');
@@ -74,11 +101,17 @@
     frame.style.setProperty('max-height', 'none', 'important');
   }
   function clearEditorLayout() {
+    // Restore the toolbar to its original DOM position so menu and editor remain reversible.
+    panel.insertBefore(toolbar, frame);
+    pageHeader.classList.remove('aht-tools-editor-header');
+    if (originalHeaderStyle !== null) pageHeader.setAttribute('style', originalHeaderStyle);
+    else pageHeader.removeAttribute('style');
     if (originalPanelStyle !== null) panel.setAttribute('style', originalPanelStyle);
     else panel.removeAttribute('style');
     frame.removeAttribute('style');
+    originalHeaderStyle = null;
     originalPanelStyle = null;
-    editorTop = null;
+    headerTop = null;
   }
   window.addEventListener('resize', () => { if (current) positionEditor(); });
 
@@ -86,6 +119,10 @@
     return window.confirm('Before leaving this tool, export your marked-up PDF and save your work (JSON), if needed. Any unsaved edits in the editor will be lost. Continue?');
   }
   function openTool(key) {
+    if (!canOpenToolHub()) {
+      window.alert('Tools & Utilities is available to Editors, Project Admins, and Admins.');
+      return;
+    }
     if (!Object.prototype.hasOwnProperty.call(tools, key)) return;
     if (current && current !== key && !confirmClose()) return;
     if (current === key) return;
@@ -93,10 +130,13 @@
     title.textContent = tools[key].name;
     menu.hidden = true;
     panel.hidden = false;
-    originalPanelStyle = panel.getAttribute('style') || '';
-    editorTop = panel.getBoundingClientRect().top;
-    positionEditor();
+    originalPanelStyle = panel.getAttribute('style');
+    originalHeaderStyle = pageHeader.getAttribute('style');
+    headerTop = pageHeader.getBoundingClientRect().top;
+    pageHeader.classList.add('aht-tools-editor-header');
+    pageHeader.appendChild(toolbar);  // Preserve existing Back / title / Fit handlers.
     if (fitButton) fitButton.hidden = key === 'labels';
+    positionEditor();
     frame.src = tools[key].path;
   }
   function closeTool() {

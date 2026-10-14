@@ -222,7 +222,7 @@
 
 
         <div class="nav-section-label">Tools</div>
-        <button class="nav-section-item" data-view="tools">Tools & Utilities</button>
+        <button class="nav-section-item editor-only hidden" data-view="tools">Tools & Utilities</button>
 
         <div class="nav-section-label">Support</div>
 
@@ -513,7 +513,7 @@
   </div>
 </section>
 
-    <section id="tools" class="view">
+    <section id="tools" class="view editor-only hidden">
       <div class="page-header">
         <div>
           <div class="eyebrow">AHT Project Control</div>
@@ -538,7 +538,8 @@
       </div>
 
 <!-- AHT-TOOLS-HUB-V1: begin; confined to #tools view -->
-<link rel="stylesheet" href="tools/aht-tools-hub.css?v=3">
+<link rel="stylesheet" href="tools/aht-tools-hub.css?v=4">
+<link rel="stylesheet" href="tools/aht-project-document-picker.css?v=2">
 <div id="aht-tools-hub">
   <div data-aht-hub-menu>
     <p class="aht-hub-intro">Open a planning tool to mark up a PDF, review proposed changes, and export the results. Save Work (JSON) before switching editors if you need to reopen your markups later.</p>
@@ -583,7 +584,9 @@
     <iframe class="aht-hub-frame" data-aht-hub-frame title="AHT Project Markup Tool" src="about:blank" loading="eager"></iframe>
   </div>
 </div>
-<script src="tools/aht-tools-hub.js?v=3"></script>
+<script src="js/project-document-locations.js?v=2"></script>
+<script src="tools/aht-project-document-picker.js?v=3"></script>
+<script src="tools/aht-tools-hub.js?v=7"></script>
 <!-- AHT-TOOLS-HUB-V1: end -->
 </section>
 
