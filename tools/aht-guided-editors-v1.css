@@ -1,0 +1,82 @@
+/* AHT Guided Editor Workflow v1 — shared UI for the four existing plan editors.
+   No drawing, PDF, JSON, CSV, Graph, or permissions logic is modified. */
+#ahtGuidedSteps {
+  background:#f3f7fb; border:1px solid #bbd3e5; border-radius:10px;
+  padding:10px; margin:10px 0 14px;
+}
+#ahtGuidedSteps .aht-guided-overline {
+  color:#284e6d; font-size:10px; font-weight:800; letter-spacing:.06em;
+  text-transform:uppercase; margin:0 0 7px;
+}
+#ahtGuidedSteps .aht-guided-grid {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px;
+}
+#ahtGuidedSteps .aht-guided-link {
+  display:block; width:100%; text-align:center; line-height:1.25;
+  min-height:47px; border:1px solid #d0dce6; border-radius:7px;
+  padding:5px 3px; background:#fff; color:#36536c;
+  font-family:inherit; font-weight:650; font-size:11px;
+  white-space:normal; cursor:pointer;
+}
+#ahtGuidedSteps .aht-guided-link b {
+  display:block; color:#1c5b89; font-size:12px; margin-bottom:2px;
+}
+#ahtGuidedSteps .aht-guided-link[aria-current="step"] {
+  background:#deeffb; border-color:#3083b6;
+  box-shadow:inset 0 0 0 1px #3083b6; color:#144a6e;
+}
+#ahtGuidedSteps .aht-guided-link:hover,
+#ahtGuidedSteps .aht-guided-link:focus-visible {background:#ecf6fd;}
+#ahtGuidedNext { font-size:11px; color:#425e76; margin-top:8px; line-height:1.4; }
+#ahtGuidedSteps .aht-guided-link:focus-visible,
+.aht-guided-shortcut:focus-visible { outline:2px solid #1475ba; outline-offset:2px; }
+#sidebar .workflow-step {scroll-margin-top:12px;}
+#sidebar .workflow-step > .step-heading {
+  border-bottom:1px solid #e7edf2; padding-bottom:8px;
+}
+#sidebar #detailsSection {border-color:#a7cce0; background:#fafdff;}
+#sidebar #detailsSection #selectionSettings {
+  display:block; background:#fff; border:1px solid #8fbad8;
+  padding:10px; margin:10px 0;
+}
+#sidebar #detailsSection #selectionSettings > summary {
+  font-size:13px; font-weight:750; color:#155781; cursor:pointer;
+}
+#sidebar #detailsSection #selectionSettings > summary span {
+  font-size:11px; color:#506a80;
+}
+#sidebar #detailsSection #selectionSettings #szRange,
+#sidebar #detailsSection #selectionSettings #iconSize {accent-color:#1673ad;}
+#sidebar #detailsSection #selectionSettings #szAll {
+  background:#edf7ff; border-color:#8ab8d9; font-weight:700;
+}
+.aht-guided-size-tip {
+  background:#edf7fc; border:1px solid #bfdaeb; color:#2d526e;
+  border-radius:7px; font-size:11px; line-height:1.4;
+  padding:9px 10px; margin:9px 0;
+}
+.aht-guided-size-tip strong {color:#155781;}
+#sidebar #bulkCoveragePanel {border-color:#b9d9d4;}
+.aht-guided-intro {margin:8px 0 12px; color:#456376; font-size:11px; line-height:1.4;}
+.aht-guided-shortcut {
+  border:1px solid #8ab8d9; border-radius:7px;
+  background:#eaf5ff; color:#145581; font-size:12px;
+  min-height:34px; width:100%; margin:9px 0;
+  font-weight:700; cursor:pointer;
+}
+#aht-guided-stage4 .shade-run-controls {
+  background:#fff; border-radius:7px; padding:10px;
+  border:1px solid #c7d9e6;
+}
+#aht-guided-stage4 {border-color:#b9d7e8;}
+#aht-guided-stage4 .aht-door-buttons {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
+}
+#aht-guided-stage4 .aht-door-buttons button {
+  min-height:42px; white-space:normal; font-size:11px;
+  background:#eef6fc; border:1px solid #9fc3da; color:#1d5778;
+}
+@media(max-width:440px) {
+  #ahtGuidedSteps .aht-guided-grid {grid-template-columns:repeat(3,minmax(0,1fr));}
+  #aht-guided-stage4 .aht-door-buttons {grid-template-columns:1fr;}
+}

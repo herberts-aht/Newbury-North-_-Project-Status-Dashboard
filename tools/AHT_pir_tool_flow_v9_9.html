@@ -221,6 +221,9 @@
   .editor-head-branded h1 {font-size:13px;}
 }
 </style>
+<!-- AHT_GUIDED_EDITORS_V1 -->
+<link rel="stylesheet" href="aht-guided-editors-v1.css?v=1" data-aht-guided="v1">
+<script src="aht-change-log-xlsx.js"></script>
 </head>
 <body>
 <div id="app">
@@ -413,7 +416,9 @@
       <div class="muted export-help">JSON preserves the editable layout for later changes.</div>
 
       <div class="minor-label export-label">Device Counts</div>
-      <button type="button" id="csvBtn" class="full export-csv">Counts for Excel (CSV)</button>
+      <button type="button" id="csvBtn" class="full export-csv">Download Change Log (CSV)</button>
+      <button type="button" id="ahtXlsxBtn" class="full export-csv" style="background:#163b63;color:#fff;border-color:#163b63;font-weight:700;margin-top:6px">Download AHT Change Log (Excel .xlsx)</button>
+      <div class="muted" id="ahtChangeLogNotice" style="margin-top:7px"><strong>PRELIMINARY - FOR REVIEW AND COORDINATION ONLY.</strong> Not a final AHT Global engineered design. Not for construction, installation, or procurement without engineering review and approval.</div>
       <div id="status" aria-live="polite"></div>
     </section>
 
@@ -1205,15 +1210,85 @@ $('loadInput').onchange = e => {
   } catch (err) { status('Could not read that work file: ' + err.message); } };
   r.readAsText(f); e.target.value = '';
 };
+// AHT_BRANDED_EXPORT_V1: shared four-column rows; same data for plain CSV and formatted XLSX.
+function ahtChangeLogRows() {
+  const form = $('changeDetails');
+  if (typeof pendingDetailId !== 'undefined' && pendingDetailId != null &&
+      form && form.style.display !== 'none') {
+    status('Save Change Details before exporting so the current change note is included.');
+    $('detailSave')?.focus();
+    return null;
+  }
+  const locationOf = m => {
+    const parent = typeof attachedDoor === 'function' ? attachedDoor(m) : null;
+    let room = String(m.roomName || parent?.roomName || '').trim();
+    let number = String(m.roomNumber || parent?.roomNumber || '').trim();
+    const legacy = String(m.note || parent?.note || '').trim();
+    if ((!room || !number) && legacy) {
+      const match = legacy.match(/^([A-Za-z]*\d[\w.\/-]*)\s+[—–-]\s+(.+)$/);
+      if (match) { if (!number) number = match[1].trim(); if (!room) room = match[2].trim(); }
+      else if (!room) room = legacy;
+    }
+    return { room, number };
+  };
+  const selected = markers.filter(m =>
+    (DEV[m.type] || isArea(m)) &&
+    !(typeof isCamera === 'function' && isCamera(m) &&
+      typeof cameraStage === 'function' && cameraStage(m) === 'initial' && !m.changeComment)
+  ).slice().sort((a, b) =>
+    Number(a.page || 1) - Number(b.page || 1) ||
+    locationOf(a).number.localeCompare(locationOf(b).number, undefined, { numeric:true }) ||
+    locationOf(a).room.localeCompare(locationOf(b).room, undefined, { numeric:true }) ||
+    Number(a.id || 0) - Number(b.id || 0)
+  );
+  const rows = [['PDF Page', 'Room / Area', 'Room #', 'Change Note']];
+  selected.forEach(m => {
+    const loc = locationOf(m);
+    const note = m.changeComment || (isArea(m) ? m.text || '' : '');
+    rows.push([m.page || 1, loc.room, loc.number, String(note).trim()]);
+  });
+  return rows;
+}
 $('csvBtn').onclick = () => {
-  const rows = [['Device', 'Qty (all pages)', 'Total width (ft)']]; const c = {}, len = {};
-  devMarkers().forEach(m => { c[m.type] = (c[m.type] || 0) + 1; if (DEV[m.type].kind === 'line') len[m.type] = (len[m.type] || 0) + lineLenFt(m); });
-  CFG.devices.forEach(d => { if (c[d.key]) rows.push([d.label, c[d.key], len[d.key] ? len[d.key].toFixed(1) : '']); });
-  rows.push([]); rows.push(['Page', 'Room / area note', 'Device', 'Qty']); const byN = {};
-  devMarkers().forEach(m => { const k = (m.page || 1) + '||' + (m.note || '(no note)') + '||' + DEV[m.type].label; byN[k] = (byN[k] || 0) + 1; });
-  Object.keys(byN).sort((x, y) => parseInt(x) - parseInt(y) || (x < y ? -1 : 1)).forEach(k => { const [p, n, d] = k.split('||'); rows.push([p, n, d, byN[k]]); });
-  const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
-  download(baseName() + ' - ' + CFG.fileTag + ' counts.csv', new Blob([csv], { type: 'text/csv' }));
+  const rows = ahtChangeLogRows();
+  if (!rows) return;
+  const escapeCell = v => {
+    let text = String(v == null ? '' : v);
+    // Protect Excel/Numbers from formula execution in user-entered fields.
+    if (/^[\s]*[=+@\-\t\r]/.test(text) && !/^\-?\d+(\.\d+)?$/.test(text.trim())) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+  const csv = '\uFEFF' + rows.map(row => row.map(escapeCell).join(',')).join('\r\n');
+  download(baseName() + ' - ' + CFG.fileTag + ' - PRELIMINARY Change Log.csv',
+    new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  status('Exported ' + (rows.length - 1) + ' change-log row(s) as CSV.');
+};
+// AHT_EXCEL_COMPAT_V2: wait for logo + XLSX bytes before downloading.
+$('ahtXlsxBtn').onclick = async () => {
+  const rows = ahtChangeLogRows();
+  if (!rows) return;
+  if (!window.AHTBrandXlsx || typeof window.AHTBrandXlsx.build !== 'function') {
+    status('Excel exporter not ready. The CSV remains available.');
+    return;
+  }
+  const btn = $('ahtXlsxBtn');
+  const original = btn.textContent;
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Preparing AHT Excel report…';
+    const bytes = await window.AHTBrandXlsx.build(rows, 'Lighting / Keypads / PIR');
+    if (!(bytes instanceof Uint8Array) || bytes.length < 1000)
+      throw new Error('Excel exporter returned incomplete data');
+    download(baseName() + ' - ' + CFG.fileTag + ' - PRELIMINARY Change Log.xlsx',
+      new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    status('Downloaded AHT Excel Change Log (' + (rows.length - 1) + ' rows).');
+  } catch (err) {
+    console.error('AHT Excel export:', err);
+    status('Excel export failed: ' + (err.message || err) + '. Plain CSV remains available.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
 };
 
 // ---------- export marked-up PDF ----------
@@ -1272,21 +1347,19 @@ $('pdfBtn').onclick = async () => {
       if (G.leader) { const a = conv(G.lx, G.ly), b = conv(G.leader[0], G.leader[1]); page.drawLine({ start: { x: a[0], y: a[1] }, end: { x: b[0], y: b[1] }, thickness: Math.max(1, sw * 0.7), color: col }); }
       polygon([[G.bx, G.by], [G.bx + G.w, G.by], [G.bx + G.w, G.by + G.h], [G.bx, G.by + G.h]], rgb(1, 1, 1), 0.95, col, 1, sw * 0.8);
       G.lines.forEach((t, i) => text(t, G.lx, G.base(i), G.fs, col, true)); });
-    // legend + stamp (top-left of the sheet)
-    const fs = Math.max(10, Math.max(vp.width, vp.height) / 190);
-    const used = CFG.devices.filter(d => PM.some(m => m.type === d.key)); if(PM.some(m=>m.type==='relocate')) used.push(DEV.relocate);
-    const lines = ['PRELIMINARY – DEVICE LOCATIONS FOR ENGINEERING DEVELOPMENT', 'Not a design drawing. Device locations are proposed and subject to engineering review.', new Date().toLocaleDateString()];
-    const lh = fs * 1.35, bw = Math.max(fs * 22, ...lines.map((t, i) => font.widthOfTextAtSize(t, i === 0 ? fs * 1.05 : fs * 0.85)), ...used.map(d => font.widthOfTextAtSize(d.label + '  ×' + PM.filter(m => m.type === d.key).length, fs * 0.9) + fs * 2.3)) + fs * 1.6, bh = lh * (lines.length + used.length + 1) + fs;
-    const bx = 30, by = 30;
-    polygon([[bx, by], [bx + bw, by], [bx + bw, by + bh], [bx, by + bh]], rgb(1, 1, 1), 0.92, rgb(0.2, 0.2, 0.2), 1, 0.8);
-    let yy = by + fs * 1.5;
-    lines.forEach((t, i) => { text(t, bx + fs * 0.7, yy, i === 0 ? fs * 1.05 : fs * 0.85, i === 0 ? rgb(0.64, 0.18, 0.18) : black, false); yy += lh; });
-    yy += lh * 0.2;
-    used.forEach(d => { const cnt = PM.filter(m => m.type === d.key).length; const c = hexRgb(d.color, PDFLib);
-      if (d.kind === 'line') { const a = conv(bx + fs * 0.8, yy - fs * 0.3), b = conv(bx + fs * 2.2, yy - fs * 0.3); page.drawLine({ start: { x: a[0], y: a[1] }, end: { x: b[0], y: b[1] }, thickness: fs * 0.4, color: c, lineCap: 1 }); }
-      else if(d.kind==='relocate') text('MOVE',bx+fs*1.3,yy,fs*.7,hexRgb(d.color,PDFLib),true);
-      else drawIconPdf(d, bx + fs * 1.5, yy - fs * 0.35, d.overlay ? fs * 0.6 : fs * 1.15, polygon, text, hexRgb, PDFLib);
-      text(d.label + '  ×' + cnt + (d.kind === 'line' ? '  (' + PM.filter(m => m.type === d.key).reduce((a, m) => a + lineLenFt(m), 0).toFixed(0) + ' ft)' : ''), bx + fs * 3, yy, fs * 0.9, black, false); yy += lh; });
+        // AHT_BRANDED_EXPORT_V1: compact, two-line plan stamp; no counts or dates.
+    const fs = Math.max(8, Math.min(10, Math.max(vp.width, vp.height) / 360));
+    const stampTitle = 'AHT GLOBAL - PRELIMINARY';
+    const stampSub = 'For review and coordination only. Not a final engineered design.';
+    const titleSize = fs * 1.04, subSize = fs * .78;
+    const bw = Math.max(font.widthOfTextAtSize(stampTitle, titleSize),
+                        font.widthOfTextAtSize(stampSub, subSize)) + fs * 1.4;
+    const bh = fs * 3.05, bx = 44, by = 44; // AHT_EXCEL_COMPAT_V2: inset from sheet edge
+    const ink = rgb(.075, .22, .38);
+    polygon([[bx, by], [bx+bw, by], [bx+bw, by+bh], [bx, by+bh]],
+      rgb(1, 1, 1), .94, ink, .9, .8);
+    text(stampTitle, bx + fs * .7, by + fs * 1.35, titleSize, ink, false);
+    text(stampSub, bx + fs * .7, by + fs * 2.42, subSize, black, false);
     const out = await doc.save();
     download(baseName() + ' - ' + CFG.fileTag + ' (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
     status('Exported marked-up PDF (this page only). Original file is untouched.');
@@ -1367,5 +1440,6 @@ window.addEventListener('resize', () => { if (vp) scheduleSharpRedraw(); });
 refresh();
 </script>
 <script src="aht-tool-project-picker-button.js?v=1"></script>
+<script src="aht-guided-editors-v1.js?v=1" data-editor="lighting"></script>
 </body>
 </html>

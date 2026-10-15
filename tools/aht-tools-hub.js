@@ -20,7 +20,7 @@
     lighting: {name: 'Lighting / Keypads / PIR', path: 'tools/AHT_pir_tool_flow_v9_9.html'},
     shades: {name: 'Shades & Drapery', path: 'tools/AHT_shades_tool_pilot_v3.html'},
     cctv: {name: 'CCTV Cameras', path: 'tools/AHT_cctv_workflow_pilot_v3.html'},
-    speakers: {name: 'Speakers / Subwoofers', path: 'tools/AHT_speakers_workflow_pilot_v5.html'},
+    devices: {name: 'Device Locations', path: 'tools/AHT_device_locations_pilot_v1.html'},
     access: {name: 'Access Control', path: 'tools/AHT_access_workflow_pilot_v3.html'},
     labels: {name: 'Wire Label Printer', path: 'tools/AHT_Wire_Label_Print_Tool.html'}
   });
