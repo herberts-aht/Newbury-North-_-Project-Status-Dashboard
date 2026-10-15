@@ -1551,6 +1551,11 @@ const SharePointDataProvider = {
           subtitle: fields.ProjectSubtitle || "",
           division: fields.Division || "",
           phase: fields.ProjectPhase || "",
+          // Verified project document-folder link (stored on the master Projects item).
+          ahtDocSiteUrl: fields.AHTDocSiteUrl || "",
+          ahtDocDriveId: fields.AHTDocDriveId || "",
+          ahtDocFolderId: fields.AHTDocFolderId || "",
+          ahtDocFolderName: fields.AHTDocFolderName || "",
 
           deliveryPhases: (() => {
             const raw =

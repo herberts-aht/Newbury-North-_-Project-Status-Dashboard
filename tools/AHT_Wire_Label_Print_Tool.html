@@ -97,6 +97,18 @@ button.link:hover{text-decoration:underline}
 /* AHT TWO-LINE PRINT LABEL FIX v1 */
 .cell.print:not(.numonly) { font-size: 8px; line-height: 1.15; }
 .cell.print > span { display:block; width:100%; white-space:nowrap; overflow:visible; }
+/* AHT_WIRE_BULK_EDIT_V1 - local-only, label-printer-only styling */
+.bulk-edit{border:1px solid var(--line);border-radius:5px;background:var(--tail);padding:12px;display:grid;gap:9px}
+.bulk-edit h4{font-size:.87rem;color:var(--navy);margin:0}
+.bulk-edit label{font-size:.78rem;font-weight:650;display:grid;gap:4px}
+.bulk-edit input{width:100%;min-width:0;border:1px solid #bbc7d3;border-radius:4px;padding:9px 10px;font:inherit;font-size:13px;background:white;color:var(--fg)}
+.bulk-edit input:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.bulk-edit .bulk-actions{display:flex;gap:7px;flex-wrap:wrap}
+.bulk-edit .bulk-actions button{font-size:.79rem;padding:8px 10px}
+.bulk-edit button:disabled{opacity:.42;cursor:not-allowed}
+.bulk-edit .bulk-status{font-size:.77rem;color:var(--muted);line-height:1.35;min-height:1em}
+.bulk-edit .bulk-status.warn{color:var(--warn-fg);background:transparent;border:0;padding:0;border-radius:0}
+
 </style>
 
 <div class="topbar"><div class="topbar-in">
@@ -150,6 +162,22 @@ button.link:hover{text-decoration:underline}
         <div class="warn" id="warn" hidden></div>
         <textarea id="list" spellcheck="false" aria-label="Wire labels, one per line"></textarea>
         <p class="hint">One label per line. Edit, add or delete lines here, or type your own without a drawing. <button class="link" id="sortBtn" type="button">Sort list</button> · <button class="link" id="clearBtn" type="button">Clear list</button></p>
+        <!-- AHT_WIRE_BULK_EDIT_V1: bulk-edit printable text (literal, case-insensitive) -->
+        <div class="bulk-edit" aria-label="Bulk find and replace wire-label text">
+          <h4>Bulk Find &amp; Remove</h4>
+          <p class="hint">Remove the same text from every label in this list (and any labels placed manually). Finds text regardless of uppercase/lowercase.</p>
+          <label for="bulkFind">Find text to remove
+            <input type="text" id="bulkFind" spellcheck="false" autocomplete="off" placeholder="e.g. C/LUTRON" />
+          </label>
+          <label for="bulkReplace">Replace with (optional)
+            <input type="text" id="bulkReplace" spellcheck="false" autocomplete="off" placeholder="Leave blank to remove" />
+          </label>
+          <div class="bulk-status" id="bulkStatus" role="status" aria-live="polite">Enter text to preview the number of labels affected.</div>
+          <div class="bulk-actions">
+            <button class="pbtn main" type="button" id="bulkApply" disabled>Apply to labels</button>
+            <button class="pbtn" type="button" id="bulkUndo" disabled>Undo last bulk edit</button>
+          </div>
+        </div>
       </div>
 
       <div class="step">
@@ -166,9 +194,22 @@ button.link:hover{text-decoration:underline}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script>
 // ---- Label parsing ----
-// Wire label pattern on AHT drawings: PREFIX /CABLE /DESTINATION HE /ROOM-ID  e.g. S /CAT6 /MAIN HE /024-C001
-const LABEL_RE = /(?:^|[^A-Z0-9])([A-Z]{1,3})\s*\/\s*([A-Z0-9][A-Z0-9.\-]*)\s*\/\s*([A-Z][A-Z0-9 ]*?\bL?HE)\s*\/\s*([A-Z0-9]{2,5}-[A-Z]{1,2}\d{3})(?![A-Z0-9])/g;
-const LEGEND_EXAMPLE = "A/14-4/AUD HE/101-X002";
+// Discipline-neutral AHT wire-callout importer.
+// Parse the four *structural* fields, not the names of equipment or head-ends:
+//   PREFIX / WIRE TYPE / DESTINATION / WIRE ID
+// E.g. S/CAT6/NET-025-01/024-C001, C/LUTRON QS/SHP-123-01/134-SP001,
+//      D/CAT6/NET HE/001-L001, AV/HDMI 2.1/RACK-101/101-V001.
+// Wire types may contain spaces and slashes (14/4), destinations may contain
+// numbers, spaces, dashes, and names other than HE. The final identifier must
+// contain a hyphen and a numeric sequence so legends/normal prose don't match.
+// If future drawing formats change the *number of fields*, review samples and
+// add another structure parser instead of encoding more discipline names.
+const LABEL_RE = /(?:^|[^A-Z0-9])([A-Z]{1,5})\s*\/\s*([A-Z0-9][A-Z0-9 ._+#\/-]{0,55}?)\s*\/\s*([A-Z0-9][A-Z0-9 ._+#-]{0,55}?)\s*\/\s*([A-Z0-9]{1,12}-[A-Z0-9]{0,8}\d{1,5}[A-Z]?)(?![A-Z0-9])/g;
+// Demonstration callouts printed in drawing legends; they are NOT physical wires.
+const LEGEND_EXAMPLES = new Set([
+  "A/14-4/AUD HE/101-X002",
+  "C/LUTRON QS/CTRL HE/101-SP001"
+]);
 
 // items: [{str, x, y}] for one page -> array of text lines
 function itemsToLines(items) {
@@ -194,15 +235,12 @@ function findLabels(lines) {
   return out;
 }
 
-// pages: array of arrays of labels (per page). Drops the legend example that repeats on every sheet.
+// Preserve genuine repeated wire IDs across pages so the duplicate warning can
+// flag them for review. Only known *legend demonstration* labels are omitted.
 function collectLabels(pages) {
-  const everyPage = pages.length >= 3
-    ? new Set(pages[0].filter(l => pages.every(p => p.includes(l))))
-    : new Set();
   const all = [];
   pages.forEach(p => p.forEach(l => {
-    if (l === LEGEND_EXAMPLE || everyPage.has(l)) return;
-    all.push(l);
+    if (!LEGEND_EXAMPLES.has(l)) all.push(l);
   }));
   return sortLabels(all);
 }
@@ -414,6 +452,7 @@ $("popUsed").addEventListener("click", () => { if (editPos === null) return; if 
 $("popAuto").addEventListener("click", () => { if (editPos === null) return; used.delete(editPos); manual.delete(editPos); closeEditor(); });
 $("popClose").addEventListener("click", closeEditor);
 $("popText").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); saveEditor(); } if (e.key === "Escape") closeEditor(); });
+$("popText").addEventListener("keydown",e=>{if(e.key==="Enter"){bulkInvalidateUndo();bulkPreview();}});
 $("addSheet").addEventListener("click", () => { extraSheets++; render(); });
 
 async function readPdf(file){
@@ -435,9 +474,11 @@ async function readPdf(file){
     $("list").value = labels.join("\n");
     $("srcTag").textContent = file.name; $("srcTag").title = file.name;
     if (labels.length){ st.className = "status ok"; st.textContent = "Found " + labels.length + " labels on " + pdf.numPages + " sheet" + (pdf.numPages > 1 ? "s" : "") + "."; }
-    else { st.className = "status err"; st.textContent = "No wire labels found. The PDF may be scanned or flattened, so its text can't be read. Type the labels into the list instead."; }
+    else { st.className = "status err"; st.textContent = "No complete wire callouts detected. Check that the PDF contains selectable text and four-part AHT wire callouts. You can enter labels manually or provide a drawing sample for another format."; }
     $("dlStatus").textContent = "";
     render();
+    bulkInvalidateUndo();
+    bulkPreview();
   }catch(e){
     st.className = "status err"; st.textContent = "Couldn't read that file. Make sure it's a PDF exported from CAD, not a scan.";
     console.error(e);
@@ -475,6 +516,92 @@ $("numOnly").addEventListener("change", render);
 $("resetUsed").addEventListener("click", () => { used.clear(); manual.clear(); extraSheets = 0; closeEditor(); });
 $("clearBtn").addEventListener("click", () => { $("list").value = ""; $("srcTag").textContent = "No drawing"; render(); });
 $("sortBtn").addEventListener("click", () => { $("list").value = sortLabels(currentLabels()).join("\n"); render(); });
+
+
+// AHT_WIRE_BULK_EDIT_V1 - literal case-insensitive find/replace for printable label text.
+// This does NOT change the PDF parser, Word label dimensions, or print formatting.
+let bulkUndoSnapshot = null;
+function bulkInvalidateUndo(){
+  bulkUndoSnapshot = null;
+  $("bulkUndo").disabled = true;
+}
+function bulkTransform(value, needle, replacement){
+  // Split/join without a regex ensures '/', '+', '.', parentheses, etc. are literal.
+  if (!needle) return value;
+  const lower = value.toLocaleLowerCase();
+  const look = needle.toLocaleLowerCase();
+  let i = 0, at = lower.indexOf(look), out = "";
+  if (at < 0) return value;
+  while (at >= 0){
+    out += value.slice(i, at) + replacement;
+    i = at + needle.length;
+    at = lower.indexOf(look, i);
+  }
+  out += value.slice(i);
+  // Drop an orphan slash at an edge when a whole leading field was removed.
+  return out.trim().replace(/^\s*\/+\s*|\s*\/+\s*$/g, "").replace(/\s*\/\s*/g, "/");
+}
+function bulkPreview(){
+  const needle = $("bulkFind").value.trim();
+  const replacement = $("bulkReplace").value;
+  const lines = $("list").value.split(/\r?\n/).filter(s => s.trim());
+  const listHits = needle ? lines.filter(s => bulkTransform(s,needle,replacement)!==s) : [];
+  const manualHits = needle ? [...manual.entries()].filter(([,s])=>s && bulkTransform(s,needle,replacement)!==s) : [];
+  const hits = listHits.length + manualHits.length;
+  const empties = needle && [...listHits,...manualHits.map(([,s])=>s)].some(s => !bulkTransform(s,needle,replacement).trim());
+  $("bulkApply").disabled = !hits || !!empties;
+  $("bulkApply").textContent = hits ? `Apply to ${hits} label${hits===1?"":"s"}` : "Apply to labels";
+  const st = $("bulkStatus");
+  st.classList.toggle("warn",!!empties);
+  st.textContent = !needle ? "Enter text to preview the number of labels affected."
+    : !hits ? "No matching labels. Nothing will be changed."
+    : empties ? "One or more labels would become empty. Use a smaller search phrase."
+    : `${listHits.length} list label${listHits.length===1?"":"s"}` + (manualHits.length?` + ${manualHits.length} manually placed label${manualHits.length===1?"":"s"}`:"") + " will change. No labels will be deleted.";
+}
+function bulkApply(){
+  bulkPreview();
+  if ($("bulkApply").disabled) return;
+  const needle = $("bulkFind").value.trim();
+  const replacement = $("bulkReplace").value;
+  const rows = $("list").value.split(/\r?\n/);
+  const updated = rows.map(s => bulkTransform(s,needle,replacement));
+  const manualUpdated = new Map([...manual].map(([position,s])=>[position,bulkTransform(s,needle,replacement)]));
+  const touchedList = updated.some((s,i)=>s!==rows[i]);
+  const touchedManual = [...manual].some(([position,s])=>manualUpdated.get(position)!==s);
+  if (!touchedList && !touchedManual) return;
+  bulkUndoSnapshot = { text: $("list").value, manual: new Map(manual) };
+  $("list").value = updated.join("\n");
+  manual.clear();
+  for (const [p,s] of manualUpdated) manual.set(p,s);
+  $("bulkUndo").disabled = false;
+  render();
+  bulkPreview();
+}
+function bulkUndo(){
+  if (!bulkUndoSnapshot) return;
+  $("list").value = bulkUndoSnapshot.text;
+  manual.clear();
+  for (const [p,s] of bulkUndoSnapshot.manual) manual.set(p,s);
+  bulkInvalidateUndo();
+  render();
+  bulkPreview();
+}
+$("bulkFind").addEventListener("input",bulkPreview);
+$("bulkReplace").addEventListener("input",bulkPreview);
+$("bulkApply").addEventListener("click",bulkApply);
+$("bulkUndo").addEventListener("click",bulkUndo);
+// A new import or manual edits make old Undo snapshots unsafe; clear them.
+$("list").addEventListener("input",()=>{bulkInvalidateUndo();bulkPreview();});
+$("file").addEventListener("change",()=>{bulkInvalidateUndo();});
+$("drop").addEventListener("drop",()=>{bulkInvalidateUndo();});
+$("sortBtn").addEventListener("click",()=>{bulkInvalidateUndo();bulkPreview();});
+$("clearBtn").addEventListener("click",()=>{bulkInvalidateUndo();bulkPreview();});
+$("popSave").addEventListener("click",()=>{bulkInvalidateUndo();bulkPreview();});
+$("popClear").addEventListener("click",()=>{bulkInvalidateUndo();bulkPreview();});
+$("popUsed").addEventListener("click",()=>{bulkInvalidateUndo();bulkPreview();});
+$("popAuto").addEventListener("click",()=>{bulkInvalidateUndo();bulkPreview();});
+$("resetUsed").addEventListener("click",()=>{bulkInvalidateUndo();bulkPreview();});
+bulkPreview();
 
 render();
 </script>

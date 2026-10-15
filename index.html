@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="css/project-work.css?v=0.15.04" />
   <link rel="stylesheet" href="css/project-contacts.css?v=0.14.89" />
   <link rel="stylesheet" href="css/project-task-editor.css?v=0.15.11" />
+<link rel="stylesheet" href="css/aht-new-project-onboarding.css?v=4" /> <!-- AHT-NEW-PROJECT-ONBOARDING-PILOT-V1 -->
 <style>
   #roomBuilderSelectCleanBtn,
   #roomBuilderSelectAllBtn,
@@ -585,7 +586,7 @@
   </div>
 </div>
 <script src="js/project-document-locations.js?v=2"></script>
-<script src="tools/aht-project-document-picker.js?v=3"></script>
+<script src="tools/aht-project-document-picker.js?v=4"></script>
 <script src="tools/aht-tools-hub.js?v=8"></script>
 <!-- AHT-TOOLS-HUB-V1: end -->
 </section>
@@ -1591,7 +1592,7 @@
 <script src="https://res.cdn.office.net/teams-js/2.34.0/js/MicrosoftTeams.min.js"></script>
 <script src="js/config.js?v=20261005-teamsfix1"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js?v=20261005-teamsfix1"></script>
+<script src="js/data-provider.js?v=20261015-folderlink-v1"></script>
 <script src="js/storage.js"></script>
 <script src="js/auth.js?v=20261005-naa-stage2"></script>
 <script src="js/microsoft-access.js?v=1790254956"></script>
@@ -1805,12 +1806,13 @@
     }
   }
 </style>
-<script src="js/room-builder.js?v=20261002-1"></script>
+<script src="js/room-builder.js?v=20261015-folderlink-v1-2"></script>
   <script src="js/dashboard.js?v=20261006-mobile-cleanup1"></script>
 <script src="js/help-center.js?v=20261006-help-page1"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js?v=0.15.2"></script>
+<script src="js/aht-new-project-onboarding.js?v=4"></script>
 <script>
 
 
@@ -3499,7 +3501,7 @@ window.toggleArchive=id=>{
  logChange("Update",p.id,"Project",p.name,p.archived?"Project archived.":"Project restored.");
  save();
 };
-newProjectBtn.onclick=()=>openModal("project");
+newProjectBtn.onclick=()=>window.AHTProjectOnboarding.open();
 const importBackupFileInput=document.getElementById("importBackupFile");
 exportBackupBtn.onclick=exportBackup;
 importBackupBtn.onclick=()=>{

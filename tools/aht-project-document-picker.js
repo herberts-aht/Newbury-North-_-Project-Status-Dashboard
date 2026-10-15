@@ -60,6 +60,19 @@
     return candidates.filter(project => project && !project.archived);
   }
   function locationFor(project) {
+    // Only use persisted links within the *verified* office library.
+    const officeMatches = (window.AHT_OFFICE_DOCUMENT_LIBRARIES || []).filter(item =>
+      item && clean(item.office) && clean(item.siteUrl) && clean(item.library) &&
+      officeKey(item.office) === officeKey(project.division || project.office));
+    if (officeMatches.length === 1 && clean(project.ahtDocFolderId) && clean(project.ahtDocDriveId) &&
+        clean(project.ahtDocSiteUrl) === clean(officeMatches[0].siteUrl)) {
+      return {
+        ...officeMatches[0],
+        folderId: clean(project.ahtDocFolderId),
+        driveId: clean(project.ahtDocDriveId),
+        folderName: clean(project.ahtDocFolderName)
+      };
+    }
     const entries = window.AHT_PROJECT_DOCUMENT_LOCATIONS || [];
     const matches = entries.filter(item => {
       if (!item || !clean(item.office) || !clean(item.folder) || !clean(item.library) || !clean(item.siteUrl)) return false;
@@ -89,7 +102,9 @@
   function ensureCurrentAuthorization() {
     if (!hasEditorAccess() || !session.project || !session.location) throw new Error('Your tool access is unavailable.');
     const live = availableProjects().find(row => clean(row.project.id) === clean(session.project.id) &&
-      row.location === session.location &&
+      clean(row.location.siteUrl) === clean(session.location.siteUrl) &&
+      clean(row.location.library) === clean(session.location.library) &&
+      clean(row.location.folder || row.location.folderId || '') === clean(session.location.folder || session.location.folderId || '') &&
       officeKey(row.project.division || row.project.office) === officeKey(session.location.office));
     if (!live) throw new Error('Your project access or document mapping has changed. Reopen the picker.');
     const frame = document.querySelector('#aht-tools-hub [data-aht-hub-frame]');
@@ -382,7 +397,17 @@
       session.site=site;
       session.drive=matches[0];
       let root;
-      if (where.folder) {
+      if (where.folderId) {
+        if (clean(session.drive.id) !== clean(where.driveId)) {
+          throw new Error('The saved project folder belongs to a different document library. Have an administrator verify the link in Room Builder.');
+        }
+        root=await graph(`/drives/${encodeURIComponent(session.drive.id)}/items/${encodeURIComponent(where.folderId)}?$select=id,name,folder,parentReference,remoteItem`);
+        const driveRoot=await graph(`/drives/${encodeURIComponent(session.drive.id)}/root?$select=id,name,folder`);
+        if (!root?.folder || root?.remoteItem ||
+            clean(root?.parentReference?.id) !== clean(driveRoot?.id)) {
+          throw new Error('The saved folder is not a verified top-level project folder in this office library.');
+        }
+      } else if (where.folder) {
         const path=safeFolderParts(where.folder).map(encodeURIComponent).join('/');
         // Verified per-project override: no office-wide discovery needed.
         root=await graph(`/drives/${encodeURIComponent(session.drive.id)}/root:/${path}?$select=id,name,folder,webUrl`);
@@ -393,7 +418,7 @@
       if (token!==session.generation) return;
       if (!root.id || !root.folder) throw new Error('The mapped project folder was not found.');
       session.root=root;
-      text(ui.context,`${where.office} office · ${where.library} library · ${root.name}${where.folder ? '' : ' (auto-matched)'}`);
+      text(ui.context,`${where.office} office · ${where.library} library · ${root.name}${where.folder || where.folderId ? ' (verified)' : ' (auto-matched)'}`);
       session.crumbs=[{id:root.id,name:root.name}];
       await loadCurrentFolder();
     } catch(error) {
