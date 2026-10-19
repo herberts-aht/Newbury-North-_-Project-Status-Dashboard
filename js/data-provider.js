@@ -594,6 +594,10 @@ const SharePointDataProvider = {
         .filter(Boolean);
     }
 
+    let schedule = {};
+    try { schedule = JSON.parse(fields.ScheduleDetails || "{}"); }
+    catch (_) { console.warn("Invalid ScheduleDetails for work item", item.id); }
+
     return {
       id:
         fields.WorkItemKey ||
@@ -637,6 +641,12 @@ const SharePointDataProvider = {
 
       targetDate:
         this.normalizeDate(fields.TargetDate),
+      scheduleMode: schedule.mode || "",
+      scheduleReason: schedule.reason || "",
+      scheduleReviewDate: this.normalizeDate(schedule.reviewDate),
+      scheduleTrigger: schedule.trigger || "",
+      scheduleOffsetDays: Number(schedule.offsetDays || 0),
+      scheduleTriggerDate: this.normalizeDate(schedule.triggerDate),
 
       percentComplete:
         Number(fields.PercentComplete || 0),
@@ -683,7 +693,19 @@ const SharePointDataProvider = {
           ? [item.predecessorId]
           : [];
 
+    const schedulingFields = item.scheduleMode
+      ? { ScheduleDetails: JSON.stringify({
+          mode: item.scheduleMode,
+          reason: item.scheduleReason || "",
+          reviewDate: item.scheduleReviewDate || "",
+          trigger: item.scheduleTrigger || "",
+          offsetDays: Number(item.scheduleOffsetDays || 0),
+          triggerDate: item.scheduleTriggerDate || ""
+        }) }
+      : {};
+
     return {
+      ...schedulingFields,
       Title:
         String(item.title || "Untitled Task").slice(0,255),
 
@@ -784,6 +806,18 @@ const SharePointDataProvider = {
   async saveProjectWorkItems(nextItems = []) {
     const listName =
       this.config.lists.projectWorkItems;
+
+    // Preflight schema before *any* write, preventing a partial bulk sync.
+    if (nextItems.some(item => Boolean(item.scheduleMode))) {
+      const site = await this.getSite();
+      const listId = await this.getListId(listName);
+      const response = await this.graph(
+        `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/columns?$select=name`
+      );
+      if (!(response.value || []).some(column => column.name === "ScheduleDetails")) {
+        throw new Error("ScheduleDetails field is not installed in SharePoint Project Work Items. Run the included schema setup first. No SharePoint items have been changed.");
+      }
+    }
 
     const existingRows =
       await this.getListRows(listName);

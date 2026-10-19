@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <title>AHT Keypad & PIR Location Tool</title>
 <style>
+<!-- AHT_SENSOR_FAMILIES_V1_1 -->
+.sensor-identity { display:none; margin:9px 0; padding:10px; border:1px solid #bfd3e7; background:#f2f8fd; border-radius:8px; }
+.sensor-identity .row > * { min-width:0; }
+.sensor-identity .lbl { margin:7px 0 3px; }
+.sensor-identity .sensor-intro { font-size:11px; color:#4e6579; line-height:1.5; }
+
   :root { --border:#d8d5cc; --border2:#b7b3a6; --text:#1a1a18; --text2:#5f5e5a; --muted:#8a877d; --bg:#f4f2ec; --card:#fff; --accent:#185fa5; --danger:#a32d2d; }
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; }
@@ -317,10 +323,20 @@
 
 
       <div id="detailsEmpty" class="panel quiet">Place a marker or choose an item in Review to enter its room and notes.</div>
-      <div id="viewRow" class="pir-preview-controls" style="display:none"><div class="minor-label">Selected PIR / Coverage Preview</div>
-        <label class="chk" style="font-weight:700"><input type="checkbox" id="pirRangeChk"><span>Show range for this PIR</span></label>
+      <div id="sensorIdentity" class="sensor-identity" aria-label="Selected sensor make and model">
+        <div class="minor-label" style="margin-top:0">Sensor make / model</div>
+        <div class="sensor-intro">Editable for each placed sensor. Defaults: Basalte Auro for discrete PIR, Lutron LOS wired series for large occupancy sensors.</div>
+        <label class="lbl" for="sensorMake">Manufacturer</label>
+        <input type="text" id="sensorMake" maxlength="80" placeholder="e.g. Lutron">
+        <label class="lbl" for="sensorModel">Model / series</label>
+        <input type="text" id="sensorModel" maxlength="80" placeholder="e.g. LOS-CDT-2000-WH">
+        <button type="button" id="sensorIdentityReset" style="margin-top:7px">Restore sensor defaults</button>
+        <div class="muted" style="margin-top:6px">Included in saved work JSON and AHT CSV/Excel change-log notes.</div>
+      </div>
+      <div id="viewRow" class="pir-preview-controls" style="display:none"><div class="minor-label" id="sensorPreviewTitle">Selected Sensor / Coverage Preview</div>
+        <label class="chk" style="font-weight:700"><input type="checkbox" id="pirRangeChk"><span>Show illustrative sensor coverage</span></label>
         <div class="muted" id="pirRangeState" role="status">Range hidden. Turn on to preview.</div>
-        <label class="lbl">Illustrative range size: <span id="rngVal">2.0</span></label>
+        <label class="lbl">Illustrative coverage size: <span id="rngVal">2.0</span></label>
         <input type="range" id="rngRange" min="1.2" max="10" step="0.1" value="2" style="width:100%">
         <div id="wallPIRControls" style="display:none">
           <label class="lbl">Facing direction: <span id="wallDirVal">0</span>°</label>
@@ -330,9 +346,9 @@
           <div class="row" style="margin-top:5px"><button type="button" id="wall360Btn">Set 360° coverage</button><button type="button" id="wall120Btn">Reset 120°</button></div>
           <div class="muted">Wall PIR only: aim the sensor and adjust its viewing angle. You can also drag the yellow direction and angle handles while it is selected.</div>
         </div>
-        <label class="lbl">PIR symbol / range color</label>
-        <div class="row"><input type="color" id="vcolor" value="#10b7b6" style="height:30px;padding:2px;flex:none;width:44px"><button id="vcNew">Restore teal</button></div>
-        <div class="muted">The size is relative to the symbol, not a measured distance. This translucent planning preview is illustrative and excluded from the PDF export.</div>
+        <label class="lbl">Sensor symbol / coverage color</label>
+        <div class="row"><input type="color" id="vcolor" value="#10b7b6" style="height:30px;padding:2px;flex:none;width:44px"><button id="vcNew">Restore default color</button></div>
+        <div class="muted">Coverage size is a relative drawing guide, not feet or a verified detection pattern. LOS allows a substantially larger illustration. The translucent preview is excluded from PDF export.</div>
       </div>
 
     </section>
@@ -377,16 +393,16 @@
 
     <!-- AHT_BULK_COVERAGE_V1: start -->
     <section class="workflow-step" id="bulkCoveragePanel" aria-label="Bulk coverage controls">
-      <div class="minor-label">All PIR coverage guides</div>
+      <div class="minor-label">All sensor coverage guides</div>
       <label class="lbl" for="bulkCoverageScope">Which placed devices?</label>
-      <select id="bulkCoverageScope"><option value="all">All PIR sensors</option><option value="ceiling">Ceiling PIRs</option><option value="wall">Wall PIRs</option></select>
+      <select id="bulkCoverageScope"><option value="all">All PIR / occupancy sensors</option><option value="ceiling">Ceiling discrete PIRs</option><option value="wall">Wall discrete PIRs</option><option value="wired">Wired occupancy (LOS)</option></select>
       <div class="row" style="margin-top:9px;gap:8px">
         <button type="button" id="bulkCoverageShow" style="flex:1" title="Show coverage for all matching placed devices">Show All</button>
         <button type="button" id="bulkCoverageHide" style="flex:1" title="Hide coverage for all matching placed devices">Hide All</button>
       </div>
       <label class="lbl" for="bulkCoverageSize" style="margin-top:10px">Adjust All — relative size: <strong id="bulkCoverageValue">2.0</strong></label>
       <input type="range" id="bulkCoverageSize" min="1.2" max="10" step="0.1" value="2" style="width:100%" aria-describedby="bulkCoverageHelp">
-      <div class="muted" id="bulkCoverageHelp">Illustrative relative size — NOT a measured detection radius. Wall PIR direction and angle are preserved. Guides are screen-only. Moving this slider updates and shows all matching guides on every PDF page.</div>
+      <div class="muted" id="bulkCoverageHelp">Illustrative relative size, NOT measured feet or a verified detection pattern. Wired LOS has a larger slider range; discrete PIR is capped at its own range. Wall PIR direction and angle are preserved. Guides are screen-only and apply across all pages.</div>
       <div class="muted" id="bulkCoverageInfo" role="status" style="margin-top:6px">Applies to placed devices on all pages; device markers are never deleted.</div>
     </section>
     <!-- AHT_BULK_COVERAGE_V1: end -->
@@ -436,7 +452,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script>
-const CFG = {"title": "AHT Keypad & PIR Location Tool", "fileTag": "KP-PIR", "devices": [{"key": "kp4", "label": "Keypad \u2013 4 button", "style": "diamond", "color": "#999b37", "glyph": "KP", "kind": "point"}, {"key": "kp2", "label": "Keypad \u2013 2 button", "style": "diamond", "color": "#7aafdf", "glyph": "KP", "kind": "point"}, {"key": "kptt", "label": "Keypad \u2013 table top", "style": "diamond", "color": "#999b37", "glyph": "KP", "hatch": true, "kind": "point"}, {"key": "os", "label": "Occupancy sensor / PIR (ceiling)", "style": "pir", "color": "#10b7b6", "textColor": "#ffffff", "glyph": "PIR", "preview": "circle", "kind": "point"}, {"key": "oswall", "label": "Occupancy sensor / PIR (wall)", "style": "pir", "color": "#10b7b6", "textColor": "#ffffff", "glyph": "PIR", "preview": "cone", "rotatable": true, "kind": "point"}, {"key": "fan", "label": "Exhaust fan", "style": "fan", "color": "#0000ff", "kind": "point"}, {"key": "rep", "label": "Wireless Repeater", "style": "repeater", "color": "#356e62", "fill": "#a7d5c6", "textColor": "#28584c", "glyph": "R", "kind": "point"}, {"key": "kgw", "label": "Ketra Gateway (KGW)", "style": "gateway", "color": "#ee00ab", "textColor": "#ee00ab", "glyph": "KGW", "kind": "point"}, {"key": "lgw", "label": "Lutron Gateway (LGW)", "style": "gateway", "color": "#173b70", "textColor": "#173b70", "glyph": "LGW", "kind": "point"}, {"key": "addmark", "label": "ADDED device (green ring)", "style": "addring", "color": "#39ff14", "overlay": true, "kind": "point"}, {"key": "rmmark", "label": "REMOVE existing (red ring + X)", "style": "rmring", "color": "#e00000", "overlay": true, "kind": "point"}], "preview": {"title": "Illustrative PIR Range", "presets": [{"name": "10 ft", "r": 10, "angle": 360}, {"name": "15 ft", "r": 15, "angle": 360}, {"name": "25 ft", "r": 25, "angle": 360}], "defaultPreset": 1, "disclaimer": "Simple radius guide only, not a PIR detection pattern or engineering analysis. Shown on screen only; never included in PDF export."}};
+const CFG = {"title":"AHT Keypad & PIR Location Tool","fileTag":"KP-PIR","devices":[{"key":"kp4","label":"Keypad – 4 button","style":"diamond","color":"#999b37","glyph":"KP","kind":"point"},{"key":"kp2","label":"Keypad – 2 button","style":"diamond","color":"#7aafdf","glyph":"KP","kind":"point"},{"key":"kptt","label":"Keypad – table top","style":"diamond","color":"#999b37","glyph":"KP","hatch":true,"kind":"point"},{"key":"os","label":"Discrete PIR (ceiling)","style":"pir","color":"#10b7b6","textColor":"#ffffff","glyph":"PIR","preview":"circle","kind":"point","defaultMake":"Basalte","defaultModel":"Auro","maxCoverage":10},{"key":"oswall","label":"Discrete PIR (wall)","style":"pir","color":"#10b7b6","textColor":"#ffffff","glyph":"PIR","preview":"cone","rotatable":true,"kind":"point","defaultMake":"Basalte","defaultModel":"Auro","maxCoverage":10},{"key":"oslos","label":"Wired occupancy sensor (ceiling)","style":"occupancy","color":"#225d98","textColor":"#ffffff","glyph":"LOS","preview":"circle","kind":"point","defaultMake":"Lutron","defaultModel":"LOS wired series","maxCoverage":45,"defaultCoverage":10},{"key":"fan","label":"Exhaust fan","style":"fan","color":"#0000ff","kind":"point"},{"key":"rep","label":"Wireless Repeater","style":"repeater","color":"#356e62","fill":"#a7d5c6","textColor":"#28584c","glyph":"R","kind":"point"},{"key":"kgw","label":"Ketra Gateway (KGW)","style":"gateway","color":"#ee00ab","textColor":"#ee00ab","glyph":"KGW","kind":"point"},{"key":"lgw","label":"Lutron Gateway (LGW)","style":"gateway","color":"#173b70","textColor":"#173b70","glyph":"LGW","kind":"point"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","overlay":true,"kind":"point"},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","overlay":true,"kind":"point"}],"preview":{"title":"Illustrative PIR Range","presets":[{"name":"10 ft","r":10,"angle":360},{"name":"15 ft","r":15,"angle":360},{"name":"25 ft","r":25,"angle":360}],"defaultPreset":1,"disclaimer":"Simple radius guide only, not a PIR detection pattern or engineering analysis. Shown on screen only; never included in PDF export."}};
 const NS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
 // Keep annotations in a separate screen-space SVG for crisp zoomed symbols.
@@ -551,10 +567,17 @@ function polyFor(shape, cx, cy, d, rotDeg) {
   return pts;
 }
 function dirVec(rotDeg) { const a = rotDeg * Math.PI / 180; return [Math.sin(a), -Math.cos(a)]; } // 0° = up
-function defaultPreviewSize(dev) { return dev?.key === 'oswall' ? 2.4 : 1.8; }
+function defaultPreviewSize(dev) { return dev?.defaultCoverage || (dev?.key === 'oswall' ? 2.4 : 1.8); }
+const isSensorDev = dev => !!(dev && dev.defaultMake);
+function sensorIdentity(dev,m) {
+  return {make: String(m?.make ?? dev.defaultMake ?? '').trim(), model:String(m?.model ?? dev.defaultModel ?? '').trim()};
+}
+function sensorLabel(dev,m) {
+  const s=sensorIdentity(dev,m); return [s.make,s.model].filter(Boolean).join(' / ') || 'Make/model TBD';
+}
 function getPreviewSize(dev, m) {
   // New dimensionless value; legacy m.range in feet is intentionally not reused.
-  return Math.max(1.2, Math.min(10, Number(m?.coverageSize ?? defaultPreviewSize(dev)) || defaultPreviewSize(dev)));
+  return Math.max(1.2, Math.min(dev?.maxCoverage || 10, Number(m?.coverageSize ?? defaultPreviewSize(dev)) || defaultPreviewSize(dev)));
 }
 function previewSpec(dev, m) {
   if (!CFG.preview || !dev.preview) return null;
@@ -564,7 +587,7 @@ function previewSpec(dev, m) {
   return {kind: dev.preview, rpt: iconD * Math.max(.63, size*.5), size, angle};
 }
 function actualDev(dev, m) {
-  return dev && dev.style === 'pir' && m?.vcolor ? Object.assign({}, dev, {color:m.vcolor}) : dev;
+  return dev && (dev.style === 'pir' || dev.style === 'occupancy') && m?.vcolor ? Object.assign({}, dev, {color:m.vcolor}) : dev;
 }
 function pStyle(dev, m) {
   const S = CFG.preview && CFG.preview.style;
@@ -633,6 +656,11 @@ function iconParts(dev, cx, cy, d) {
   } else if (st === 'fan') {
     P.polys.push({ pts: polyFor('square', cx, cy, d * 0.9, 0), fill: '#0000ff', stroke: '#0000ff', sw });
     const h = d * 0.45; P.polys.push({ pts: [[cx - h, cy - h], [cx + h, cy - h], [cx - h, cy + h]], fill: '#ffffff', stroke: null, sw: 0 });
+  } else if (st === 'occupancy') {
+    // Distinct Lutron-style occupancy symbol: double circular perimeter and LOS center.
+    P.polys.push({ pts:polyFor('circle',cx,cy,d*1.18,0),fill:'#ffffff',stroke:dev.color,sw:d*.12 });
+    P.polys.push({ pts:polyFor('circle',cx,cy,d*.88,0),fill:dev.color,stroke:'#243747',sw:d*.04 });
+    put(dev.textColor || '#ffffff',d*.64);
   } else if (st === 'pir') {
     P.polys.push({ pts: polyFor('circle', cx, cy, d * 1.12, 0), fill: dev.color, stroke: '#192426', sw: Math.max(sw * 1.1, d * 0.06) });
     put(dev.textColor || '#ffffff', d * 0.64);
@@ -990,18 +1018,19 @@ function updatePanels() {
     const heading=document.createElement('div');heading.style.cssText='font-weight:800;margin-top:10px;color:#183a55';heading.textContent=room;group.appendChild(heading);
     groups[room].forEach(m=>{const b=document.createElement('button');b.className='review-item';b.type='button';
       const name=DEV[m.type]?.label||m.type;const kind=m.type==='relocate'?'MOVE':m.type==='rmmark'?'REMOVE':m.type==='addmark'?'ADDITION MARK':'PROPOSED DEVICE';
-      b.textContent=kind+' · '+name+' · Page '+(m.page||1)+(m.changeComment?' — '+m.changeComment:'');
+      b.textContent=kind+' · '+name+(isSensorDev(DEV[m.type])?' ('+sensorLabel(DEV[m.type],m)+')':'')+' · Page '+(m.page||1)+(m.changeComment?' — '+m.changeComment:'');
       b.onclick=()=>{void focusReviewMarker(m.id);};group.appendChild(b);
     });rev.appendChild(group);
   });
   // selection
   const ids = [...sel]; const sp = $('selPanel');
-  if (!ids.length) { $('viewRow').style.display = 'none'; $('areaRow').style.display = 'none'; sp.innerHTML = '<div class="muted">Nothing selected.</div>'; $('selTools').style.display = 'none'; return; }
+  if (!ids.length) { $('sensorIdentity').style.display='none'; $('viewRow').style.display = 'none'; $('areaRow').style.display = 'none'; sp.innerHTML = '<div class="muted">Nothing selected.</div>'; $('selTools').style.display = 'none'; return; }
   $('selTools').style.display = 'block';
   if (ids.length === 1) {
     const m = markers.find(x => x.id === ids[0]); const dev = DEV[m.type];
     $('devRow').style.display = isArea(m) ? 'none' : 'block'; $('areaRow').style.display = isArea(m) ? 'block' : 'none';
     if (isArea(m)) {
+      $('sensorIdentity').style.display='none';
       $('viewRow').style.display = 'none';
       sp.innerHTML = '<div><b>Area / text callout (editable)</b></div>';
       if (document.activeElement !== $('areaText')) $('areaText').value = m.text == null ? AREA_TXT : m.text;
@@ -1009,17 +1038,25 @@ function updatePanels() {
       $('areaFs').value = Math.round((m.fs || 1) * 100); $('areaFsVal').textContent = $('areaFs').value;
       return;
     }
-    sp.innerHTML = '<div><b>' + dev.label + '</b></div>' + (dev.kind === 'line' ? '<div>Width: ' + fmtFt(lineLenFt(m)) + '</div>' : '');
+    sp.innerHTML = '<div><b>' + dev.label + '</b></div>' + (isSensorDev(dev) ? '<div>'+sensorLabel(dev,m).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>' : '') + (dev.kind === 'line' ? '<div>Width: ' + fmtFt(lineLenFt(m)) + '</div>' : '');
+    $('sensorIdentity').style.display=isSensorDev(dev) ? 'block' : 'none';
+    if(isSensorDev(dev)){
+      const sid=sensorIdentity(dev,m);
+      if(document.activeElement!==$('sensorMake')) $('sensorMake').value=sid.make;
+      if(document.activeElement!==$('sensorModel')) $('sensorModel').value=sid.model;
+    }
     $('noteInput').value = m.note || '';
     $('szRange').value = m.size || 1; $('szVal').textContent = Math.round((m.size || 1) * 100);
     $('rotRow').style.display = dev.rotatable && m.type !== 'oswall' ? 'block' : 'none';
     const vsp = previewSpec(dev, m); $('viewRow').style.display = vsp ? 'block' : 'none';
     if (vsp) {
       $('vcolor').value = pStyle(dev, m).fill;
+      $('sensorPreviewTitle').textContent = dev.key==='oslos' ? 'Wired Occupancy / Extended Coverage Preview' : 'Discrete PIR / Coverage Preview';
+      $('rngRange').max=String(dev.maxCoverage || 10);
       $('rngRange').value = vsp.size;
       $('rngVal').textContent = vsp.size.toFixed(1);
       $('pirRangeChk').checked = m.showRange === true;
-      $('pirRangeState').textContent = m.showRange === true ? 'Preview visible on this drawing only.' : 'Range hidden. Turn on to preview.';
+      $('pirRangeState').textContent = m.showRange === true ? 'Illustrative preview visible on this drawing only.' : 'Range hidden. Turn on to preview.';
       $('wallPIRControls').style.display = m.type === 'oswall' ? 'block' : 'none';
       if(m.type === 'oswall'){
         $('wallDirRange').value = m.rot || 0;
@@ -1029,8 +1066,23 @@ function updatePanels() {
       }
     } else { $('wallPIRControls').style.display='none'; }
     if (dev.rotatable) { $('rotRange').value = m.rot || 0; $('rotVal').textContent = Math.round(m.rot || 0); }
-  } else { $('viewRow').style.display = 'none'; $('devRow').style.display = 'block'; $('areaRow').style.display = 'none'; sp.innerHTML = '<div><b>' + ids.length + ' devices selected</b></div><div class="muted">Drag to move together. Delete removes all.</div>'; $('noteInput').value = ''; $('rotRow').style.display = 'none'; }
+  } else { $('sensorIdentity').style.display='none'; $('viewRow').style.display = 'none'; $('devRow').style.display = 'block'; $('areaRow').style.display = 'none'; sp.innerHTML = '<div><b>' + ids.length + ' devices selected</b></div><div class="muted">Drag to move together. Delete removes all.</div>'; $('noteInput').value = ''; $('rotRow').style.display = 'none'; }
 }
+function commitSensorIdentity() {
+  const m=markers.find(x=>x.id===[...sel][0]); if(!m)return;
+  const dev=DEV[m.type]; if(!isSensorDev(dev))return;
+  const mk=$('sensorMake').value.trim(), md=$('sensorModel').value.trim();
+  const prev=sensorIdentity(dev,m);
+  if(mk===prev.make && md===prev.model)return;
+  pushUndo();m.make=mk;m.model=md;refresh();
+}
+$('sensorMake').addEventListener('change',commitSensorIdentity);
+$('sensorModel').addEventListener('change',commitSensorIdentity);
+$('sensorIdentityReset').onclick=()=>{
+  const m=markers.find(x=>x.id===[...sel][0]);if(!m)return;
+  const dev=DEV[m.type];if(!isSensorDev(dev))return;
+  pushUndo();delete m.make;delete m.model;refresh();
+};
 $('editDetailsBtn').onclick=()=>{const id=[...sel][0];if(id!=null)openChangeDetails(id);};
 $('noteInput').onchange = e => { pushUndo(); sel.forEach(id => { const m = markers.find(x => x.id === id); if (m) m.note = e.target.value.trim(); }); refresh(); };
 $('rotRange').onpointerdown = () => pushUndo();
@@ -1128,7 +1180,7 @@ $('viewport').addEventListener('pointerdown', e => {
     if (dev.kind === 'line') {
       if (!pendingLine) { pendingLine = { x: pt[0], y: pt[1] }; banner('Click the end point'); }
       else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pendingLine.x, y: pendingLine.y, x2: pt[0], y2: pt[1], note: roomForChange() }; markers.push(m); pendingLine = null; sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); else banner('Placing: ' + dev.label + ' — click start, then end (Esc to stop)'); drawRubber(null); refresh(); openChangeDetails(m.id); }
-    } else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pt[0], y: pt[1], rot: 0, note: roomForChange() }; markers.push(m); sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); refresh(); openChangeDetails(m.id); }
+    } else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pt[0], y: pt[1], rot: 0, note: roomForChange() }; if (isSensorDev(dev)) { m.make=dev.defaultMake; m.model=dev.defaultModel; m.coverageSize=defaultPreviewSize(dev); } markers.push(m); sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); refresh(); openChangeDetails(m.id); }
     return;
   }
   if (hitId !== null) {
@@ -1245,7 +1297,9 @@ function ahtChangeLogRows() {
   selected.forEach(m => {
     const loc = locationOf(m);
     const note = m.changeComment || (isArea(m) ? m.text || '' : '');
-    rows.push([m.page || 1, loc.room, loc.number, String(note).trim()]);
+    const deviceDescription = isSensorDev(DEV[m.type]) ? 'Sensor: ' + sensorLabel(DEV[m.type], m) : '';
+    const changeNote = [String(note).trim(), deviceDescription].filter(Boolean).join(' | ');
+    rows.push([m.page || 1, loc.room, loc.number, changeNote]);
   });
   return rows;
 }
@@ -1373,7 +1427,7 @@ function drawIconPdf(dev, cx, cy, d, polygon, text, hexRgb, PDFLib) {
 function showLenOn() { return CFG.devices.some(d => d.kind === 'line') && $('lenChk').checked; }
 // AHT_BULK_COVERAGE_V1: Shared bulk coverage controls for this editor.
 (function initBulkCoverageControls() {
-  const categories = {"ceiling": ["os"], "wall": ["oswall"]};
+  const categories = {"ceiling": ["os"], "wall": ["oswall"], "wired": ["oslos"]};
   const scope = $('bulkCoverageScope');
   const show = $('bulkCoverageShow');
   const hide = $('bulkCoverageHide');
@@ -1384,11 +1438,18 @@ function showLenOn() { return CFG.devices.some(d => d.kind === 'line') && $('len
     const types = categories[scope.value];
     return markers.filter(m => DEV[m.type]?.preview && (!types || types.includes(m.type)));
   }
+  function setBulkRange() {
+    const extended = scope.value === 'wired' || scope.value === 'all';
+    slider.max = extended ? '45' : '10';
+    slider.value = String(Math.min(Number(slider.value) || 2, Number(slider.max)));
+    display.textContent = Number(slider.value).toFixed(1);
+  }
   function infoText(message) {
     const count = matching().length;
     info.textContent = message || (count ? count + ' matching placed device' + (count === 1 ? '' : 's') + ' across all pages.' : 'No matching placed devices yet.');
   }
-  scope.addEventListener('change', () => infoText());
+  scope.addEventListener('change', () => { setBulkRange(); infoText(); });
+  setBulkRange();
   show.addEventListener('click', () => {
     const items = matching();
     if (!items.length) { infoText(); return; }
@@ -1424,7 +1485,7 @@ function showLenOn() { return CFG.devices.some(d => d.kind === 'line') && $('len
     const items = matching();
     if (!items.length) { infoText(); return; }
     saveForGesture();
-    items.forEach(m => { m.coverageSize = size; m.showRange = true; });
+    items.forEach(m => { m.coverageSize = Math.min(size, DEV[m.type]?.maxCoverage || 10); m.showRange = true; });
     const master = $('showAllCoverage');
     if (master) master.checked = true;
     refresh();

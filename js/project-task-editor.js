@@ -2,6 +2,8 @@ const ProjectTaskEditor = (() => {
 
   let editingId = null;
   let saveInProgress = false;
+  let reviewQueueActive = false;
+  let reviewQueueOriginalForm = "";
 
   function isAdmin() {
     if (
@@ -929,6 +931,12 @@ const ProjectTaskEditor = (() => {
 
           <form id="projectTaskEditorForm" novalidate>
 
+            <div id="pteDateReviewQueueBanner" class="pte-date-review-queue-banner" hidden role="status">
+              <strong>Historical date review</strong>
+              <span id="pteDateReviewQueueCount"></span>
+              <small>Confirm each scheduling type individually. Existing dates are not changed unless you edit them.</small>
+            </div>
+
             <div class="form-grid pte-deliverable-grid">
 
               <label class="field pte-field">
@@ -1040,12 +1048,51 @@ const ProjectTaskEditor = (() => {
               </label>
 
               <label class="field pte-field">
-                <span>Target Date</span>
-                <input
-                  id="pteTargetDate"
-                  type="date"
-                >
+                <span>Due Date Type *</span>
+                <select id="pteScheduleMode" required>
+                  <option value="">— Select due date type —</option>
+                  <option value="Firm">Firm Date</option>
+                  <option value="Tentative">Tentative Date</option>
+                  <option value="Floating">Floating / Dependent</option>
+                  <option value="TBD">TBD / Unknown</option>
+                </select>
               </label>
+
+              <div class="pte-legacy-schedule-note pte-field full" id="pteLegacyScheduleNotice" hidden role="status">
+                This existing task has no confirmed due-date type. The stored date may be a placeholder.
+                Choose Firm, Tentative, Floating, or TBD before saving; the date will not change unless you change it.
+              </div>
+
+              <label class="field pte-field" id="pteTargetDateField">
+                <span id="pteTargetLabel">Target Date *</span>
+                <input id="pteTargetDate" type="date">
+              </label>
+
+              <div class="field full pte-field pte-schedule-extra" id="pteScheduleExtra" hidden>
+                <div id="pteTbdControls" hidden>
+                  <label class="field"><span>Why is the due date unknown? *</span>
+                    <textarea id="pteScheduleReason" rows="2" placeholder="What prevents us from setting a responsible date?"></textarea>
+                  </label>
+                </div>
+                <div id="pteFloatingControls" hidden>
+                  <label class="field"><span>Triggering event / dependency *</span>
+                    <input id="pteScheduleTrigger" placeholder="e.g. Architectural plans received">
+                  </label>
+                  <div class="pte-schedule-inline">
+                    <label class="field"><span>Working days after trigger *</span>
+                      <input id="pteScheduleOffset" type="number" min="0" max="365" step="1" value="10">
+                    </label>
+                    <label class="field"><span>Actual trigger date (when confirmed)</span>
+                      <input id="pteScheduleTriggerDate" type="date">
+                    </label>
+                  </div>
+                  <small>A target date is calculated only after the trigger date is confirmed. Calculation excludes weekends, not holidays.</small>
+                </div>
+                <label class="field" id="pteReviewDateField"><span>Next schedule review *</span>
+                  <input id="pteScheduleReviewDate" type="date">
+                  <small>This is a review reminder, NOT the task's due date.</small>
+                </label>
+              </div>
 
 
               <label class="field pte-field">
@@ -1147,6 +1194,21 @@ const ProjectTaskEditor = (() => {
                 Cancel
               </button>
 
+              <button id="pteSkipDateReview" type="button" class="btn pte-skip-date-review" hidden
+                title="Leave this task unchanged and move to the next unclassified date">
+                Skip &amp; Next
+              </button>
+
+              <button
+                id="pteSaveAndNextReview"
+                class="btn pte-save-next-review"
+                type="submit"
+                data-pte-save-next
+                hidden
+              >
+                Save &amp; Next Review
+              </button>
+
               <button
                 class="btn primary"
                 type="submit"
@@ -1173,14 +1235,15 @@ const ProjectTaskEditor = (() => {
       });
 
 
-    document
-      .getElementById(
-        "projectTaskEditorForm"
-      )
-      .addEventListener(
-        "submit",
-        save
-      );
+    document.getElementById("pteScheduleMode")
+      .addEventListener("change", syncScheduleFields);
+    for (const id of ["pteScheduleTriggerDate", "pteScheduleOffset"]) {
+      document.getElementById(id).addEventListener("change", syncScheduleFields);
+    }
+    document.getElementById("pteSkipDateReview")
+      .addEventListener("click", skipDateReview);
+    document.getElementById("projectTaskEditorForm")
+      .addEventListener("submit", save);
   }
 
 
@@ -1375,10 +1438,19 @@ const ProjectTaskEditor = (() => {
       );
 
 
-    document.getElementById(
-      "pteTargetDate"
-    ).value =
-      item.targetDate || "";
+    // Never silently convert an older task's unclassified date into a Firm commitment.
+    // Also require an explicit selection for newly created tasks.
+    document.getElementById("pteScheduleMode").value =
+      item.scheduleMode || "";
+    document.getElementById("pteScheduleReason").value = item.scheduleReason || "";
+    document.getElementById("pteScheduleReviewDate").value = item.scheduleReviewDate || "";
+    document.getElementById("pteScheduleTrigger").value = item.scheduleTrigger || "";
+    document.getElementById("pteScheduleOffset").value = String(item.scheduleOffsetDays ?? 10);
+    document.getElementById("pteScheduleTriggerDate").value = item.scheduleTriggerDate || "";
+    document.getElementById("pteTargetDate").value = item.targetDate || "";
+    const legacyNote = document.getElementById("pteLegacyScheduleNotice");
+    if (legacyNote) legacyNote.dataset.legacyRecord = item.id && !item.scheduleMode ? "yes" : "";
+    syncScheduleFields();
 
 
     document.getElementById(
@@ -1495,6 +1567,28 @@ const ProjectTaskEditor = (() => {
       options.parentId || ""
     );
 
+    reviewQueueActive = Boolean(options.reviewQueue && options.id);
+    const queueBanner = document.getElementById("pteDateReviewQueueBanner");
+    const saveNext = document.getElementById("pteSaveAndNextReview");
+    const count = reviewQueueActive ? (window.ProjectWorkView?.dateReviewQueueCount?.() || 1) : 0;
+    if (queueBanner) queueBanner.hidden = !reviewQueueActive;
+    if (reviewQueueActive) {
+      const countText = document.getElementById("pteDateReviewQueueCount");
+      if (countText) countText.textContent = `${count} date${count === 1 ? "" : "s"} remaining to review`;
+    }
+    if (saveNext) {
+      saveNext.hidden = !reviewQueueActive;
+      saveNext.textContent = count > 1 ? "Save & Next Review" : "Save & Finish Review";
+    }
+    const skipButton = document.getElementById("pteSkipDateReview");
+    if (skipButton) skipButton.hidden = !reviewQueueActive;
+    if (reviewQueueActive && queueBanner) {
+      const skipped = window.ProjectWorkView?.dateReviewSkippedCount?.() || 0;
+      const countText = document.getElementById("pteDateReviewQueueCount");
+      if (countText) countText.textContent = `${count} remaining this pass${skipped ? ` · ${skipped} skipped` : ""}`;
+    }
+    reviewQueueOriginalForm = snapshotDateReviewForm();
+
     const modal =
       document.getElementById(
         "projectTaskEditorModal"
@@ -1532,8 +1626,28 @@ const ProjectTaskEditor = (() => {
     );
 
     editingId = null;
+    reviewQueueActive = false;
+    reviewQueueOriginalForm = "";
   }
 
+  // Compare the actual form controls, including predecessor selections. A skipped
+  // task must never be written to SharePoint, and unsaved edits need a warning.
+  function snapshotDateReviewForm() {
+    const form = document.getElementById("projectTaskEditorForm");
+    if (!form) return "";
+    return JSON.stringify(Array.from(form.querySelectorAll("input,select,textarea"))
+      .map(el => [el.id || el.name || "", el.type === "checkbox" || el.type === "radio" ? el.checked : el.value]));
+  }
+
+  function skipDateReview() {
+    if (!reviewQueueActive || !editingId || saveInProgress) return;
+    if (snapshotDateReviewForm() !== reviewQueueOriginalForm &&
+        !window.confirm("Discard your unsaved edits to this task and move to the next date review?")) return;
+    const skippedId = editingId;
+    close();
+    const nextId = window.ProjectWorkView?.skipUnclassifiedDate?.(skippedId);
+    if (!nextId) window.ProjectWorkView?.render?.();
+  }
 
   function value(id) {
     return String(
@@ -1622,6 +1736,32 @@ const ProjectTaskEditor = (() => {
     return false;
   }
 
+  function syncScheduleFields() {
+    const mode = value("pteScheduleMode");
+    const tbd = mode === "TBD";
+    const floating = mode === "Floating";
+    const needsReview = tbd || floating;
+    const legacyNote = document.getElementById("pteLegacyScheduleNotice");
+    if (legacyNote) legacyNote.hidden = Boolean(mode) || !legacyNote.dataset.legacyRecord;
+    document.getElementById("pteScheduleExtra").hidden = !needsReview;
+    document.getElementById("pteTbdControls").hidden = !tbd;
+    document.getElementById("pteFloatingControls").hidden = !floating;
+    document.getElementById("pteReviewDateField").hidden = !needsReview;
+    const target = document.getElementById("pteTargetDate");
+    const wrapper = document.getElementById("pteTargetDateField");
+    wrapper.hidden = tbd;
+    target.readOnly = floating;
+    document.getElementById("pteTargetLabel").textContent =
+      floating ? "Calculated Target (after trigger)" : mode === "Tentative" ? "Estimated Target Date *" : mode === "Firm" ? "Committed Target Date *" : "Target Date (not classified)";
+    if (floating) {
+      target.value = AHTScheduling.businessDays(
+        value("pteScheduleTriggerDate"), value("pteScheduleOffset")
+      );
+    } else if (tbd) {
+      target.value = "";
+    }
+  }
+
   function validateTaskForm() {
     clearValidationState();
 
@@ -1650,11 +1790,30 @@ const ProjectTaskEditor = (() => {
       );
     }
 
-    if (!targetDate) {
-      return failValidation(
-        "Can't save Task — Target Date is required.",
-        "pteTargetDate"
-      );
+    const mode = value("pteScheduleMode");
+    if (!["Firm", "Tentative", "Floating", "TBD"].includes(mode)) {
+      return failValidation("Choose a Due Date Type.", "pteScheduleMode");
+    }
+    if (["Firm", "Tentative"].includes(mode) && !targetDate) {
+      return failValidation("A date is required for Firm or Tentative scheduling.", "pteTargetDate");
+    }
+    if (mode === "TBD" && !value("pteScheduleReason")) {
+      return failValidation("Explain why the due date is unknown.", "pteScheduleReason");
+    }
+    if (mode === "Floating") {
+      if (!value("pteScheduleTrigger")) {
+        return failValidation("Name the trigger/dependency.", "pteScheduleTrigger");
+      }
+      const offsetText = value("pteScheduleOffset");
+      if (offsetText === "" || !Number.isInteger(Number(offsetText)) || Number(offsetText) < 0 || Number(offsetText) > 365) {
+        return failValidation("Working-day offset must be a whole number from 0–365.", "pteScheduleOffset");
+      }
+      if (value("pteScheduleTriggerDate") && !targetDate) {
+        return failValidation("Unable to calculate the floating target date.", "pteScheduleTriggerDate");
+      }
+    }
+    if (["TBD", "Floating"].includes(mode) && !value("pteScheduleReviewDate")) {
+      return failValidation("Set the next schedule review date (not a task due date).", "pteScheduleReviewDate");
     }
 
     if (
@@ -1667,15 +1826,11 @@ const ProjectTaskEditor = (() => {
       );
     }
 
-    if (!requiredBy) {
-      return failValidation(
-        "Can't save Task — Input Needed By is required.",
-        "pteRequiredBy"
-      );
-    }
+    // Input Needed By is optional unless a genuine information deadline exists.
 
     if (
       startDate &&
+      targetDate &&
       startDate > targetDate
     ) {
       return failValidation(
@@ -1685,6 +1840,7 @@ const ProjectTaskEditor = (() => {
     }
 
     if (
+      targetDate &&
       requiredBy > targetDate
     ) {
       return failValidation(
@@ -1711,6 +1867,9 @@ const ProjectTaskEditor = (() => {
     if (!validateTaskForm()) {
       return;
     }
+
+    // The submitter is explicit; normal Save Task never advances the review queue.
+    const saveAndNext = reviewQueueActive && Boolean(event.submitter?.hasAttribute("data-pte-save-next"));
 
     const title =
       value("pteTitle");
@@ -1787,6 +1946,12 @@ const ProjectTaskEditor = (() => {
 
       targetDate:
         value("pteTargetDate"),
+      scheduleMode: value("pteScheduleMode"),
+      scheduleReason: value("pteScheduleMode") === "TBD" ? value("pteScheduleReason") : "",
+      scheduleReviewDate: ["TBD", "Floating"].includes(value("pteScheduleMode")) ? value("pteScheduleReviewDate") : "",
+      scheduleTrigger: value("pteScheduleMode") === "Floating" ? value("pteScheduleTrigger") : "",
+      scheduleOffsetDays: value("pteScheduleMode") === "Floating" ? Number(value("pteScheduleOffset")) : 0,
+      scheduleTriggerDate: value("pteScheduleMode") === "Floating" ? value("pteScheduleTriggerDate") : "",
 
       requiredBy:
         value("pteRequiredBy"),
@@ -1900,19 +2065,24 @@ const ProjectTaskEditor = (() => {
         );
       }
     } catch (error) {
-      console.error(
-        "Project Work Item SharePoint save failed.",
-        error
-      );
-
-      alert(
-        `The Task was saved locally, but SharePoint sync failed: ${error.message}`
-      );
+      console.error("Project Work Item SharePoint save failed.", error);
+      // Revert optimistic local update; keep editor open so the user can retry.
+      ProjectWorkItems.setItems(all);
+      alert(`Task was NOT saved to SharePoint. Nothing was finalized.\n\n${error.message}`);
+      return;
     } finally {
       saveInProgress = false;
     }
 
     close();
+
+    if (saveAndNext) {
+      // Only move after SharePoint confirms the save. The queue is recalculated
+      // from fresh records so the item just classified is removed automatically.
+      const nextId = window.ProjectWorkView?.reviewNextUnclassifiedDate?.(record.id);
+      if (!nextId) window.ProjectWorkView?.render?.();
+      return;
+    }
 
     window.ProjectWorkView
       ?.openItem?.(record.id);

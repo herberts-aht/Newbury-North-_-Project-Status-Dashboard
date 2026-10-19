@@ -1104,3 +1104,100 @@
   margin-top:0;
   white-space:nowrap;
 }
+
+/* Project Plan: auxiliary buildings awaiting architectural scope */
+#projectWork .pw-building-row{background:#fbfcfe}
+#projectWork .pw-building-row:hover{background:#f3f8fc}
+#projectWork .pw-building-label{display:inline-block;border:1px solid #c8dbe9;background:#eef6fb;color:#315b79;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700}
+#projectWork .pw-building-no-progress{font-size:12px;font-weight:700;color:#657789}
+#projectWork .pw-building-summary{display:flex;flex-direction:column;gap:5px;background:#f4f8fc;border:1px solid #d3e2ed;border-radius:10px;padding:12px 14px;color:#304d63}
+#projectWork .pw-building-summary strong{font-size:13px}
+#projectWork .pw-building-summary span{font-size:12px;line-height:1.45}
+#projectWork .pw-building-empty{padding:22px 16px;color:#5c7081;background:#fafcfe;border:1px dashed #c8dbe9;border-radius:8px;font-size:13px}
+
+/* AHT schedule attention summary v1 — date meaning is visible in Action Required. */
+.pw-action-date strong { display:block; font-size:11px; color:#34495e; font-weight:700; }
+.pw-action-date .pw-action-date-kind { display:block; font-size:9px; line-height:1.3; color:#6a7d90; margin-top:3px; overflow-wrap:anywhere; }
+.pw-warning-review-needed { background:rgba(202,138,4,.10); color:#815100; border:1px solid rgba(202,138,4,.24); }
+
+/* AHT Action Required grouped task drilldown v1 */
+.pw-action-expand{
+  display:inline-flex; align-items:center; margin:6px 0 0; padding:5px 9px;
+  color:#004e84; border:1px solid #b9d7e7; background:#f4faff;
+  border-radius:6px; cursor:pointer; font-weight:700;font-size:10px;line-height:1.3;font-family:inherit;
+}
+.pw-action-expand:hover,.pw-action-expand:focus-visible{background:#e5f4fc;outline:2px solid transparent;border-color:#0088c7}
+.pw-action-detail-panel{padding:7px 14px 11px 28px;background:#f8fbfd;border-bottom:1px solid #dce6ee;}
+.pw-action-detail-item{
+  width:100%;display:grid;grid-template-columns:minmax(180px,2fr) minmax(125px,.9fr) minmax(100px,.75fr) minmax(115px,1fr) 18px;
+  gap:12px;align-items:center;text-align:left;min-height:45px;padding:9px 10px;
+  border:0;border-bottom:1px solid #e3edf2;background:transparent;color:#314960;cursor:pointer;
+}
+.pw-action-detail-item:hover,.pw-action-detail-item:focus-visible{background:#e9f4fa;outline:2px solid #a7d3ea;outline-offset:-2px}
+.pw-action-detail-item:last-child{border-bottom:0}
+.pw-action-detail-title{font-size:11px;font-weight:700;color:#004e84;overflow-wrap:anywhere}
+.pw-action-detail-state{font-size:10px;font-weight:700;color:#44596b}
+.pw-action-detail-date{font-size:11px;color:#314960;font-weight:650}
+.pw-action-detail-date small{display:block;font-size:9px;font-weight:400;color:#6a7d90;margin-top:3px}
+.pw-action-detail-legacy{font-size:10px;color:#856017;font-weight:700}
+.pw-action-detail-arrow{font-size:19px;color:#0088c7}
+.pw-action-card .pw-action-detail-panel{margin:9px 0 0;padding:4px;border:1px solid #dce6ee;border-radius:7px}
+.pw-action-card .pw-action-detail-item{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
+.pw-action-card .pw-action-detail-title{flex:1 1 170px}
+@media(max-width:850px){
+  .pw-action-detail-panel{padding:5px 8px}
+  .pw-action-detail-item{grid-template-columns:minmax(150px,1.5fr) 80px 95px 15px;gap:6px}
+  .pw-action-detail-legacy{grid-column:1/-1}
+}
+
+/* AHT Legacy Due Date Classification v1 — convenient direct review, never auto-change stored dates */
+.pw-verify-date-btn{
+  display:inline-flex;align-items:center;justify-content:center;width:max-content;max-width:100%;
+  padding:5px 9px;margin:3px 0;line-height:1.25;font-size:10px;font-weight:750;
+  color:#855800;background:#fff5dd;border:1px solid #ebd49e;border-radius:6px;
+  cursor:pointer;white-space:normal;text-align:center;font-family:inherit;
+}
+.pw-verify-date-btn:hover,.pw-verify-date-btn:focus-visible{
+  color:#654300;background:#ffe9b3;border-color:#c6a55b;outline:2px solid #e7d398;outline-offset:1px;
+}
+.pw-action-detail-legacy{display:flex;align-items:center;min-width:0;}
+.pw-action-detail-item:focus-within{background:#f3f9fd;}
+
+/* AHT Action Priority Filters v1 — compact, legible, consistent with shared status system. */
+.pw-action-priority-bar{
+  display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 3px;padding:0;
+}
+.pw-action-priority-btn{
+  font:inherit;font-size:11px;font-weight:700;border-radius:999px;
+  color:#334b5d;background:#fff;border:1px solid #cad8e1;
+  padding:7px 10px;display:inline-flex;align-items:center;gap:7px;
+  cursor:pointer;line-height:1.2;min-height:33px;
+}
+.pw-action-priority-btn:hover,.pw-action-priority-btn:focus-visible{
+  background:#ecf5fb;border-color:#0088c7;outline:2px solid transparent;
+}
+.pw-action-priority-btn.active{
+  color:#004e84;background:#e5f2fc;border-color:#0088c7;
+  box-shadow:inset 0 0 0 1px #0088c7;
+}
+.pw-action-priority-count{
+  font-size:10px;font-weight:800;min-width:20px;text-align:center;
+  padding:2px 5px;border-radius:999px;background:#edf1f5;color:#465e70;
+}
+.pw-action-priority-btn.active .pw-action-priority-count{background:#c8e4f5;color:#004e84;}
+.pw-action-result-count{font-size:11px;color:#647789;margin:5px 0 11px;}
+@media(max-width:700px){
+  .pw-action-priority-bar{gap:5px;}
+  .pw-action-priority-btn{padding:6px 8px;font-size:10px;min-height:30px;}
+}
+
+/* AHT Sequential Date Review v1 — one-button entry from historical-date filter */
+.pw-date-review-start{
+  margin-left:auto;padding:7px 12px;font:inherit;font-size:11px;font-weight:750;
+  color:#fff;background:#004e84;border:1px solid #004e84;border-radius:7px;
+  cursor:pointer;min-height:33px;
+}
+.pw-date-review-start:hover,.pw-date-review-start:focus-visible{
+  background:#0069a5;outline:2px solid #8fd1f7;outline-offset:2px;
+}
+@media(max-width:650px){.pw-date-review-start{width:100%;margin-left:0}}
