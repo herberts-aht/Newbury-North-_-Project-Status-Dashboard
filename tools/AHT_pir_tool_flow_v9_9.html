@@ -483,10 +483,10 @@ const AREA_COL = '#e0262e', AREA_TXT = 'AREA STILL IN DESIGN';
 const _mc = document.createElement('canvas').getContext('2d');
 const wScreen = (t, fs) => { _mc.font = 'bold ' + fs + 'px Helvetica, Arial, sans-serif'; return _mc.measureText(t).width; };
 const areaRect = m => ({ x0: Math.min(m.x, m.x2), y0: Math.min(m.y, m.y2), x1: Math.max(m.x, m.x2), y1: Math.max(m.y, m.y2) });
-const areaFs = m => Math.max(10, Math.max(vp.width, vp.height) / 190) * 0.9 * (m.fs || 1);
+const areaFs = (m, view = vp) => Math.max(10, Math.max(view.width, view.height) / 190) * 0.9 * (m.fs || 1);
 const areaSw = () => Math.max(1.6, iconBase() * 0.12);
-function callGeom(m, wfn) {
-  const fs = areaFs(m), lines = String(m.text == null ? AREA_TXT : m.text).split('\n'), lh = fs * 1.2, p = fs * 0.5;
+function callGeom(m, wfn, view = vp) {
+  const fs = areaFs(m, view), lines = String(m.text == null ? AREA_TXT : m.text).split('\n'), lh = fs * 1.2, p = fs * 0.5;
   const w = Math.max(fs, ...lines.map(t => wfn(t, fs))) + p * 2, h = lines.length * lh + p * 1.2;
   const lx = m.lx === undefined ? (m.x + m.x2) / 2 : m.lx, ly = m.ly === undefined ? Math.min(m.y, m.y2) - h : m.ly;
   const r = areaRect(m), nx = Math.max(r.x0, Math.min(r.x1, lx)), ny = Math.max(r.y0, Math.min(r.y1, ly));
@@ -1350,13 +1350,25 @@ function hexRgb(h, PDFLib) { const n = parseInt(h.slice(1), 16); return PDFLib.r
 $('pdfBtn').onclick = async () => {
   if (!pdfBytes || !vp) { status('Choose a plan first.'); return; }
   const missing=markers.filter(m=>m.type!=='area'&&!m.note); if(missing.length&&!confirm(missing.length+' markups have no room/area. Export anyway?'))return;
-  status('Building PDF…'); const PM = pageMarkers();
+  status('Building PDF for all drawing pages…');
   try {
     const { PDFDocument, StandardFonts, rgb, degrees } = PDFLib;
     const doc = await PDFDocument.load(pdfBytes.slice(0));
-    const page = doc.getPages()[pageNum - 1];
+    const originalPages = doc.getPages();
     const font = await doc.embedFont(StandardFonts.HelveticaBold);
-    const conv = (x, y) => vp.convertToPdfPoint(x, y);
+    let markedPages = 0;
+    // AHT_MULTIPAGE_EXPORT_OTHER_TOOLS_V1: preserve every source page, use each sheet's PDF.js viewport.
+    // Process the original pages only (Access Control adds schedule pages afterwards).
+    for (let exportPageNum = 1; exportPageNum <= originalPages.length; exportPageNum++) {
+      const forThisPage = markers.filter(m => (m.page || 1) === exportPageNum);
+      if (!forThisPage.length) continue;
+      const page = originalPages[exportPageNum - 1];
+      const pdfJsPage = await pdfDoc.getPage(exportPageNum);
+      const vp = pdfJsPage.getViewport({ scale: 1 });
+      const PM = forThisPage.filter(m => !isArea(m));
+      const areas = forThisPage.filter(m => isArea(m));
+      markedPages++;
+      const conv = (x, y) => vp.convertToPdfPoint(x, y);
     const o = conv(0, 0), px = conv(1, 0), py = conv(0, 1);
     const ang = Math.atan2(px[1] - o[1], px[0] - o[0]);
     const polygon = (pts, fill, fo, stroke, so, sw, dash) => {
@@ -1375,7 +1387,6 @@ $('pdfBtn').onclick = async () => {
     // Illustrative PIR range preview is screen-only; intentionally omitted from PDF.
     const white = rgb(1, 1, 1), black = rgb(0.1, 0.1, 0.1);
     const wPdf = (t, f) => font.widthOfTextAtSize(t, f);
-    const areas = pageAreas();
     areas.forEach(m => { const r = areaRect(m), col = hexRgb(m.color || AREA_COL, PDFLib), sw = areaSw(); const rp = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];
       polygon(rp, col, m.shade == null ? 0.12 : m.shade, null, 0, 0); polygon(rp, null, 0, col, 1, sw, [sw * 4, sw * 3]); });
     PM.forEach(m => {
@@ -1397,7 +1408,7 @@ $('pdfBtn').onclick = async () => {
       }
       if ($('notesChk').checked && m.note) text(m.note, m.x + dm * 0.7, m.y - dm * 0.7, d0 * 0.55, black, false);
     });
-    areas.forEach(m => { const col = hexRgb(m.color || AREA_COL, PDFLib), sw = areaSw(), G = callGeom(m, wPdf);
+    areas.forEach(m => { const col = hexRgb(m.color || AREA_COL, PDFLib), sw = areaSw(), G = callGeom(m, wPdf, vp);
       if (G.leader) { const a = conv(G.lx, G.ly), b = conv(G.leader[0], G.leader[1]); page.drawLine({ start: { x: a[0], y: a[1] }, end: { x: b[0], y: b[1] }, thickness: Math.max(1, sw * 0.7), color: col }); }
       polygon([[G.bx, G.by], [G.bx + G.w, G.by], [G.bx + G.w, G.by + G.h], [G.bx, G.by + G.h]], rgb(1, 1, 1), 0.95, col, 1, sw * 0.8);
       G.lines.forEach((t, i) => text(t, G.lx, G.base(i), G.fs, col, true)); });
@@ -1414,9 +1425,10 @@ $('pdfBtn').onclick = async () => {
       rgb(1, 1, 1), .94, ink, .9, .8);
     text(stampTitle, bx + fs * .7, by + fs * 1.35, titleSize, ink, false);
     text(stampSub, bx + fs * .7, by + fs * 2.42, subSize, black, false);
+    } // End drawing-page annotation pass.
     const out = await doc.save();
     download(baseName() + ' - ' + CFG.fileTag + ' (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
-    status('Exported marked-up PDF (this page only). Original file is untouched.');
+    status('Exported all ' + originalPages.length + ' drawing pages (' + markedPages + ' with markups). Original PDF is untouched.');
   } catch (err) { console.error(err); status('Export failed: ' + err.message); }
 };
 function drawIconPdf(dev, cx, cy, d, polygon, text, hexRgb, PDFLib) {
