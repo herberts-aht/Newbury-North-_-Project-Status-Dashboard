@@ -261,6 +261,14 @@
         <label class="lbl">Scale</label><select id="scaleSel"></select>
         <div class="row" style="margin-top:6px"><button id="calBtn">Calibrate (2 points)</button></div>
         <div class="muted" id="scaleNote"></div>
+        <!-- AHT_DRAWING_ROTATION_V1 — per-sheet, exportable orientation -->
+        <label class="lbl">Drawing orientation — current PDF page</label>
+        <div class="row" style="margin:6px 0;gap:6px">
+          <button type="button" id="ahtRotateLeft" title="Rotate this page counterclockwise 90 degrees">↶ &nbsp; Rotate Left 90°</button>
+          <button type="button" id="ahtRotateRight" title="Rotate this page clockwise 90 degrees">↷ &nbsp; Rotate Right 90°</button>
+        </div>
+        <div id="ahtRotationStatus" class="muted" role="status">Open a drawing to rotate its pages.</div>
+        <div class="muted">Applies to the current page. Exported PDF and saved work JSON retain orientation. Markers stay attached to the drawing.</div>
       </details>
     </section>
 
@@ -456,6 +464,51 @@ let previewOn = false, presetIdx = CFG.preview ? CFG.preview.defaultPreset : 0, 
 let zoom = 1, tx = 0, ty = 0;
 let undoStack = [], redoStack = [];
 let pendingLoad = null;
+
+// AHT_DRAWING_ROTATION_V1: rotations are relative to each source PDF page's own rotation.
+// Markers always use the VIEWPORT coordinates of their saved page orientation.
+let pageRotations = {}; // {1: 90, 2: 270} - clockwise degrees relative to source
+function rotationForPage(pdfPage, n) {
+  return ((Number(pdfPage.rotate || 0) + Number(pageRotations[n] || 0)) % 360 + 360) % 360;
+}
+function updateOrientationControls() {
+  const left=$('ahtRotateLeft'), right=$('ahtRotateRight'), label=$('ahtRotationStatus');
+  if (!left || !right || !label) return;
+  left.disabled = right.disabled = !pdfDoc;
+  const angle = Number(pageRotations[pageNum] || 0);
+  label.textContent = pdfDoc ? ('Page ' + pageNum + ': ' + angle + '° additional rotation from original') : 'Open a drawing to rotate its pages.';
+}
+async function rotateActiveDrawing(delta) {
+  if (!pdfDoc || !vp) { status('Choose a plan PDF first.'); return; }
+  const left=$('ahtRotateLeft'), right=$('ahtRotateRight');
+  left.disabled = right.disabled = true;
+  try {
+    const page = await pdfDoc.getPage(pageNum), oldAngle=rotationForPage(page,pageNum), newAngle=(oldAngle+delta+360)%360;
+    const before=page.getViewport({scale:1,rotation:oldAngle}), after=page.getViewport({scale:1,rotation:newAngle});
+    pushUndo();
+    markers.filter(m => (m.page || 1) === pageNum).forEach(m => {
+      // The same source-PDF point before/after page rotation must remain the same markup location.
+      for (const [x,y] of [['x','y'],['x2','y2'],['cx','cy'],['lx','ly']]) {
+        if (!Number.isFinite(m[x]) || !Number.isFinite(m[y])) continue;
+        const p = before.convertToPdfPoint(m[x],m[y]);
+        const q = after.convertToViewportPoint(p[0],p[1]);
+        m[x]=q[0]; m[y]=q[1];
+      }
+      if (Number.isFinite(m.rot)) m.rot = ((m.rot + delta) % 360 + 360) % 360;
+    });
+    pageRotations[pageNum] = (Number(pageRotations[pageNum] || 0) + delta + 360) % 360;
+    if (!pageRotations[pageNum]) delete pageRotations[pageNum];
+    sel.clear();
+    await openPage(false);
+    fit();
+    status('Rotated page '+pageNum+' '+(delta>0?'right':'left')+' 90°. Save work JSON to retain orientation.');
+  } catch (err) { console.error(err); status('Could not rotate this page: '+err.message); }
+  finally { updateOrientationControls(); }
+}
+$('ahtRotateLeft').onclick = () => void rotateActiveDrawing(-90);
+$('ahtRotateRight').onclick = () => void rotateActiveDrawing(90);
+updateOrientationControls();
+
 let calMode = null;
 
 const onPage = m => (m.page || 1) === pageNum;
@@ -531,9 +584,15 @@ const iconBase = () => (CFG.iconScale || 1) * Math.max(8, Math.min(26, 0.85 * pt
 // ---------- helpers ----------
 function status(t) { $('status').textContent = t || ''; }
 function banner(t) { const b = $('banner'); if (!t) { b.style.display = 'none'; return; } b.textContent = t; b.style.display = 'block'; }
-function snap() { return JSON.stringify({ m: markers, n: nextId }); }
+function snap() { return JSON.stringify({ m: markers, n: nextId, pr: pageRotations }); }
 function pushUndo() { undoStack.push(snap()); if (undoStack.length > 120) undoStack.shift(); redoStack = []; }
-function restore(s) { const o = JSON.parse(s); markers = o.m; nextId = o.n; sel.clear(); refresh(); }
+function restore(s) {
+  const o=JSON.parse(s), oldAngle=Number(pageRotations[pageNum] || 0);
+  markers=o.m; nextId=o.n; pageRotations={...(o.pr || pageRotations)}; sel.clear();
+  if (pdfDoc && Number(pageRotations[pageNum] || 0) !== oldAngle) {
+    void openPage(false).then(()=>fit()).catch(err=>status('Undo rendering failed: '+err.message));
+  } else { refresh(); updateOrientationControls(); }
+}
 function el(name, attrs, parent) { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
 
 function polyFor(shape, cx, cy, d, rotDeg) {
@@ -740,6 +799,7 @@ $('fileInput').onchange = async e => {
   try {
     const buf = await f.arrayBuffer();
     pdfBytes = new Uint8Array(buf.slice(0));
+    pageRotations = pendingLoad ? {...(pendingLoad.pageRotations || {})} : {};
     pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise;
     pdfName = f.name; $('fileName').textContent = f.name;
     const ps = $('pageSel'); ps.innerHTML = '';
@@ -759,7 +819,8 @@ async function openPage(first) {
   ++sharpGeneration;
   const oldCrop=$('sharpCrop'); if(oldCrop)oldCrop.style.display='none';
   const page = await pdfDoc.getPage(pageNum);
-  vp = page.getViewport({ scale: 1 });
+  if (first && pendingLoad) pageRotations = {...(pendingLoad.pageRotations || {})};
+  vp = page.getViewport({ scale: 1, rotation: rotationForPage(page, pageNum) });
   if (first) {
     if (pendingLoad) {
       markers = pendingLoad.markers; nextId = Math.max(0, ...markers.map(m => m.id)) + 1;
@@ -781,7 +842,7 @@ async function openPage(first) {
   await renderSharpPage(page);
   $('empty').style.display = 'none';
   if (first) fit();
-  refresh(); status('Ready.');
+  refresh(); updateOrientationControls(); status('Ready.');
 }
 
 // ---------- v7: viewport-fixed high-resolution PDF rendering ----------
@@ -811,7 +872,7 @@ async function renderSharpPage(pageOverride = null) {
   showBackdrop();
   const page = pageOverride || await pdfDoc.getPage(targetPage);
   const baseScale = Math.min(1.25, 4200 / Math.max(vp.width, vp.height));
-  const rv = page.getViewport({scale:baseScale});
+  const rv = page.getViewport({scale:baseScale, rotation:rotationForPage(page,targetPage)});
   const temp = document.createElement('canvas');
   temp.width = Math.ceil(rv.width); temp.height = Math.ceil(rv.height);
   await page.render({canvasContext:temp.getContext('2d'),viewport:rv}).promise;
@@ -843,7 +904,7 @@ async function renderVisibleRegion() {
   if (gen !== sharpGeneration || targetPage !== pageNum) return;
   // Offset the PDF viewport itself: no post-render image enlargement and
   // no translation transform on the output canvas.
-  const renderVp = page.getViewport({scale:zoom*scale, offsetX:tx*scale, offsetY:ty*scale});
+  const renderVp = page.getViewport({scale:zoom*scale, rotation:rotationForPage(page,targetPage), offsetX:tx*scale, offsetY:ty*scale});
   const task = page.render({canvasContext:temp.getContext('2d',{alpha:false}),viewport:renderVp});
   sharpTask = task;
   try { await task.promise; } catch(e) {
@@ -907,7 +968,7 @@ function refresh() {
     const g = el('g', { 'data-id': m.id, style: 'cursor:pointer' }, gDev);
     const dm = d0 * (m.size || 1);
     if (dev.kind === 'relocate') {
-      const pts = relocVisiblePoints(m,dm), col='#fff200', r=dm*0.85;
+      const pts = relocVisiblePoints(m,dm), col=/^#[0-9a-fA-F]{6}$/.test(m.arrowColor||'')?m.arrowColor:DEV.relocate.color, r=dm*0.85;
       const pth=el('polyline',{points:ptsStr(pts),fill:'none',stroke:col,'stroke-width':Math.max(3,dm*.22),'stroke-linecap':'round','stroke-linejoin':'round'},g);
       pth.setAttribute('style','cursor:pointer');
       const [a,b]=pts.slice(-2); const theta=Math.atan2(b[1]-a[1],b[0]-a[0]);
@@ -981,6 +1042,20 @@ async function focusReviewMarker(id){
   openChangeDetails(id);
 }
 // ---------- panels ----------
+// AHT_MOVE_ARROW_COLOR_V1: per-move arrow color, persisted with saved JSON.
+const moveColorWrap=document.createElement('div');
+moveColorWrap.id='moveArrowColorWrap';
+moveColorWrap.className='panel';
+moveColorWrap.style.cssText='display:none;margin-top:7px;padding:10px;background:#f7f9fc';
+moveColorWrap.innerHTML='<label class="lbl" for="moveArrowColor"><strong>Move arrow color</strong></label><input type="color" id="moveArrowColor" value="#fff200" style="width:85px;height:32px"><div class="muted">Changes only this selected relocation arrow, including its exported PDF appearance.</div>';
+$('selPanel').insertAdjacentElement('afterend',moveColorWrap);
+$('moveArrowColor').addEventListener('pointerdown',()=>pushUndo());
+$('moveArrowColor').addEventListener('input',e=>{
+  const selected=[...sel];if(selected.length!==1)return;
+  const marker=markers.find(m=>m.id===selected[0]);
+  if(!marker||marker.type!=='relocate')return;
+  marker.arrowColor=e.target.value;refresh();
+});
 function updatePanels() {
   // counts
   const c = {}, len = {}, byNote = {};
@@ -1019,6 +1094,9 @@ function updatePanels() {
   });
   // selection
   const ids = [...sel]; const sp = $('selPanel');
+  const selectedMove = ids.length===1 ? markers.find(m=>m.id===ids[0]&&m.type==='relocate') : null;
+  $('moveArrowColorWrap').style.display=selectedMove?'block':'none';
+  if(selectedMove && document.activeElement!==$('moveArrowColor')) $('moveArrowColor').value=/^#[0-9a-fA-F]{6}$/.test(selectedMove.arrowColor||'')?selectedMove.arrowColor:DEV.relocate.color;
   if (!ids.length) { $('viewRow').style.display = 'none'; $('areaRow').style.display = 'none'; sp.innerHTML = '<div class="muted">Nothing selected.</div>'; $('selTools').style.display = 'none'; return; }
   $('selTools').style.display = 'block';
   if (ids.length === 1) {
@@ -1239,7 +1317,7 @@ $('viewport').addEventListener('pointerup', e => {
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
@@ -1247,8 +1325,8 @@ $('loadInput').onchange = e => {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
     if (o.tool && o.tool !== CFG.fileTag) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || m.type === 'area'; const bad = o.markers.filter(m => !okM(m)).length; const ms = o.markers.filter(okM);
-    if (pdfDoc) { pushUndo(); markers = ms; nextId = Math.max(0, ...ms.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); refresh(); status('Loaded ' + ms.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
-    else { pendingLoad = { markers: ms, page: o.page, inchesPerFt: o.inchesPerFt, calPtsPerFt: o.calPtsPerFt }; status('Work loaded (' + ms.length + ' devices). Now choose the plan PDF' + (o.pdfName ? ': ' + o.pdfName : '') + '.'); }
+    if (pdfDoc) { pushUndo(); markers = ms; nextId = Math.max(0, ...ms.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); pageRotations={...(o.pageRotations || {})}; void openPage(false).then(()=>fit()).catch(console.error); status('Loaded ' + ms.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
+    else { pendingLoad = { markers: ms, page: o.page, inchesPerFt: o.inchesPerFt, calPtsPerFt: o.calPtsPerFt, pageRotations: o.pageRotations || {} }; status('Work loaded (' + ms.length + ' devices). Now choose the plan PDF' + (o.pdfName ? ': ' + o.pdfName : '') + '.'); }
     if (bad) status($('status').textContent + ' ' + bad + ' unknown devices skipped.');
   } catch (err) { status('Could not read that work file: ' + err.message); } };
   r.readAsText(f); e.target.value = '';
@@ -1346,6 +1424,14 @@ $('pdfBtn').onclick = async () => {
     const originalPages = doc.getPages();
     const font = await doc.embedFont(StandardFonts.HelveticaBold);
     let markedPages = 0;
+    // Apply user-selected page orientations to the exported COPY, including pages with no markups.
+    for (const [pageNo, delta] of Object.entries(pageRotations)) {
+      const n=Number(pageNo);
+      if (!Number.isInteger(n) || n < 1 || n > originalPages.length) continue;
+      if (!Number(delta)) continue;
+      const sourcePage=await pdfDoc.getPage(n);
+      originalPages[n-1].setRotation(degrees(rotationForPage(sourcePage,n)));
+    }
     // AHT_MULTIPAGE_EXPORT_OTHER_TOOLS_V1: preserve every source page, use each sheet's PDF.js viewport.
     // Process the original pages only (Access Control adds schedule pages afterwards).
     for (let exportPageNum = 1; exportPageNum <= originalPages.length; exportPageNum++) {
@@ -1353,7 +1439,7 @@ $('pdfBtn').onclick = async () => {
       if (!forThisPage.length) continue;
       const page = originalPages[exportPageNum - 1];
       const pdfJsPage = await pdfDoc.getPage(exportPageNum);
-      const vp = pdfJsPage.getViewport({ scale: 1 });
+      const vp = pdfJsPage.getViewport({ scale: 1, rotation:rotationForPage(pdfJsPage,exportPageNum) });
       const PM = forThisPage.filter(m => !isArea(m));
       const areas = forThisPage.filter(m => isArea(m));
       markedPages++;
@@ -1382,7 +1468,7 @@ $('pdfBtn').onclick = async () => {
       const dev = DEV[m.type]; if (!dev) return; const c = hexRgb(dev.color, PDFLib);
       const dm = d0 * (m.size || 1);
       if (dev.kind === 'relocate') {
-        const pts=relocVisiblePoints(m,dm), col=rgb(1,242/255,0), r=dm*.85;
+        const pts=relocVisiblePoints(m,dm), col=hexRgb(/^#[0-9a-fA-F]{6}$/.test(m.arrowColor||'')?m.arrowColor:DEV.relocate.color,PDFLib), r=dm*.85;
         pts.slice(1).forEach((b,i)=>{const a=conv(...pts[i]), z=conv(...b);page.drawLine({start:{x:a[0],y:a[1]},end:{x:z[0],y:z[1]},thickness:Math.max(3,dm*.29),color:col});});
         const a=pts[pts.length-2], b=pts[pts.length-1],theta=Math.atan2(b[1]-a[1],b[0]-a[0]);
         polygon([b,[b[0]-dm*1.22*Math.cos(theta-.57),b[1]-dm*1.22*Math.sin(theta-.57)],[b[0]-dm*1.22*Math.cos(theta+.57),b[1]-dm*1.22*Math.sin(theta+.57)]],col,1,null,0,0);

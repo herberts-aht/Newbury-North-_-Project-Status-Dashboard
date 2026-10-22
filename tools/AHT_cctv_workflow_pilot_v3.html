@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT CCTV Camera Markup Tool · Security V3.3</title>
+<title>AHT CCTV Camera Markup Tool · Security V3.4</title>
 <!-- AHT_CCTV_SITE_SECURITY_V3_3: independent pole arms and camera aim, compatible with V3.2 JSON -->
 <!-- AHT_CCTV_SITE_SECURITY_V3_1: flexible poles, per-head coverage, length visibility controls -->
-<!-- AHT_CCTV_SITE_SECURITY_V1: poles, PTZ, LiDAR and Omnitrax -->
+<!-- AHT_CCTV_SITE_SECURITY_V3_4: multi-LiDAR arms, arm length, standalone LiDAR arrow clearance -->
 <style>
   :root { --border:#d8d5cc; --border2:#b7b3a6; --text:#1a1a18; --text2:#5f5e5a; --muted:#8a877d; --bg:#f4f2ec; --card:#fff; --accent:#185fa5; --danger:#a32d2d; }
   * { box-sizing:border-box; }
@@ -377,11 +377,11 @@
           <strong style="font-size:13px">Camera Pole — Editable Heads</strong>
           <div class="muted" style="margin:4px 0 8px">Add or remove heads and set each mounting arm and camera aim separately. Moving an arm carries its camera aim along; changing aim moves only the viewing direction. Whole-pole rotation turns everything together.</div>
           <label class="lbl">Pole rotation: <span id="poleRotVal">0</span>°</label><input id="poleRotRange" type="range" min="0" max="359" step="1" value="0">
-          <div class="row" style="margin:10px 0"><button type="button" id="poleAddFixed">+ Fixed Camera</button><button type="button" id="poleAddPTZ">+ PTZ Camera</button></div>
+          <div class="row" style="margin:10px 0;align-items:center"><label class="lbl" for="poleNewKind" style="margin:0">Add to pole:</label><select id="poleNewKind" style="flex:1;min-width:98px"><option value="cam">Fixed camera</option><option value="ptz">PTZ camera</option><option value="lidar">LiDAR</option></select><button type="button" id="poleAddHead">+ Add</button></div>
           <div id="poleHeadsList" style="display:grid;gap:8px"></div>
-          <div class="muted" style="margin-top:8px"><strong>On drawing:</strong> select the pole, then drag a <strong>white handle</strong> to turn that camera’s mounting arm, or a <strong>yellow handle</strong> to aim only that camera’s viewing area. You can also use the sliders above. A pole starts with 3 cameras; add/remove freely, including additional tiers.</div>
+          <div class="muted" style="margin-top:8px"><strong>On drawing:</strong> white handles position mounting arms; yellow handles aim the camera view or LiDAR arrow independently. Arm Length adjusts how far each attachment sits from the pole, not its height. Add as many fixed, PTZ, or LiDAR heads as needed. LiDAR arrows are individually colored and marked L1, L2, etc.</div>
           <div class="panel" style="margin-top:9px;background:#f7f9fc">
-            <label class="chk" style="font-weight:700"><input type="checkbox" id="poleLidarEnabled"><span>Mount LiDAR on this pole</span></label>
+            <label class="chk" style="font-weight:700"><input type="checkbox" id="poleLidarEnabled"><span>Legacy center-mounted LiDAR (existing layouts)</span></label>
             <div id="poleLidarOptions" style="display:none">
               <label class="lbl">LiDAR direction relative to pole: <span id="poleLidarAngleVal">0</span>°</label>
               <input id="poleLidarAngleRange" type="range" min="0" max="359" step="1" value="0">
@@ -618,22 +618,22 @@ function isPole(m){ return !!m && m.type === 'pole3'; }
 function isLidar(m){ return !!m && m.type === 'lidar'; }
 function isOmnitrax(m){ return !!m && m.type === 'omnitrax'; }
 function newPoleHead(rel=0,fov=80,tier=1,kind='cam'){
-  return {kind,rel,aimOffset:0,fov,tier,reach:4.2,viewColor:null,viewOpacity:18,showRange:true};
+  return {kind,rel,aimOffset:0,fov,tier,reach:4.2,viewColor:null,viewOpacity:18,showRange:true,length:18,arrowWidth:3,arrowColor:null};
 }
 function makePoleHeads(){return [newPoleHead(270,80,1),newPoleHead(90,80,1),newPoleHead(180,180,1)];}
 function ensurePole(m){
   if(!Array.isArray(m.heads)) m.heads=makePoleHeads(); // [] is a valid empty pole
   m.heads=m.heads.map((h,i)=>{
     const d=makePoleHeads()[Math.min(i,2)] || newPoleHead();
-    const angle=Number(h?.rel), aim=Number(h?.aimOffset), field=Number(h?.fov), reach=Number(h?.reach), tier=Number(h?.tier), opacity=Number(h?.viewOpacity);
-    return {kind:h?.kind==='ptz'?'ptz':'cam',rel:Number.isFinite(angle)?angle360(angle):d.rel,
+    const angle=Number(h?.rel), aim=Number(h?.aimOffset), field=Number(h?.fov), reach=Number(h?.reach), tier=Number(h?.tier), opacity=Number(h?.viewOpacity), length=Number(h?.length), arrowWidth=Number(h?.arrowWidth);
+    return {kind:h?.kind==='ptz'?'ptz':h?.kind==='lidar'?'lidar':'cam',rel:Number.isFinite(angle)?angle360(angle):d.rel,
       aimOffset:Number.isFinite(aim)?angleSigned(aim):0,
       fov:Number.isFinite(field)?Math.max(10,Math.min(360,field)):d.fov,
       tier:Number.isFinite(tier)?Math.max(1,Math.min(30,Math.round(tier))):1,
       reach:Number.isFinite(reach)?Math.max(1.2,Math.min(16,reach)):d.reach,
       viewColor:/^#[0-9a-fA-F]{6}$/.test(h?.viewColor||'')?h.viewColor:null,
       viewOpacity:Number.isFinite(opacity)?Math.max(0,Math.min(90,opacity)):18,
-      showRange:h?.showRange!==false};
+      showRange:h?.showRange!==false, length:Number.isFinite(length)?Math.max(4,Math.min(80,length)):18, arrowWidth:Number.isFinite(arrowWidth)?Math.max(1,Math.min(16,arrowWidth)):3, arrowColor:/^#[0-9a-fA-F]{6}$/.test(h?.arrowColor||'')?h.arrowColor:null};
   });
   if(!Number.isFinite(m.rot))m.rot=0;
   return m.heads;
@@ -646,7 +646,7 @@ function poleHeadAimRel(h){return angle360((Number(h.rel)||0)+(Number(h.aimOffse
 function poleHeadAimAngle(m,h){return angle360((Number(m.rot)||0)+poleHeadAimRel(h));}
 function poleHeadPosition(m,h,dm){
   const a=poleHeadAngle(m,h)*Math.PI/180;
-  // Position may vary per mounting tier; all heads rotate around the pole as a unit.
+  // Arm Length (legacy tier field) is illustrative radial extension; all heads rotate with pole.
   const radius=dm*(0.80+Math.max(1,Number(h.tier)||1)*0.38);
   return {x:m.x+Math.sin(a)*radius,y:m.y-Math.cos(a)*radius};
 }
@@ -657,7 +657,7 @@ function headPreviewStyle(m,h){
  return {...base,fill:c,stroke:c,fillOpacity:opacity,strokeOpacity:Math.min(1,Math.max(.3,opacity*3))};
 }
 function poleHeadAngle(m,h){ return angle360((Number(m.rot)||0) + (Number(h.rel)||0)); }
-function poleHeadDev(h){ return DEV[h.kind === 'ptz' ? 'ptz' : 'cam']; }
+function poleHeadDev(h){ return DEV[h.kind === 'ptz' ? 'ptz' : h.kind === 'lidar' ? 'lidar' : 'cam']; }
 function lidarLength(m){ return Math.max(4, Math.min(80, Number(m.length) || 18)); }
 function lidarEnd(m){ const a=((Number(m.rot)||0)*Math.PI/180); const len=lidarLength(m)*iconBase()*0.32; return [m.x + Math.sin(a)*len, m.y - Math.cos(a)*len]; }
 function ensureOmni(m){ if(!Array.isArray(m.pts)) m.pts=[[m.x,m.y],[m.x2||m.x+20,m.y2||m.y]]; if(!Array.isArray(m.segmentAxes))m.segmentAxes=[]; if(!Array.isArray(m.segmentStyles)) m.segmentStyles = new Array(Math.max(0,m.pts.length-1)).fill('solid'); while(m.segmentStyles.length < m.pts.length-1) m.segmentStyles.push('solid'); if(m.segmentStyles.length > m.pts.length-1) m.segmentStyles = m.segmentStyles.slice(0,m.pts.length-1); if(!m.color1) m.color1 = DEV.omnitrax.color; if(!m.color2) m.color2 = DEV.omnitrax.secondaryColor; if(!Number.isFinite(m.gap)) m.gap = 10; return m; }
@@ -718,6 +718,25 @@ function poleLidarAnchor(m){
   const r=heading*Math.PI/180;
   return {x:m.x,y:m.y,x2:m.x+Math.sin(r)*len,y2:m.y-Math.cos(r)*len,rot:heading};
 }
+function lidarArrowStart(x,y,heading,iconSize){
+  const a=heading*Math.PI/180;
+  // LiDAR glyph is 1.05 wide / .7 tall. This clearance keeps arrows outside its text.
+  const clearance=Math.max(2,iconSize*.66);
+  return [x+Math.sin(a)*clearance,y-Math.cos(a)*clearance];
+}
+function drawLidarHeadScreen(m,h,pos,headSize,dm,g,gTxt,gDev,isSel,index){
+  const heading=poleHeadAimAngle(m,h),a=heading*Math.PI/180;
+  const start=lidarArrowStart(pos.x,pos.y,heading,headSize);
+  const length=Math.max(4,Math.min(80,Number(h.length)||18))*iconBase()*.32;
+  const end=[pos.x+Math.sin(a)*Math.max(length,headSize),pos.y-Math.cos(a)*Math.max(length,headSize)];
+  const style=arrowStyle(h,dm,DEV.lidar.color);
+  const line=el('line',{x1:start[0],y1:start[1],x2:end[0],y2:end[1],stroke:style.color,'stroke-width':style.width,'stroke-linecap':'round'},g);
+  line.setAttribute('style','pointer-events:none');
+  el('polygon',{points:ptsStr(lidarArrowPts(start[0],start[1],end[0],end[1],lidarArrowHeadSize(start[0],start[1],end[0],end[1],style.width))),fill:style.color,style:'pointer-events:none'},g);
+  drawIcon(DEV.lidar,pos.x,pos.y,headSize,g,gTxt);
+  const lbl=el('text',{x:pos.x+headSize*.30,y:pos.y-headSize*.42,'font-size':dm*.28,fill:style.color,stroke:'#fff','stroke-width':1.3,'paint-order':'stroke','font-weight':800,style:'pointer-events:none'},gTxt);
+  lbl.textContent='L'+(index+1);
+}
 function lidarArrowPts(x,y,x2,y2,headSize){
   const th=Math.atan2(y2-y,x2-x),ah=headSize;
   return [[x2,y2],[x2-ah*Math.cos(th-.45),y2-ah*Math.sin(th-.45)],[x2-ah*Math.cos(th+.45),y2-ah*Math.sin(th+.45)]];
@@ -734,9 +753,9 @@ function arrowStyle(obj,dm,fallback){
 }
 function drawPoleLidarScreen(m,dm,g,txt){
   const cfg=poleLidar(m);if(!cfg.enabled)return;
-  const a=poleLidarAnchor(m),style=arrowStyle(cfg,dm,DEV.lidar.color);
-  el('line',{x1:a.x,y1:a.y,x2:a.x2,y2:a.y2,stroke:style.color,'stroke-width':style.width,'stroke-linecap':'round'},g);
-  el('polygon',{points:ptsStr(lidarArrowPts(a.x,a.y,a.x2,a.y2,lidarArrowHeadSize(a.x,a.y,a.x2,a.y2,style.width))),fill:style.color},g);
+  const a=poleLidarAnchor(m),style=arrowStyle(cfg,dm,DEV.lidar.color),start=lidarArrowStart(a.x,a.y,a.rot,dm*.48);
+  el('line',{x1:start[0],y1:start[1],x2:a.x2,y2:a.y2,stroke:style.color,'stroke-width':style.width,'stroke-linecap':'round'},g);
+  el('polygon',{points:ptsStr(lidarArrowPts(start[0],start[1],a.x2,a.y2,lidarArrowHeadSize(start[0],start[1],a.x2,a.y2,style.width))),fill:style.color},g);
   drawIcon(DEV.lidar,m.x,m.y,dm*.48,g,txt);
 }
 function drawPoleScreen(m,dm,g,gDev,gPrev,gTxt,isSel){
@@ -748,13 +767,16 @@ function drawPoleScreen(m,dm,g,gDev,gPrev,gTxt,isSel){
    const mount=dm*(.34+.09*Math.min(h.tier,8)), cx=m.x+Math.sin(a)*mount, cy=m.y-Math.cos(a)*mount;
    // The arm fixes the camera location. Camera aim is a separate heading based on aimOffset.
    el('line',{x1:m.x,y1:m.y,x2:pos.x,y2:pos.y,stroke:'#4b5563','stroke-width':Math.max(1.5,dm*.085),'stroke-linecap':'round'},g);
-   const spec=headPreviewSpec(m,h,dm),style=headPreviewStyle(m,h);
-   if(h.showRange!==false){el('polygon',{points:ptsStr(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec)),fill:style.fill,'fill-opacity':style.fillOpacity,stroke:style.stroke,'stroke-opacity':style.strokeOpacity,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);}
    const headDev=poleHeadDev(h), headSize=dm*.52;
-   // Keep head a selectable part of its owning pole instead of a separate floating object.
-   el('circle',{cx:pos.x,cy:pos.y,r:headSize*.52,fill:'#fff',stroke:'#303942','stroke-width':Math.max(1,dm*.065)},g);
-   drawIcon(headDev,pos.x,pos.y,headSize,g,gTxt);
-   if(h.tier>1){const label=el('text',{x:pos.x+headSize*.3,y:pos.y-headSize*.43,'font-size':dm*.27,fill:'#263544',stroke:'#fff','stroke-width':1.1,'paint-order':'stroke','font-weight':800,style:'pointer-events:none'},gTxt);label.textContent='T'+h.tier;}
+   if(h.kind==='lidar'){
+     drawLidarHeadScreen(m,h,pos,headSize,dm,g,gTxt,gDev,isSel,i);
+   }else{
+     const spec=headPreviewSpec(m,h,dm),style=headPreviewStyle(m,h);
+     if(h.showRange!==false){el('polygon',{points:ptsStr(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec)),fill:style.fill,'fill-opacity':style.fillOpacity,stroke:style.stroke,'stroke-opacity':style.strokeOpacity,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);}
+     el('circle',{cx:pos.x,cy:pos.y,r:headSize*.52,fill:'#fff',stroke:'#303942','stroke-width':Math.max(1,dm*.065)},g);
+     drawIcon(headDev,pos.x,pos.y,headSize,g,gTxt);
+   }
+   if(h.tier>1){const label=el('text',{x:pos.x+headSize*.3,y:pos.y+headSize*.66,'font-size':dm*.26,fill:'#263544',stroke:'#fff','stroke-width':1.1,'paint-order':'stroke','font-weight':800,style:'pointer-events:none'},gTxt);label.textContent='A'+h.tier;}
    if(isSel){
      // White = mounting-arm rotation, yellow = camera aim (coverage only).
      // Draw aim guidance from the camera, not the pole, so the two actions remain distinguishable.
@@ -1222,7 +1244,7 @@ function refresh() {
     const g = el('g', { 'data-id': m.id, style: 'cursor:pointer' }, gDev);
     const dm = d0 * (m.size || 1);
     if (dev.kind === 'relocate') {
-      const pts = relocVisiblePoints(m,dm), col='#fff200', r=dm*0.85;
+      const pts = relocVisiblePoints(m,dm), col=/^#[0-9a-fA-F]{6}$/.test(m.arrowColor||'')?m.arrowColor:DEV.relocate.color, r=dm*0.85;
       const pth=el('polyline',{points:ptsStr(pts),fill:'none',stroke:col,'stroke-width':Math.max(3,dm*.22),'stroke-linecap':'round','stroke-linejoin':'round'},g);
       pth.setAttribute('style','cursor:pointer');
       const [a,b]=pts.slice(-2); const theta=Math.atan2(b[1]-a[1],b[0]-a[0]);
@@ -1241,11 +1263,11 @@ function refresh() {
     } else if (dev.kind === 'route') {
       drawOmniScreen(m,dev,g,gDev,gTxt,dm,d0,isSel,showLen);
     } else if (dev.kind === 'lidar') {
-      const end = lidarEnd(m);
+      const end = lidarEnd(m),start=lidarArrowStart(m.x,m.y,m.rot||0,dm);
       drawIcon(actualDev(dev,m), m.x, m.y, dm, g, gTxt);
-      el('line',{x1:m.x,y1:m.y,x2:end[0],y2:end[1],stroke:arrowStyle(m,dm,dev.color).color,'stroke-width':arrowStyle(m,dm,dev.color).width,'stroke-linecap':'round'},g);
+      el('line',{x1:start[0],y1:start[1],x2:end[0],y2:end[1],stroke:arrowStyle(m,dm,dev.color).color,'stroke-width':arrowStyle(m,dm,dev.color).width,'stroke-linecap':'round'},g);
       const style=arrowStyle(m,dm,dev.color);
-      el('polygon',{points:ptsStr(lidarArrowPts(m.x,m.y,end[0],end[1],lidarArrowHeadSize(m.x,m.y,end[0],end[1],style.width))),fill:style.color},g);
+      el('polygon',{points:ptsStr(lidarArrowPts(start[0],start[1],end[0],end[1],lidarArrowHeadSize(start[0],start[1],end[0],end[1],style.width))),fill:style.color},g);
       if (isSel) { el('circle',{cx:end[0],cy:end[1],r:Math.max(dm*.14,5/zoom),fill:'#fff200',stroke:'#4b1c74','stroke-width':1.5,'data-handle':'len','data-id':m.id,style:'cursor:grab'},gDev); el('circle',{cx:m.x+Math.sin((m.rot||0)*Math.PI/180)*dm,cy:m.y-Math.cos((m.rot||0)*Math.PI/180)*dm,r:Math.max(dm*.14,5/zoom),fill:'#fff',stroke:'#4b1c74','stroke-width':1.5,'data-handle':'dir','data-id':m.id,style:'cursor:grab'},gDev); }
     } else if (dev.kind === 'pole') {
       drawPoleScreen(m,dm,g,gDev,gPrev,gTxt,isSel);
@@ -1305,6 +1327,20 @@ async function focusReviewMarker(id){
   openChangeDetails(id);
 }
 // ---------- panels ----------
+// AHT_MOVE_ARROW_COLOR_V1: per-move arrow color, persisted with saved JSON.
+const moveColorWrap=document.createElement('div');
+moveColorWrap.id='moveArrowColorWrap';
+moveColorWrap.className='panel';
+moveColorWrap.style.cssText='display:none;margin-top:7px;padding:10px;background:#f7f9fc';
+moveColorWrap.innerHTML='<label class="lbl" for="moveArrowColor"><strong>Move arrow color</strong></label><input type="color" id="moveArrowColor" value="#fff200" style="width:85px;height:32px"><div class="muted">Changes only this selected relocation arrow, including its exported PDF appearance.</div>';
+$('selPanel').insertAdjacentElement('afterend',moveColorWrap);
+$('moveArrowColor').addEventListener('pointerdown',()=>pushUndo());
+$('moveArrowColor').addEventListener('input',e=>{
+  const selected=[...sel];if(selected.length!==1)return;
+  const marker=markers.find(m=>m.id===selected[0]);
+  if(!marker||marker.type!=='relocate')return;
+  marker.arrowColor=e.target.value;refresh();
+});
 function updatePanels() {
   // counts
   const c = {}, len = {}, byNote = {};
@@ -1343,6 +1379,9 @@ function updatePanels() {
   });
   // selection
   const ids = [...sel]; const sp = $('selPanel');
+  const selectedMove = ids.length===1 ? markers.find(m=>m.id===ids[0]&&m.type==='relocate') : null;
+  $('moveArrowColorWrap').style.display=selectedMove?'block':'none';
+  if(selectedMove && document.activeElement!==$('moveArrowColor')) $('moveArrowColor').value=/^#[0-9a-fA-F]{6}$/.test(selectedMove.arrowColor||'')?selectedMove.arrowColor:DEV.relocate.color;
   if (!ids.length) { $('poleHeadsList').dataset.signature=''; $('viewRow').style.display = 'none'; $('areaRow').style.display = 'none'; $('securityControls').style.display='none'; sp.innerHTML = '<div class="muted">Nothing selected.</div>'; $('selTools').style.display = 'none'; return; }
   $('selTools').style.display = 'block';
   if (ids.length === 1) {
@@ -1411,21 +1450,22 @@ $('poleRotRange').onpointerdown = $('lidarDirRange').onpointerdown = $('lidarLen
 $('poleRotRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isPole(m)) return; m.rot=+e.target.value; $('poleRotVal').textContent=Math.round(m.rot); refresh(); };
 function renderPoleHeads(m){
  const list=$('poleHeadsList');if(!list)return;
- const heads=ensurePole(m), sig=m.id+':'+heads.length;
+ const heads=ensurePole(m),sig=m.id+':'+heads.map(h=>h.kind).join(',');
  if(list.dataset.signature!==sig){
    list.dataset.signature=sig;list.replaceChildren();
    heads.forEach((h,i)=>{
      const row=document.createElement('div');row.className='panel';row.style.cssText='padding:10px;border:1px solid #ccd8e5;background:#fafcff;border-radius:8px';row.dataset.head=i;
-     const field=(name,type,value,extra='')=>`<label class="lbl">${name}</label><input data-field="${type}" ${extra} value="${value}" style="width:100%;box-sizing:border-box">`;
      const control=(name,type,val,min,max,step)=>`<div><label class="lbl">${name}: <span data-value="${type}">${val}</span></label><input data-field="${type}" type="range" min="${min}" max="${max}" step="${step}" value="${val}" style="width:100%"></div>`;
-     row.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><strong>Camera ${i+1}</strong><button type="button" data-action="remove" style="color:#a42424">Remove Camera</button></div>`+
-      `<div class="grid2" style="gap:8px"><div><label class="lbl">Camera type</label><select data-field="kind" style="width:100%"><option value="cam">Fixed</option><option value="ptz">PTZ</option></select></div>`+
-      `<div><label class="lbl">Mounting tier</label><input data-field="tier" type="number" min="1" max="30" step="1" value="${h.tier}" style="width:100%"></div></div>`+
-      `<div class="grid2" style="gap:8px">`+control('Mounting arm angle (relative to pole)','rel',h.rel,0,359,1)+control('Camera aim (relative to pole)','aim',poleHeadAimRel(h),0,359,1)+
-        control('Viewing angle (FOV)','fov',h.fov,10,360,5)+
-        control('Illustrative reach','reach',h.reach,1.2,16,.1)+control('Viewing-area opacity (% visible)','viewOpacity',h.viewOpacity,0,90,1)+`</div>`+
-      `<div class="muted" data-head-direction style="margin-top:5px">Arm ${poleHeadAngle(m,h)}° · Camera aim ${poleHeadAimAngle(m,h)}° on drawing</div>`+
-      `<div class="row" style="margin-top:6px"><label style="flex:1">Coverage color <input data-field="viewColor" type="color" value="${h.viewColor||VIEW_COLORS[cameraStage(m)]}" style="width:56px;height:29px"></label><label style="flex:1"><input data-field="showRange" type="checkbox" ${h.showRange!==false?'checked':''}> Show coverage</label></div>`;
+     const lidar=h.kind==='lidar',devName=lidar?'LiDAR':h.kind==='ptz'?'PTZ':'Fixed';
+     row.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><strong>${devName} ${i+1}</strong><button type="button" data-action="remove" style="color:#a42424">Remove</button></div>`+
+      `<div class="grid2" style="gap:8px"><div><label class="lbl">Attached device</label><select data-field="kind" style="width:100%"><option value="cam">Fixed camera</option><option value="ptz">PTZ camera</option><option value="lidar">LiDAR</option></select></div>`+
+      `<div><label class="lbl">Arm Length (visual)</label><input data-field="tier" type="number" min="1" max="30" step="1" value="${h.tier}" style="width:100%"></div></div>`+
+      `<div class="grid2" style="gap:8px">`+control('Mounting arm angle (relative to pole)','rel',h.rel,0,359,1)+control(lidar?'LiDAR direction (relative to pole)':'Camera aim (relative to pole)','aim',poleHeadAimRel(h),0,359,1)+
+      (lidar?control('Arrow length','length',h.length,4,80,1)+control('Arrow width','arrowWidth',h.arrowWidth,1,16,.5):
+       control('Viewing angle (FOV)','fov',h.fov,10,360,5)+control('Illustrative reach','reach',h.reach,1.2,16,.1)+control('Viewing-area opacity (% visible)','viewOpacity',h.viewOpacity,0,90,1))+`</div>`+
+      `<div class="muted" data-head-direction style="margin-top:5px">Arm ${poleHeadAngle(m,h)}° · ${lidar?'LiDAR':'Camera'} aim ${poleHeadAimAngle(m,h)}° on drawing</div>`+
+      (lidar?`<div style="margin-top:7px"><label class="lbl">LiDAR arrow color</label><input data-field="arrowColor" type="color" value="${h.arrowColor||DEV.lidar.color}" style="width:75px;height:30px"></div>`:
+      `<div class="row" style="margin-top:6px"><label style="flex:1">Coverage color <input data-field="viewColor" type="color" value="${h.viewColor||VIEW_COLORS[cameraStage(m)]}" style="width:56px;height:29px"></label><label style="flex:1"><input data-field="showRange" type="checkbox" ${h.showRange!==false?'checked':''}> Show coverage</label></div>`);
      list.appendChild(row);
    });
    list.querySelectorAll('[data-field]').forEach(input=>{
@@ -1433,9 +1473,10 @@ function renderPoleHeads(m){
        const m=markers.find(x=>x.id===[...sel][0]);if(!isPole(m))return;
        const row=e.target.closest('[data-head]'),h=ensurePole(m)[Number(row.dataset.head)],key=e.target.dataset.field;
        if(!h)return;
-       const v=key==='showRange'?e.target.checked:key==='kind'?e.target.value:key==='viewColor'?e.target.value:Number(e.target.value);
+       const v=key==='showRange'?e.target.checked:(key==='kind'||key==='viewColor'||key==='arrowColor')?e.target.value:Number(e.target.value);
        if(key==='aim') h.aimOffset=angleSigned(v-h.rel);
        else h[key]=v;
+       if(key==='kind')list.dataset.signature='';
        const label=row.querySelector(`[data-value="${key}"]`);if(label)label.textContent=String(v);
        refresh();
      };
@@ -1448,26 +1489,24 @@ function renderPoleHeads(m){
       list.dataset.signature='';
    })));
  }
- // Reconcile controls on refresh without recreating DOM during slider drags.
  list.querySelectorAll('[data-head]').forEach((row,i)=>{
    const h=heads[i];if(!h)return;
    row.querySelectorAll('[data-field]').forEach(input=>{
      const key=input.dataset.field;if(document.activeElement===input)return;
      if(key==='showRange')input.checked=h.showRange!==false;
-     else input.value=key==='aim'?poleHeadAimRel(h):(key==='viewColor'?(h.viewColor||VIEW_COLORS[cameraStage(m)]):h[key]);
+     else input.value=key==='aim'?poleHeadAimRel(h):(key==='viewColor'?(h.viewColor||VIEW_COLORS[cameraStage(m)]):key==='arrowColor'?(h.arrowColor||DEV.lidar.color):h[key]);
      const label=row.querySelector(`[data-value="${key}"]`);if(label)label.textContent=String(key==='aim'?poleHeadAimRel(h):h[key]);
    });
    const directions=row.querySelector('[data-head-direction]');
-   if(directions) directions.textContent='Arm '+Math.round(poleHeadAngle(m,h))+'° · Camera aim '+Math.round(poleHeadAimAngle(m,h))+'° on drawing';
+   if(directions) directions.textContent='Arm '+Math.round(poleHeadAngle(m,h))+'° · '+(h.kind==='lidar'?'LiDAR direction ':'Camera aim ')+Math.round(poleHeadAimAngle(m,h))+'° on drawing';
  });
 }
-function addPoleCamera(kind){withSelected(m=>{
+function addPoleHead(kind){withSelected(m=>{
  if(!isPole(m))return;const heads=ensurePole(m),last=heads[heads.length-1];
  heads.push(newPoleHead(last?(last.rel+90)%360:0,80,last?.tier||1,kind));
  $('poleHeadsList').dataset.signature='';
 });}
-$('poleAddFixed').onclick=()=>addPoleCamera('cam');
-$('poleAddPTZ').onclick=()=>addPoleCamera('ptz');
+$('poleAddHead').onclick=()=>addPoleHead($('poleNewKind').value);
 
 $('lidarDirRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isLidar(m)) return; m.rot=+e.target.value; $('lidarDirVal').textContent=Math.round(m.rot); refresh(); };
 $('lidarLenRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isLidar(m)) return; m.length=+e.target.value; $('lidarLenVal').textContent=Math.round(m.length); refresh(); };
@@ -1713,13 +1752,13 @@ $('csvBtn').onclick = () => {
   });
   const poles=devMarkers().filter(isPole);
   if(poles.length){
-    rows.push(['Camera heads on poles (all tiers)', poles.filter(m=>cameraStage(m)==='initial').reduce((sum,m)=>sum+ensurePole(m).length,0)||'', poles.filter(m=>cameraStage(m)==='proposed').reduce((sum,m)=>sum+ensurePole(m).length,0)||'', poles.reduce((sum,m)=>sum+ensurePole(m).length,0)]);
+    rows.push(['Camera heads on poles (all tiers)', poles.filter(m=>cameraStage(m)==='initial').reduce((sum,m)=>sum+ensurePole(m).filter(h=>h.kind!=='lidar').length,0)||'', poles.filter(m=>cameraStage(m)==='proposed').reduce((sum,m)=>sum+ensurePole(m).filter(h=>h.kind!=='lidar').length,0)||'', poles.reduce((sum,m)=>sum+ensurePole(m).filter(h=>h.kind!=='lidar').length,0)]);
     for(const kind of ['cam','ptz']){
       const kCount=ms=>ms.reduce((sum,m)=>sum+ensurePole(m).filter(h=>h.kind===kind).length,0);
       rows.push([(kind==='ptz'?'PTZ':'Fixed')+' heads on poles',kCount(poles.filter(m=>cameraStage(m)==='initial'))||'',kCount(poles.filter(m=>cameraStage(m)==='proposed'))||'',kCount(poles)]);
     }
-    const withLidar=poles.filter(m=>poleLidar(m).enabled);
-    if(withLidar.length)rows.push(['LiDAR mounted on camera poles',withLidar.filter(m=>cameraStage(m)==='initial').length||'',withLidar.filter(m=>cameraStage(m)==='proposed').length||'',withLidar.length]);
+    const lidarCount=ms=>ms.reduce((sum,m)=>sum+ensurePole(m).filter(h=>h.kind==='lidar').length+(poleLidar(m).enabled?1:0),0);
+    if(lidarCount(poles))rows.push(['LiDAR mounted on camera poles',lidarCount(poles.filter(m=>cameraStage(m)==='initial'))||'',lidarCount(poles.filter(m=>cameraStage(m)==='proposed'))||'',lidarCount(poles)]);
   }
   const routes=devMarkers().filter(isOmnitrax);
   if(routes.length){
@@ -1799,7 +1838,7 @@ $('pdfBtn').onclick = async () => {
       const dev = DEV[m.type]; if (!dev) return; const c = hexRgb(dev.color, PDFLib);
       const dm = d0 * (m.size || 1);
       if (dev.kind === 'relocate') {
-        const pts=relocVisiblePoints(m,dm), col=rgb(1,242/255,0), r=dm*.85;
+        const pts=relocVisiblePoints(m,dm), col=hexRgb(/^#[0-9a-fA-F]{6}$/.test(m.arrowColor||'')?m.arrowColor:DEV.relocate.color,PDFLib), r=dm*.85;
         pts.slice(1).forEach((b,i)=>{const a=conv(...pts[i]), z=conv(...b);page.drawLine({start:{x:a[0],y:a[1]},end:{x:z[0],y:z[1]},thickness:Math.max(3,dm*.29),color:col});});
         const a=pts[pts.length-2], b=pts[pts.length-1],theta=Math.atan2(b[1]-a[1],b[0]-a[0]);
         polygon([b,[b[0]-dm*1.22*Math.cos(theta-.57),b[1]-dm*1.22*Math.sin(theta-.57)],[b[0]-dm*1.22*Math.cos(theta+.57),b[1]-dm*1.22*Math.sin(theta+.57)]],col,1,null,0,0);
@@ -1824,27 +1863,40 @@ $('pdfBtn').onclick = async () => {
         }
       } else if (dev.kind === 'lidar') {
         drawIconPdf(actualDev(dev,m),m.x,m.y,dm,polygon,text,hexRgb,PDFLib);
-        const end=lidarEnd(m),a=conv(m.x,m.y),b=conv(end[0],end[1]),style=arrowStyle(m,dm,dev.color);
+        const end=lidarEnd(m),start=lidarArrowStart(m.x,m.y,m.rot||0,dm),a=conv(start[0],start[1]),b=conv(end[0],end[1]),style=arrowStyle(m,dm,dev.color);
         page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:style.width,color:hexRgb(style.color,PDFLib),lineCap:1});
-        polygon(lidarArrowPts(m.x,m.y,end[0],end[1],lidarArrowHeadSize(m.x,m.y,end[0],end[1],style.width)),hexRgb(style.color,PDFLib),1,null,0,0);
+        polygon(lidarArrowPts(start[0],start[1],end[0],end[1],lidarArrowHeadSize(start[0],start[1],end[0],end[1],style.width)),hexRgb(style.color,PDFLib),1,null,0,0);
       } else if (dev.kind === 'pole') {
         ensurePole(m);drawIconPdf(DEV.pole3,m.x,m.y,dm,polygon,text,hexRgb,PDFLib);
         m.heads.forEach(h=>{
           const a=poleHeadAngle(m,h)*Math.PI/180,pos=poleHeadPosition(m,h,dm),start=conv(m.x,m.y),end=conv(pos.x,pos.y),headDev=poleHeadDev(h),headSize=dm*.52;
           page.drawLine({start:{x:start[0],y:start[1]},end:{x:end[0],y:end[1]},thickness:Math.max(1.5,dm*.085),color:rgb(.29,.33,.39),lineCap:1});
+          if(h.kind==='lidar'){
+            const heading=poleHeadAimAngle(m,h),r=heading*Math.PI/180,
+              p0=lidarArrowStart(pos.x,pos.y,heading,headSize),
+              len=Math.max(4,Math.min(80,Number(h.length)||18))*iconBase()*.32,
+              p1=[pos.x+Math.sin(r)*Math.max(len,headSize),pos.y-Math.cos(r)*Math.max(len,headSize)],
+              a0=conv(p0[0],p0[1]),a1=conv(p1[0],p1[1]),style=arrowStyle(h,dm,DEV.lidar.color),color=hexRgb(style.color,PDFLib);
+            page.drawLine({start:{x:a0[0],y:a0[1]},end:{x:a1[0],y:a1[1]},thickness:style.width,color,lineCap:1});
+            polygon(lidarArrowPts(p0[0],p0[1],p1[0],p1[1],lidarArrowHeadSize(p0[0],p0[1],p1[0],p1[1],style.width)),color,1,null,0,0);
+            drawIconPdf(DEV.lidar,pos.x,pos.y,headSize,polygon,text,hexRgb,PDFLib);
+            text('L'+(m.heads.indexOf(h)+1),pos.x+headSize*.34,pos.y-headSize*.42,dm*.28,color,false);
+            if(h.tier>1)text('A'+h.tier,pos.x+headSize*.35,pos.y+headSize*.66,dm*.26,rgb(.15,.2,.27),false);
+            return;
+          }
           if($('pdfViewChk').checked&&h.showRange!==false){
             const sp=headPreviewSpec(m,h,dm),st=headPreviewStyle(m,h);
             polygon(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},sp),hexRgb(st.fill,PDFLib),st.fillOpacity,hexRgb(st.stroke,PDFLib),st.strokeOpacity,1.3);
           }
           polygon(previewPoly({x:pos.x,y:pos.y},{kind:'circle',angle:360,rpt:headSize*.52}),rgb(1,1,1),1,rgb(.2,.24,.28),1,Math.max(1,dm*.065));
           drawIconPdf(headDev,pos.x,pos.y,headSize,polygon,text,hexRgb,PDFLib);
-          if(h.tier>1)text('T'+h.tier,pos.x+headSize*.35,pos.y-headSize*.43,dm*.27,rgb(.15,.2,.27),false);
+          if(h.tier>1)text('A'+h.tier,pos.x+headSize*.35,pos.y+headSize*.66,dm*.27,rgb(.15,.2,.27),false);
         });
         const pl=poleLidar(m);
         if(pl.enabled){
-          const a=poleLidarAnchor(m),p1=conv(a.x,a.y),p2=conv(a.x2,a.y2),st=arrowStyle(pl,dm,DEV.lidar.color),color=hexRgb(st.color,PDFLib);
+          const a=poleLidarAnchor(m),start=lidarArrowStart(a.x,a.y,a.rot,dm*.48),p1=conv(start[0],start[1]),p2=conv(a.x2,a.y2),st=arrowStyle(pl,dm,DEV.lidar.color),color=hexRgb(st.color,PDFLib);
           page.drawLine({start:{x:p1[0],y:p1[1]},end:{x:p2[0],y:p2[1]},thickness:st.width,color,lineCap:1});
-          polygon(lidarArrowPts(a.x,a.y,a.x2,a.y2,lidarArrowHeadSize(a.x,a.y,a.x2,a.y2,st.width)),color,1,null,0,0);
+          polygon(lidarArrowPts(start[0],start[1],a.x2,a.y2,lidarArrowHeadSize(start[0],start[1],a.x2,a.y2,st.width)),color,1,null,0,0);
           drawIconPdf(DEV.lidar,m.x,m.y,dm*.48,polygon,text,hexRgb,PDFLib);
         }
       } else {
