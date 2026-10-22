@@ -455,6 +455,9 @@
 
     <section class="workflow-step" id="exportSection">
       <div class="step-heading"><span class="step-number">5</span><h2>Save / Share</h2></div>
+      <!-- AHT_PDF_LEGEND_TOGGLE_V3: opt-in PDF title/device legend -->
+      <label class="chk pdf-legend-option" style="display:flex;gap:8px;align-items:center;margin:9px 0 7px"><input type="checkbox" id="pdfLegendChk"><span><strong>Include title and device legend in exported PDF</strong></span></label>
+      <div class="muted export-help" style="margin-bottom:9px">Off by default. Leave unchecked to keep the plan clear; your actual notes and markups still export.</div>
       <button id="pdfBtn" class="primary full export-main">Export Marked-Up PDF</button>
       <div class="muted export-help">Includes a door-by-door device / system schedule appended to the PDF. This is a preliminary coordination markup, not a hardware specification.</div>
 
@@ -1487,12 +1490,14 @@ $('viewport').addEventListener('pointerup', e => {
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, activeDoorId, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, activeDoorId, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
   r.onload = () => { try {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
+    $('pdfLegendChk').checked = o.pdfLegend === true;
+
     if (o.tool && o.tool !== CFG.fileTag) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || isAnnotation(m); const bad = o.markers.filter(m => !okM(m)).length; const ms = o.markers.filter(okM);
     if (pdfDoc) { pushUndo(); markers = ms; nextId = Math.max(0, ...ms.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); pageRotations={...(o.pageRotations || {})}; void openPage(false).then(()=>fit()).catch(console.error); status('Loaded ' + ms.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
@@ -1670,6 +1675,8 @@ $('pdfBtn').onclick = async () => {
       G.lines.forEach((line,i)=>{const clean=String(line).replace(/[^\x20-\x7e]/g,'?');text(clean,G.lx,G.base(i),G.fs,txt,true);});
     });
 
+    // AHT_PDF_LEGEND_TOGGLE_V3: optional PDF title / device legend / compact stamp
+    if ($('pdfLegendChk').checked) {
         // AHT_BRANDED_EXPORT_V1: compact, two-line plan stamp; no counts or dates.
     const fs = Math.max(8, Math.min(10, Math.max(vp.width, vp.height) / 360));
     const stampTitle = 'AHT GLOBAL - PRELIMINARY';
@@ -1683,6 +1690,7 @@ $('pdfBtn').onclick = async () => {
       rgb(1, 1, 1), .94, ink, .9, .8);
     text(stampTitle, bx + fs * .7, by + fs * 1.35, titleSize, ink, false);
     text(stampSub, bx + fs * .7, by + fs * 2.42, subSize, black, false);
+    } // AHT_PDF_LEGEND_TOGGLE_V3: optional stamp end
     } // End drawing-page annotation pass. The door schedule below is generated once.
     // Detailed linked opening/device schedule (separate PDF pages, not overlaid on floorplans).
     const bodyFont=await doc.embedFont(StandardFonts.Helvetica);
