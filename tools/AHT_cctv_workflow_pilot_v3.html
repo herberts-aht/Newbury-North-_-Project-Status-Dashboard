@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT CCTV Camera Markup Tool · Security V3.5.7</title>
+<title>AHT CCTV Camera Markup Tool · Security V3.5.8</title>
+<!-- AHT_CCTV_V3_5_8: AHT-standard jump navigation, one scrolling sidebar, preserved drawing engine -->
 <!-- AHT_CCTV_V3_5_7: Open Plan default, clearer SharePoint options, expanded submenus and sharper visual design -->
 <!-- AHT_CCTV_V3_5_6: five-tab layout with sticky editing toolbar; no core marker or export changes -->
 <!-- AHT_CCTV_V3_5_5: bulk adjustments for radius, reach, arrow length and grouped colors -->
@@ -327,6 +328,49 @@ button, input, select, textarea { outline-offset:2px; }
 #planSection { margin-top:9px; }
 #cctvTabPages .workflow-step { margin:9px 0 12px; }
 @media(max-width:760px){#sidebar{width:310px}#cctvTabNav{gap:3px}#cctvTabNav button{font-size:10px;padding:6px 1px}}
+
+/* AHT CCTV V3.5.8: standard six-step jump navigation (same model as Shades). */
+#sidebar {display:block;width:352px;padding:0 12px 18px;scroll-behavior:auto;background:#fff;}
+#ahtStickyControls {
+  position:sticky;top:0;z-index:50;background:#fff;
+  padding:8px 0 7px;margin:0 -12px 6px;padding-left:12px;padding-right:12px;
+  border-bottom:1px solid #cedce9;box-shadow:0 3px 8px rgba(32,57,81,.07);
+}
+#ahtWorkflowNav {padding:9px 9px 8px;border:1px solid #bdd3e7;border-radius:8px;background:#f4f8fd;}
+.aht-workflow-kicker {color:#164b76;font-weight:850;letter-spacing:.08em;font-size:10px;line-height:1.3;margin-bottom:8px;}
+.aht-workflow-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;}
+.aht-jump {
+ min-width:0;min-height:41px;padding:6px 3px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ background:#fff;border:1px solid #bfd2e3;color:#1f486d;border-radius:5px;
+ font-size:11px;font-weight:700;line-height:1.15;box-shadow:0 1px 0 rgba(33,63,98,.04);
+}
+.aht-jump b {font-size:10px;line-height:1.2;}
+.aht-jump:hover {background:#eaf3fb;border-color:#8eafcd;}
+.aht-jump.active {background:#e8f2fb;border:2px solid #206da7;color:#104b7b;padding:5px 2px;box-shadow:inset 0 -2px 0 #99c4e6;}
+.aht-workflow-helper {font-size:10.5px;color:#45647e;line-height:1.3;margin-top:7px;}
+#ahtStickyControls #modeDock {
+ position:relative;top:auto;z-index:auto;margin:7px 0 0;padding:0;
+ background:transparent;border:0;box-shadow:none;
+}
+#ahtEditingToolbar {display:grid;grid-template-columns:1.45fr 1fr 1fr;gap:6px;}
+#ahtEditingToolbar button {height:32px;padding:5px 4px;font-size:11px;font-weight:750;min-width:0;border-radius:5px;}
+#ahtEditingToolbar #selectBtn {width:100%;height:32px;font-size:11px;padding:5px 4px;background:#147568;color:#fff;border-color:#147568;}
+#ahtEditingToolbar #selectBtn:not(.on) {background:#eef8f5;color:#156459;border-color:#91bfb4;}
+#ahtStickyControls .mode-note {padding:5px 0 0;margin:0;font-size:10px;}
+#ahtStickyControls .compact {margin-top:3px;font-size:10px;}
+#ahtScrollableSections {padding-top:1px;padding-bottom:25px;}
+.aht-step-block {scroll-margin-top:calc(var(--aht-sticky-height, 200px) + 8px);}
+.aht-step-block>.workflow-step {margin:9px 0 12px;}
+#ahtStepAdjust>#bulkAdjustPanel {margin:9px 0 13px;}
+#ahtStepExport>#countsSettings {margin:8px 0 12px;}
+#ahtStepReview>#detailsSection {margin-top:9px;}
+#changeDetails {scroll-margin-top:calc(var(--aht-sticky-height, 200px) + 8px);}
+#planSection .plan-source-options {gap:0;}
+#chooseBtn {min-height:38px;font-size:12px;}
+#planSection {border-color:#cbd9e5;}
+#layerVisibilityPanel, #bulkAdjustPanel, #countsSettings, #selectionSettings {scroll-margin-top:calc(var(--aht-sticky-height, 200px) + 8px);}
+@media(max-width:760px){#sidebar{width:312px}#ahtWorkflowNav{padding:7px}#ahtStickyControls{padding-left:9px;padding-right:9px;margin-left:-12px;margin-right:-12px}}
+
 </style>
 </head>
 <body>
@@ -345,21 +389,23 @@ button, input, select, textarea { outline-offset:2px; }
     </header>
 
 
-    <nav id="cctvTabNav" role="tablist" aria-label="CCTV workspace tabs">
-      <button type="button" role="tab" data-cctv-tab="plan" aria-controls="cctvTabPlan" aria-selected="true">Open Plan</button>
-      <button type="button" role="tab" data-cctv-tab="place" aria-controls="cctvTabPlace" aria-selected="false">Place</button>
-      <button type="button" role="tab" data-cctv-tab="adjust" aria-controls="cctvTabAdjust" aria-selected="false">Adjust</button>
-      <button type="button" role="tab" data-cctv-tab="layers" aria-controls="cctvTabLayers" aria-selected="false">Layers</button>
-      <button type="button" role="tab" data-cctv-tab="finish" aria-controls="cctvTabFinish" aria-selected="false">Review / Export</button>
+    <nav id="ahtWorkflowNav" aria-label="Drawing workflow — jump to any step">
+      <div class="aht-workflow-kicker">YOUR DRAWING WORKFLOW — JUMP TO ANY STEP</div>
+      <div class="aht-workflow-grid" role="group" aria-label="Jump to drawing sections">
+        <button type="button" class="aht-jump active" data-aht-jump="plan" aria-current="step"><b>1</b><span>Open</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="place"><b>2</b><span>Place</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="adjust"><b>3</b><span>Adjust</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="layers"><b>4</b><span>Layers</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="review"><b>5</b><span>Review</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="export"><b>6</b><span>Export</span></button>
+      </div>
+      <div class="aht-workflow-helper">Select a step to jump there. All sections stay available while scrolling.</div>
     </nav>
     <section class="workflow-step" id="planSection">
       <div class="step-heading"><span class="step-number">1</span><h2>Open a Plan PDF</h2></div>
       <input type="file" id="fileInput" accept="application/pdf,.pdf" style="display:none">
       <div class="plan-source-options" role="group" aria-label="Choose PDF source">
-        <button type="button" class="primary full" id="chooseBtn">Choose PDF from Computer…</button>
-        <button type="button" class="full secondary-plan-source" id="sharepointSyncedBtn" title="Choose a PDF already synced to your computer from a SharePoint or OneDrive folder">Choose Synced SharePoint / OneDrive PDF…</button>
-        <a class="sharepoint-browser-link" href="https://m365.cloud.microsoft/" target="_blank" rel="noopener noreferrer">Open Microsoft 365 / SharePoint in Browser ↗</a>
-        <div class="source-helper">The synced-file option uses your computer's file picker. For a cloud-only PDF, open SharePoint in the browser, download or sync it first, then choose it here. Direct cloud selection needs separate Microsoft 365 authentication integration.</div>
+        <button type="button" class="primary full" id="chooseBtn">Choose plan PDF…</button>
       </div>
       <div class="muted" id="fileName" style="margin-top:5px">No file chosen</div>
       <div id="pageRow" style="display:none"><label class="lbl">Drawing page</label><select id="pageSel"></select></div>
@@ -721,72 +767,108 @@ button, input, select, textarea { outline-offset:2px; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script>
-// AHT_CCTV_TABS_V1: move original controls, never clone them (all IDs and listeners stay intact).
+// AHT_CCTV_V3_5_8: AHT-style single scrolling sidebar with sticky jump navigation.
+// Move original DOM nodes, never clone them: all IDs, handlers, JSON and export remain.
 (function(){
-  const get = id => document.getElementById(id);
-  const sidebar=get('sidebar'),dock=get('modeDock');
-  const pages=document.createElement('div'); pages.id='cctvTabPages';
-  dock.insertAdjacentElement('afterend',pages);
-  const names={plan:'Open Plan',place:'Place',adjust:'Adjust',layers:'Layers',finish:'Review / Export'};
-  const tabPanes={};
-  for(const key of Object.keys(names)){
-    const pane=document.createElement('div');pane.id='cctvTab'+key[0].toUpperCase()+key.slice(1);
-    pane.className='cctv-tab-pane';pane.setAttribute('role','tabpanel');
-    pane.setAttribute('aria-label',names[key]);pane.hidden=true;pages.appendChild(pane);tabPanes[key]=pane;
+  const get=id=>document.getElementById(id);
+  const sidebar=get('sidebar');
+  const dock=get('modeDock');
+  const sticky=document.createElement('div');sticky.id='ahtStickyControls';
+  const jump=get('ahtWorkflowNav');
+  sidebar.insertBefore(sticky,jump);
+  sticky.appendChild(jump);
+  sticky.appendChild(dock);
+  const workspace=document.createElement('div');workspace.id='ahtScrollableSections';
+  sticky.insertAdjacentElement('afterend',workspace);
+  const blocks={};
+  function step(key,title){
+    const section=document.createElement('section');
+    section.id='ahtStep'+key[0].toUpperCase()+key.slice(1);
+    section.className='aht-step-block';
+    section.dataset.ahtStep=key;
+    blocks[key]=section;
+    workspace.appendChild(section);
+    return section;
   }
-  tabPanes.plan.appendChild(get('planSection'));
-  tabPanes.place.appendChild(get('placeSection'));
-  const adjustSection=document.createElement('section');adjustSection.className='workflow-step';adjustSection.id='adjustDeviceSection';
-  adjustSection.innerHTML='<div class="step-heading"><span class="step-number">3</span><h2>Adjust Selected Items</h2></div><div class="muted helper">Choose an item on the drawing, then adjust only that item here. These controls do not change other devices.</div>';
-  tabPanes.adjust.appendChild(adjustSection);
-  const selected=get('selectionSettings');adjustSection.appendChild(selected);selected.open=true;
+  step('plan','Open').appendChild(get('planSection'));
+  step('place','Place').appendChild(get('placeSection'));
+  const adjust=step('adjust','Adjust');
+  const adjustSection=document.createElement('section');
+  adjustSection.id='adjustDeviceSection';adjustSection.className='workflow-step';
+  adjustSection.innerHTML='<div class="step-heading"><span class="step-number">3</span><h2>Adjust Selected Items</h2></div><div class="muted helper">Select an item on the drawing to adjust its position, size, direction, color or annotation. Use Bulk Adjustments to update matching items together.</div>';
+  adjust.appendChild(adjustSection);
+  const selected=get('selectionSettings');selected.open=true;
+  adjustSection.appendChild(selected);
   selected.querySelector('summary').innerHTML='Selected Item / Individual Settings <span>Device · Position · Style · Notes</span>';
-  get('drawingSettings').open=true;
-  get('bulkAdjustPanel').open=true;
-  get('layerVisibilityPanel').open=true;
-  get('countsSettings').open=true;
-  selected.appendChild(get('viewRow'));selected.appendChild(get('securityControls'));
-  tabPanes.adjust.appendChild(get('bulkAdjustPanel'));
-  tabPanes.layers.appendChild(get('layerVisibilityPanel'));
-  tabPanes.layers.appendChild(get('cameraAppearanceControls'));
-  tabPanes.layers.appendChild(get('lenChkRow'));
-  const notesChk=get('notesChk');const noteRow=notesChk && notesChk.closest('label');
-  if(noteRow)tabPanes.layers.appendChild(noteRow);
-  tabPanes.finish.appendChild(get('reviewSection'));
-  tabPanes.finish.appendChild(get('detailsSection'));
-  tabPanes.finish.appendChild(get('exportSection'));
-  tabPanes.finish.appendChild(get('countsSettings'));
-  // Sticky, always-available editing actions; uses existing save work handler.
-  const toolbar=document.createElement('div'); toolbar.id='cctvAlwaysToolbar';
+  selected.appendChild(get('viewRow'));
+  selected.appendChild(get('securityControls'));
+  adjust.appendChild(get('bulkAdjustPanel'));
+  const layers=step('layers','Layers');
+  const layerSection=document.createElement('section');
+  layerSection.id='ahtLayerSection';layerSection.className='workflow-step';
+  layerSection.innerHTML='<div class="step-heading"><span class="step-number">4</span><h2>Drawing Layers &amp; Appearance</h2></div><div class="muted helper">Show or hide groups of devices without deleting them. The same choices carry into review PDFs.</div>';
+  layers.appendChild(layerSection);
+  layerSection.appendChild(get('layerVisibilityPanel'));
+  layerSection.appendChild(get('cameraAppearanceControls'));
+  const lengthToggle=get('lenChkRow');
+  if(lengthToggle)layerSection.appendChild(lengthToggle);
+  const notesChk=get('notesChk');const notesRow=notesChk && notesChk.closest('label');
+  if(notesRow)layerSection.appendChild(notesRow);
+  const review=step('review','Review');
+  review.appendChild(get('reviewSection'));
+  review.appendChild(get('detailsSection'));
+  const exportBlock=step('export','Export');
+  exportBlock.appendChild(get('exportSection'));
+  exportBlock.appendChild(get('countsSettings'));
+  [get('drawingSettings'),get('bulkAdjustPanel'),get('layerVisibilityPanel'),get('countsSettings')].forEach(detail=>{if(detail)detail.open=true;});
+  // Match the four established tools: pinned select/undo/redo, no duplicate quick-save button.
+  const history=dock.querySelector('.edit-history-bar');
+  const toolbar=document.createElement('div');toolbar.id='ahtEditingToolbar';
   dock.insertBefore(toolbar,dock.firstChild);
   toolbar.appendChild(get('selectBtn'));
   toolbar.appendChild(get('undoBtn'));
   toolbar.appendChild(get('redoBtn'));
-  const history=dock.querySelector('.edit-history-bar');if(history)history.remove();
-  const quickSave=document.createElement('button');quickSave.id='quickSaveBtn';quickSave.type='button';quickSave.textContent='Save JSON';
-  quickSave.title='Download editable layout as JSON; for PDF use Review / Export';
-  quickSave.addEventListener('click',()=>get('saveBtn').click());toolbar.appendChild(quickSave);
-  function activate(key){
-    if(!Object.prototype.hasOwnProperty.call(tabPanes,key))return;
-    Object.entries(tabPanes).forEach(([name,pane])=>{pane.hidden=name!==key;});
-    document.querySelectorAll('#cctvTabNav [data-cctv-tab]').forEach(button=>{
-      const isActive=button.dataset.cctvTab===key;
-      button.setAttribute('aria-selected',String(isActive));button.tabIndex=isActive?0:-1;
+  if(history)history.remove();
+  function jumpTo(key,instant){
+    const target=blocks[key];if(!target)return;
+    document.querySelectorAll('#ahtWorkflowNav [data-aht-jump]').forEach(btn=>{
+      const active=btn.dataset.ahtJump===key;
+      btn.classList.toggle('active',active);
+      if(active)btn.setAttribute('aria-current','step');else btn.removeAttribute('aria-current');
     });
-    sidebar.scrollTop=0;
+    // Align section below sticky controls without scrolling the entire browser page.
+    const top=target.getBoundingClientRect().top - sidebar.getBoundingClientRect().top + sidebar.scrollTop - sticky.getBoundingClientRect().height - 10;
+    sidebar.scrollTo({top:Math.max(0,top),behavior:instant?'instant':'smooth'});
   }
-  window.cctvActivateTab=activate;
-  const buttons=[...document.querySelectorAll('#cctvTabNav [data-cctv-tab]')];
-  buttons.forEach((button,index)=>{
-    button.addEventListener('click',()=>activate(button.dataset.cctvTab));
-    button.addEventListener('keydown',event=>{
-      if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;
-      event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:
-        (index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;
-      activate(buttons[next].dataset.cctvTab);buttons[next].focus();
-    });
+  // Existing "Edit details" action calls this; now it jumps to Review instead of hiding other sections.
+  window.cctvActivateTab=function(key){jumpTo(key==='finish'?'review':key,false);};
+  document.querySelectorAll('#ahtWorkflowNav [data-aht-jump]').forEach(btn=>{
+    btn.addEventListener('click',()=>jumpTo(btn.dataset.ahtJump,false));
   });
-  activate('plan');
+  let ticking=false;
+  sidebar.addEventListener('scroll',()=>{
+    if(ticking)return;
+    ticking=true;
+    requestAnimationFrame(()=>{
+      ticking=false;
+      const line=sticky.getBoundingClientRect().bottom+16;
+      let active='plan';
+      Object.entries(blocks).forEach(([key,block])=>{if(block.getBoundingClientRect().top<=line)active=key;});
+      document.querySelectorAll('#ahtWorkflowNav [data-aht-jump]').forEach(btn=>{
+        const yes=btn.dataset.ahtJump===active;
+        btn.classList.toggle('active',yes);
+        if(yes)btn.setAttribute('aria-current','step');else btn.removeAttribute('aria-current');
+      });
+    });
+  },{passive:true});
+  if(typeof window.ResizeObserver==='function'){
+    const ro=new ResizeObserver(()=>{
+      document.documentElement.style.setProperty('--aht-sticky-height',Math.ceil(sticky.getBoundingClientRect().height)+'px');
+    });
+    ro.observe(sticky);
+  }
+  document.documentElement.style.setProperty('--aht-sticky-height',Math.ceil(sticky.getBoundingClientRect().height)+'px');
+  sidebar.scrollTop=0;
 })();
 </script>
 
@@ -1619,7 +1701,6 @@ async function detectScale(page) {
 
 // ---------- load PDF ----------
 $('chooseBtn').onclick = () => $('fileInput').click();
-$('sharepointSyncedBtn').onclick = () => $('fileInput').click();
 $('fileInput').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   if(pdfDoc && markers.length && !pendingLoad){
