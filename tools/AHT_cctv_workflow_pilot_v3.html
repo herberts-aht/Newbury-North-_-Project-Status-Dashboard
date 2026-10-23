@@ -466,6 +466,7 @@
       
       <div id="arrowNoteRow" style="display:none">
         <strong style="font-size:13px">Arrow Note / Pointer Callout</strong>
+        <label class="chk" style="margin:9px 0"><input type="checkbox" id="arrowNoteIndividualVisible" checked><span>Show this note and its arrows</span></label>
         <div class="muted" style="margin:5px 0 7px">One text box can point to multiple locations. Drag any arrow tip independently; move the label without moving targets.</div>
         <div class="row" style="margin:7px 0"><button type="button" id="noteAddPointer">+ Add another arrow</button><button type="button" id="noteCancelPointer" style="display:none">Cancel placement</button></div>
         <div class="row"><select id="notePointerSelect" aria-label="Arrow tip to remove"></select><button type="button" id="noteRemovePointer">Remove selected arrow</button></div>
@@ -499,6 +500,20 @@
       <div class="chk" id="lenChkRow" style="display:none;margin:10px 0;padding:8px 10px;border:1px solid #b9cfdf;border-radius:6px;background:#f2f8fc">
         <input type="checkbox" id="lenChk" checked><label for="lenChk"><strong>Show estimated lengths on drawing + exported PDF</strong></label>
       </div>
+      <details class="fold" id="layerVisibilityPanel">
+        <summary>Drawing Layers / Visibility <span>Hide all · Show all · By device type</span></summary>
+        <div class="panel" style="background:#f3f7fa;border:1px solid #c7d9e5;margin-top:8px">
+          <div class="row" style="margin-bottom:8px"><button type="button" id="layersShowAll">Show All Items</button><button type="button" id="layersHideAll">Hide All Items</button></div>
+          <div class="muted" style="margin-bottom:7px">Visibility only — placed objects, counts and saved positions are not deleted. Applies to the drawing and PDF export. Separate coverage-only switches remain in Step 5.</div>
+          <div id="layerChecklist" style="display:grid;grid-template-columns:1fr;gap:3px"></div>
+          <div class="muted" id="layerStatus" style="margin-top:8px"></div>
+          <div id="hiddenNoteTools" style="display:none;margin-top:10px;padding-top:8px;border-top:1px solid #c9d9e7">
+            <strong style="font-size:12px">Individually hidden arrow notes</strong>
+            <div class="muted">Restore a note here even when it is no longer visible on the plan.</div>
+            <div id="hiddenNoteList"></div>
+          </div>
+        </div>
+      </details>
       <details class="fold" id="countsSettings">
         <summary>Device counts and drawing options</summary>
         <div class="panel" id="counts"><div class="muted">No devices yet.</div></div>
@@ -636,6 +651,70 @@ const isArea = m => m.type === 'area';
 // AHT_ARROW_NOTE_V1: pointer-based annotation with editable label and independently draggable arrow tip.
 const isArrowNote = m => m.type === 'arrow_note';
 const isAnnotation = m => isArea(m) || isArrowNote(m);
+// AHT_CCTV_LAYERS_V1: non-destructive visibility of drawing objects and annotations.
+// Separate type visibility from cone/coverage visibility and from individual note visibility.
+const DRAWING_LAYERS = [
+ {id:'fixed',label:'Fixed cameras'},
+ {id:'ptz',label:'PTZ cameras (standalone)'},
+ {id:'fisheye',label:'360° fisheye cameras'},
+ {id:'poles',label:'Camera poles (including mounted heads)'},
+ {id:'lidar',label:'Directional LiDAR'},
+ {id:'lidar360',label:'360° LiDAR devices'},
+ {id:'senstar',label:'Senstar OmniTrax perimeter'},
+ {id:'move',label:'Move / relocation arrows'},
+ {id:'notes',label:'Text notes with arrows'},
+ {id:'callouts',label:'Area / text callouts'},
+ {id:'added',label:'Added-device circles'},
+ {id:'removed',label:'Remove-device markers'}
+];
+const layerVisibility=Object.fromEntries(DRAWING_LAYERS.map(layer=>[layer.id,true]));
+function drawingLayer(m){
+ if(!m)return null;
+ const byType={cam:'fixed',cam_ex:'fixed',ptz:'ptz',fish:'fisheye',fish_ex:'fisheye',pole3:'poles',lidar:'lidar',lidar360:'lidar360',omnitrax:'senstar',relocate:'move',arrow_note:'notes',area:'callouts',addmark:'added',rmmark:'removed',remove:'removed'};
+ return byType[m.type]||null;
+}
+function visibleMarker(m){
+ const layer=drawingLayer(m);
+ return (!layer || layerVisibility[layer]!==false) && !(isArrowNote(m) && m.hidden===true);
+}
+function loadDrawingLayers(data){
+ DRAWING_LAYERS.forEach(l=>{layerVisibility[l.id]=data?.[l.id]!==false;});
+ syncDrawingLayers();
+}
+function syncDrawingLayers(){
+ document.querySelectorAll('#layerChecklist input[data-layer]').forEach(input=>{input.checked=layerVisibility[input.dataset.layer]!==false;});
+ const n=DRAWING_LAYERS.filter(l=>layerVisibility[l.id]!==false).length;
+ $('layerStatus').textContent=n+' / '+DRAWING_LAYERS.length+' layers visible';
+ renderHiddenNoteList();
+}
+function renderHiddenNoteList(){
+ const list=$('hiddenNoteList'),wrap=$('hiddenNoteTools');
+ if(!list||!wrap)return;
+ const hidden=markers.filter(m=>isArrowNote(m)&&m.hidden===true);
+ wrap.style.display=hidden.length?'block':'none';
+ list.replaceChildren();
+ hidden.forEach((m,i)=>{
+   const row=document.createElement('div');row.className='row';row.style.marginTop='6px';
+   const desc=document.createElement('span');desc.className='muted';desc.style.flex='1';desc.textContent='P'+(m.page||1)+' · '+String(m.text||'Note').slice(0,48);
+   const btn=document.createElement('button');btn.type='button';btn.textContent='Show note';btn.style.flex='none';
+   btn.addEventListener('click',()=>{pushUndo();m.hidden=false;layerVisibility.notes=true;syncDrawingLayers();refresh();status('Restored the selected arrow note.');});
+   row.append(desc,btn);list.appendChild(row);
+ });
+}
+function initDrawingLayers(){
+ const list=$('layerChecklist');if(!list)return;
+ DRAWING_LAYERS.forEach(layer=>{
+   const lab=document.createElement('label');lab.className='chk';lab.style.margin='2px 0';
+   const input=document.createElement('input');input.type='checkbox';input.dataset.layer=layer.id;input.checked=true;
+   const span=document.createElement('span');span.textContent=layer.label;
+   lab.append(input,span);list.appendChild(lab);
+   input.addEventListener('change',()=>{layerVisibility[layer.id]=input.checked;syncDrawingLayers();refresh();});
+ });
+ $('layersShowAll').addEventListener('click',()=>{DRAWING_LAYERS.forEach(l=>layerVisibility[l.id]=true);markers.filter(isArrowNote).forEach(m=>m.hidden=false);syncDrawingLayers();refresh();});
+ $('layersHideAll').addEventListener('click',()=>{DRAWING_LAYERS.forEach(l=>layerVisibility[l.id]=false);syncDrawingLayers();refresh();});
+ syncDrawingLayers();
+}
+initDrawingLayers();
 const ARROW_NOTE_TEXT = 'NOTE', ARROW_NOTE_COLOR = '#c52b2b';
 function arrowNoteGeom(m, wfn, view=vp, tip=[m.x,m.y]) {
   const fs = Math.max(8,Math.max(view.width,view.height)/210) * (Number(m.fs)||1);
@@ -1391,7 +1470,7 @@ function refresh() {
   const gArea = el('g', {}, scene), gPrev = el('g', {}, scene), gDev = el('g', {}, scene), gTxt = el('g', { style: 'pointer-events:none' }, scene), gCall = el('g', {}, scene);
   const d0 = iconBase();
   const spec = {};
-  pageMarkers().filter(m => showCameraCones() && m.showRange === true).forEach(m => {
+  pageMarkers().filter(m => visibleMarker(m) && showCameraCones() && m.showRange === true).forEach(m => {
     const dev = DEV[m.type]; const sp = dev && previewSpec(dev, m);
     if (!sp) return;
     const ps = pStyle(dev, m);
@@ -1400,6 +1479,7 @@ function refresh() {
   });
   const showNotes = $('notesChk').checked, showLen = $('lenChk').checked;
   pageMarkers().forEach(m => {
+    if (!visibleMarker(m)) return;
     const dev = DEV[m.type]; if (!dev) return;
     const isSel = sel.has(m.id);
     const g = el('g', { 'data-id': m.id, style: 'cursor:pointer' }, gDev);
@@ -1464,6 +1544,7 @@ function refresh() {
     if (showNotes && m.note) { const t = el('text', { x: m.x + dm * 0.7, y: m.y - dm * 0.7, 'font-size': d0 * 0.55, fill: '#1a1a18', stroke: '#fff', 'stroke-width': d0 * 0.16, 'paint-order': 'stroke' }, gTxt); t.textContent = m.note; }
   });
   pageAreas().forEach(m => {
+    if (!visibleMarker(m)) return;
     const r = areaRect(m), col = m.color || AREA_COL, sw = areaSw(), isSel = sel.has(m.id), G = callGeom(m, wScreen);
     const ga = el('g', { 'data-id': m.id, style: 'cursor:pointer' }, gArea), rw = r.x1 - r.x0, rh = r.y1 - r.y0;
     el('rect', { x: r.x0, y: r.y0, width: rw, height: rh, fill: col, 'fill-opacity': m.shade == null ? 0.12 : m.shade, style: 'pointer-events:none' }, ga);
@@ -1478,6 +1559,7 @@ function refresh() {
   });
 
   pageArrowNotes().forEach(m=>{
+    if (!visibleMarker(m)) return;
     const G=arrowNoteGeom(m,wScreen),col=m.color||ARROW_NOTE_COLOR,txt=m.textColor||col, fill=m.fillColor||'#ffffff', opacity=m.fillOpacity==null?.95:Number(m.fillOpacity), picked=sel.has(m.id);
     const g=el('g',{'data-id':m.id,style:'cursor:pointer'},gCall);
     noteTargets(m).forEach((tip,i)=>{
@@ -1528,6 +1610,7 @@ $('noteRemovePointer').onclick=()=>{
  if(idx===0){const tip=m.extraTips.shift();if(tip){m.x=tip[0];m.y=tip[1];}}else m.extraTips.splice(idx-1,1);
  refresh();notePointerState();
 };
+$('arrowNoteIndividualVisible').addEventListener('change',e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isArrowNote(m))return;pushUndo();m.hidden=!e.target.checked;syncDrawingLayers();refresh();});
 $('arrowNoteText').addEventListener('focus',()=>pushUndo());
 $('arrowNoteText').addEventListener('input',e=>setArrowNote(m=>{m.text=e.target.value;}));
 [['arrowNoteColor','color'],['arrowNoteTextColor','textColor'],['arrowNoteFill','fillColor']].forEach(([id,key])=>{
@@ -1600,6 +1683,7 @@ function updatePanels() {
       $('arrowNoteFill').value=m.fillColor||'#ffffff';
       const fields=[['arrowNoteOpacity','arrowNoteOpacityVal',Math.round((m.fillOpacity??.95)*100)],['arrowNoteFs','arrowNoteFsVal',Math.round((m.fs||1)*100)],['arrowNoteLine','arrowNoteLineVal',Math.round((m.lineSize||1)*100)],['arrowNoteHead','arrowNoteHeadVal',Math.round((m.headSize||1)*100)]];
       fields.forEach(([id,label,v])=>{$(id).value=v;$(label).textContent=v;});
+      $('arrowNoteIndividualVisible').checked=m.hidden!==true;
       notePointerState();
       return;
     }
@@ -1978,7 +2062,7 @@ $('viewport').addEventListener('pointerup', e => {
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 6, pdfName, page: pageNum, layoutMode, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, showLengths: $('lenChk').checked, cameraAppearance:{outlines:cameraOutlinesOn(),fillStrength:Number($('cameraFillStrength').value)}, coverageVisibility:{cameraCones:showCameraCones(),lidar360Fills:showLidar360Fills(),lidar360Outlines:showLidar360Outlines()}, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 7, pdfName, page: pageNum, layoutMode, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, showLengths: $('lenChk').checked, cameraAppearance:{outlines:cameraOutlinesOn(),fillStrength:Number($('cameraFillStrength').value)}, coverageVisibility:{cameraCones:showCameraCones(),lidar360Fills:showLidar360Fills(),lidar360Outlines:showLidar360Outlines()}, drawingLayers:{...layerVisibility}, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
@@ -1992,6 +2076,7 @@ $('loadInput').onchange = e => {
     $('showAllLidar360Fills').checked=o.coverageVisibility?.lidar360Fills!==false;
     $('showAllLidar360Outlines').checked=o.coverageVisibility?.lidar360Outlines!==false;
 
+    loadDrawingLayers(o.drawingLayers);
     if (o.tool && o.tool !== CFG.fileTag) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || isAnnotation(m); const bad = o.markers.filter(m => !okM(m)).length;
     // Map v1 NEW/EXISTING menu IDs to v2 camera types and retain their teal/orange colors.
@@ -2006,6 +2091,7 @@ $('loadInput').onchange = e => {
     $('lenChk').checked = o.showLengths !== false; // Older JSON files default to showing lengths.
     if (pdfDoc) { pushUndo(); markers = ms.map(m => { if (isPole(m)) ensurePole(m); if (isOmnitrax(m)) ensureOmni(m); if (isLidar(m) && !Number.isFinite(m.length)) m.length = 18; if(isLidar360(m))ensureLidar360(m); return m; }); nextId = Math.max(0, ...markers.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); pageRotations={...(o.pageRotations || {})}; void openPage(false).then(()=>fit()).catch(console.error); status('Loaded ' + markers.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
     else { pendingLoad = { markers: ms, page: o.page, inchesPerFt: o.inchesPerFt, calPtsPerFt: o.calPtsPerFt, pageRotations: o.pageRotations || {} }; status('Work loaded (' + ms.length + ' devices). Now choose the plan PDF' + (o.pdfName ? ': ' + o.pdfName : '') + '.'); }
+    syncDrawingLayers(); // Refresh the restore list for hidden notes in the newly loaded JSON.
     if (bad) status($('status').textContent + ' ' + bad + ' unknown devices skipped.');
   } catch (err) { status('Could not read that work file: ' + err.message); } };
   r.readAsText(f); e.target.value = '';
@@ -2065,7 +2151,7 @@ $('pdfBtn').onclick = async () => {
     // AHT_CCTV_MULTIPAGE_EXPORT_V1 — keep original pages and apply each page's OWN markup.
     // Use the matching PDF.js viewport, not the last page displayed in the editor.
     for (let exportPageNum = 1; exportPageNum <= pages.length; exportPageNum++) {
-      const pageMarkersForExport = markers.filter(m => (m.page || 1) === exportPageNum);
+      const pageMarkersForExport = markers.filter(m => (m.page || 1) === exportPageNum && visibleMarker(m));
       if (!pageMarkersForExport.length) continue; // untouched pages remain in the output PDF
       const page = pages[exportPageNum - 1];
       const pdfJsPage = await pdfDoc.getPage(exportPageNum);
