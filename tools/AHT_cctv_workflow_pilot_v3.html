@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT CCTV Camera Markup Tool · Security V3.5.8</title>
+<title>AHT CCTV Camera Markup Tool · Security V3.5.10</title>
+<!-- AHT_CCTV_V3_5_10: visible project-linked SharePoint button using authenticated dashboard picker API -->
+<!-- AHT_CCTV_V3_5_9: use the same authenticated project-PDF picker bridge as the other four markup editors -->
 <!-- AHT_CCTV_V3_5_8: AHT-standard jump navigation, one scrolling sidebar, preserved drawing engine -->
 <!-- AHT_CCTV_V3_5_7: Open Plan default, clearer SharePoint options, expanded submenus and sharper visual design -->
 <!-- AHT_CCTV_V3_5_6: five-tab layout with sticky editing toolbar; no core marker or export changes -->
@@ -371,6 +373,14 @@ button, input, select, textarea { outline-offset:2px; }
 #layerVisibilityPanel, #bulkAdjustPanel, #countsSettings, #selectionSettings {scroll-margin-top:calc(var(--aht-sticky-height, 200px) + 8px);}
 @media(max-width:760px){#sidebar{width:312px}#ahtWorkflowNav{padding:7px}#ahtStickyControls{padding-left:9px;padding-right:9px;margin-left:-12px;margin-right:-12px}}
 
+/* Project-linked SharePoint option matches the existing AHT markup tools. */
+#planSection #ahtOpenProjectPdf {
+  display:block; width:100%; min-height:36px; padding:8px 9px; margin-top:7px;
+  border:1px solid #abc5d9; border-radius:6px;
+  background:#eff6fa; color:#205c82;
+  font-weight:700; font-size:12px; line-height:1.3;
+}
+#planSection #ahtOpenProjectPdf:hover { background:#e4f1f8; border-color:#7cabc7; }
 </style>
 </head>
 <body>
@@ -406,6 +416,7 @@ button, input, select, textarea { outline-offset:2px; }
       <input type="file" id="fileInput" accept="application/pdf,.pdf" style="display:none">
       <div class="plan-source-options" role="group" aria-label="Choose PDF source">
         <button type="button" class="primary full" id="chooseBtn">Choose plan PDF…</button>
+        <button type="button" id="ahtOpenProjectPdf">Browse SharePoint project PDFs…</button>
       </div>
       <div class="muted" id="fileName" style="margin-top:5px">No file chosen</div>
       <div id="pageRow" style="display:none"><label class="lbl">Drawing page</label><select id="pageSel"></select></div>
@@ -1701,6 +1712,22 @@ async function detectScale(page) {
 
 // ---------- load PDF ----------
 $('chooseBtn').onclick = () => $('fileInput').click();
+// Use the exact same dashboard project picker API as Shades, Speakers, PIR and Access.
+// Keep the button in the HTML so browser-cache failures cannot hide it.
+$('ahtOpenProjectPdf').addEventListener('click', () => {
+  try {
+    const host = window.parent;
+    if (host === window || !host.AHTProjectDocumentPicker ||
+        typeof host.AHTProjectDocumentPicker.openForEditor !== 'function') {
+      window.alert('Open CCTV through the signed-in AHT Dashboard > Tools & Utilities to browse SharePoint project PDFs. Local PDFs remain available.');
+      return;
+    }
+    host.AHTProjectDocumentPicker.openForEditor(window);
+  } catch (err) {
+    console.error('AHT SharePoint project PDF picker:', err);
+    window.alert('The dashboard SharePoint picker is unavailable. You can still open a local PDF.');
+  }
+});
 $('fileInput').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   if(pdfDoc && markers.length && !pendingLoad){
