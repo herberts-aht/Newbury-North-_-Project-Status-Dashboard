@@ -267,6 +267,28 @@
 .aht-layer-list label:hover {background:#f0f6fb;}
 .aht-layer-list input { accent-color:#185fa5;margin:1px 0;flex:none; }
 #ahtBulkPanel input[type=color] { cursor:pointer; border:1px solid #afc4d5; border-radius:5px; }
+
+/* AHT_STICKY_COMBINED_V2: navigation and editing tools form a solid, single sticky surface. */
+#ahtStickyWorkflowStack {
+  position:sticky; top:0; z-index:90; isolation:isolate;
+  margin:0 -13px; padding:0 13px 5px;
+  background:#fff; border-bottom:1px solid #c9d7e3;
+  box-shadow:0 3px 9px rgba(23,52,80,.13);
+}
+#ahtStickyWorkflowStack #ahtGuidedSteps {
+  position:static !important; top:auto !important;
+  z-index:auto !important; margin:0 !important;
+  background:#fff;
+}
+#ahtStickyWorkflowStack #modeDock {
+  position:static !important; top:auto !important;
+  z-index:auto !important; margin:0 !important;
+  padding:7px 0 5px !important; background:#fff !important;
+  box-shadow:none !important; border-bottom:0 !important;
+}
+#sidebar .workflow-step, #sidebar #bulkCoveragePanel, #sidebar #aht-guided-stage4, #sidebar #changeDetails {
+  scroll-margin-top:var(--aht-sticky-stack-height, 255px);
+}
 </style>
 <!-- AHT_GUIDED_EDITORS_V1 -->
 <link rel="stylesheet" href="aht-guided-editors-v1.css?v=1" data-aht-guided="v1">
@@ -356,7 +378,7 @@
 
     <section class="workflow-step" id="detailsSection">
       <div class="step-heading"><span class="step-number">3</span><h2>Identify the Change</h2></div>
-      <div class="muted">After placing a change, this section opens automatically. Room number is optional.</div>
+      <div class="muted">Optional: identify the room, number, and notes when reviewing changes. Placing equipment no longer opens this form.</div>
     <div id="changeDetails" class="panel" style="display:none">
       <strong style="font-size:14px">Change Details</strong>
       <div class="muted" id="detailState" style="margin:5px 0">New markup</div>
@@ -371,7 +393,7 @@
     </div>
 
 
-      <div id="detailsEmpty" class="panel quiet">Place a marker or choose an item in Review to enter its room and notes.</div>
+      <div id="detailsEmpty" class="panel quiet">Select an item and choose Edit details, or open it from Review when you are ready to identify rooms and notes.</div>
       <div id="sensorIdentity" class="sensor-identity" aria-label="Selected sensor make and model">
         <div class="minor-label" style="margin-top:0">Sensor make / model</div>
         <div class="sensor-intro">Editable for each placed sensor. Defaults: Basalte Auro for discrete PIR, Lutron LOS wired series for large occupancy sensors.</div>
@@ -1486,7 +1508,7 @@ $('viewport').addEventListener('pointerdown', e => {
     if (!overStage) return;
     if (tool === 'relocate') {
       if (!relocationStart) { relocationStart = pt; banner('Relocate: click proposed NEW position'); }
-      else { pushUndo(); const [x,y] = relocationStart; const m = {id:nextId++,page:pageNum,type:'relocate',x,y,x2:pt[0],y2:pt[1],note:roomForChange(),size:1}; markers.push(m); sel=new Set([m.id]); relocationStart=null; setTool(null); refresh(); openChangeDetails(m.id); }
+      else { pushUndo(); const [x,y] = relocationStart; const m = {id:nextId++,page:pageNum,type:'relocate',x,y,x2:pt[0],y2:pt[1],note:roomForChange(),size:1}; markers.push(m); sel=new Set([m.id]); relocationStart=null; setTool(null); refresh(); }
       return;
     }
     if(tool==='arrow_note'){
@@ -1497,8 +1519,8 @@ $('viewport').addEventListener('pointerdown', e => {
     const dev = DEV[tool];
     if (dev.kind === 'line') {
       if (!pendingLine) { pendingLine = { x: pt[0], y: pt[1] }; banner('Click the end point'); }
-      else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pendingLine.x, y: pendingLine.y, x2: pt[0], y2: pt[1], note: roomForChange() }; markers.push(m); pendingLine = null; sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); else banner('Placing: ' + dev.label + ' — click start, then end (Esc to stop)'); drawRubber(null); refresh(); openChangeDetails(m.id); }
-    } else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pt[0], y: pt[1], rot: 0, note: roomForChange() }; if (isSensorDev(dev)) { m.make=dev.defaultMake; m.model=dev.defaultModel; m.coverageSize=defaultPreviewSize(dev); } markers.push(m); sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); refresh(); openChangeDetails(m.id); }
+      else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pendingLine.x, y: pendingLine.y, x2: pt[0], y2: pt[1], note: roomForChange() }; markers.push(m); pendingLine = null; sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); else banner('Placing: ' + dev.label + ' — click start, then end (Esc to stop)'); drawRubber(null); refresh(); }
+    } else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pt[0], y: pt[1], rot: 0, note: roomForChange() }; if (isSensorDev(dev)) { m.make=dev.defaultMake; m.model=dev.defaultModel; m.coverageSize=defaultPreviewSize(dev); } markers.push(m); sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); refresh(); }
     return;
   }
   if (hitId !== null) {
@@ -1925,20 +1947,34 @@ refresh();
       let nav=document.getElementById('ahtGuidedSteps');
       if(!nav&&isSpeaker){addSpeakerNav();nav=document.getElementById('ahtGuidedSteps');}
       if(!nav)return false;
+      // Keep these two existing, fully wired controls together so no drawing
+      // content can scroll through the space between two sticky elements.
+      let stack=document.getElementById('ahtStickyWorkflowStack');
+      if(!stack){
+        stack=document.createElement('div');
+        stack.id='ahtStickyWorkflowStack';
+        stack.setAttribute('aria-label','Workflow navigation and editing controls');
+        nav.before(stack);
+        stack.append(nav,dock);
+      }
+      // Access has a long step name; the short button label avoids wrapping.
+      if(/access/i.test(document.title)){
+        const doorButton=nav.querySelectorAll('.aht-guided-link')[3];
+        if(doorButton){
+          const labelNode=Array.from(doorButton.childNodes).find(n=>n.nodeType===3);
+          if(labelNode)labelNode.textContent='Doors';
+        }
+      }
       let lastHeight=-1;
       function sync(){
-        const style=getComputedStyle(nav);
-        const margin=parseFloat(style.marginBottom)||0;
-        const navHeight=Math.ceil(nav.getBoundingClientRect().height+Math.max(0,margin));
-        const dockHeight=Math.ceil(dock.getBoundingClientRect().height);
-        if(navHeight===lastHeight&&sidebar.style.getPropertyValue('--aht-sticky-stack-height'))return;
-        lastHeight=navHeight;
-        sidebar.style.setProperty('--aht-sticky-nav-height',navHeight+'px');
-        sidebar.style.setProperty('--aht-sticky-stack-height',(navHeight+dockHeight+14)+'px');
+        const stackHeight=Math.ceil(stack.getBoundingClientRect().height)+10;
+        if(stackHeight===lastHeight)return;
+        lastHeight=stackHeight;
+        sidebar.style.setProperty('--aht-sticky-stack-height',stackHeight+'px');
       }
       sync();
       if(typeof ResizeObserver==='function'){
-        const ro=new ResizeObserver(sync);ro.observe(nav);ro.observe(dock);
+        const ro=new ResizeObserver(sync);ro.observe(stack);
       }
       window.addEventListener('resize',sync);
       nav.addEventListener('click',()=>requestAnimationFrame(sync));
