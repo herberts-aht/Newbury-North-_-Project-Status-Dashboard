@@ -260,6 +260,15 @@
 #ahtGuidedSteps.aht-sticky-speaker-nav #ahtGuidedNext {
   padding-top:5px; font-size:10px; line-height:1.2; color:#60758a;
 }
+
+/* AHT_LAYERS_BULK_V1: consistent with existing AHT markup tool panels */
+#ahtLayersPanel, #ahtBulkPanel { margin-top:11px; }
+#ahtLayersPanel summary, #ahtBulkPanel summary { cursor:pointer; }
+.aht-layer-list { display:grid; grid-template-columns:1fr; gap:2px; margin:8px 0; }
+.aht-layer-list label { display:flex;gap:9px;align-items:flex-start;padding:5px 6px;border:1px solid #dce5ed;border-radius:5px;background:#fafcfe;font-size:11px;line-height:1.4;cursor:pointer; }
+.aht-layer-list label:hover {background:#f0f6fb;}
+.aht-layer-list input { accent-color:#185fa5;margin:1px 0;flex:none; }
+#ahtBulkPanel input[type=color] { cursor:pointer; border:1px solid #afc4d5; border-radius:5px; }
 </style>
 </head>
 <body>
@@ -484,6 +493,29 @@
 
     <section class="workflow-step" id="reviewSection">
       <div class="step-heading"><span class="step-number">4</span><h2>Review Changes</h2></div>
+      <!-- AHT_LAYERS_BULK_V1: visibility and bulk edits; existing markups remain in JSON and counts -->
+      <details class="fold" id="ahtLayersPanel" open>
+        <summary><strong>Drawing Layers</strong> <span>Show / hide by device type</span></summary>
+        <div class="muted" style="margin:8px 0">Visibility only: devices and notes are never deleted. Hidden layers are also excluded from PDF markup; change lists and JSON keep all items.</div>
+        <div class="row" style="gap:6px;margin:7px 0"><button type="button" id="ahtShowAllLayers">Show All</button><button type="button" id="ahtHideAllLayers">Hide All</button></div>
+        <div id="ahtLayersList" class="aht-layer-list"></div>
+        <div id="ahtLayersCount" class="muted" role="status"></div>
+      </details>
+      <details class="fold" id="ahtBulkPanel" open>
+        <summary><strong>Bulk Adjustments</strong> <span>Apply to matching items</span></summary>
+        <div class="muted" style="margin:8px 0">Apply to existing items of one type across every drawing page. No changes until Apply is clicked. Each action supports Undo.</div>
+        <label class="lbl" for="ahtBulkType">Device or annotation type</label>
+        <select id="ahtBulkType"></select>
+        <div class="grid2" style="margin:8px 0">
+          <div><label class="lbl" for="ahtBulkSize">Symbol / line size</label><input id="ahtBulkSize" type="number" min="0.4" max="3" step="0.05" value="1"></div>
+          <div style="display:flex;align-items:end"><button type="button" id="ahtBulkApplySize" class="full">Apply Size to Type</button></div>
+          <div><label class="lbl" for="ahtBulkColor">Display color</label><input id="ahtBulkColor" type="color" value="#185fa5" style="width:100%;height:34px"></div>
+          <div style="display:flex;align-items:end"><button type="button" id="ahtBulkApplyColor" class="full">Apply Color to Type</button></div>
+        </div>
+        <div class="muted">Color changes affect placed objects, not palette defaults. Added (green) and removed (red) markers are excluded from color editing to preserve their meanings.</div>
+        <div id="ahtBulkStatus" class="muted" role="status"></div>
+      </details>
+
       <div class="panel" id="changeReview">No changes yet.</div>
       <details class="fold" id="countsSettings">
         <summary>Device counts and drawing options</summary>
@@ -654,6 +686,65 @@ const DEV = {}; CFG.devices.forEach(d => DEV[d.key] = d);
 // The original AHT speaker-tool keys are intentionally retained for saved-work compatibility.
 DEV.remove = { key:'remove', label:'REMOVE existing (legacy X)', style:'xmark', color:'#e00000', kind:'point' };
 DEV.relocate = { key:'relocate', label:'Relocate', kind:'relocate', color:'#fff200' };
+
+// AHT_LAYERS_BULK_V1: per-type display visibility (screen + exported PDF); all devices remain saved.
+let ahtLayerVisibility = {};
+const ahtEditableLayerTypes = [...CFG.devices.map(d=>d.key),'relocate','arrow_note','area'];
+const ahtLayerLabel = key => key==='relocate'?'Move / relocation arrows':key==='arrow_note'?'Text notes with arrows':key==='area'?'Area / text callouts':(DEV[key]?.label||key);
+const ahtLayerShown = m => ahtLayerVisibility[m.type] !== false;
+const ahtBulkDisplayDev = (dev,m) => dev && m && /^#[0-9a-f]{6}$/i.test(m.bulkColor||'') ? Object.assign({},dev,{color:m.bulkColor}) : dev;
+function ahtRefreshLayerControls() {
+ const boxes=$('ahtLayersList'); if(!boxes)return;
+ boxes.querySelectorAll('input[data-aht-layer]').forEach(input=>{input.checked=ahtLayerVisibility[input.dataset.ahtLayer]!==false;});
+ const showing=ahtEditableLayerTypes.filter(k=>ahtLayerVisibility[k]!==false).length;
+ $('ahtLayersCount').textContent=showing+' / '+ahtEditableLayerTypes.length+' layers visible';
+}
+function ahtSetLayers(visibleTypes) {
+ pushUndo();
+ ahtLayerVisibility=Object.fromEntries(ahtEditableLayerTypes.filter(k=>!visibleTypes.has(k)).map(k=>[k,false]));
+ sel=new Set([...sel].filter(id=>{const m=markers.find(n=>n.id===id);return m&&ahtLayerShown(m);}));
+ ahtRefreshLayerControls();refresh();
+}
+(function ahtInitLayersBulk() {
+ const list=$('ahtLayersList');
+ ahtEditableLayerTypes.forEach(key=>{
+   const row=document.createElement('label'),box=document.createElement('input'),name=document.createElement('span');
+   box.type='checkbox';box.dataset.ahtLayer=key;box.checked=true;name.textContent=ahtLayerLabel(key);
+   box.addEventListener('change',e=>{
+     pushUndo();ahtLayerVisibility[key]=e.target.checked;
+     if(!e.target.checked) sel=new Set([...sel].filter(id=>{const m=markers.find(n=>n.id===id);return m&&ahtLayerShown(m);}));
+     ahtRefreshLayerControls();refresh();
+   });
+   row.append(box,name);list.appendChild(row);
+ });
+ $('ahtShowAllLayers').addEventListener('click',()=>ahtSetLayers(new Set(ahtEditableLayerTypes)));
+ $('ahtHideAllLayers').addEventListener('click',()=>ahtSetLayers(new Set()));
+ ahtRefreshLayerControls();
+ const select=$('ahtBulkType');
+ ahtEditableLayerTypes.filter(k=>!['addmark','rmmark'].includes(k)).forEach(k=>{
+   const option=document.createElement('option');option.value=k;option.textContent=ahtLayerLabel(k);select.appendChild(option);
+ });
+ const sync=()=>{const k=select.value;const d=DEV[k];$('ahtBulkColor').value=(d&&d.color)|| (k==='arrow_note'?ARROW_NOTE_COLOR:k==='area'?AREA_COL:'#fff200');};
+ select.addEventListener('change',sync);sync();
+ $('ahtBulkApplySize').addEventListener('click',()=>{
+   const k=select.value,raw=Number($('ahtBulkSize').value);if(!Number.isFinite(raw)||raw<.4||raw>3){$('ahtBulkStatus').textContent='Enter a size from 0.4 to 3.';return;}
+   const targets=markers.filter(m=>m.type===k);
+   if(!targets.length){$('ahtBulkStatus').textContent='No '+ahtLayerLabel(k)+' found in this layout.';return;}
+   pushUndo();
+   targets.forEach(m=>{if(k==='arrow_note'||k==='area')m.fs=raw;else m.size=raw;});
+   refresh();$('ahtBulkStatus').textContent='Updated size for '+targets.length+' '+ahtLayerLabel(k)+' across all pages.';
+ });
+ $('ahtBulkApplyColor').addEventListener('click',()=>{
+   const k=select.value,v=$('ahtBulkColor').value;
+   if(!/^#[0-9a-f]{6}$/i.test(v))return;
+   const targets=markers.filter(m=>m.type===k);
+   if(!targets.length){$('ahtBulkStatus').textContent='No '+ahtLayerLabel(k)+' found in this layout.';return;}
+   pushUndo();
+   targets.forEach(m=>{if(k==='arrow_note'||k==='area')m.color=v;else if(k==='relocate')m.arrowColor=v;else m.bulkColor=v;});
+   refresh();$('ahtBulkStatus').textContent='Updated color for '+targets.length+' '+ahtLayerLabel(k)+' across all pages.';
+ });
+})();
+
 let relocationStart = null;
 let pendingDetailId = null;
 let lastRoomName='', lastRoomNumber='';
@@ -716,11 +807,11 @@ const iconBase = () => (CFG.iconScale || 1) * Math.max(8, Math.min(26, 0.85 * pt
 // ---------- helpers ----------
 function status(t) { $('status').textContent = t || ''; }
 function banner(t) { const b = $('banner'); if (!t) { b.style.display = 'none'; return; } b.textContent = t; b.style.display = 'block'; }
-function snap() { return JSON.stringify({ m: markers, n: nextId, pr: pageRotations }); }
+function snap() { return JSON.stringify({ m: markers, n: nextId, pr: pageRotations, av: ahtLayerVisibility }); }
 function pushUndo() { undoStack.push(snap()); if (undoStack.length > 120) undoStack.shift(); redoStack = []; }
 function restore(s) {
   const o=JSON.parse(s), oldAngle=Number(pageRotations[pageNum] || 0);
-  markers=o.m; nextId=o.n; pageRotations={...(o.pr || pageRotations)}; sel.clear();
+  markers=o.m; nextId=o.n; pageRotations={...(o.pr || pageRotations)}; ahtLayerVisibility={...(o.av||{})}; sel.clear(); ahtRefreshLayerControls();
   if (pdfDoc && Number(pageRotations[pageNum] || 0) !== oldAngle) {
     void openPage(false).then(()=>fit()).catch(err=>status('Undo rendering failed: '+err.message));
   } else { refresh(); updateOrientationControls(); }
@@ -1166,15 +1257,15 @@ function refresh() {
   const gArea = el('g', {}, scene), gPrev = el('g', {}, scene), gDev = el('g', {}, scene), gTxt = el('g', { style: 'pointer-events:none' }, scene), gCall = el('g', {}, scene);
   const d0 = iconBase();
   const spec = {};
-  pageMarkers().filter(m => m.showRange === true && $('showAllCoverage').checked).forEach(m => {
+  pageMarkers().filter(ahtLayerShown).filter(m => m.showRange === true && $('showAllCoverage').checked).forEach(m => {
     const dev = DEV[m.type]; const sp = dev && previewSpec(dev, m);
     if (!sp) return;
     const ps = pStyle(dev, m);
     el('polygon', { points: ptsStr(previewPoly(m, sp)), fill: ps.fill, 'fill-opacity': ps.fillOpacity, stroke: ps.stroke, 'stroke-opacity': ps.strokeOpacity, 'stroke-width': ps.strokeWidth, 'vector-effect': 'non-scaling-stroke', style: 'pointer-events:none' }, gPrev);
   });
   const showNotes = $('notesChk').checked, showLen = $('lenChk').checked;
-  pageMarkers().forEach(m => {
-    const dev = DEV[m.type]; if (!dev) return;
+  pageMarkers().filter(ahtLayerShown).forEach(m => {
+    const dev = ahtBulkDisplayDev(DEV[m.type],m); if (!dev) return;
     const isSel = sel.has(m.id);
     const g = el('g', { 'data-id': m.id, style: 'cursor:pointer' }, gDev);
     const dm = d0 * (m.size || 1);
@@ -1227,7 +1318,7 @@ function refresh() {
     }
     if (showNotes && m.note) { const t = el('text', { x: m.x + dm * 0.7, y: m.y - dm * 0.7, 'font-size': d0 * 0.55, fill: '#1a1a18', stroke: '#fff', 'stroke-width': d0 * 0.16, 'paint-order': 'stroke' }, gTxt); t.textContent = m.note; }
   });
-  pageAreas().forEach(m => {
+  pageAreas().filter(ahtLayerShown).forEach(m => {
     const r = areaRect(m), col = m.color || AREA_COL, sw = areaSw(), isSel = sel.has(m.id), G = callGeom(m, wScreen);
     const ga = el('g', { 'data-id': m.id, style: 'cursor:pointer' }, gArea), rw = r.x1 - r.x0, rh = r.y1 - r.y0;
     el('rect', { x: r.x0, y: r.y0, width: rw, height: rh, fill: col, 'fill-opacity': m.shade == null ? 0.12 : m.shade, style: 'pointer-events:none' }, ga);
@@ -1241,7 +1332,7 @@ function refresh() {
       el('circle', { cx: raw[0], cy: raw[1], r: Math.max(sw * 2.2, 7 / zoom), fill: '#fff200', stroke: '#1a1a18', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke', 'data-handle': h, 'data-id': m.id, style: 'cursor:nwse-resize' }, gCall); });
   });
 
-  pageArrowNotes().forEach(m=>{
+  pageArrowNotes().filter(ahtLayerShown).forEach(m=>{
     const G=arrowNoteGeom(m,wScreen),col=m.color||ARROW_NOTE_COLOR,txt=m.textColor||col, fill=m.fillColor||'#ffffff', opacity=m.fillOpacity==null?.95:Number(m.fillOpacity), picked=sel.has(m.id);
     const g=el('g',{'data-id':m.id,style:'cursor:pointer'},gCall);
     el('line',{x1:G.start[0],y1:G.start[1],x2:G.end[0],y2:G.end[1],stroke:'transparent','stroke-width':Math.max(10/zoom,G.stroke*5),'stroke-linecap':'round'},g);
@@ -1585,12 +1676,13 @@ $('viewport').addEventListener('pointerup', e => {
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, ahtLayers: ahtLayerVisibility, pdfLegend: $('pdfLegendChk').checked, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
   r.onload = () => { try {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
+    ahtLayerVisibility={...(o.ahtLayers||{})};ahtRefreshLayerControls();
     $('pdfLegendChk').checked = o.pdfLegend === true;
 
     if (o.tool && o.tool !== CFG.fileTag) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
@@ -1639,7 +1731,7 @@ $('pdfBtn').onclick = async () => {
     // AHT_MULTIPAGE_EXPORT_OTHER_TOOLS_V1: preserve every source page, use each sheet's PDF.js viewport.
     // Process the original pages only (Access Control adds schedule pages afterwards).
     for (let exportPageNum = 1; exportPageNum <= originalPages.length; exportPageNum++) {
-      const forThisPage = markers.filter(m => (m.page || 1) === exportPageNum);
+      const forThisPage = markers.filter(m => (m.page || 1) === exportPageNum && ahtLayerShown(m));
       if (!forThisPage.length) continue;
       const page = originalPages[exportPageNum - 1];
       const pdfJsPage = await pdfDoc.getPage(exportPageNum);
@@ -1676,7 +1768,7 @@ $('pdfBtn').onclick = async () => {
     areas.forEach(m => { const r = areaRect(m), col = hexRgb(m.color || AREA_COL, PDFLib), sw = areaSw(); const rp = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];
       polygon(rp, col, m.shade == null ? 0.12 : m.shade, null, 0, 0); polygon(rp, null, 0, col, 1, sw, [sw * 4, sw * 3]); });
     PM.forEach(m => {
-      const dev = DEV[m.type]; if (!dev) return; const c = hexRgb(dev.color, PDFLib);
+      const dev = ahtBulkDisplayDev(DEV[m.type],m); if (!dev) return; const c = hexRgb(dev.color, PDFLib);
       const dm = d0 * (m.size || 1);
       if (dev.kind === 'relocate') {
         const pts=relocVisiblePoints(m,dm), col=hexRgb(/^#[0-9a-fA-F]{6}$/.test(m.arrowColor||'')?m.arrowColor:DEV.relocate.color,PDFLib);
