@@ -228,6 +228,38 @@
   .editor-brand-row {gap:8px;}
   .editor-head-branded h1 {font-size:13px;}
 }
+
+/* AHT_STICKY_TOOL_WORKFLOW_V1 — navigation follows the existing Select/Undo/Redo dock */
+#ahtGuidedSteps { position:sticky; top:0; z-index:31; background:#fff; }
+#modeDock { top:var(--aht-sticky-nav-height, 0px) !important; z-index:30; }
+#sidebar .workflow-step, #sidebar #bulkCoveragePanel, #sidebar #aht-guided-stage4 {
+  scroll-margin-top:var(--aht-sticky-stack-height, 240px);
+}
+/* Speakers previously had no generated jump navigation in this collected source. */
+#ahtGuidedSteps.aht-sticky-speaker-nav {
+  margin:0 -13px; padding:10px 13px 9px; border:1px solid #bcd2e5;
+  border-radius:8px; box-shadow:0 2px 7px rgba(13,50,80,.1);
+}
+#ahtGuidedSteps.aht-sticky-speaker-nav .aht-guided-overline {
+  margin:0 0 5px; font-size:10px; font-weight:800;
+  line-height:1.2; letter-spacing:.04em; text-transform:uppercase; color:#1e4a70;
+}
+#ahtGuidedSteps.aht-sticky-speaker-nav .aht-guided-grid {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px;
+}
+#ahtGuidedSteps.aht-sticky-speaker-nav .aht-guided-link {
+  display:flex; justify-content:center; align-items:center; flex-direction:column;
+  min-width:0; padding:5px 3px; min-height:35px;
+  background:#f7fbff; border:1px solid #b8cddd; border-radius:5px;
+  color:#254661; font-size:10px; font-weight:700; line-height:1.18;
+}
+#ahtGuidedSteps.aht-sticky-speaker-nav .aht-guided-link[aria-current="step"] {
+  background:#e4f0fa; border-color:#1e5b95; color:#164c7f;
+}
+#ahtGuidedSteps.aht-sticky-speaker-nav .aht-guided-link b {font-size:11px;}
+#ahtGuidedSteps.aht-sticky-speaker-nav #ahtGuidedNext {
+  padding-top:5px; font-size:10px; line-height:1.2; color:#60758a;
+}
 </style>
 <!-- AHT_GUIDED_EDITORS_V1 -->
 <link rel="stylesheet" href="aht-guided-editors-v1.css?v=1" data-aht-guided="v1">
@@ -1665,5 +1697,86 @@ refresh();
 </script>
 <script src="aht-tool-project-picker-button.js?v=1"></script>
 <script src="aht-guided-editors-v1.js?v=1" data-editor="shades"></script>
+
+<script>
+/* AHT_STICKY_TOOL_WORKFLOW_V1 — keeps existing jump navigation and mode dock visible.
+   Speaker tool gets the matching jump UI only if none exists. Original tool IDs and handlers stay intact. */
+(function(){
+  'use strict';
+  function init(){
+    const sidebar=document.getElementById('sidebar');
+    const dock=document.getElementById('modeDock');
+    if(!sidebar||!dock)return;
+    const isSpeaker=!!document.querySelector('title')&&/speaker/i.test(document.title);
+    function addSpeakerNav(){
+      if(!isSpeaker||document.getElementById('ahtGuidedSteps'))return;
+      const head=sidebar.querySelector(':scope > header');
+      if(!head)return;
+      const cfg=[
+        ['planSection','Open','Choose a SharePoint or local plan PDF.'],
+        ['placeSection','Place','Place speakers and other supported items.'],
+        ['detailsSection','Adjust','Select a speaker to adjust its layout details.'],
+        ['bulkCoveragePanel','Coverage','Adjust speaker coverage and group controls.'],
+        ['reviewSection','Review','Review your device placements and counts.'],
+        ['exportSection','Export','Save editable work and marked-up PDFs.']
+      ];
+      if(cfg.some(x=>!document.getElementById(x[0])))return;
+      const nav=document.createElement('nav');
+      nav.id='ahtGuidedSteps';nav.className='aht-sticky-speaker-nav';
+      nav.setAttribute('aria-label','Drawing workflow steps');
+      const overline=document.createElement('p');
+      overline.className='aht-guided-overline';
+      overline.textContent='Your drawing workflow — jump to any step';
+      const grid=document.createElement('div');grid.className='aht-guided-grid';
+      const hint=document.createElement('div');hint.id='ahtGuidedNext';hint.setAttribute('aria-live','polite');
+      const buttons=[];
+      cfg.forEach((item,i)=>{
+        const target=document.getElementById(item[0]);
+        const button=document.createElement('button');button.type='button';
+        button.className='aht-guided-link';
+        const bold=document.createElement('b');bold.textContent=String(i+1);
+        button.append(bold,document.createTextNode(item[1]));
+        button.addEventListener('click',()=>{
+          buttons.forEach((b,j)=>j===i?b.setAttribute('aria-current','step'):b.removeAttribute('aria-current'));
+          hint.textContent=item[2];
+          target.scrollIntoView({behavior:'smooth',block:'start'});
+        });
+        buttons.push(button);grid.appendChild(button);
+      });
+      nav.append(overline,grid,hint);head.after(nav);
+      buttons[0].setAttribute('aria-current','step');hint.textContent=cfg[0][2];
+    }
+    function attachNav(){
+      let nav=document.getElementById('ahtGuidedSteps');
+      if(!nav&&isSpeaker){addSpeakerNav();nav=document.getElementById('ahtGuidedSteps');}
+      if(!nav)return false;
+      let lastHeight=-1;
+      function sync(){
+        const style=getComputedStyle(nav);
+        const margin=parseFloat(style.marginBottom)||0;
+        const navHeight=Math.ceil(nav.getBoundingClientRect().height+Math.max(0,margin));
+        const dockHeight=Math.ceil(dock.getBoundingClientRect().height);
+        if(navHeight===lastHeight&&sidebar.style.getPropertyValue('--aht-sticky-stack-height'))return;
+        lastHeight=navHeight;
+        sidebar.style.setProperty('--aht-sticky-nav-height',navHeight+'px');
+        sidebar.style.setProperty('--aht-sticky-stack-height',(navHeight+dockHeight+14)+'px');
+      }
+      sync();
+      if(typeof ResizeObserver==='function'){
+        const ro=new ResizeObserver(sync);ro.observe(nav);ro.observe(dock);
+      }
+      window.addEventListener('resize',sync);
+      nav.addEventListener('click',()=>requestAnimationFrame(sync));
+      return true;
+    }
+    if(!attachNav()){
+      const observer=new MutationObserver(()=>{if(attachNav())observer.disconnect();});
+      observer.observe(sidebar,{childList:true,subtree:false});
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+})();
+</script>
 </body>
 </html>
