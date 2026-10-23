@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT CCTV Camera Markup Tool · Security V3.5.4</title>
+<title>AHT CCTV Camera Markup Tool · Security V3.5.5</title>
+<!-- AHT_CCTV_V3_5_5: bulk adjustments for radius, reach, arrow length and grouped colors -->
 <!-- AHT_CCTV_V3_5: 360 LiDAR radius + drawing-area appearance controls -->
 <!-- AHT_CCTV_SITE_SECURITY_V3_3: independent pole arms and camera aim, compatible with V3.2 JSON -->
 <!-- AHT_CCTV_SITE_SECURITY_V3_1: flexible poles, per-head coverage, length visibility controls -->
@@ -505,6 +506,45 @@
       <div class="chk" id="lenChkRow" style="display:none;margin:10px 0;padding:8px 10px;border:1px solid #b9cfdf;border-radius:6px;background:#f2f8fc">
         <input type="checkbox" id="lenChk" checked><label for="lenChk"><strong>Show estimated lengths on drawing + exported PDF</strong></label>
       </div>
+      <details class="fold" id="bulkAdjustPanel">
+        <summary>Bulk Adjustments <span>Apply to all pages · Sizes + colors</span></summary>
+        <div class="panel" style="background:#f6f9fd;border:1px solid #b5cde1;margin-top:8px">
+          <strong style="font-size:13px">Set once · Apply to All</strong>
+          <div class="muted" style="margin:5px 0 10px">These actions update existing matching items on every page, including camera and LiDAR heads attached to poles. Nothing changes until you press Apply. Use Undo to reverse an action. Hidden layers are included.</div>
+          <label class="lbl" for="bulkLidarLength">All directional LiDAR arrow lengths (4–80)</label>
+          <div class="row"><input type="number" id="bulkLidarLength" min="4" max="80" step="1" value="18" aria-label="LiDAR arrow length"><button type="button" id="bulkLidarLengthApply">Apply to All</button></div>
+          <label class="lbl" for="bulkLidar360Radius">All LiDAR 360° circle radii (0.05–500)</label>
+          <div class="row"><input type="number" id="bulkLidar360Radius" min="0.05" max="500" step="0.05" value="0.5" aria-label="LiDAR 360 circle radius"><button type="button" id="bulkLidar360RadiusApply">Apply to All</button></div>
+          <label class="lbl" for="bulkCameraReach">All camera viewing-area lengths (1.2–16)</label>
+          <div class="row"><input type="number" id="bulkCameraReach" min="1.2" max="16" step="0.1" value="4.2" aria-label="Camera viewing reach"><button type="button" id="bulkCameraReachApply">Apply to All</button></div>
+          <div class="muted" style="margin-top:6px">Camera reach includes fixed, PTZ, fisheye, and camera heads on poles. Each item's direction, angle, visibility and placement are preserved. Measurements here are illustrative reference values, not verified feet.</div>
+          <div style="border-top:1px solid #c7d9e9;padding-top:9px;margin-top:12px">
+            <strong style="font-size:13px">Change Color by Type</strong>
+            <label class="lbl" for="bulkColorType">Which items to recolor</label>
+            <select id="bulkColorType">
+              <optgroup label="Viewing areas (not camera icons)">
+                <option value="cam">Fixed cameras — coverage color (including pole heads)</option>
+                <option value="ptz">PTZ cameras — coverage color (including pole heads)</option>
+                <option value="fish">360° fisheye cameras — coverage color</option>
+              </optgroup>
+              <optgroup label="LiDAR and perimeter">
+                <option value="lidar">Directional LiDAR arrows (including pole heads)</option>
+                <option value="lidar360">360° LiDAR outlines + fills</option>
+                <option value="omnitraxA">Senstar OmniTrax — Run A</option>
+                <option value="omnitraxB">Senstar OmniTrax — Run B</option>
+              </optgroup>
+              <optgroup label="Annotations">
+                <option value="relocate">Move / relocation arrows</option>
+                <option value="arrow_note">Text note arrows (not note text)</option>
+                <option value="area">Callout borders</option>
+              </optgroup>
+            </select>
+            <div class="row" style="margin-top:7px"><input type="color" id="bulkColorValue" value="#00cbd4" aria-label="New color" style="height:33px;max-width:94px"><button type="button" id="bulkColorApply">Apply Color to Type</button></div>
+            <div class="muted" style="margin-top:6px">Camera icon colors still indicate initial vs proposed layout; only their viewing-area colors change. LiDAR arrow and 360 circle colors change on plan and PDF.</div>
+          </div>
+          <div id="bulkAdjustStatus" class="muted" role="status" aria-live="polite" style="margin-top:9px;font-weight:700"></div>
+        </div>
+      </details>
       <details class="fold" id="layerVisibilityPanel">
         <summary>Drawing Layers / Visibility <span>Hide all · Show all · By device type</span></summary>
         <div class="panel" style="background:#f3f7fa;border:1px solid #c7d9e5;margin-top:8px">
@@ -720,6 +760,84 @@ function initDrawingLayers(){
  syncDrawingLayers();
 }
 initDrawingLayers();
+// AHT_CCTV_BULK_V1: apply explicit sizes and colors across every saved page.
+// This modifies the same per-marker properties used by SVG, PDF and JSON.
+function bulkLidarTargets(){
+ const all=[];
+ markers.forEach(m=>{
+  if(isLidar(m))all.push(m);
+  if(isPole(m)){
+   ensurePole(m).forEach(h=>{if(h.kind==='lidar')all.push(h);});
+   const legacy=poleLidar(m);if(legacy.enabled)all.push(legacy);
+  }
+ });
+ return all;
+}
+function bulkCameraTargets(kind=null){
+ const all=[];
+ markers.forEach(m=>{
+  if(DEV[m.type]?.preview && (!kind || m.type===kind || (kind==='cam'&&m.type==='cam_ex') || (kind==='fish'&&m.type==='fish_ex')))all.push({item:m,head:false});
+  if(isPole(m))ensurePole(m).forEach(h=>{if(h.kind!=='lidar'&&(!kind||h.kind===kind))all.push({item:h,head:true});});
+ });
+ return all;
+}
+function bulkAll(type){
+ if(type==='lidar')return bulkLidarTargets();
+ if(type==='lidar360')return markers.filter(isLidar360);
+ if(type==='cam'||type==='ptz'||type==='fish')return bulkCameraTargets(type);
+ if(type==='omnitraxA'||type==='omnitraxB')return markers.filter(isOmnitrax);
+ if(type==='relocate')return markers.filter(m=>m.type==='relocate');
+ if(type==='arrow_note')return markers.filter(isArrowNote);
+ if(type==='area')return markers.filter(isArea);
+ return [];
+}
+function bulkInput(id,min,max){
+ const n=Number($(id).value);
+ if(!Number.isFinite(n)||String($(id).value).trim()===''||n<min||n>max){
+  const msg='Enter a number from '+min+' to '+max+' before applying.';
+  $('bulkAdjustStatus').textContent=msg;status(msg);return null;
+ }
+ return n;
+}
+function bulkCommit(name,targets,edit){
+ if(!targets.length){
+  const msg='No matching items found. No changes made.';
+  $('bulkAdjustStatus').textContent=msg;status(msg);return;
+ }
+ pushUndo();targets.forEach(edit);refresh();
+ const msg=name+' updated on '+targets.length+' item'+(targets.length===1?'':'s')+' across all pages. Undo can reverse this.';
+ $('bulkAdjustStatus').textContent=msg;status(msg);
+}
+$('bulkLidarLengthApply').addEventListener('click',()=>{
+ const v=bulkInput('bulkLidarLength',4,80);if(v===null)return;
+ bulkCommit('Directional LiDAR arrow length',bulkLidarTargets(),m=>m.length=v);
+});
+$('bulkLidar360RadiusApply').addEventListener('click',()=>{
+ const v=bulkInput('bulkLidar360Radius',.05,500);if(v===null)return;
+ bulkCommit('LiDAR 360 circle radius',markers.filter(isLidar360),m=>{ensureLidar360(m);m.radiusRef=v;});
+});
+$('bulkCameraReachApply').addEventListener('click',()=>{
+ const v=bulkInput('bulkCameraReach',1.2,16);if(v===null)return;
+ bulkCommit('Camera viewing-area reach',bulkCameraTargets(),t=>{if(t.head)t.item.reach=v;else t.item.coverageSize=v;});
+});
+const bulkColorDefaults={cam:'#00cbd4',ptz:'#00cbd4',fish:'#00cbd4',lidar:'#6b21a8',lidar360:'#7c3aed',omnitraxA:'#2563eb',omnitraxB:'#ef4444',relocate:'#fff200',arrow_note:'#c52b2b',area:'#e0262e'};
+$('bulkColorType').addEventListener('change',()=>{$('bulkColorValue').value=bulkColorDefaults[$('bulkColorType').value]||'#00cbd4';});
+$('bulkColorApply').addEventListener('click',()=>{
+ const type=$('bulkColorType').value,color=$('bulkColorValue').value;
+ if(!/^#[0-9a-fA-F]{6}$/.test(color)){status('Choose a valid color first.');return;}
+ const targets=bulkAll(type);
+ const labels={cam:'Fixed-camera viewing-area color',ptz:'PTZ viewing-area color',fish:'Fisheye viewing-area color',lidar:'Directional LiDAR arrow color',lidar360:'LiDAR 360 circle color',omnitraxA:'Senstar run A color',omnitraxB:'Senstar run B color',relocate:'Move arrow color',arrow_note:'Text note arrow color',area:'Callout border color'};
+ bulkCommit(labels[type]||'Color',targets,t=>{
+  if(type==='cam'||type==='ptz'||type==='fish'){
+   if(t.head)t.item.viewColor=color;else t.item.coverageColor=color;
+  }else if(type==='lidar'||type==='relocate')t.arrowColor=color;
+  else if(type==='lidar360'){ensureLidar360(t);t.circleColor=color;}
+  else if(type==='omnitraxA')t.color1=color;
+  else if(type==='omnitraxB')t.color2=color;
+  else if(type==='arrow_note'||type==='area')t.color=color;
+ });
+});
+
 const ARROW_NOTE_TEXT = 'NOTE', ARROW_NOTE_COLOR = '#c52b2b';
 function arrowNoteGeom(m, wfn, view=vp, tip=[m.x,m.y]) {
   const fs = Math.max(8,Math.max(view.width,view.height)/210) * (Number(m.fs)||1);
