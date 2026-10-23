@@ -403,12 +403,13 @@
         <div id="lidar360Controls" style="display:none">
           <strong style="font-size:13px">LiDAR 360° Coverage</strong>
           <div class="muted" style="margin:5px 0 9px">Illustrative circular detection area. Use the radius as a reference number only, not a dimensional measurement. Confirm actual coverage and mounting with the selected LiDAR manufacturer.</div>
-          <label class="lbl" for="lidar360Radius">Coverage radius: <span id="lidar360RadiusVal">5</span></label>
-          <input id="lidar360Radius" type="range" min="1" max="500" step="1" value="5" style="width:100%">
-          <label class="lbl" for="lidar360RadiusNumber">Or enter radius value (1–500)</label>
-          <input id="lidar360RadiusNumber" type="number" min="1" max="500" step="1" value="5">
+          <label class="lbl" for="lidar360Radius">Circle radius: <span id="lidar360RadiusVal">0.5</span> (reference only)</label>
+          <input id="lidar360Radius" type="range" min="0.05" max="30" step="0.05" value="0.5" style="width:100%">
+          <label class="lbl" for="lidar360RadiusNumber">Or enter exact radius value (0.05–500)</label>
+          <input id="lidar360RadiusNumber" type="number" min="0.05" max="500" step="0.05" value="0.5">
           <label class="lbl" for="lidar360Color">Circle outline / fill color</label>
           <input id="lidar360Color" type="color" value="#7c3aed" style="width:92px;height:34px">
+          <label class="chk" style="margin-top:8px"><input id="lidar360OutlineEnabled" type="checkbox" checked><span>Show dotted outline for this LiDAR</span></label>
           <label class="lbl" for="lidar360LineWidth">Dotted outline width: <span id="lidar360LineWidthVal">3</span></label>
           <input id="lidar360LineWidth" type="range" min="1" max="16" step="1" value="3" style="width:100%">
           <label class="chk" style="margin-top:8px"><input id="lidar360FillEnabled" type="checkbox"><span>Fill circle using outline color</span></label>
@@ -465,7 +466,10 @@
       
       <div id="arrowNoteRow" style="display:none">
         <strong style="font-size:13px">Arrow Note / Pointer Callout</strong>
-        <div class="muted" style="margin:5px 0 7px">Drag the tip to point at an item. Drag the label to move just the text; drag the line to move both.</div>
+        <div class="muted" style="margin:5px 0 7px">One text box can point to multiple locations. Drag any arrow tip independently; move the label without moving targets.</div>
+        <div class="row" style="margin:7px 0"><button type="button" id="noteAddPointer">+ Add another arrow</button><button type="button" id="noteCancelPointer" style="display:none">Cancel placement</button></div>
+        <div class="row"><select id="notePointerSelect" aria-label="Arrow tip to remove"></select><button type="button" id="noteRemovePointer">Remove selected arrow</button></div>
+        <div class="muted" id="notePointerState">Click Add another arrow, then click its target on the drawing.</div>
         <label class="lbl" for="arrowNoteText">Note text</label>
         <textarea id="arrowNoteText" rows="3" style="width:100%;font:inherit;padding:5px;box-sizing:border-box"></textarea>
         <div class="grid2" style="margin-top:6px">
@@ -510,6 +514,13 @@
         <label class="lbl" for="cameraFillStrength">Camera fill strength: <span id="cameraFillStrengthVal">100</span>%</label>
         <input id="cameraFillStrength" type="range" min="0" max="100" step="5" value="100" style="width:100%">
         <div class="muted">Turn outlines off and lower fill strength (try 35%) to keep floor plans legible. Does not change camera angles or positions.</div>
+        <div style="margin-top:9px;padding-top:8px;border-top:1px solid #c8d6e6">
+          <strong style="font-size:12px">Show / Hide Coverage Layers — All Devices</strong>
+          <label class="chk"><input type="checkbox" id="showAllCameraCones" checked><span>Show all camera viewing cones</span></label>
+          <label class="chk"><input type="checkbox" id="showAllLidar360Fills" checked><span>Show all LiDAR 360 circle fills</span></label>
+          <label class="chk"><input type="checkbox" id="showAllLidar360Outlines" checked><span>Show all LiDAR 360 dotted outlines</span></label>
+          <div class="muted">These switches control the drawing and PDF, not the saved device positions. Each LiDAR also has its own dotted-outline switch.</div>
+        </div>
       </div>
       <label class="chk pdf-view-option"><input type="checkbox" id="pdfViewChk" checked><span>Include illustrative camera viewing areas in PDF</span></label>
       <!-- AHT_PDF_LEGEND_TOGGLE_V3: opt-in PDF title/device legend -->
@@ -626,7 +637,7 @@ const isArea = m => m.type === 'area';
 const isArrowNote = m => m.type === 'arrow_note';
 const isAnnotation = m => isArea(m) || isArrowNote(m);
 const ARROW_NOTE_TEXT = 'NOTE', ARROW_NOTE_COLOR = '#c52b2b';
-function arrowNoteGeom(m, wfn, view=vp) {
+function arrowNoteGeom(m, wfn, view=vp, tip=[m.x,m.y]) {
   const fs = Math.max(8,Math.max(view.width,view.height)/210) * (Number(m.fs)||1);
   const lines=String(m.text == null ? ARROW_NOTE_TEXT : m.text).split(/\r?\n/).slice(0,15);
   const pad=fs*.5, lh=fs*1.25;
@@ -634,10 +645,10 @@ function arrowNoteGeom(m, wfn, view=vp) {
   const h=Math.max(lh,lines.length*lh)+pad*1.15;
   const lx=Number.isFinite(m.x2)?m.x2:m.x+fs*12,ly=Number.isFinite(m.y2)?m.y2:m.y-fs*5;
   const bx=lx-w/2,by=ly-h/2;
-  const dx=m.x-lx,dy=m.y-ly;
+  const dx=tip[0]-lx,dy=tip[1]-ly;
   const factor=Math.max(Math.abs(dx)/(w/2||1),Math.abs(dy)/(h/2||1));
   const start=factor>1?[lx+dx/factor,ly+dy/factor]:[lx,ly];
-  const end=[m.x,m.y];
+  const end=tip;
   const theta=Math.atan2(end[1]-start[1],end[0]-start[0]);
   const stroke=Math.max(.65,areaSw()*.55*(Number(m.lineSize)||1));
   const head=Math.max(stroke*3.6,fs*.45)*(Number(m.headSize)||1);
@@ -646,6 +657,18 @@ function arrowNoteGeom(m, wfn, view=vp) {
     [end[0]-head*Math.cos(theta+.48),end[1]-head*Math.sin(theta+.48)]];
   return {fs,lines,pad,lh,w,h,lx,ly,bx,by,start,end,stroke,arrow,
     base:i=>by+pad*.48+fs*.82+i*lh};
+}
+let pendingArrowTipNoteId=null;
+function noteTargets(m){return [[m.x,m.y],...(Array.isArray(m.extraTips)?m.extraTips:[]).filter(p=>Array.isArray(p)&&Number.isFinite(p[0])&&Number.isFinite(p[1]))];}
+function notePointerState(){
+ const m=markers.find(x=>x.id===[...sel][0]); if(!m||!isArrowNote(m))return;
+ const selEl=$('notePointerSelect'),last=Number(selEl.value)||0;
+ selEl.innerHTML='';noteTargets(m).forEach((_,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent='Arrow '+(i+1);selEl.appendChild(o);});
+ selEl.value=String(Math.min(last,noteTargets(m).length-1));
+ $('noteRemovePointer').disabled=noteTargets(m).length<=1;
+ $('noteAddPointer').disabled=pendingArrowTipNoteId===m.id;
+ $('noteCancelPointer').style.display=pendingArrowTipNoteId===m.id?'block':'none';
+ $('notePointerState').textContent=pendingArrowTipNoteId===m.id?'Click the next target on the drawing. Esc cancels.':noteTargets(m).length+' arrow(s) attached to this one note.';
 }
 function setArrowNote(fn) {
   const ids=[...sel];if(ids.length!==1)return;
@@ -677,6 +700,10 @@ DEV.cam_ex = { ...DEV.cam, key:'cam_ex', label:'Fixed Camera (legacy revision)',
 DEV.fish_ex = { ...DEV.fish, key:'fish_ex', label:'360° Fisheye Camera (legacy revision)', vcolor:'#ff9400' };
 const VIEW_COLORS = Object.freeze({initial:'#00cbd4', proposed:'#ff9400'});
 let layoutMode = 'initial';
+function showCameraCones(){return $('showAllCameraCones').checked;}
+function showLidar360Fills(){return $('showAllLidar360Fills').checked;}
+function showLidar360Outlines(){return $('showAllLidar360Outlines').checked;}
+['showAllCameraCones','showAllLidar360Fills','showAllLidar360Outlines'].forEach(id=>$(id).addEventListener('change',refresh));
 function cameraOutlinesOn(){return $('cameraOutlineChk').checked;}
 function cameraFillFactor(){return Math.max(0,Math.min(1,Number($('cameraFillStrength').value)/100));}
 function cameraAreaPaint(style){return {...style,fillOpacity:style.fillOpacity*cameraFillFactor(),strokeOpacity:cameraOutlinesOn()?style.strokeOpacity:0};}
@@ -703,22 +730,28 @@ function isLidar(m){ return !!m && m.type === 'lidar'; }
 function isLidar360(m){return !!m && m.type==='lidar360';}
 function ensureLidar360(m){
  if(!m)return m;
- if(!Number.isFinite(Number(m.radiusFt)))m.radiusFt=5;
+ // Older V3.5 JSON radiusFt is migrated to a display-only reference number.
+ if(!Number.isFinite(Number(m.radiusRef)))m.radiusRef=Number.isFinite(Number(m.radiusFt))?Number(m.radiusFt):0.5;
+ if(!Number.isFinite(m.radiusRef))m.radiusRef=0.5;
+ if(typeof m.showOutline!=='boolean')m.showOutline=true;
  if(!Number.isFinite(Number(m.circleLineWidth)))m.circleLineWidth=3;
  if(!/^#[0-9a-fA-F]{6}$/.test(m.circleColor||''))m.circleColor=DEV.lidar360.color;
  if(typeof m.fillEnabled!=='boolean')m.fillEnabled=false;
  if(!Number.isFinite(Number(m.fillOpacity)))m.fillOpacity=20;
  return m;
 }
-function lidar360RadiusFt(m){ensureLidar360(m);return Math.max(1,Math.min(500,Number(m.radiusFt)||5));}
-function lidar360RadiusPts(m){return lidar360RadiusFt(m)*ptsPerFt();}
+function lidar360RadiusRef(m){ensureLidar360(m);return Math.max(0.05,Math.min(500,Number(m.radiusRef)||0.5));}
+// Screen-size reference: independent of calibrated plan distance.
+function lidar360RefUnit(view=vp){return Math.max(8,Math.min(28,Math.max(view?.width||1000,view?.height||1000)/58));}
+function lidar360RadiusPts(m,view=vp){return lidar360RadiusRef(m)*lidar360RefUnit(view);}
 function lidar360Width(m){ensureLidar360(m);return Math.max(1,Math.min(16,Number(m.circleLineWidth)||3));}
 function lidar360FillAlpha(m){ensureLidar360(m);return m.fillEnabled?Math.max(0,Math.min(100,Number(m.fillOpacity)||0))/100:0;}
-function lidar360Poly(m){const r=lidar360RadiusPts(m),out=[];for(let i=0;i<144;i++){const a=2*Math.PI*i/144;out.push([m.x+Math.cos(a)*r,m.y+Math.sin(a)*r]);}return out;}
+function lidar360Poly(m,view=vp){const r=lidar360RadiusPts(m,view),out=[];for(let i=0;i<144;i++){const a=2*Math.PI*i/144;out.push([m.x+Math.cos(a)*r,m.y+Math.sin(a)*r]);}return out;}
 function updateLidar360Panel(m){
- $('lidar360Radius').value=lidar360RadiusFt(m);
- $('lidar360RadiusNumber').value=Math.round(lidar360RadiusFt(m));
- $('lidar360RadiusVal').textContent=Math.round(lidar360RadiusFt(m));
+ $('lidar360Radius').value=Math.min(30,lidar360RadiusRef(m));
+ $('lidar360RadiusNumber').value=Number(lidar360RadiusRef(m).toFixed(2));
+ $('lidar360RadiusVal').textContent=Number(lidar360RadiusRef(m).toFixed(2));
+ $('lidar360OutlineEnabled').checked=m.showOutline!==false;
  $('lidar360Color').value=m.circleColor;
  $('lidar360LineWidth').value=lidar360Width(m);
  $('lidar360LineWidthVal').textContent=lidar360Width(m);
@@ -883,7 +916,7 @@ function drawPoleScreen(m,dm,g,gDev,gPrev,gTxt,isSel){
      drawLidarHeadScreen(m,h,pos,headSize,dm,g,gTxt,gDev,isSel,i);
    }else{
      const spec=headPreviewSpec(m,h,dm),style=headPreviewStyle(m,h);
-     if(h.showRange!==false){const paint=cameraAreaPaint(style);el('polygon',{points:ptsStr(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec)),fill:paint.fill,'fill-opacity':paint.fillOpacity,stroke:cameraOutlinesOn()?paint.stroke:'none','stroke-opacity':paint.strokeOpacity,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);}
+     if(showCameraCones()&&h.showRange!==false){const paint=cameraAreaPaint(style);el('polygon',{points:ptsStr(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec)),fill:paint.fill,'fill-opacity':paint.fillOpacity,stroke:cameraOutlinesOn()?paint.stroke:'none','stroke-opacity':paint.strokeOpacity,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);}
      el('circle',{cx:pos.x,cy:pos.y,r:headSize*.52,fill:'#fff',stroke:'#303942','stroke-width':Math.max(1,dm*.065)},g);
      drawIcon(headDev,pos.x,pos.y,headSize,g,gTxt);
    }
@@ -1358,7 +1391,7 @@ function refresh() {
   const gArea = el('g', {}, scene), gPrev = el('g', {}, scene), gDev = el('g', {}, scene), gTxt = el('g', { style: 'pointer-events:none' }, scene), gCall = el('g', {}, scene);
   const d0 = iconBase();
   const spec = {};
-  pageMarkers().filter(m => m.showRange === true).forEach(m => {
+  pageMarkers().filter(m => showCameraCones() && m.showRange === true).forEach(m => {
     const dev = DEV[m.type]; const sp = dev && previewSpec(dev, m);
     if (!sp) return;
     const ps = pStyle(dev, m);
@@ -1402,7 +1435,7 @@ function refresh() {
     } else if (dev.kind === 'lidar360') {
       ensureLidar360(m);
       const rad=lidar360RadiusPts(m),col=m.circleColor,sw=lidar360Width(m);
-      el('circle',{cx:m.x,cy:m.y,r:rad,fill:m.fillEnabled?col:'none','fill-opacity':lidar360FillAlpha(m),stroke:col,'stroke-width':sw,'stroke-dasharray':'4 7','stroke-linecap':'round','vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);
+      el('circle',{cx:m.x,cy:m.y,r:rad,fill:(showLidar360Fills()&&m.fillEnabled)?col:'none','fill-opacity':showLidar360Fills()?lidar360FillAlpha(m):0,stroke:(showLidar360Outlines()&&m.showOutline!==false)?col:'none','stroke-width':sw,'stroke-dasharray':'4 7','stroke-linecap':'round','vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);
       drawIcon(actualDev(dev,m),m.x,m.y,dm,g,gTxt);
       if(isSel)el('circle',{cx:m.x+rad,cy:m.y,r:Math.max(dm*.18,6/zoom),fill:'#fff200',stroke:'#634d1d','stroke-width':1.7,'data-handle':'lidar360-radius','data-id':m.id,style:'cursor:ew-resize'},gDev);
     } else if (dev.kind === 'pole') {
@@ -1447,12 +1480,15 @@ function refresh() {
   pageArrowNotes().forEach(m=>{
     const G=arrowNoteGeom(m,wScreen),col=m.color||ARROW_NOTE_COLOR,txt=m.textColor||col, fill=m.fillColor||'#ffffff', opacity=m.fillOpacity==null?.95:Number(m.fillOpacity), picked=sel.has(m.id);
     const g=el('g',{'data-id':m.id,style:'cursor:pointer'},gCall);
-    el('line',{x1:G.start[0],y1:G.start[1],x2:G.end[0],y2:G.end[1],stroke:'transparent','stroke-width':Math.max(10/zoom,G.stroke*5),'stroke-linecap':'round'},g);
-    el('line',{x1:G.start[0],y1:G.start[1],x2:G.end[0],y2:G.end[1],stroke:col,'stroke-width':G.stroke,'stroke-linecap':'round',style:'pointer-events:none'},g);
-    el('polygon',{points:ptsStr(G.arrow),fill:col,style:'pointer-events:none'},g);
+    noteTargets(m).forEach((tip,i)=>{
+      const a=arrowNoteGeom(m,wScreen,vp,tip);
+      el('line',{x1:a.start[0],y1:a.start[1],x2:a.end[0],y2:a.end[1],stroke:'transparent','stroke-width':Math.max(10/zoom,a.stroke*5),'stroke-linecap':'round'},g);
+      el('line',{x1:a.start[0],y1:a.start[1],x2:a.end[0],y2:a.end[1],stroke:col,'stroke-width':a.stroke,'stroke-linecap':'round',style:'pointer-events:none'},g);
+      el('polygon',{points:ptsStr(a.arrow),fill:col,style:'pointer-events:none'},g);
+      el('circle',{cx:tip[0],cy:tip[1],r:Math.max(7/zoom,a.stroke*2.5),fill:picked?'#fff200':'transparent',stroke:picked?col:'transparent','stroke-width':Math.max(1,a.stroke*.6),'data-id':m.id,'data-handle':i===0?'note-tip':'note-extra-tip','data-index':i-1,style:'cursor:grab'},g);
+    });
     el('rect',{x:G.bx,y:G.by,width:G.w,height:G.h,rx:G.fs*.14,fill,'fill-opacity':opacity,stroke:picked?'#e0a900':col,'stroke-width':G.stroke*.75,'data-id':m.id,'data-handle':'note-label',style:'cursor:move'},g);
     G.lines.forEach((line,i)=>{const t=el('text',{x:G.lx,y:G.base(i),'text-anchor':'middle','font-size':G.fs,'font-weight':700,fill:txt,'font-family':'Helvetica,Arial,sans-serif',style:'pointer-events:none'},g);t.textContent=line;});
-    el('circle',{cx:m.x,cy:m.y,r:Math.max(7/zoom,G.stroke*2.5),fill:picked?'#fff200':'transparent',stroke:picked?col:'transparent','stroke-width':Math.max(1,G.stroke*.6),'data-id':m.id,'data-handle':'note-tip',style:'cursor:grab'},g);
     if(picked)el('circle',{cx:G.lx,cy:G.ly,r:Math.max(5/zoom,G.stroke*2),fill:'#ffffff',stroke:col,'stroke-width':1,'data-id':m.id,'data-handle':'note-label',style:'cursor:move'},g);
   });
   el('g', { id: 'rubber', style: 'pointer-events:none' }, scene);
@@ -1484,6 +1520,14 @@ moveColorWrap.innerHTML='<label class="lbl" for="moveArrowColor"><strong>Move ar
 $('selPanel').insertAdjacentElement('afterend',moveColorWrap);
 
 // Arrow Note options save with work JSON and follow the same undo history as other markups.
+$('noteAddPointer').onclick=()=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isArrowNote(m))return;pendingArrowTipNoteId=m.id;banner('Arrow Note: click a second or third target on the plan. Press Esc to cancel.');notePointerState();};
+$('noteCancelPointer').onclick=()=>{pendingArrowTipNoteId=null;banner('');notePointerState();};
+$('noteRemovePointer').onclick=()=>{
+ const m=markers.find(x=>x.id===[...sel][0]);if(!isArrowNote(m)||noteTargets(m).length<=1)return;
+ const idx=Number($('notePointerSelect').value)||0;pushUndo();m.extraTips=Array.isArray(m.extraTips)?m.extraTips:[];
+ if(idx===0){const tip=m.extraTips.shift();if(tip){m.x=tip[0];m.y=tip[1];}}else m.extraTips.splice(idx-1,1);
+ refresh();notePointerState();
+};
 $('arrowNoteText').addEventListener('focus',()=>pushUndo());
 $('arrowNoteText').addEventListener('input',e=>setArrowNote(m=>{m.text=e.target.value;}));
 [['arrowNoteColor','color'],['arrowNoteTextColor','textColor'],['arrowNoteFill','fillColor']].forEach(([id,key])=>{
@@ -1556,6 +1600,7 @@ function updatePanels() {
       $('arrowNoteFill').value=m.fillColor||'#ffffff';
       const fields=[['arrowNoteOpacity','arrowNoteOpacityVal',Math.round((m.fillOpacity??.95)*100)],['arrowNoteFs','arrowNoteFsVal',Math.round((m.fs||1)*100)],['arrowNoteLine','arrowNoteLineVal',Math.round((m.lineSize||1)*100)],['arrowNoteHead','arrowNoteHeadVal',Math.round((m.headSize||1)*100)]];
       fields.forEach(([id,label,v])=>{$(id).value=v;$(label).textContent=v;});
+      notePointerState();
       return;
     }
     $('devRow').style.display = isArea(m) ? 'none' : 'block'; $('areaRow').style.display = isArea(m) ? 'block' : 'none';
@@ -1692,8 +1737,9 @@ $('lidarArrowWidth').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(
 const selectedLidar360=()=>markers.find(x=>x.id===[...sel][0]);
 function setLidar360Field(key,value){const m=selectedLidar360();if(!isLidar360(m))return;ensureLidar360(m);m[key]=value;refresh();}
 $('lidar360Radius').addEventListener('pointerdown',()=>pushUndo());
-$('lidar360Radius').addEventListener('input',e=>setLidar360Field('radiusFt',Number(e.target.value)));
-$('lidar360RadiusNumber').addEventListener('change',e=>{const v=Math.max(1,Math.min(500,Number(e.target.value)||5));pushUndo();setLidar360Field('radiusFt',v);});
+$('lidar360Radius').addEventListener('input',e=>setLidar360Field('radiusRef',Number(e.target.value)));
+$('lidar360RadiusNumber').addEventListener('change',e=>{const v=Math.max(0.05,Math.min(500,Number(e.target.value)||0.5));pushUndo();setLidar360Field('radiusRef',v);});
+$('lidar360OutlineEnabled').addEventListener('change',e=>{pushUndo();setLidar360Field('showOutline',e.target.checked);});
 $('lidar360Color').addEventListener('change',e=>{pushUndo();setLidar360Field('circleColor',e.target.value);});
 $('lidar360LineWidth').addEventListener('pointerdown',()=>pushUndo());
 $('lidar360LineWidth').addEventListener('input',e=>setLidar360Field('circleLineWidth',Number(e.target.value)));
@@ -1749,7 +1795,7 @@ $('areaFs').oninput = e => setArea(m => { m.fs = parseFloat(e.target.value) / 10
 $('areaReset').onclick = () => { pushUndo(); setArea(m => { delete m.lx; delete m.ly; const g = callGeom(m, wScreen); m.lx = (m.x + m.x2) / 2; m.ly = Math.min(m.y, m.y2) - g.h * 0.8; }); };
 $('delBtn').onclick = delSel; $('dupBtn').onclick = dupSel;
 function delSel() { if (!sel.size) return; pushUndo(); markers = markers.filter(m => !sel.has(m.id)); sel.clear(); refresh(); }
-function dupSel() { if (!sel.size) return; pushUndo(); const ns = new Set(); [...sel].forEach(id => { const m = markers.find(x => x.id === id); const n = JSON.parse(JSON.stringify(m)); n.id = nextId++; n.x = m.x + iconBase() * 1.2; n.y = m.y + iconBase() * 1.2; if (n.x2 !== undefined) { n.x2 += iconBase() * 1.2; n.y2 += iconBase() * 1.2; } if (n.lx !== undefined) { n.lx += iconBase() * 1.2; n.ly += iconBase() * 1.2; } if (Array.isArray(n.pts)) n.pts = n.pts.map(([x,y])=>[x+iconBase()*1.2,y+iconBase()*1.2]); markers.push(n); ns.add(n.id); }); sel = ns; refresh(); }
+function dupSel() { if (!sel.size) return; pushUndo(); const ns = new Set(); [...sel].forEach(id => { const m = markers.find(x => x.id === id); const n = JSON.parse(JSON.stringify(m)); n.id = nextId++; n.x = m.x + iconBase() * 1.2; n.y = m.y + iconBase() * 1.2; if (n.x2 !== undefined) { n.x2 += iconBase() * 1.2; n.y2 += iconBase() * 1.2; } if (n.lx !== undefined) { n.lx += iconBase() * 1.2; n.ly += iconBase() * 1.2; } if (Array.isArray(n.pts)) n.pts = n.pts.map(([x,y])=>[x+iconBase()*1.2,y+iconBase()*1.2]); if (Array.isArray(n.extraTips))n.extraTips=n.extraTips.map(([x,y])=>[x+iconBase()*1.2,y+iconBase()*1.2]); markers.push(n); ns.add(n.id); }); sel = ns; refresh(); }
 $('iconSize').oninput = e => { iconMult = parseFloat(e.target.value); refresh(); };
 $('notesChk').onchange = refresh;
 $('lenChk').onchange = () => { $('omniShowEstLengths').checked = $('lenChk').checked; refresh(); };
@@ -1782,11 +1828,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && tool==='omnitrax' && pendingRoute) { e.preventDefault(); finishPendingOmni(); return; }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.code === 'Space') { spaceDown = true; e.preventDefault(); }
-  if (e.key === 'Escape') { if (tool==='omnitrax' && pendingRoute) { cancelOmniRoute(); return; } setTool(null); calMode = null; sel.clear(); banner(''); refresh(); }
+  if (e.key === 'Escape') { if(pendingArrowTipNoteId!==null){pendingArrowTipNoteId=null;banner('');refresh();return;} if (tool==='omnitrax' && pendingRoute) { cancelOmniRoute(); return; } setTool(null); calMode = null; sel.clear(); banner(''); refresh(); }
   if ((e.key === 'Delete' || e.key === 'Backspace') && sel.size) { e.preventDefault(); delSel(); }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? $('redoBtn') : $('undoBtn')).click(); }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); dupSel(); }
-  if (sel.size && e.key.startsWith('Arrow')) { e.preventDefault(); const st = e.shiftKey ? 6 : 1; const dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0; pushUndo(); sel.forEach(id => { const m = markers.find(x => x.id === id); m.x += dx; m.y += dy; if (m.x2 !== undefined) { m.x2 += dx; m.y2 += dy; } if (m.lx !== undefined) { m.lx += dx; m.ly += dy; } if (Array.isArray(m.pts)) m.pts = m.pts.map(([x,y])=>[x+dx,y+dy]); }); refresh(); }
+  if (sel.size && e.key.startsWith('Arrow')) { e.preventDefault(); const st = e.shiftKey ? 6 : 1; const dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0; pushUndo(); sel.forEach(id => { const m = markers.find(x => x.id === id); m.x += dx; m.y += dy; if (m.x2 !== undefined) { m.x2 += dx; m.y2 += dy; } if (m.lx !== undefined) { m.lx += dx; m.ly += dy; } if (Array.isArray(m.pts)) m.pts = m.pts.map(([x,y])=>[x+dx,y+dy]); if(Array.isArray(m.extraTips))m.extraTips=m.extraTips.map(([x,y])=>[x+dx,y+dy]); }); refresh(); }
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
 $('viewport').addEventListener('contextmenu', e => e.preventDefault());
@@ -1804,6 +1850,11 @@ $('viewport').addEventListener('pointerdown', e => {
   if (calMode && overStage) {
     if (!calMode.p1) { calMode.p1 = pt; banner('Calibrate: click the second point'); }
     else { const d = Math.hypot(pt[0] - calMode.p1[0], pt[1] - calMode.p1[1]); const real = parseFloat(prompt('Real-world distance between the two points, in feet (e.g. 20):')); calMode = null; banner(''); $('ov').style.cursor = 'default'; if (real > 0 && d > 0) { calibratedPtsPerFt = d / real; buildScaleSel(null); $('scaleNote').textContent = 'Calibrated from your two points.'; refresh(); } drawRubber(null); }
+    return;
+  }
+  if (pendingArrowTipNoteId!==null && overStage) {
+    const m=markers.find(x=>x.id===pendingArrowTipNoteId);pendingArrowTipNoteId=null;banner('');
+    if(isArrowNote(m)){pushUndo();if(!Array.isArray(m.extraTips))m.extraTips=[];m.extraTips.push([pt[0],pt[1]]);sel=new Set([m.id]);refresh();status('Additional arrow attached to the same note.');}
     return;
   }
   if (tool) {
@@ -1832,8 +1883,8 @@ $('viewport').addEventListener('pointerdown', e => {
   if (hitId !== null) {
     if (e.shiftKey) { sel.has(hitId) ? sel.delete(hitId) : sel.add(hitId); refresh(); return; }
     if (!sel.has(hitId)) { sel = new Set([hitId]); refresh(); }
-    const m0 = {}; markers.forEach(m => { if (sel.has(m.id)) m0[m.id] = { x: m.x, y: m.y, x2: m.x2, y2: m.y2, lx: m.lx, ly: m.ly, cx:m.cx,cy:m.cy, pts:Array.isArray(m.pts)?m.pts.map(p=>p.slice()):undefined }; });
-    drag = { mode: handle ? 'handle' : 'move', start: pt, m0, handle, id: hitId, headIndex:handle==='pole-arm'||handle==='pole-aim'?Number(e.target.getAttribute('data-index')):null, vertexIndex:handle==='omni-vertex'?Number(e.target.getAttribute('data-index')):null, moved: false }; if(handle==='omni-vertex'){const m=markers.find(x=>x.id===hitId);if(m){m.omniVertexIdx=drag.vertexIndex;refresh();}}
+    const m0 = {}; markers.forEach(m => { if (sel.has(m.id)) m0[m.id] = { x: m.x, y: m.y, x2: m.x2, y2: m.y2, lx: m.lx, ly: m.ly, cx:m.cx,cy:m.cy,extraTips:Array.isArray(m.extraTips)?m.extraTips.map(p=>p.slice()):undefined, pts:Array.isArray(m.pts)?m.pts.map(p=>p.slice()):undefined }; });
+    drag = { mode: handle ? 'handle' : 'move', start: pt, m0, handle, id: hitId, tipIndex:handle==='note-extra-tip'?Number(e.target.getAttribute('data-index')):null, headIndex:handle==='pole-arm'||handle==='pole-aim'?Number(e.target.getAttribute('data-index')):null, vertexIndex:handle==='omni-vertex'?Number(e.target.getAttribute('data-index')):null, moved: false }; if(handle==='omni-vertex'){const m=markers.find(x=>x.id===hitId);if(m){m.omniVertexIdx=drag.vertexIndex;refresh();}}
     return;
   }
   if (e.shiftKey && overStage) { drag = { mode: 'marq', start: pt, cur: pt }; return; }
@@ -1852,7 +1903,7 @@ $('viewport').addEventListener('pointermove', e => {
     const dx = pt[0] - drag.start[0], dy = pt[1] - drag.start[1];
     if (!drag.moved && Math.hypot(dx, dy) * zoom < 3) return;
     if (!drag.moved) { pushUndo(); drag.moved = true; }
-    markers.forEach(m => { const o = drag.m0[m.id]; if (!o) return; m.x = o.x + dx; m.y = o.y + dy; if (o.x2 !== undefined) { m.x2 = o.x2 + dx; m.y2 = o.y2 + dy; } if (o.lx !== undefined) { m.lx = o.lx + dx; m.ly = o.ly + dy; } if (Array.isArray(m.pts) && Array.isArray(o.pts)) m.pts = o.pts.map(([x,y])=>[x+dx,y+dy]); if(m.type==='relocate'){const cx=o.cx??(o.x+o.x2)/2, cy=o.cy??((o.y+o.y2)/2-Math.min(35,Math.abs(o.x2-o.x)*.2));m.cx=cx+dx;m.cy=cy+dy;} });
+    markers.forEach(m => { const o = drag.m0[m.id]; if (!o) return; m.x = o.x + dx; m.y = o.y + dy; if (o.x2 !== undefined) { m.x2 = o.x2 + dx; m.y2 = o.y2 + dy; } if (o.lx !== undefined) { m.lx = o.lx + dx; m.ly = o.ly + dy; } if (Array.isArray(m.pts) && Array.isArray(o.pts)) m.pts = o.pts.map(([x,y])=>[x+dx,y+dy]); if (Array.isArray(o.extraTips)) m.extraTips=o.extraTips.map(([x,y])=>[x+dx,y+dy]); if(m.type==='relocate'){const cx=o.cx??(o.x+o.x2)/2, cy=o.cy??((o.y+o.y2)/2-Math.min(35,Math.abs(o.x2-o.x)*.2));m.cx=cx+dx;m.cy=cy+dy;} });
     refresh();
   } else if (drag.mode === 'handle') {
     if (!drag.moved) { pushUndo(); drag.moved = true; }
@@ -1874,6 +1925,7 @@ $('viewport').addEventListener('pointermove', e => {
       if(Number.isInteger(idx)&&idx>=0&&idx<m.pts.length){m.pts[idx]=[pt[0],pt[1]];m.omniVertexIdx=idx;if(idx===0){m.x=pt[0];m.y=pt[1];}}
     } else if (isArrowNote(m)) {
       if(h==='note-tip'){m.x=pt[0];m.y=pt[1];}
+      else if(h==='note-extra-tip' && Number.isInteger(drag.tipIndex) && Array.isArray(m.extraTips) && m.extraTips[drag.tipIndex])m.extraTips[drag.tipIndex]=[pt[0],pt[1]];
       else if(h==='note-label'){m.x2=pt[0];m.y2=pt[1];}
     } else if (m.type === 'area') {
       const o = drag.m0[m.id];
@@ -1884,7 +1936,7 @@ $('viewport').addEventListener('pointermove', e => {
       const dx = pt[0] - m.x, dy = pt[1] - m.y, dist = Math.hypot(dx, dy), ang = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
       if ((DEV[m.type]?.preview === 'cone' || isLidar(m)) && h === 'dir') { m.rot = Math.round(ang); }
       else if (isLidar(m) && h === 'len') { m.length = Math.max(4, Math.min(80, dist / (iconBase()*0.32))); }
-      else if (isLidar360(m) && h === 'lidar360-radius') {m.radiusFt=Math.max(1,Math.min(500,dist/ptsPerFt()));}
+      else if (isLidar360(m) && h === 'lidar360-radius') {m.radiusRef=Math.max(0.05,Math.min(500,dist/lidar360RefUnit()));}
       else if (DEV[m.type]?.preview === 'cone' && h === 'fov') {
         const diff=Math.abs(((ang-(m.rot||0)+540)%360)-180);
         m.fov=Math.max(10,Math.min(360,Math.round(2*diff/5)*5));
@@ -1926,7 +1978,7 @@ $('viewport').addEventListener('pointerup', e => {
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 6, pdfName, page: pageNum, layoutMode, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, showLengths: $('lenChk').checked, cameraAppearance:{outlines:cameraOutlinesOn(),fillStrength:Number($('cameraFillStrength').value)}, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 6, pdfName, page: pageNum, layoutMode, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, showLengths: $('lenChk').checked, cameraAppearance:{outlines:cameraOutlinesOn(),fillStrength:Number($('cameraFillStrength').value)}, coverageVisibility:{cameraCones:showCameraCones(),lidar360Fills:showLidar360Fills(),lidar360Outlines:showLidar360Outlines()}, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
@@ -1936,6 +1988,9 @@ $('loadInput').onchange = e => {
     $('cameraOutlineChk').checked=o.cameraAppearance?.outlines!==false;
     $('cameraFillStrength').value=Math.max(0,Math.min(100,Number(o.cameraAppearance?.fillStrength ?? 100)));
     $('cameraFillStrengthVal').textContent=$('cameraFillStrength').value;
+    $('showAllCameraCones').checked=o.coverageVisibility?.cameraCones!==false;
+    $('showAllLidar360Fills').checked=o.coverageVisibility?.lidar360Fills!==false;
+    $('showAllLidar360Outlines').checked=o.coverageVisibility?.lidar360Outlines!==false;
 
     if (o.tool && o.tool !== CFG.fileTag) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || isAnnotation(m); const bad = o.markers.filter(m => !okM(m)).length;
@@ -2039,10 +2094,10 @@ $('pdfBtn').onclick = async () => {
     PM.filter(isLidar360).forEach(m=>{
       ensureLidar360(m);
       const col=hexRgb(m.circleColor,PDFLib);
-      polygon(lidar360Poly(m),m.fillEnabled?col:null,lidar360FillAlpha(m),col,1,lidar360Width(m),[3,6]);
+      polygon(lidar360Poly(m,vp),showLidar360Fills()&&m.fillEnabled?col:null,showLidar360Fills()?lidar360FillAlpha(m):0,(showLidar360Outlines()&&m.showOutline!==false)?col:null,1,lidar360Width(m),[3,6]);
     });
     // CCTV viewing areas are useful for review. Draw beneath device icons if requested.
-    if($('pdfViewChk').checked) PM.forEach(m=>{
+    if(showCameraCones() && $('pdfViewChk').checked) PM.forEach(m=>{
       const dev=DEV[m.type];
       if(!m.showRange||!dev?.preview)return;
       const spec=previewSpec(dev,m), paint=pStyle(dev,m);
@@ -2106,7 +2161,7 @@ $('pdfBtn').onclick = async () => {
             if(h.tier>1)text('A'+h.tier,pos.x+headSize*.35,pos.y+headSize*.66,dm*.26,rgb(.15,.2,.27),false);
             return;
           }
-          if($('pdfViewChk').checked&&h.showRange!==false){
+          if(showCameraCones() && $('pdfViewChk').checked&&h.showRange!==false){
             const sp=headPreviewSpec(m,h,dm),st=headPreviewStyle(m,h);
             const styled=cameraAreaPaint(st);
             polygon(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},sp),hexRgb(styled.fill,PDFLib),styled.fillOpacity,cameraOutlinesOn()?hexRgb(styled.stroke,PDFLib):null,styled.strokeOpacity,1.3);
@@ -2136,9 +2191,11 @@ $('pdfBtn').onclick = async () => {
     // AHT_ARROW_NOTE_V1: export notes per sheet in the same coordinate space as the source PDF.
     notes.forEach(m=>{
       const G=arrowNoteGeom(m,wPdf,vp),col=hexRgb(m.color||ARROW_NOTE_COLOR,PDFLib),txt=hexRgb(m.textColor||m.color||ARROW_NOTE_COLOR,PDFLib),fill=hexRgb(m.fillColor||'#ffffff',PDFLib);
-      const start=conv(...G.start),end=conv(...G.end);
-      page.drawLine({start:{x:start[0],y:start[1]},end:{x:end[0],y:end[1]},thickness:G.stroke,color:col});
-      polygon(G.arrow,col,1,null,0,0);
+      noteTargets(m).forEach(tip=>{
+        const a=arrowNoteGeom(m,wPdf,vp,tip),start=conv(...a.start),end=conv(...a.end);
+        page.drawLine({start:{x:start[0],y:start[1]},end:{x:end[0],y:end[1]},thickness:a.stroke,color:col});
+        polygon(a.arrow,col,1,null,0,0);
+      });
       polygon([[G.bx,G.by],[G.bx+G.w,G.by],[G.bx+G.w,G.by+G.h],[G.bx,G.by+G.h]],fill,m.fillOpacity==null?.95:Number(m.fillOpacity),col,1,G.stroke*.75);
       G.lines.forEach((line,i)=>{const clean=String(line).replace(/[^\x20-\x7e]/g,'?');text(clean,G.lx,G.base(i),G.fs,txt,true);});
     });
