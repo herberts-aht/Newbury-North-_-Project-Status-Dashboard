@@ -402,11 +402,11 @@
         </div>
         <div id="lidar360Controls" style="display:none">
           <strong style="font-size:13px">LiDAR 360° Coverage</strong>
-          <div class="muted" style="margin:5px 0 9px">Illustrative circular detection area. Confirm actual coverage and mounting with the selected LiDAR manufacturer.</div>
-          <label class="lbl" for="lidar360Radius">Coverage radius: <span id="lidar360RadiusVal">100</span> ft</label>
-          <input id="lidar360Radius" type="range" min="10" max="2000" step="5" value="100" style="width:100%">
-          <label class="lbl" for="lidar360RadiusNumber">Or enter radius in feet (10–2000)</label>
-          <input id="lidar360RadiusNumber" type="number" min="10" max="2000" step="5" value="100">
+          <div class="muted" style="margin:5px 0 9px">Illustrative circular detection area. Use the radius as a reference number only, not a dimensional measurement. Confirm actual coverage and mounting with the selected LiDAR manufacturer.</div>
+          <label class="lbl" for="lidar360Radius">Coverage radius: <span id="lidar360RadiusVal">5</span></label>
+          <input id="lidar360Radius" type="range" min="1" max="500" step="1" value="5" style="width:100%">
+          <label class="lbl" for="lidar360RadiusNumber">Or enter radius value (1–500)</label>
+          <input id="lidar360RadiusNumber" type="number" min="1" max="500" step="1" value="5">
           <label class="lbl" for="lidar360Color">Circle outline / fill color</label>
           <input id="lidar360Color" type="color" value="#7c3aed" style="width:92px;height:34px">
           <label class="lbl" for="lidar360LineWidth">Dotted outline width: <span id="lidar360LineWidthVal">3</span></label>
@@ -703,14 +703,14 @@ function isLidar(m){ return !!m && m.type === 'lidar'; }
 function isLidar360(m){return !!m && m.type==='lidar360';}
 function ensureLidar360(m){
  if(!m)return m;
- if(!Number.isFinite(Number(m.radiusFt)))m.radiusFt=100;
+ if(!Number.isFinite(Number(m.radiusFt)))m.radiusFt=5;
  if(!Number.isFinite(Number(m.circleLineWidth)))m.circleLineWidth=3;
  if(!/^#[0-9a-fA-F]{6}$/.test(m.circleColor||''))m.circleColor=DEV.lidar360.color;
  if(typeof m.fillEnabled!=='boolean')m.fillEnabled=false;
  if(!Number.isFinite(Number(m.fillOpacity)))m.fillOpacity=20;
  return m;
 }
-function lidar360RadiusFt(m){ensureLidar360(m);return Math.max(10,Math.min(2000,Number(m.radiusFt)||100));}
+function lidar360RadiusFt(m){ensureLidar360(m);return Math.max(1,Math.min(500,Number(m.radiusFt)||5));}
 function lidar360RadiusPts(m){return lidar360RadiusFt(m)*ptsPerFt();}
 function lidar360Width(m){ensureLidar360(m);return Math.max(1,Math.min(16,Number(m.circleLineWidth)||3));}
 function lidar360FillAlpha(m){ensureLidar360(m);return m.fillEnabled?Math.max(0,Math.min(100,Number(m.fillOpacity)||0))/100:0;}
@@ -1693,7 +1693,7 @@ const selectedLidar360=()=>markers.find(x=>x.id===[...sel][0]);
 function setLidar360Field(key,value){const m=selectedLidar360();if(!isLidar360(m))return;ensureLidar360(m);m[key]=value;refresh();}
 $('lidar360Radius').addEventListener('pointerdown',()=>pushUndo());
 $('lidar360Radius').addEventListener('input',e=>setLidar360Field('radiusFt',Number(e.target.value)));
-$('lidar360RadiusNumber').addEventListener('change',e=>{const v=Math.max(10,Math.min(2000,Number(e.target.value)||100));pushUndo();setLidar360Field('radiusFt',v);});
+$('lidar360RadiusNumber').addEventListener('change',e=>{const v=Math.max(1,Math.min(500,Number(e.target.value)||5));pushUndo();setLidar360Field('radiusFt',v);});
 $('lidar360Color').addEventListener('change',e=>{pushUndo();setLidar360Field('circleColor',e.target.value);});
 $('lidar360LineWidth').addEventListener('pointerdown',()=>pushUndo());
 $('lidar360LineWidth').addEventListener('input',e=>setLidar360Field('circleLineWidth',Number(e.target.value)));
@@ -1884,7 +1884,7 @@ $('viewport').addEventListener('pointermove', e => {
       const dx = pt[0] - m.x, dy = pt[1] - m.y, dist = Math.hypot(dx, dy), ang = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
       if ((DEV[m.type]?.preview === 'cone' || isLidar(m)) && h === 'dir') { m.rot = Math.round(ang); }
       else if (isLidar(m) && h === 'len') { m.length = Math.max(4, Math.min(80, dist / (iconBase()*0.32))); }
-      else if (isLidar360(m) && h === 'lidar360-radius') {m.radiusFt=Math.max(10,Math.min(2000,dist/ptsPerFt()));}
+      else if (isLidar360(m) && h === 'lidar360-radius') {m.radiusFt=Math.max(1,Math.min(500,dist/ptsPerFt()));}
       else if (DEV[m.type]?.preview === 'cone' && h === 'fov') {
         const diff=Math.abs(((ang-(m.rot||0)+540)%360)-180);
         m.fov=Math.max(10,Math.min(360,Math.round(2*diff/5)*5));
