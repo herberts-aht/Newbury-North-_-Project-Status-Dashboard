@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT CCTV Camera Markup Tool · Security V3.5.5</title>
+<title>AHT CCTV Camera Markup Tool · Security V3.5.6</title>
+<!-- AHT_CCTV_V3_5_6: five-tab layout with sticky editing toolbar; no core marker or export changes -->
 <!-- AHT_CCTV_V3_5_5: bulk adjustments for radius, reach, arrow length and grouped colors -->
 <!-- AHT_CCTV_V3_5: 360 LiDAR radius + drawing-area appearance controls -->
 <!-- AHT_CCTV_SITE_SECURITY_V3_3: independent pole arms and camera aim, compatible with V3.2 JSON -->
@@ -240,6 +241,33 @@
 #securityControls input[type="range"], #securityControls select { width:100%; box-sizing:border-box; }
 #securityControls .row button { flex:1; }
 #securityControls input[type="color"] { width:58px;height:32px; }
+
+/* V3.5.6 - five-tab workspace, existing input and export handlers retained */
+#sidebar { display:flex;flex-direction:column;padding-bottom:0; }
+#cctvTabNav { position:sticky;top:0;z-index:35;background:#fff;padding:9px 2px 8px;border-bottom:1px solid #d3dce4;display:grid;grid-template-columns:1.02fr .78fr .84fr .91fr 1.4fr;gap:4px; }
+#cctvTabNav button { min-width:0;padding:9px 2px 8px;line-height:1.15;font-size:10.5px;font-weight:750;border:1px solid #c5d3df;background:#f5f8fb;color:#244c66;border-radius:6px;min-height:43px; }
+#cctvTabNav button[aria-selected="true"] { background:#185fa5;color:#fff;border-color:#185fa5;box-shadow:inset 0 -3px 0 #0f3d70; }
+#cctvTabNav button:focus-visible { outline:2px solid #d89b2a;outline-offset:1px; }
+#cctvTabPages { flex:1;min-height:0; }
+.cctv-tab-pane { display:block; }
+.cctv-tab-pane[hidden] { display:none!important; }
+.cctv-tab-pane .workflow-step { margin:10px 0 12px; }
+.cctv-tab-pane .workflow-step .step-heading {margin-bottom:10px;}
+#modeDock { position:sticky;top:60px;z-index:34;margin:0 -13px;padding:7px 13px 5px;box-shadow:0 2px 6px rgba(0,0,0,.08); }
+#cctvAlwaysToolbar { display:grid;grid-template-columns:minmax(0,1.3fr) repeat(3,minmax(0,.82fr));gap:5px;align-items:stretch; }
+#cctvAlwaysToolbar button { height:34px;min-width:0;padding:5px 2px;font-size:11px;font-weight:750;line-height:1.1; }
+#cctvAlwaysToolbar #selectBtn { height:34px;padding:5px 2px;font-size:11px; }
+#cctvAlwaysToolbar #quickSaveBtn { background:#edf5fd;color:#135889;border:1px solid #93b5d5; }
+#modeDock .mode-note { font-size:10px;padding:5px 0 0; }
+#modeDock .compact { font-size:10px;margin:2px 0 0; }
+#cctvTabAdjust #selectionSettings { margin:8px 0; }
+#cctvTabAdjust #selectionSettings > summary {font-size:13px;}
+#cctvTabAdjust #viewRow, #cctvTabAdjust #securityControls {margin:10px 0;}
+#cctvTabLayers #layerVisibilityPanel {margin:8px 0 12px;}
+#cctvTabReview #detailsSection {margin:10px 0 12px;}
+#cctvTabReview #detailsSection .step-heading {margin-bottom:6px;}
+#cctvTabFinish #countsSettings {margin:12px 0;}
+@media(max-width:760px){#cctvTabNav{gap:2px}#cctvTabNav button{font-size:9.5px;padding:8px 1px}#cctvAlwaysToolbar button{font-size:10px}}
 </style>
 </head>
 <body>
@@ -257,6 +285,14 @@
       <p class="editor-brand-explainer">Preliminary camera positions and illustrative viewing areas. Not a verified coverage study.</p>
     </header>
 
+
+    <nav id="cctvTabNav" role="tablist" aria-label="CCTV workspace tabs">
+      <button type="button" role="tab" data-cctv-tab="plan" aria-controls="cctvTabPlan" aria-selected="false">Drawing</button>
+      <button type="button" role="tab" data-cctv-tab="place" aria-controls="cctvTabPlace" aria-selected="true">Place</button>
+      <button type="button" role="tab" data-cctv-tab="adjust" aria-controls="cctvTabAdjust" aria-selected="false">Adjust</button>
+      <button type="button" role="tab" data-cctv-tab="layers" aria-controls="cctvTabLayers" aria-selected="false">Layers</button>
+      <button type="button" role="tab" data-cctv-tab="finish" aria-controls="cctvTabFinish" aria-selected="false">Review / Export</button>
+    </nav>
     <section class="workflow-step" id="planSection">
       <div class="step-heading"><span class="step-number">1</span><h2>Open a Drawing</h2></div>
       <input type="file" id="fileInput" accept="application/pdf,.pdf" style="display:none">
@@ -292,7 +328,7 @@
     </div>
 
     <section class="workflow-step" id="placeSection">
-      <div class="step-heading"><span class="step-number">2</span><h2>Mark a Change</h2></div>
+      <div class="step-heading"><span class="step-number">2</span><h2>Place Devices &amp; Markups</h2></div>
       <div class="muted helper">Choose a device, then click its location on the PDF. For an Omnitrax perimeter, click each corner and press Enter to finish. Other devices return to Select / Adjust after placement.</div>
       <div class="minor-label">Layout / Markup Type</div>
       <div class="camera-stage-chooser" role="group" aria-label="Camera layout type">
@@ -331,8 +367,8 @@
     </section>
 
     <section class="workflow-step" id="detailsSection">
-      <div class="step-heading"><span class="step-number">3</span><h2>Identify the Change</h2></div>
-      <div class="muted">After placing a change, this section opens automatically. Room number is optional.</div>
+      <div class="step-heading"><span class="step-number">✓</span><h2>Identify Changes (optional)</h2></div>
+      <div class="muted">Work on your layout first. Identify room / area details here when ready; this form never opens after simply placing equipment. Room number is optional.</div>
     <div id="changeDetails" class="panel" style="display:none">
       <strong style="font-size:14px">Change Details</strong>
       <div class="muted" id="detailState" style="margin:5px 0">New markup</div>
@@ -496,7 +532,7 @@
     </details>
 
     <section class="workflow-step" id="reviewSection">
-      <div class="step-heading"><span class="step-number">4</span><h2>Review Changes</h2></div>
+      <div class="step-heading"><span class="step-number">4</span><h2>Review Change Tracking</h2></div>
       <div id="trackingReviewReminder" class="panel" style="border:1px solid #b6cedd;background:#f4f8fb;margin-bottom:9px" role="status" aria-live="polite">
         <strong id="trackingReminderCount">No changes need identification.</strong>
         <div id="trackingReminderMessage" class="muted" style="margin-top:5px">Place your items freely, then identify room / area and change reason when ready.</div>
@@ -549,7 +585,7 @@
         <summary>Drawing Layers / Visibility <span>Hide all · Show all · By device type</span></summary>
         <div class="panel" style="background:#f3f7fa;border:1px solid #c7d9e5;margin-top:8px">
           <div class="row" style="margin-bottom:8px"><button type="button" id="layersShowAll">Show All Items</button><button type="button" id="layersHideAll">Hide All Items</button></div>
-          <div class="muted" style="margin-bottom:7px">Visibility only — placed objects, counts and saved positions are not deleted. Applies to the drawing and PDF export. Separate coverage-only switches remain in Step 5.</div>
+          <div class="muted" style="margin-bottom:7px">Visibility only — placed objects, counts and saved positions are not deleted. Applies to the drawing and PDF export. Coverage-only switches are available here on the Layers tab.</div>
           <div id="layerChecklist" style="display:grid;grid-template-columns:1fr;gap:3px"></div>
           <div class="muted" id="layerStatus" style="margin-top:8px"></div>
           <div id="hiddenNoteTools" style="display:none;margin-top:10px;padding-top:8px;border-top:1px solid #c9d9e7">
@@ -567,7 +603,7 @@
     </section>
 
     <section class="workflow-step" id="exportSection">
-      <div class="step-heading"><span class="step-number">5</span><h2>Save / Share</h2></div>
+      <div class="step-heading"><span class="step-number">5</span><h2>Save / Export</h2></div>
       <div class="panel" id="cameraAppearanceControls" style="margin:8px 0 12px;background:#f1f6fc;border:1px solid #b6cbdf">
         <strong style="font-size:12px">Camera viewing-area appearance (on plan + PDF)</strong>
         <label class="chk" style="margin:8px 0"><input type="checkbox" id="cameraOutlineChk" checked><span>Show camera viewing-area outlines</span></label>
@@ -620,6 +656,72 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+// AHT_CCTV_TABS_V1: move original controls, never clone them (all IDs and listeners stay intact).
+(function(){
+  const get = id => document.getElementById(id);
+  const sidebar=get('sidebar'),dock=get('modeDock');
+  const pages=document.createElement('div'); pages.id='cctvTabPages';
+  dock.insertAdjacentElement('afterend',pages);
+  const names={plan:'Drawing',place:'Place',adjust:'Adjust',layers:'Layers',finish:'Review / Export'};
+  const tabPanes={};
+  for(const key of Object.keys(names)){
+    const pane=document.createElement('div');pane.id='cctvTab'+key[0].toUpperCase()+key.slice(1);
+    pane.className='cctv-tab-pane';pane.setAttribute('role','tabpanel');
+    pane.setAttribute('aria-label',names[key]);pane.hidden=true;pages.appendChild(pane);tabPanes[key]=pane;
+  }
+  tabPanes.plan.appendChild(get('planSection'));
+  tabPanes.place.appendChild(get('placeSection'));
+  const adjustSection=document.createElement('section');adjustSection.className='workflow-step';adjustSection.id='adjustDeviceSection';
+  adjustSection.innerHTML='<div class="step-heading"><span class="step-number">3</span><h2>Adjust Selected Items</h2></div><div class="muted helper">Choose an item on the drawing, then adjust only that item here. These controls do not change other devices.</div>';
+  tabPanes.adjust.appendChild(adjustSection);
+  const selected=get('selectionSettings');adjustSection.appendChild(selected);selected.open=true;
+  selected.querySelector('summary').innerHTML='Selected Item / Individual Settings <span>Device · Position · Style · Notes</span>';
+  selected.appendChild(get('viewRow'));selected.appendChild(get('securityControls'));
+  tabPanes.adjust.appendChild(get('bulkAdjustPanel'));
+  tabPanes.layers.appendChild(get('layerVisibilityPanel'));
+  tabPanes.layers.appendChild(get('cameraAppearanceControls'));
+  tabPanes.layers.appendChild(get('lenChkRow'));
+  const notesChk=get('notesChk');const noteRow=notesChk && notesChk.closest('label');
+  if(noteRow)tabPanes.layers.appendChild(noteRow);
+  tabPanes.finish.appendChild(get('reviewSection'));
+  tabPanes.finish.appendChild(get('detailsSection'));
+  tabPanes.finish.appendChild(get('exportSection'));
+  tabPanes.finish.appendChild(get('countsSettings'));
+  // Sticky, always-available editing actions; uses existing save work handler.
+  const toolbar=document.createElement('div'); toolbar.id='cctvAlwaysToolbar';
+  dock.insertBefore(toolbar,dock.firstChild);
+  toolbar.appendChild(get('selectBtn'));
+  toolbar.appendChild(get('undoBtn'));
+  toolbar.appendChild(get('redoBtn'));
+  const history=dock.querySelector('.edit-history-bar');if(history)history.remove();
+  const quickSave=document.createElement('button');quickSave.id='quickSaveBtn';quickSave.type='button';quickSave.textContent='Save';
+  quickSave.title='Save editable work as JSON (not the marked-up PDF)';
+  quickSave.addEventListener('click',()=>get('saveBtn').click());toolbar.appendChild(quickSave);
+  function activate(key){
+    if(!Object.prototype.hasOwnProperty.call(tabPanes,key))return;
+    Object.entries(tabPanes).forEach(([name,pane])=>{pane.hidden=name!==key;});
+    document.querySelectorAll('#cctvTabNav [data-cctv-tab]').forEach(button=>{
+      const isActive=button.dataset.cctvTab===key;
+      button.setAttribute('aria-selected',String(isActive));button.tabIndex=isActive?0:-1;
+    });
+    sidebar.scrollTop=0;
+  }
+  window.cctvActivateTab=activate;
+  const buttons=[...document.querySelectorAll('#cctvTabNav [data-cctv-tab]')];
+  buttons.forEach((button,index)=>{
+    button.addEventListener('click',()=>activate(button.dataset.cctvTab));
+    button.addEventListener('keydown',event=>{
+      if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;
+      event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:
+        (index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;
+      activate(buttons[next].dataset.cctvTab);buttons[next].focus();
+    });
+  });
+  activate('place');
+})();
+</script>
+
 <script>
 const CFG = {"title":"AHT CCTV Camera Markup Tool","fileTag":"CCTV","iconScale":1.5,"devices":[{"key":"cam","label":"Fixed Camera","style":"tile","color":"#ff00ff","fill":"#ff00ff","textColor":"#ffffff","glyph":"CC\nTV","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"ptz","label":"PTZ Camera","style":"ptz","color":"#2752b8","fill":"#ffffff","textColor":"#2752b8","glyph":"PTZ","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"pole3","label":"Camera Pole (multi-head)","style":"pole3","color":"#343a40","fill":"#ffffff","textColor":"#1f2937","rotatable":true,"kind":"pole","vcolor":"#00cbd4"},{"key":"lidar","label":"LiDAR","style":"lidar","color":"#6b21a8","fill":"#ffffff","textColor":"#6b21a8","rotatable":true,"kind":"lidar","vcolor":"#00cbd4"},{"key":"lidar360","label":"LiDAR 360° Coverage","style":"lidar","color":"#7c3aed","fill":"#ffffff","textColor":"#7c3aed","kind":"lidar360","vcolor":"#00cbd4"},{"key":"omnitrax","label":"Senstar Omnitrax Perimeter","style":"omni","color":"#2563eb","secondaryColor":"#ef4444","kind":"route"},{"key":"fish","label":"360° Fisheye Camera","style":"tile","color":"#b85c5c","fill":"#addef7","textColor":"#000000","glyph":"CC\nTV","preview":"circle","vcolor":"#00cbd4","kind":"point"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","overlay":true,"kind":"point"},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","overlay":true,"kind":"point"}],"preview":{"title":"Illustrative Camera View","defaultPreset":1,"presets":[{"name":"Narrow","r":20,"angle":45},{"name":"Standard","r":12,"angle":80},{"name":"Wide","r":9,"angle":110}],"disclaimer":"Illustrative viewing areas are not validated camera coverage. Visible areas can be included in review PDFs."}};
 const NS = 'http://www.w3.org/2000/svg';
@@ -1179,6 +1281,7 @@ window.addEventListener('beforeunload',e=>{
 function openChangeDetails(id){
   pendingDetailId=id;
   const m=markers.find(x=>x.id===id);if(!m)return;
+  if(typeof window.cctvActivateTab==='function')window.cctvActivateTab('finish');
   const panel=$('changeDetails');panel.style.display='block';
   $('detailsEmpty').style.display='none';
   const parts=m.note&&m.note.match(/^([^—]+)\s—\s(.+)$/);
@@ -2191,15 +2294,14 @@ $('viewport').addEventListener('pointerup', e => {
     const m=markers.find(x=>x.id===drag.id);
     if(m){if(Math.hypot(m.x2-m.x,m.y2-m.y)<iconBase()*2){m.x2=m.x+iconBase()*5;m.y2=m.y-iconBase()*3;}
       if(!$('placeMultiple').checked)setTool(null);
-      $('selectionSettings').open=true;refresh();$('selectionSettings').scrollIntoView({block:'start',behavior:'smooth'});
-      setTimeout(()=>{$('arrowNoteText').focus({preventScroll:true});},90);
+      $('selectionSettings').open=true;refresh();banner('Arrow note placed. Open Adjust to edit its text and pointers.');
     }
   }
   if (drag && drag.mode === 'draw') {
     const m = markers.find(x => x.id === drag.id);
     if (Math.abs(m.x2 - m.x) < 8 || Math.abs(m.y2 - m.y) < 8) { m.x2 = m.x + 12 * ptsPerFt(); m.y2 = m.y + 8 * ptsPerFt(); }
     const x0 = Math.min(m.x, m.x2), x1 = Math.max(m.x, m.x2), y0 = Math.min(m.y, m.y2); const g = callGeom(m, wScreen);
-    m.lx = (x0 + x1) / 2; m.ly = y0 - g.h * 0.8; if (!$('placeMultiple').checked) setTool(null); $('selectionSettings').open=true; refresh(); $('selectionSettings').scrollIntoView({block:'start',behavior:'smooth'}); setTimeout(()=>{$('areaText').focus({preventScroll:false});},120);
+    m.lx = (x0 + x1) / 2; m.ly = y0 - g.h * 0.8; if (!$('placeMultiple').checked) setTool(null); $('selectionSettings').open=true; refresh(); banner('Callout placed. Open Adjust to edit its text and appearance.');
   }
   if (drag && drag.mode === 'marq') {
     const [x0, x1] = [Math.min(drag.start[0], drag.cur[0]), Math.max(drag.start[0], drag.cur[0])], [y0, y1] = [Math.min(drag.start[1], drag.cur[1]), Math.max(drag.start[1], drag.cur[1])];
