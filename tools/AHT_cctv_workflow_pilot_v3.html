@@ -2591,10 +2591,17 @@ $('pdfBtn').onclick = async () => {
       const conv = (x, y) => vp.convertToPdfPoint(x, y);
     const o = conv(0, 0), px = conv(1, 0), py = conv(0, 1);
     const ang = Math.atan2(px[1] - o[1], px[0] - o[0]);
+    // AHT_CCTV_PDF_HIDDEN_PATH_GUARD_V3511: no black fallback stroke on hidden coverage.
     const polygon = (pts, fill, fo, stroke, so, sw, dash) => {
+      // pdf-lib draws an SVG path in black when both colors are omitted.
+      // Invisible LiDAR/camera layers must not emit a path at all.
+      if (!fill && !stroke) return;
       const p = pts.map(q => conv(q[0], q[1]));
       const d = 'M ' + p.map(q => q[0].toFixed(2) + ' ' + (-q[1]).toFixed(2)).join(' L ') + ' Z';
-      const opt = { x: 0, y: 0 }; if (fill) { opt.color = fill; opt.opacity = fo; } if (stroke) { opt.borderColor = stroke; opt.borderOpacity = so; opt.borderWidth = sw; if (dash) opt.borderDashArray = dash; }
+      const opt = { x: 0, y: 0 };
+      if (fill) { opt.color = fill; opt.opacity = fo; }
+      if (stroke) { opt.borderColor = stroke; opt.borderOpacity = so; opt.borderWidth = sw; if (dash) opt.borderDashArray = dash; }
+      else { opt.borderWidth = 0; } // fill-only paths must not acquire a black outline
       page.drawSvgPath(d, opt);
     };
     const text = (str, vx, vy, size, color, center) => {
@@ -2607,8 +2614,11 @@ $('pdfBtn').onclick = async () => {
     // Draw large LiDAR coverage beneath ALL camera icons and security markups.
     PM.filter(isLidar360).forEach(m=>{
       ensureLidar360(m);
+      const drawFill = showLidar360Fills() && m.fillEnabled && lidar360FillAlpha(m) > 0;
+      const drawOutline = showLidar360Outlines() && m.showOutline !== false;
+      if (!drawFill && !drawOutline) return; // keep symbol, skip hidden coverage entirely
       const col=hexRgb(m.circleColor,PDFLib);
-      polygon(lidar360Poly(m,vp),showLidar360Fills()&&m.fillEnabled?col:null,showLidar360Fills()?lidar360FillAlpha(m):0,(showLidar360Outlines()&&m.showOutline!==false)?col:null,1,lidar360Width(m),[3,6]);
+      polygon(lidar360Poly(m,vp),drawFill?col:null,drawFill?lidar360FillAlpha(m):0,drawOutline?col:null,1,lidar360Width(m),[3,6]);
     });
     // CCTV viewing areas are useful for review. Draw beneath device icons if requested.
     if(showCameraCones() && $('pdfViewChk').checked) PM.forEach(m=>{
