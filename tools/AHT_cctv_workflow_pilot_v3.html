@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT CCTV Camera Markup Tool · Security V3.5.6</title>
+<title>AHT CCTV Camera Markup Tool · Security V3.5.7</title>
+<!-- AHT_CCTV_V3_5_7: Open Plan default, clearer SharePoint options, expanded submenus and sharper visual design -->
 <!-- AHT_CCTV_V3_5_6: five-tab layout with sticky editing toolbar; no core marker or export changes -->
 <!-- AHT_CCTV_V3_5_5: bulk adjustments for radius, reach, arrow length and grouped colors -->
 <!-- AHT_CCTV_V3_5: 360 LiDAR radius + drawing-area appearance controls -->
@@ -268,6 +269,64 @@
 #cctvTabReview #detailsSection .step-heading {margin-bottom:6px;}
 #cctvTabFinish #countsSettings {margin:12px 0;}
 @media(max-width:760px){#cctvTabNav{gap:2px}#cctvTabNav button{font-size:9.5px;padding:8px 1px}#cctvAlwaysToolbar button{font-size:10px}}
+
+/* V3.5.7: sharp, modern AHT presentation; no changes to canvas layers or export. */
+:root {
+  --border:#c7d4e1; --border2:#b5c6d6; --text:#142a40; --text2:#3c5368;
+  --muted:#5f7386; --bg:#f4f7fb; --card:#ffffff; --accent:#145f97;
+}
+body { -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+#sidebar { width:352px; background:#fff; border-left:1px solid #c7d5e3; }
+#main { background:#e4e8ed; }
+.editor-head { background:#fff; padding-bottom:11px; }
+.editor-head h1 { color:#0e416b; letter-spacing:.01em; font-size:17px; font-weight:800; }
+.editor-brand-explainer { background:#f3f7fb!important; border-left:3px solid #1966a0!important; color:#344d65!important; }
+#cctvTabNav {
+  background:#fff; border-bottom:2px solid #d9e3ed; gap:5px; padding:8px 1px 10px;
+  grid-template-columns:1.2fr .75fr .87fr .85fr 1.43fr;
+}
+#cctvTabNav button {
+  background:#f4f8fc; border:1px solid #b7c9da; border-radius:5px; color:#234a68;
+  box-shadow:0 1px 0 rgba(20,65,97,.06); font-size:10.7px; font-weight:750;
+  min-height:46px; padding:7px 2px; letter-spacing:0; line-height:1.2;
+}
+#cctvTabNav button:hover { background:#e6f1fa; border-color:#8aabc6; }
+#cctvTabNav button[aria-selected="true"] {
+  background:#155f99; border-color:#155f99; color:#fff;
+  box-shadow:inset 0 -3px 0 #0a3f70,0 2px 5px rgba(20,70,120,.13);
+}
+#cctvTabNav button:focus-visible,button:focus-visible,a:focus-visible {outline:2px solid #117866;outline-offset:2px;}
+#modeDock { background:#fff; box-shadow:0 3px 8px rgba(16,42,64,.09); border-bottom:1px solid #cfdeea; }
+#cctvAlwaysToolbar { grid-template-columns:1.23fr .84fr .84fr 1.05fr; gap:5px; }
+#cctvAlwaysToolbar button { height:36px; font-size:10.7px; border-radius:5px; }
+#cctvAlwaysToolbar #quickSaveBtn {
+  background:#edf7f5; color:#0d6658; border:1px solid #87b9af; font-weight:800;
+}
+#cctvAlwaysToolbar #quickSaveBtn:hover { background:#dff2ec; }
+.workflow-step { border:1px solid #cfdae5; border-radius:8px; background:#fff; box-shadow:0 1px 4px rgba(20,58,84,.055); }
+.step-heading h2 { font-size:14px; color:#123c5d; font-weight:800; }
+.step-number { background:#e2f1f9; color:#115a8b; border:1px solid #c8dce9; }
+.fold { border:1px solid #ccd9e5; background:#fafcff; border-radius:6px; }
+.fold[open] { background:#fff; border-color:#b6cbdc; }
+.fold > summary { color:#184b6f; font-size:12px; font-weight:750; }
+button { border-color:#bccbda; border-radius:5px; }
+button:hover { border-color:#749bb9; }
+button.primary { background:#155f99; border-color:#155f99; }
+button.primary:hover { background:#0d4f83; }
+button, input, select, textarea { outline-offset:2px; }
+#chooseBtn { font-size:12px; min-height:39px; height:auto; }
+.plan-source-options { display:flex; flex-direction:column; gap:7px; }
+.secondary-plan-source {
+  background:#f0f8f6; color:#105d54; border:1px solid #8ebbb2;
+  font-size:11.5px; font-weight:750; min-height:36px;
+}
+.secondary-plan-source:hover { background:#ddf0e9; border-color:#5b9c8e; }
+.sharepoint-browser-link { display:block; text-align:center; font-size:11px; font-weight:700; color:#145f97; padding:5px; text-decoration:underline; text-underline-offset:2px; }
+.source-helper {font-size:10.7px; line-height:1.42; color:#4d6479; padding:9px 10px; background:#f5f8fc; border-left:3px solid #adc5d8; border-radius:3px;}
+#fileName { font-weight:600; }
+#planSection { margin-top:9px; }
+#cctvTabPages .workflow-step { margin:9px 0 12px; }
+@media(max-width:760px){#sidebar{width:310px}#cctvTabNav{gap:3px}#cctvTabNav button{font-size:10px;padding:6px 1px}}
 </style>
 </head>
 <body>
@@ -287,16 +346,21 @@
 
 
     <nav id="cctvTabNav" role="tablist" aria-label="CCTV workspace tabs">
-      <button type="button" role="tab" data-cctv-tab="plan" aria-controls="cctvTabPlan" aria-selected="false">Drawing</button>
-      <button type="button" role="tab" data-cctv-tab="place" aria-controls="cctvTabPlace" aria-selected="true">Place</button>
+      <button type="button" role="tab" data-cctv-tab="plan" aria-controls="cctvTabPlan" aria-selected="true">Open Plan</button>
+      <button type="button" role="tab" data-cctv-tab="place" aria-controls="cctvTabPlace" aria-selected="false">Place</button>
       <button type="button" role="tab" data-cctv-tab="adjust" aria-controls="cctvTabAdjust" aria-selected="false">Adjust</button>
       <button type="button" role="tab" data-cctv-tab="layers" aria-controls="cctvTabLayers" aria-selected="false">Layers</button>
       <button type="button" role="tab" data-cctv-tab="finish" aria-controls="cctvTabFinish" aria-selected="false">Review / Export</button>
     </nav>
     <section class="workflow-step" id="planSection">
-      <div class="step-heading"><span class="step-number">1</span><h2>Open a Drawing</h2></div>
+      <div class="step-heading"><span class="step-number">1</span><h2>Open a Plan PDF</h2></div>
       <input type="file" id="fileInput" accept="application/pdf,.pdf" style="display:none">
-      <button class="primary full" id="chooseBtn">Choose plan PDF…</button>
+      <div class="plan-source-options" role="group" aria-label="Choose PDF source">
+        <button type="button" class="primary full" id="chooseBtn">Choose PDF from Computer…</button>
+        <button type="button" class="full secondary-plan-source" id="sharepointSyncedBtn" title="Choose a PDF already synced to your computer from a SharePoint or OneDrive folder">Choose Synced SharePoint / OneDrive PDF…</button>
+        <a class="sharepoint-browser-link" href="https://m365.cloud.microsoft/" target="_blank" rel="noopener noreferrer">Open Microsoft 365 / SharePoint in Browser ↗</a>
+        <div class="source-helper">The synced-file option uses your computer's file picker. For a cloud-only PDF, open SharePoint in the browser, download or sync it first, then choose it here. Direct cloud selection needs separate Microsoft 365 authentication integration.</div>
+      </div>
       <div class="muted" id="fileName" style="margin-top:5px">No file chosen</div>
       <div id="pageRow" style="display:none"><label class="lbl">Drawing page</label><select id="pageSel"></select></div>
       <details class="fold" id="drawingSettings">
@@ -643,7 +707,7 @@
 
   <div id="main">
     <div id="viewport"><div id="stage"><canvas id="cv"></canvas><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div></div>
-    <div id="empty">Choose a plan PDF to begin.<br>The sheet scale is read from the drawing when possible.</div>
+    <div id="empty">Open a plan PDF to begin.<br>The sheet scale is read from the drawing when possible.</div>
     <div id="banner"></div>
     <div id="omniFinishDock" role="status" aria-live="polite" style="display:none;position:absolute;top:48px;left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;background:#fff7da;border:3px solid #ad5f00;color:#613700;padding:13px 18px;border-radius:12px;box-shadow:0 5px 20px #0003;text-align:center;min-width:290px;font-weight:900">
       <div style="font-size:13px;letter-spacing:.4px">OMNITRAX ROUTE ACTIVE</div>
@@ -663,7 +727,7 @@
   const sidebar=get('sidebar'),dock=get('modeDock');
   const pages=document.createElement('div'); pages.id='cctvTabPages';
   dock.insertAdjacentElement('afterend',pages);
-  const names={plan:'Drawing',place:'Place',adjust:'Adjust',layers:'Layers',finish:'Review / Export'};
+  const names={plan:'Open Plan',place:'Place',adjust:'Adjust',layers:'Layers',finish:'Review / Export'};
   const tabPanes={};
   for(const key of Object.keys(names)){
     const pane=document.createElement('div');pane.id='cctvTab'+key[0].toUpperCase()+key.slice(1);
@@ -677,6 +741,10 @@
   tabPanes.adjust.appendChild(adjustSection);
   const selected=get('selectionSettings');adjustSection.appendChild(selected);selected.open=true;
   selected.querySelector('summary').innerHTML='Selected Item / Individual Settings <span>Device · Position · Style · Notes</span>';
+  get('drawingSettings').open=true;
+  get('bulkAdjustPanel').open=true;
+  get('layerVisibilityPanel').open=true;
+  get('countsSettings').open=true;
   selected.appendChild(get('viewRow'));selected.appendChild(get('securityControls'));
   tabPanes.adjust.appendChild(get('bulkAdjustPanel'));
   tabPanes.layers.appendChild(get('layerVisibilityPanel'));
@@ -695,8 +763,8 @@
   toolbar.appendChild(get('undoBtn'));
   toolbar.appendChild(get('redoBtn'));
   const history=dock.querySelector('.edit-history-bar');if(history)history.remove();
-  const quickSave=document.createElement('button');quickSave.id='quickSaveBtn';quickSave.type='button';quickSave.textContent='Save';
-  quickSave.title='Save editable work as JSON (not the marked-up PDF)';
+  const quickSave=document.createElement('button');quickSave.id='quickSaveBtn';quickSave.type='button';quickSave.textContent='Save JSON';
+  quickSave.title='Download editable layout as JSON; for PDF use Review / Export';
   quickSave.addEventListener('click',()=>get('saveBtn').click());toolbar.appendChild(quickSave);
   function activate(key){
     if(!Object.prototype.hasOwnProperty.call(tabPanes,key))return;
@@ -718,7 +786,7 @@
       activate(buttons[next].dataset.cctvTab);buttons[next].focus();
     });
   });
-  activate('place');
+  activate('plan');
 })();
 </script>
 
@@ -1551,6 +1619,7 @@ async function detectScale(page) {
 
 // ---------- load PDF ----------
 $('chooseBtn').onclick = () => $('fileInput').click();
+$('sharepointSyncedBtn').onclick = () => $('fileInput').click();
 $('fileInput').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   if(pdfDoc && markers.length && !pendingLoad){
