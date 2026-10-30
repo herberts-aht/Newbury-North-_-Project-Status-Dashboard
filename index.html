@@ -7,13 +7,14 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css?v=20261005-help-cover1" />
+<link rel="stylesheet" href="css/styles.css?v=20261030-integrated1" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
-  <link rel="stylesheet" href="css/project-work.css?v=0.15.04" />
+  <link rel="stylesheet" href="css/project-work.css?v=20261030-integrated1" />
   <link rel="stylesheet" href="css/project-contacts.css?v=0.14.89" />
-  <link rel="stylesheet" href="css/project-task-editor.css?v=0.15.11" />
+  <link rel="stylesheet" href="css/project-task-editor.css?v=0.15.11-predwide1-datereview1-reviewqueue1-dateskip1" />
+<link rel="stylesheet" href="css/aht-new-project-onboarding.css?v=4" /> <!-- AHT-NEW-PROJECT-ONBOARDING-PILOT-V1 -->
 <style>
   #roomBuilderSelectCleanBtn,
   #roomBuilderSelectAllBtn,
@@ -141,8 +142,10 @@
 }
 </style>
 
-<link rel="stylesheet" href="css/aht-operations.css?v=ops-lead-scroll1" />
-<link rel="stylesheet" href="css/aht-ops-user-ui.css?v=4-radios1" />
+<link rel="stylesheet" href="css/aht-operations.css?v=20261030-integrated1" />
+<link rel="stylesheet" href="css/aht-ops-user-ui.css?v=20261030-integrated1" />
+<link rel="stylesheet" href="css/aht-status-ui.css?v=20261030-integrated1" />
+<link rel="stylesheet" href="css/aht-cancel-actions.css?v=20261019-cancel1" />
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -238,6 +241,7 @@
           class="nav-section-item"
           type="button"
           id="sidebarHelpBtn"
+          data-view="help"
         >
           Help & Support
         </button>
@@ -274,7 +278,7 @@
       <button id="logoutBtn" class="btn" style="margin-left:8px">Sign Out</button>
     </div>
   </header>
-  
+
   <main class="container">
     <div id="permissionBanner" class="permission-banner"></div>
     <section id="projects" class="view active">
@@ -356,7 +360,7 @@
 <svg viewBox="0 0 24 24" fill="none">
   <!-- circular arc: connected to arrow at upper-left, gap at lower-left -->
   <path d="M7.3 6.1A8 8 0 1 1 4.7 14.3" />
-  
+
   <!-- arrowhead connected directly to beginning of arc -->
   <path d="M7.3 6.1H3.8V2.7" />
 
@@ -604,10 +608,10 @@
   </div>
 </div>
 <script src="js/project-document-locations.js?v=2"></script>
-<script src="tools/aht-project-document-picker.js?v=20261030-label-sharepoint-v1"></script>
+<script src="tools/aht-project-document-picker.js?v=20261030-integrated1"></script>
 <!-- AHT-OPS-TOOLS-V3 -->
-<script src="js/aht-tool-access.js?v=4-local"></script>
-<script src="tools/aht-tools-hub.js?v=20261030-label-sharepoint-v1"></script>
+<script src="js/aht-tool-access.js?v=20261030-integrated1"></script>
+<script src="tools/aht-tools-hub.js?v=20261030-integrated1"></script>
 <!-- AHT-TOOLS-HUB-V1: end -->
 <!-- AHT-PROJECT-FORMS-TOOLS-MERGE-V4 -->
 </section>
@@ -861,7 +865,7 @@
           </div>
         </section>
 
-        
+
 
 
           <section class="room-builder-step" id="roomBuilderStep4">
@@ -888,7 +892,7 @@
           </section>
 
 
-          
+
 
         </div>
 
@@ -1493,7 +1497,52 @@
         </table></div>
       </div>
     </section>
-  </main>
+
+<section id="help" class="view">
+  <div class="page-header help-page-header">
+    <div>
+      <div class="eyebrow">Support & Guidance</div>
+      <h2 id="helpCenterTitle">Project Control Help Center</h2>
+      <p>User guidance, frequently asked questions, and support requests.</p>
+    </div>
+  </div>
+
+  <div class="help-page-shell">
+
+    <div
+      id="helpCenterSectionToolbar"
+      class="help-center-section-toolbar hidden"
+    >
+      <button
+        type="button"
+        class="btn"
+        id="backToHelpCenterBtn"
+      >
+        ← Back to Help Center
+      </button>
+    </div>
+
+    <div
+      id="helpCenterTabs"
+      class="help-tabs hidden"
+      role="tablist"
+      aria-label="Help Center sections"
+    >
+      <button type="button" data-help-tab="guide">User Guide</button>
+      <button type="button" data-help-tab="howto">How To</button>
+      <button type="button" data-help-tab="faq">FAQ</button>
+      <button type="button" data-help-tab="ticket">Help Ticket</button>
+      <button type="button" data-help-tab="access" class="hidden">Access & User Request</button>
+    </div>
+
+    <div
+      id="helpCenterContent"
+      class="help-center-content"
+    ></div>
+
+  </div>
+</section>
+</main>
     </div>
   </div>
 </div>
@@ -1549,47 +1598,6 @@
 </div>
 
 
-<div class="modal-backdrop" id="helpCenterBackdrop">
-  <div class="modal help-center-modal" role="dialog" aria-modal="true" aria-labelledby="helpCenterTitle">
-    <div class="help-center-heading">
-      <div>
-        <div class="eyebrow">Support & Guidance</div>
-        <h3 id="helpCenterTitle">Project Control Help Center</h3>
-        <div class="small">User guidance, frequently asked questions, and support requests.</div>
-      </div>
-      <button class="btn" id="closeHelpCenterBtn" type="button">Close</button>
-    </div>
-
-    <div
-      id="helpCenterSectionToolbar"
-      class="help-center-section-toolbar hidden"
-    >
-      <button
-        type="button"
-        class="btn"
-        id="backToHelpCenterBtn"
-      >
-        ← Back to Help Center
-      </button>
-    </div>
-
-    <div
-      id="helpCenterTabs"
-      class="help-tabs hidden"
-      role="tablist"
-      aria-label="Help Center sections"
-    >
-      <button type="button" data-help-tab="guide">User Guide</button>
-      <button type="button" data-help-tab="howto">How To</button>
-      <button type="button" data-help-tab="faq">FAQ</button>
-      <button type="button" data-help-tab="ticket">Help Ticket</button>
-      <button type="button" data-help-tab="access" class="hidden">Access & User Request</button>
-    </div>
-
-    <div id="helpCenterContent" class="help-center-content"></div>
-  </div>
-</div>
-
 <div class="modal-backdrop" id="helpTopicBackdrop">
   <div class="modal help-topic-modal" role="dialog" aria-modal="true" aria-labelledby="helpTopicTitle">
     <div class="help-center-heading">
@@ -1610,16 +1618,18 @@
 <script src="https://res.cdn.office.net/teams-js/2.34.0/js/MicrosoftTeams.min.js"></script>
 <script src="js/config.js?v=20261005-teamsfix1"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js?v=20261005-teamsfix1"></script>
+<script src="js/data-provider.js?v=20261030-integrated1"></script>
 <script src="js/storage.js"></script>
-<script src="js/auth.js?v=20261005-naa-stage2"></script>
+<script src="js/auth.js?v=20261030-integrated1"></script>
 <script src="js/microsoft-access.js?v=1790254956"></script>
 <script src="js/permissions.js"></script>
 <script src="js/project-contacts.js?v=20260928163552"></script>
 <script src="js/project-contacts-view.js?v=20260928163552"></script>
+<script src="js/aht-status-ui.js?v=20261030-integrated1"></script>
 <script src="js/project-work-items.js?v=0.15.17"></script>
-<script src="js/project-work-view.js?v=0.15.14"></script>
-<script src="js/project-task-editor.js?v=20260928154732"></script>
+<script src="js/project-work-view.js?v=20261030-integrated1"></script>
+<script src="js/project-task-editor.js?v=20260928154732-datereview1-reviewqueue1-dateskip1"></script>
+<script src="js/project-scheduling.js?v=20261019-sched1"></script>
 <script src="js/site-operations.js?v=1790277011"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style id="room-builder-workflow-styles">
@@ -1824,12 +1834,13 @@
     }
   }
 </style>
-<script src="js/room-builder.js?v=20261002-1"></script>
-  <script src="js/dashboard.js?v=20261005-project-admin-access1"></script>
-<script src="js/help-center.js?v=20261005-help-tabs-hidden1"></script>
+<script src="js/room-builder.js?v=20261030-integrated1"></script>
+  <script src="js/dashboard.js?v=20261030-integrated1"></script>
+<script src="js/help-center.js?v=20261030-integrated1"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js?v=0.15.2"></script>
+<script src="js/aht-new-project-onboarding.js?v=4"></script>
 <script>
 
 
@@ -2238,7 +2249,7 @@ function healthBadge(deliverable){
  const note=manual
    ? `Manual override${deliverable.healthOverrideUntil?` until ${fmtDate(deliverable.healthOverrideUntil)}`:""}: ${deliverable.healthOverrideReason||"No reason entered"}. Automatic: ${automatic}.`
    : `Automatic schedule health: ${automatic}.`;
- return `<span class="schedule-health ${cls}" title="${esc(note)}">${esc(displayed)}${manual?'<span class="manual-health-mark">M</span>':""}</span>`;
+ return `<span class="schedule-health ${cls} ${AHTStatusUI.classFor(displayed)}" title="${esc(note)}">${esc(displayed)}${manual?'<span class="manual-health-mark">M</span>':""}</span>`;
 }
 
 function snapshot(obj){return JSON.parse(JSON.stringify(obj||{}))}
@@ -2301,7 +2312,7 @@ function visBadge(v){
 }
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function fmtDate(s){if(!s)return"TBD";return new Date(s+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
-function badge(status){let c="pending";if(status==="In Progress")c="inprogress";else if(status.includes("Waiting"))c="waiting";else if(status==="Awaiting Review")c="review";else if(status==="Complete"||status==="Received")c="complete";else if(status==="Blocked"||status==="Outstanding")c="blocked";return `<span class="badge ${c}">${esc(status)}</span>`}
+function badge(status){return AHTStatusUI.badge(status,esc)}
 
 function touchProject(project){
  if(!project)return;
@@ -3542,7 +3553,7 @@ window.toggleArchive=id=>{
  logChange("Update",p.id,"Project",p.name,p.archived?"Project archived.":"Project restored.");
  save();
 };
-newProjectBtn.onclick=()=>openModal("project");
+newProjectBtn.onclick=()=>window.AHTProjectOnboarding.open();
 const importBackupFileInput=document.getElementById("importBackupFile");
 exportBackupBtn.onclick=exportBackup;
 importBackupBtn.onclick=()=>{
@@ -3552,7 +3563,27 @@ importBackupBtn.onclick=()=>{
 };
 importBackupFileInput.onchange=e=>importBackupFile(e.target.files?.[0]);
 
-document.querySelectorAll(".sidebar-nav button[data-view]").forEach(b=>b.onclick=()=>showView(b.dataset.view));projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
+document.querySelectorAll(".sidebar-nav button[data-view]").forEach(b=>b.onclick=()=>{
+
+  const targetView=b.dataset.view;
+
+  if(
+    targetView==="deliverables" &&
+    window.clearSummaryDeliverableMode
+  ){
+    window.clearSummaryDeliverableMode();
+  }
+
+  showView(targetView);
+
+  if(
+    targetView==="deliverables" &&
+    typeof render==="function"
+  ){
+    render();
+  }
+
+});projectSelect.onchange=e=>setProject(e.target.value);document.querySelectorAll(".project-select-clone").forEach(s=>s.onchange=e=>setProject(e.target.value));searchDeliverables.oninput=render;filterStatus.onchange=render;filterDiscipline.onchange=render;auditSearch.oninput=render;auditUserFilter.onchange=render;auditProjectFilter.onchange=render;auditActionFilter.onchange=render;
 window.setProject=setProject;window.editDeliverable=id=>openModal("deliverable",currentProject().deliverables.find(x=>x.id===id));window.editInfo=id=>openModal("info",currentProject().info.find(x=>x.id===id));addDeliverableBtn.onclick=()=>openModal("deliverable");addInfoBtn.onclick=()=>openModal("info");addSiteLocationBtn.onclick=()=>SiteOperations.openLocationEditor();
 addSiteOperationBtn.onclick=()=>SiteOperations.openOperationEditor();cancelModal.onclick=()=>modalBackdrop.style.display="none";modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)modalBackdrop.style.display="none"};
 document.addEventListener("keydown",e=>{
@@ -4192,23 +4223,7 @@ initializeApplication();
 <script src="tools/aht-project-forms-host.js?v=5"></script>
 
 
-<script src="js/aht-ops-user-ui.js?v=4-radios1"></script>
-<script src="js/aht-operations.js?v=ops-lead-scroll1"></script>
+<script src="js/aht-ops-user-ui.js?v=20261030-integrated1"></script>
+<script src="js/aht-operations.js?v=20261030-integrated1"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

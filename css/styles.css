@@ -7461,59 +7461,341 @@ main.container{
     grid-template-columns:1fr;
   }
 }
+/* ==========================================================
+   HELP CENTER FULL PAGE
+   ========================================================== */
 
-
-/* AHT TOOLS LANDING PAGE */
-
-.tools-launcher-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 20px;
-  align-items: stretch;
+#help.view{
+  padding-bottom:32px;
 }
 
-.tools-launcher-grid > .card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 22px;
-  border-radius: 10px;
+.help-page-header{
+  margin-bottom:18px;
 }
 
-.tools-launcher-grid h3 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
+.help-page-shell{
+  width:100%;
+  max-width:none;
 }
 
-.tools-launcher-grid p {
-  margin: 0;
-  flex: 1;
-  font-size: 13px;
-  line-height: 1.55;
-  color: #64748b;
+#help .help-center-content{
+  width:100%;
+  max-width:none;
+  overflow:visible;
+  padding:0;
 }
 
-.tools-launcher-grid .btn {
-  align-self: flex-start;
-  margin-top: 6px;
+#help .help-home{
+  width:100%;
 }
 
-.tools-launcher-grid .btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+#help .help-home-grid{
+  grid-template-columns:
+    repeat(2,minmax(0,1fr));
 }
 
-@media (max-width: 1100px) {
-  .tools-launcher-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+#help .help-home-card{
+  min-height:145px;
+}
+
+#help .help-center-section-toolbar{
+  margin:0 0 14px;
+}
+
+#help .help-guide-shell,
+#help .help-section{
+  width:100%;
+  max-width:none;
+}
+
+@media(max-width:800px){
+
+  #help .help-home-grid{
+    grid-template-columns:1fr;
   }
+
+}
+/* ==========================================================
+   HELP CENTER - CONSISTENT CARD LANGUAGE
+   ========================================================== */
+
+/* FAQ ----------------------------------------------------- */
+
+#help .help-faq-list{
+  display:grid;
+  grid-template-columns:
+    repeat(2,minmax(0,1fr));
+  gap:10px;
 }
 
-@media (max-width: 650px) {
-  .tools-launcher-grid {
-    grid-template-columns: minmax(0, 1fr);
+#help .help-faq-item{
+  margin:0;
+  align-self:start;
+  overflow:hidden;
+
+  border:1px solid #cfdae3;
+  border-radius:9px;
+
+  background:#fff;
+
+  box-shadow:
+    0 2px 8px rgba(31,55,75,.035);
+}
+
+#help .help-faq-item summary{
+  min-height:54px;
+  box-sizing:border-box;
+
+  padding:14px 15px;
+
+  background:#fff;
+
+  color:#31495d;
+  font-size:13px;
+  font-weight:750;
+  line-height:1.35;
+
+  cursor:pointer;
+}
+
+#help .help-faq-item:hover{
+  border-color:#afc3d2;
+  box-shadow:
+    0 5px 14px rgba(31,55,75,.065);
+}
+
+#help .help-faq-item[open] summary{
+  background:#f5f9fc;
+  border-bottom:1px solid #d8e2e9;
+}
+
+#help .help-faq-item p{
+  margin:0;
+  padding:14px 15px 16px;
+
+  color:#566d7f;
+  font-size:12px;
+  line-height:1.55;
+}
+
+
+/* WHAT YOU CAN DO ---------------------------------------- */
+
+#help .help-role-guide-sections{
+  display:grid;
+  grid-template-columns:
+    repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+#help .help-role-details{
+  margin:0;
+  align-self:start;
+  overflow:hidden;
+
+  border:1px solid #cfdae3;
+  border-radius:9px;
+
+  background:#fff;
+
+  box-shadow:
+    0 2px 8px rgba(31,55,75,.035);
+}
+
+#help .help-role-details summary{
+  min-height:54px;
+  box-sizing:border-box;
+
+  padding:14px 15px;
+
+  background:#fff;
+
+  color:#31495d;
+  font-size:13px;
+  font-weight:750;
+  line-height:1.35;
+
+  cursor:pointer;
+}
+
+#help .help-role-details:hover{
+  border-color:#afc3d2;
+  box-shadow:
+    0 5px 14px rgba(31,55,75,.065);
+}
+
+#help .help-role-details[open] summary{
+  background:#f5f9fc;
+  border-bottom:1px solid #d8e2e9;
+}
+
+#help .help-role-details > div{
+  padding:14px 15px 16px;
+
+  color:#566d7f;
+  font-size:12px;
+  line-height:1.55;
+}
+
+
+/* DASHBOARD AREAS ---------------------------------------- */
+
+#help .help-topic-grid{
+  display:grid;
+  grid-template-columns:
+    repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+#help .help-topic-card{
+  min-height:96px;
+  box-sizing:border-box;
+
+  padding:14px 15px;
+
+  border:1px solid #cfdae3;
+  border-radius:9px;
+
+  background:#fff;
+
+  text-align:left;
+  cursor:pointer;
+
+  box-shadow:
+    0 2px 8px rgba(31,55,75,.035);
+
+  transition:
+    border-color .15s ease,
+    box-shadow .15s ease,
+    transform .15s ease;
+}
+
+#help .help-topic-card:hover{
+  border-color:#afc3d2;
+
+  box-shadow:
+    0 5px 14px rgba(31,55,75,.065);
+
+  transform:translateY(-1px);
+}
+
+#help .help-topic-card strong{
+  display:block;
+
+  margin-bottom:5px;
+
+  color:#31495d;
+  font-size:13px;
+  font-weight:750;
+  line-height:1.35;
+}
+
+#help .help-topic-card small{
+  display:block;
+
+  color:#607587;
+  font-size:12px;
+  line-height:1.45;
+}
+
+
+/* RESPONSIVE --------------------------------------------- */
+
+@media(max-width:800px){
+
+  #help .help-faq-list,
+  #help .help-role-guide-sections,
+  #help .help-topic-grid{
+    grid-template-columns:1fr;
   }
+
+}
+
+/* ==========================================================
+   MOBILE PROJECT CONTACTS
+   ========================================================== */
+
+@media(max-width:700px){
+
+  #projectContacts .page-header{
+    gap:12px;
+  }
+
+  #projectContacts .page-header .actions{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:8px;
+  }
+
+  #projectContacts .project-switcher{
+    width:100%;
+  }
+
+  #projectContacts .project-switcher select{
+    width:100%;
+  }
+
+  #projectContactsContent{
+    width:100%;
+    min-width:0;
+  }
+
+  #projectContactsContent .pc-toolbar{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:12px;
+  }
+
+  #projectContactsContent .pc-toolbar-right{
+    width:100%;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+
+  #projectContactsContent .pc-card-grid{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:10px;
+    width:100%;
+  }
+
+  #projectContactsContent .pc-contact-card{
+    width:100%;
+    min-width:0;
+    box-sizing:border-box;
+  }
+
+  #projectContactsContent .pc-contact-details{
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+
+  #projectContactsContent .pc-list{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+}
+
+/* Prevent the dashboard behind Project Control detail from scrolling. */
+body.project-control-detail-open{
+  overflow:hidden;
+  touch-action:none;
+}
+
+body.project-control-detail-open
+.project-control-detail-backdrop{
+  overscroll-behavior:contain;
+}
+
+body.project-control-detail-open
+.project-control-detail-modal{
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
 }

@@ -1042,8 +1042,3 @@ async function initializeAuthentication({ deferRender = false } = {}) {
   }
   return currentUser;
 }
-
-
-
-
-

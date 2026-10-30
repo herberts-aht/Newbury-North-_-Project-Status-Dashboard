@@ -6,7 +6,11 @@
     fileName: "",
     sourceFile: null,
     pagesScanned: 0,
-    lastCreatedIds: []
+    lastCreatedIds: [],
+    documentFolders: [],
+    documentContext: null,
+    forceFolderSelection: false,
+    folderHelpAvailable: false
   };
 
   const $ = id => document.getElementById(id);
@@ -332,6 +336,8 @@
         hasProject
       );
     }
+    const changeFolderButton = $("roomBuilderChooseFolderBtn");
+    if (changeFolderButton) changeFolderButton.disabled = !hasProject || !state.folderHelpAvailable;
 
     /*
      * Step 3 — Select Plan
@@ -593,6 +599,195 @@
     updateSummary();
   }
 
+
+  /* AHT FOLDER LINK v1: one verified office location per project. */
+  function officeDocumentLocation(project) {
+    const office = clean(project?.division).toLowerCase().replace(/\s+office$/, "");
+    const entries = (window.AHT_OFFICE_DOCUMENT_LIBRARIES || []).filter(item =>
+      clean(item?.office).toLowerCase().replace(/\s+office$/, "") === office &&
+      clean(item?.siteUrl) && clean(item?.library)
+    );
+    if (entries.length !== 1) {
+      throw new Error(`No unique, verified SharePoint document-library mapping exists for the ${project?.division || "unknown"} office. Ask an administrator to verify that office's site and library.`);
+    }
+    const configured = entries[0];
+    const parsed = new URL(configured.siteUrl);
+    if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'ahtglobalteam.sharepoint.com' ||
+        !/^\/sites\/[^/]+\/?$/i.test(parsed.pathname)) {
+      throw new Error('The office SharePoint site mapping is not an approved AHT site.');
+    }
+    return configured;
+  }
+
+  function folderPickerElements() {
+    const host = $("roomBuilderFolderLink");
+    if (!host) return {};
+    return {
+      host,
+      search: $("roomBuilderFolderSearch"),
+      select: $("roomBuilderFolderSelect"),
+      save: $("roomBuilderFolderSave"),
+      note: $("roomBuilderFolderNote")
+    };
+  }
+
+  function renderFolderChoices() {
+    const {host, search, select, save, note} = folderPickerElements();
+    if (!host || !select) return;
+    const filter = clean(search?.value).toLowerCase();
+    const selectedId = select.value;
+    const folders = state.documentFolders.filter(item =>
+      !filter || clean(item.name).toLowerCase().includes(filter)
+    );
+    select.replaceChildren(new Option('— Select the correct project folder —', ''));
+    for (const folder of folders) select.add(new Option(folder.name, folder.id));
+    if (folders.some(item => item.id === selectedId)) select.value = selectedId;
+    if (save) save.disabled = !select.value;
+    if (note) note.textContent =
+      `${folders.length} of ${state.documentFolders.length} office project folders shown. Select and verify the correct folder; the address will not be changed.`;
+  }
+
+  function showFolderPicker(folders, project, driveId, office) {
+    const {host, search, select, save, note} = folderPickerElements();
+    if (!host) throw new Error('The project folder selector is unavailable. Refresh the dashboard.');
+    state.documentFolders = folders.slice();
+    state.documentContext = {
+      projectId: String(project.id || ''), driveId: String(driveId),
+      siteUrl: office.siteUrl, office: project.division
+    };
+    host.hidden = false;
+    if (search) search.value = '';
+    // Suggestions are ranked by address/name, but NEVER auto-linked.
+    const terms = [project.address, project.name].filter(Boolean)
+      .map(value => clean(value).toLowerCase());
+    state.documentFolders.sort((a,b) => {
+      const score = item => terms.reduce((n, term) =>
+        n + (clean(item.name).toLowerCase().includes(term) ? 1 : 0), 0);
+      return score(b) - score(a) || clean(a.name).localeCompare(clean(b.name));
+    });
+    renderFolderChoices();
+    if (note) note.textContent = `Choose the actual SharePoint folder for ${project.name || project.address}. Only click Link Selected Folder after verifying the name. Nothing is changed until you confirm.`;
+    if (save) save.disabled = true;
+  }
+
+  async function linkSelectedProjectFolder() {
+    const {host, select, save, note} = folderPickerElements();
+    const project = selectedProject();
+    const ctx = state.documentContext;
+    const chosen = state.documentFolders.find(item => String(item.id) === String(select?.value));
+    if (!project || !ctx || !chosen || String(project.id) !== ctx.projectId) {
+      alert('Select a project and a verified folder first.');
+      return;
+    }
+    if (!currentUser?.canManageProjects && !currentUser?.isSystemOwner) {
+      alert('Only a Project Administrator can link a SharePoint folder.');
+      return;
+    }
+    if (!Number(project.sharePointId)) {
+      alert('Save the master project to SharePoint before linking its document folder.');
+      return;
+    }
+    const other = (typeof allowedProjects === 'function' ? allowedProjects() : []).find(item =>
+      item.id !== project.id && item.ahtDocFolderId === chosen.id &&
+      item.ahtDocDriveId === ctx.driveId
+    );
+    if (other) {
+      alert(`This folder is already linked to ${other.name}. Select a different folder.`);
+      return;
+    }
+    if (!confirm(`Link project:\n${project.name}\n\nto SharePoint folder:\n${chosen.name}\n\nOffice: ${ctx.office}\n\nThis does not change the project address or move any files.`)) return;
+    if (!SharePointDataProvider?.updateItem || !APP_CONFIG?.sharePoint?.lists?.projects) {
+      alert('The dashboard SharePoint connection is unavailable.'); return;
+    }
+    try {
+      save.disabled = true;
+      if (note) note.textContent = 'Saving the verified folder connection to the master Projects list…';
+      const fields = {
+        AHTDocSiteUrl: ctx.siteUrl,
+        AHTDocDriveId: ctx.driveId,
+        AHTDocFolderId: chosen.id,
+        AHTDocFolderName: chosen.name
+      };
+      await SharePointDataProvider.updateItem(
+        APP_CONFIG.sharePoint.lists.projects, Number(project.sharePointId), fields
+      );
+      Object.assign(project, {
+        ahtDocSiteUrl: ctx.siteUrl, ahtDocDriveId: ctx.driveId,
+        ahtDocFolderId: chosen.id, ahtDocFolderName: chosen.name
+      });
+      if (host) host.hidden = true;
+      state.documentContext = null;
+      state.documentFolders = [];
+      state.forceFolderSelection = false;
+      const status = $('roomBuilderSharePointStatus');
+      if (status) status.textContent = `Saved folder link: ${chosen.name}. Loading the Received PDFs…`;
+      await findSharePointPlanDocuments();
+    } catch (error) {
+      if (note) note.textContent = `Could not save the folder link: ${error.message || error}. Verify that the four AHTDoc* fields were provisioned in the master Projects list.`;
+      alert(`The folder link was not saved.\n\n${error.message || error}\n\nThe master Projects list needs its AHTDoc* columns provisioned once. No project address was changed.`);
+    } finally {
+      if (save) save.disabled = !select?.value;
+    }
+  }
+
+  // Only unlock folder correction AFTER a Find Plans attempt fails.
+  // This is separate from project access and never writes to SharePoint.
+  function setFolderHelpAvailable(available) {
+    state.folderHelpAvailable = Boolean(available);
+    const button = $('roomBuilderChooseFolderBtn');
+    if (button) button.disabled = !state.folderHelpAvailable || !selectedProject();
+    const helper = $('roomBuilderFolderHelperText');
+    if (helper) helper.textContent = state.folderHelpAvailable
+      ? 'Automatic search could not find usable plans.'
+      : 'If Find SharePoint Plans fails, folder selection becomes available.';
+  }
+
+  function installFolderPicker() {
+    const step = $('roomBuilderStep2');
+    const button = $('roomBuilderFindPlansBtn');
+    if (!step || !button || $('roomBuilderFolderLink')) return;
+    const host = document.createElement('div');
+    host.id = 'roomBuilderFolderLink';
+    host.hidden = true;
+    host.style.cssText = 'margin-top:14px; padding:14px; border:1px solid #cbd5e1; border-radius:9px; background:#f8fafc;';
+    host.innerHTML = `
+      <strong>Verify SharePoint project folder</strong>
+      <p class="small" style="margin:6px 0 10px">The folder name may differ from the actual address. Select the correct folder to save a permanent project link.</p>
+      <label for="roomBuilderFolderSearch">Search folders in this office</label>
+      <input id="roomBuilderFolderSearch" type="search" placeholder="Client name, street, unit…" style="width:100%;height:40px;max-width:610px;margin:4px 0 10px;display:block" />
+      <label for="roomBuilderFolderSelect">Project folder</label>
+      <select id="roomBuilderFolderSelect" style="display:block;width:100%;height:40px;max-width:700px;margin:4px 0 10px"></select>
+      <button type="button" id="roomBuilderFolderSave" class="btn primary" disabled>Link Selected Folder</button>
+      <p id="roomBuilderFolderNote" class="small" style="margin:10px 0 0"></p>`;
+    // The normal workflow is Find Plans. Make folder correction a quiet,
+    // contextual action rather than a second equally prominent green button.
+    const helper = document.createElement('div');
+    helper.className = 'room-builder-folder-helper';
+    const helperText = document.createElement('span');
+    helperText.id = 'roomBuilderFolderHelperText';
+    helperText.textContent = 'If Find SharePoint Plans fails, folder selection becomes available.';
+    const choose = document.createElement('button');
+    choose.id = 'roomBuilderChooseFolderBtn';
+    choose.type = 'button';
+    choose.className = 'room-builder-folder-action';
+    choose.textContent = 'Verify / Change Folder';
+    choose.disabled = true;
+    choose.title = 'Available if Find SharePoint Plans cannot find a project folder or PDF plans';
+    helper.append(helperText, choose);
+    button.insertAdjacentElement('afterend', helper);
+    choose.addEventListener('click', async () => {
+      if (!selectedProject() || !state.folderHelpAvailable) return;
+      state.forceFolderSelection = true;
+      await findSharePointPlanDocuments();
+    });
+    button.parentElement.appendChild(host);
+    $('roomBuilderFolderSearch').addEventListener('input', renderFolderChoices);
+    $('roomBuilderFolderSelect').addEventListener('change', () => {
+      $('roomBuilderFolderSave').disabled = !$('roomBuilderFolderSelect').value;
+    });
+    $('roomBuilderFolderSave').addEventListener('click', linkSelectedProjectFolder);
+  }
+
   async function findSharePointPlanDocuments() {
     const project = selectedProject();
 
@@ -601,20 +796,13 @@
       return;
     }
 
-    if (
-      typeof SharePointDataProvider === "undefined" ||
-      typeof SharePointDataProvider.getSite !== "function" ||
-      typeof SharePointDataProvider.graph !== "function"
-    ) {
-      throw new Error("SharePoint connection is unavailable.");
-    }
-
     const select = $("roomBuilderSharePointFile");
     const status = $("roomBuilderSharePointStatus");
     const useButton = $("roomBuilderUseSharePointBtn");
 
     if (!select || !status) return;
 
+    setFolderHelpAvailable(false);
     select.innerHTML = '<option value="">Searching SharePoint…</option>';
 
     if (useButton) {
@@ -625,13 +813,19 @@
       "Searching the SharePoint Received documents…";
 
     try {
+      if (
+        typeof SharePointDataProvider === 'undefined' ||
+        typeof SharePointDataProvider.getSite !== 'function' ||
+        typeof SharePointDataProvider.graph !== 'function'
+      ) {
+        throw new Error('SharePoint connection is unavailable.');
+      }
       /*
        * Room Builder documents live in the office SharePoint site,
        * not necessarily the dashboard's primary SharePoint site.
        */
-      const documentSiteUrl =
-        APP_CONFIG.sharePoint.roomBuilderSiteUrl ||
-        "https://ahtglobalteam.sharepoint.com/sites/Naples";
+      const officeMapping = officeDocumentLocation(project);
+      const documentSiteUrl = officeMapping.siteUrl;
 
       const documentSiteParsed =
         new URL(documentSiteUrl);
@@ -658,12 +852,12 @@
         item =>
           String(item?.displayName || "")
             .trim()
-            .toLowerCase() === "projects"
+            .toLowerCase() === String(officeMapping.library).trim().toLowerCase()
       );
 
       if (!projectsList?.id) {
         throw new Error(
-          `The Projects document library was not found on SharePoint site "${site.displayName || site.webUrl || "this office"}".`
+          `The verified ${officeMapping.library} document library was not found on SharePoint site "${site.displayName || site.webUrl || "this office"}".`
         );
       }
 
@@ -748,7 +942,7 @@
 
       const projectsDrive =
         (visibleDrives?.value || []).find(item =>
-          String(item?.name || "").trim().toLowerCase() === "projects"
+          String(item?.name || "").trim().toLowerCase() === String(officeMapping.library).trim().toLowerCase()
         );
 
       if (!projectsDrive?.id) {
@@ -798,13 +992,18 @@
       /*
        * Read the root of Projects.
        */
-      const rootResult =
-        await SharePointDataProvider.graph(
-          `/drives/${encodeURIComponent(driveId)}/root/children?$select=id,name,webUrl,parentReference,folder,file&$top=500`
-        );
-
-      const rootItems =
-        rootResult?.value || [];
+      const rootItems = [];
+      let rootNext = `/drives/${encodeURIComponent(driveId)}/root/children?$select=id,name,webUrl,parentReference,folder,file&$top=200`;
+      let rootPages = 0;
+      while (rootNext) {
+        if (++rootPages > 25) throw new Error('The office Projects library has too many root pages to verify safely.');
+        const rootPage = await SharePointDataProvider.graph(rootNext);
+        rootItems.push(...(rootPage?.value || []));
+        rootNext = rootPage?.['@odata.nextLink'] || '';
+        if (rootNext && !rootNext.startsWith('https://graph.microsoft.com/v1.0/')) {
+          throw new Error('Unexpected SharePoint pagination URL.');
+        }
+      }
 
       /*
        * Match the project folder by address.
@@ -814,62 +1013,34 @@
        *       matches
        *   Newbury North Associates - 2200 Gordon Dr
        */
-      const projectFolders =
-        rootItems.filter(item => {
-          if (!item?.folder) return false;
-
-          const folderAddress =
-            normalizeAddress(item.name || "");
-
-          return (
-            folderAddress.includes(normalizedAddress)
-          );
-        });
-
-      if (!projectFolders.length) {
-        const available =
-          rootItems
-            .filter(item => item?.folder)
-            .map(item => item.name)
-            .filter(Boolean)
-            .slice(0, 100);
-
-        throw new Error(
-          [
-            "The Projects document library was opened, but the project folder could not be matched.",
-            "",
-            `Dashboard address: ${projectAddress}`,
-            `Normalized address: ${normalizedAddress}`,
-            "",
-            "Folders returned by Graph:",
-            available.length
-              ? available.join("\n")
-              : "(none)"
-          ].join("\n")
-        );
+      const officeFolders = rootItems.filter(item => item?.folder && item?.id && !item?.remoteItem);
+      const linkedId = String(project.ahtDocFolderId || '').trim();
+      const linkedDriveId = String(project.ahtDocDriveId || '').trim();
+      const linkedSiteUrl = String(project.ahtDocSiteUrl || '').trim();
+      let driveItem = null;
+      if (!state.forceFolderSelection && linkedId && linkedDriveId === driveId && linkedSiteUrl === documentSiteUrl) {
+        driveItem = officeFolders.find(item => String(item.id) === linkedId) || null;
       }
-
-      projectFolders.sort((a, b) => {
-        const aName =
-          normalizeAddress(a.name || "");
-
-        const bName =
-          normalizeAddress(b.name || "");
-
-        return (
-          (aName === normalizedAddress ? 0 : 1) -
-          (bName === normalizedAddress ? 0 : 1)
-        );
-      });
-
-      const driveItem =
-        projectFolders[0];
-
-      if (!driveItem?.id) {
-        throw new Error(
-          `The SharePoint project folder could not be opened.`
-        );
+      // Backward compatibility: allow a *single* unambiguous address match to open.
+      // Never auto-persist it or choose the first of multiple matches.
+      if (!state.forceFolderSelection && !driveItem && !linkedId && normalizedAddress.length >= 6) {
+        const matches = officeFolders.filter(item =>
+          normalizeAddress(item.name || '').includes(normalizedAddress));
+        if (matches.length === 1) driveItem = matches[0];
       }
+      if (!driveItem) {
+        // No guessing or first-match: an Admin must verify the actual folder.
+        showFolderPicker(officeFolders, project, driveId, officeMapping);
+        setFolderHelpAvailable(true);
+        const statusText = linkedId
+          ? 'The previously linked folder was not found in this office library. Verify and link its current folder.'
+          : 'This project does not yet have a verified SharePoint folder link. Search and select its folder above.';
+        select.innerHTML = '<option value="">Link a project folder first</option>';
+        status.textContent = statusText;
+        return;
+      }
+      const chooser = folderPickerElements();
+      if (chooser.host) chooser.host.hidden = true;
 
       if (!driveId) {
         throw new Error(
@@ -969,7 +1140,8 @@
           '<option value="">No matching PDF plans found</option>';
 
         status.textContent =
-          "No PDF plans were found in the selected project's SharePoint Received folder.";
+          "No PDF plans were found in the selected project's SharePoint Received folder. Verify / Change Folder is now available.";
+        setFolderHelpAvailable(true);
 
         return;
       }
@@ -1025,11 +1197,16 @@
         '<option value="">SharePoint search failed</option>';
 
       status.textContent =
-        `SharePoint search failed: ${error.message || error}`;
+        `SharePoint search failed: ${error.message || error}. Verify / Change Folder is now available (a connection error may need administrator assistance).`;
+      setFolderHelpAvailable(true);
 
       alert(
         `Room Builder could not search SharePoint.\n\n${error.message || error}`
       );
+    } finally {
+      // A manual verification attempt affects only that search; the next
+      // Find SharePoint Plans click should always retry automatic matching.
+      state.forceFolderSelection = false;
     }
   }
 
@@ -1592,6 +1769,51 @@
     const style = document.createElement("style");
     style.id = "roomBuilderStyles";
     style.textContent = `
+      /* Room Builder step 2: primary task versus optional corrective action. */
+      #roomBuilderStep2 #roomBuilderFindPlansBtn.btn:not(:disabled){
+        background:#18794e;
+        border-color:#18794e;
+        color:#fff;
+        font-weight:700;
+        min-height:40px;
+        padding:9px 15px;
+      }
+      #roomBuilderStep2 #roomBuilderFindPlansBtn.btn:not(:disabled):hover{
+        background:#11643f;
+        border-color:#11643f;
+      }
+      #roomBuilderStep2 #roomBuilderFindPlansBtn.btn:focus-visible,
+      #roomBuilderStep2 .room-builder-folder-action:focus-visible{
+        outline:3px solid #60a5fa;
+        outline-offset:2px;
+      }
+      #roomBuilderStep2 .room-builder-folder-helper{
+        margin-top:9px;
+        display:flex;
+        align-items:baseline;
+        flex-wrap:wrap;
+        gap:5px 9px;
+        font-size:12px;
+        color:#64748b;
+      }
+      #roomBuilderStep2 .room-builder-folder-action{
+        border:0;
+        background:transparent;
+        padding:2px 0;
+        color:#236092;
+        font:inherit;
+        font-weight:600;
+        text-decoration:underline;
+        text-underline-offset:2px;
+        cursor:pointer;
+      }
+      #roomBuilderStep2 .room-builder-folder-action:hover{color:#164a73;}
+      #roomBuilderStep2 .room-builder-folder-action:disabled{
+        color:#94a3b8;
+        opacity:1;
+        cursor:not-allowed;
+        text-decoration:none;
+      }
       .room-builder-toolbar{
         display:grid;
         grid-template-columns:minmax(180px,1fr) minmax(240px,2fr) auto;
@@ -1696,12 +1918,19 @@
     if (!$("roomBuilderPanel")) return;
 
     injectStyles();
+    installFolderPicker();
     waitForProjects();
     renderRows();
 
     $("roomBuilderProject")?.addEventListener("focus", renderProjectOptions);
     $("roomBuilderProject")?.addEventListener("mousedown", renderProjectOptions);
     $("roomBuilderProject")?.addEventListener("change", () => {
+      const picker = folderPickerElements();
+      if (picker.host) picker.host.hidden = true;
+      state.documentContext = null;
+      state.documentFolders = [];
+      state.forceFolderSelection = false;
+      setFolderHelpAvailable(false);
       updateSummary();
       updateWorkflowUI();
     });

@@ -1362,6 +1362,9 @@ function projectControlDetailRow(label,value,raw=false){
 }
 
 function closeProjectControlDetail(){
+  document.body.classList.remove(
+    "project-control-detail-open"
+  );
   document.getElementById("projectControlDetailBackdrop")?.remove();
 }
 
@@ -1423,6 +1426,10 @@ function openProjectControlDetail(recordType,id){
   if(!record)return;
 
   closeProjectControlDetail();
+
+  document.body.classList.add(
+    "project-control-detail-open"
+  );
 
   let title="";
   let kicker="";
@@ -1502,6 +1509,12 @@ window.openProjectControlDetail=openProjectControlDetail;
 window.closeProjectControlDetail=closeProjectControlDetail;
 
 let summaryDeliverableMode = "";
+
+function clearSummaryDeliverableMode(){
+  summaryDeliverableMode="";
+}
+
+window.clearSummaryDeliverableMode=clearSummaryDeliverableMode;
 
 function summaryRecordDestination(recordType,id){
   const project=currentProject();
@@ -1734,7 +1747,7 @@ function render(){
      !currentProjectAccessCapability("canViewSiteOperations")
    )
  );
- projectGrid.innerHTML=projects.map(pr=>{const waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length,active=Math.max(0,pr.deliverables.length-waiting-complete);const progress=weightedProjectProgress(pr),planning=displayedPhaseProgress(pr,"Planning"),engineering=displayedPhaseProgress(pr,"Engineering"),installation=displayedPhaseProgress(pr,"Installation"),health=displayedProjectHealth(pr);return `<div class="project-card" onclick="setProject('${pr.id}');showView('dashboard')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health"><span class="pulse" style="background:${healthColor(health)}"></span><span>${esc(health)}</span></div><div class="small" style="margin-top:6px">Updated: ${esc(formatLastUpdated(pr))}</div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%${progressModeMark(pr.progressOverallMode||"auto")}</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong><span class="phase-progress-value">${planning}%</span>${progressModeMark(phaseProgressMode(pr,"Planning"))}</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong><span class="phase-progress-value">${engineering}%</span>${progressModeMark(phaseProgressMode(pr,"Engineering"))}</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong><span class="phase-progress-value">${installation}%</span>${progressModeMark(phaseProgressMode(pr,"Installation"))}</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
+ projectGrid.innerHTML=projects.map(pr=>{const waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length,active=Math.max(0,pr.deliverables.length-waiting-complete);const progress=weightedProjectProgress(pr),planning=displayedPhaseProgress(pr,"Planning"),engineering=displayedPhaseProgress(pr,"Engineering"),installation=displayedPhaseProgress(pr,"Installation"),health=displayedProjectHealth(pr);return `<div class="project-card" onclick="setProject('${pr.id}');showView('dashboard')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health">${AHTStatusUI.badge(health,esc)}</div><div class="small" style="margin-top:6px">Updated: ${esc(formatLastUpdated(pr))}</div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%${progressModeMark(pr.progressOverallMode||"auto")}</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong><span class="phase-progress-value">${planning}%</span>${progressModeMark(phaseProgressMode(pr,"Planning"))}</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong><span class="phase-progress-value">${engineering}%</span>${progressModeMark(phaseProgressMode(pr,"Engineering"))}</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong><span class="phase-progress-value">${installation}%</span>${progressModeMark(phaseProgressMode(pr,"Installation"))}</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
  const opts=projects.map(pr=>`<option value="${pr.id}" ${pr.id===p.id?"selected":""}>${esc(pr.name)}</option>`).join("");projectSelect.innerHTML=opts;document.querySelectorAll(".project-select-clone").forEach(s=>s.innerHTML=opts);
  const summaryWaiting=ds.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,summaryComplete=ds.filter(x=>x.status==="Complete").length,summaryActive=Math.max(0,ds.length-summaryWaiting-summaryComplete);kpiTotal.textContent=ds.length;kpiActive.textContent=summaryActive;kpiWaiting.textContent=summaryWaiting;kpiComplete.textContent=summaryComplete;
 
@@ -9096,8 +9109,54 @@ async function downloadCurrentGanttPDF(){
       doc.setFont("helvetica","normal");
       doc.setFontSize(5.7);
       doc.setTextColor(...muted);
-      doc.text(fmtDate(ganttIso(item.start)),x1,y+21);
-      doc.text(fmtDate(ganttIso(item.end)),x2,y+21,{align:"right"});
+      const startIso=ganttIso(item.start);
+      const endIso=ganttIso(item.end);
+
+      const pdfGanttShortDate=iso=>{
+        const date=ganttDate(iso);
+        if(!date)return "";
+
+        const day=
+          String(date.getDate()).padStart(2,"0");
+
+        const month=
+          date
+            .toLocaleString(
+              "en-US",
+              {month:"short"}
+            )
+            .toUpperCase();
+
+        return `${day} ${month}`;
+      };
+
+      const startDate=ganttDate(startIso);
+      const endDate=ganttDate(endIso);
+
+      let ganttDateLabel="";
+
+      if(startIso===endIso){
+        ganttDateLabel=
+          pdfGanttShortDate(endIso);
+      }else if(
+        startDate &&
+        endDate &&
+        startDate.getFullYear()!==endDate.getFullYear()
+      ){
+        ganttDateLabel=
+          `${pdfGanttShortDate(startIso)} ${String(startDate.getFullYear()).slice(-2)} - `+
+          `${pdfGanttShortDate(endIso)} ${String(endDate.getFullYear()).slice(-2)}`;
+      }else{
+        ganttDateLabel=
+          `${pdfGanttShortDate(startIso)} - ${pdfGanttShortDate(endIso)}`;
+      }
+
+      doc.text(
+        ganttDateLabel,
+        (x1+x2)/2,
+        y+21,
+        {align:"center"}
+      );
     });
 
     footer();

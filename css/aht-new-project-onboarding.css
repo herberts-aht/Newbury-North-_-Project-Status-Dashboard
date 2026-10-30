@@ -1,0 +1,42 @@
+/* Independent presentation; does not restyle existing Administration or Room Builder. */
+body.aht-ob-open{overflow:hidden}
+.aht-ob-overlay{position:fixed;inset:0;z-index:10060;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+.aht-ob-dialog{width:min(860px,100%);max-height:min(90vh,900px);overflow:auto;background:var(--panel,#fff);color:var(--text,#152334);border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,.28);font-size:14px}
+.aht-ob-header{display:flex;align-items:start;justify-content:space-between;gap:16px;padding:24px 26px 16px;border-bottom:1px solid var(--border,#e1e6ea)}
+.aht-ob-header h2{margin:4px 0 0;font-size:23px;line-height:1.25}.aht-ob-eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#64748b);font-weight:700}
+.aht-ob-close{border:0;background:transparent;color:inherit;font-size:28px;line-height:1;cursor:pointer;padding:0 6px}
+.aht-ob-steps{padding:14px 25px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;border-bottom:1px solid var(--border,#e1e6ea)}
+.aht-ob-steps span{font-size:12px;padding:9px 7px;background:#f2f5f8;color:#57687b;border-radius:5px;text-align:center}
+.aht-ob-steps .active{background:#dbeafe;color:#123a68;font-weight:800}.aht-ob-steps .complete{background:#e6f3eb;color:#155b37}
+.aht-ob-body{padding:22px 26px}.aht-ob-body h3{margin:0 0 12px;font-size:19px}.aht-ob-body h4{margin:22px 0 12px}.aht-ob-note{color:var(--muted,#64748b);line-height:1.55;margin:0 0 18px}
+.aht-ob-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.aht-ob-field{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
+.aht-ob-field input,.aht-ob-field select{width:100%;box-sizing:border-box;min-height:40px;border:1px solid #afbdca;border-radius:6px;background:var(--panel,#fff);color:inherit;padding:8px 10px;font:inherit;font-weight:400}
+.aht-ob-field :is(input,select):focus{outline:2px solid #80abd1;outline-offset:1px}.aht-ob-key{padding:13px;margin-top:18px;background:#f3f6fa;border-radius:6px;overflow-wrap:anywhere}
+.aht-ob-office-filter{max-width:400px;margin-bottom:8px}.aht-ob-directory-note{margin:0 0 18px;color:var(--muted,#64748b);font-size:12px}.aht-ob-members{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;border:1px solid var(--border,#e1e6ea);border-radius:6px;max-height:180px;overflow:auto}.aht-ob-members label{display:flex;gap:8px;align-items:center}
+.aht-ob-review{border:1px solid var(--border,#e1e6ea);border-radius:8px;overflow:hidden}.aht-ob-review-row{display:grid;grid-template-columns:180px 1fr;gap:14px;padding:10px 13px;border-bottom:1px solid var(--border,#e1e6ea);overflow-wrap:anywhere}.aht-ob-review-row:last-child{border:0}.aht-ob-review-row span{color:var(--muted,#64748b)}
+.aht-ob-check{margin:15px 0 0;color:#315c44}.aht-ob-alert,.aht-ob-error{color:#a22c2c}.aht-ob-error{min-height:15px;margin:10px 0 0;font-weight:650}
+.aht-ob-success{padding:15px;border:1px solid #9ecbb0;border-radius:8px;background:#f2faf5;margin-bottom:18px}.aht-ob-success p{margin:9px 0 0}.aht-ob-todos{display:grid;gap:10px;margin-bottom:20px}.aht-ob-todos>div{padding:12px;border:1px solid var(--border,#e1e6ea);border-radius:6px}.aht-ob-todos strong{display:block}.aht-ob-todos span{display:block;margin-top:5px;color:var(--muted,#64748b)}
+.aht-ob-actions{display:flex;justify-content:space-between;align-items:center;padding:15px 26px;border-top:1px solid var(--border,#e1e6ea)}.aht-ob-right{display:flex;gap:10px;justify-content:flex-end}.aht-ob-actions button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:640px){.aht-ob-overlay{padding:7px}.aht-ob-dialog{max-height:97vh}.aht-ob-steps{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px}.aht-ob-grid,.aht-ob-office-filter{max-width:400px;margin-bottom:8px}.aht-ob-directory-note{margin:0 0 18px;color:var(--muted,#64748b);font-size:12px}.aht-ob-members{grid-template-columns:1fr}.aht-ob-header,.aht-ob-body,.aht-ob-actions{padding:14px}.aht-ob-review-row{grid-template-columns:110px 1fr}}
+
+/* Pilot v1.2 — make Add Project the Administration primary creation action.
+ * Scoped to this button; does not recolor other dashboard actions. */
+#newProjectBtn.manage-projects-only:not(:disabled){
+  background:#15803d;
+  border-color:#15803d;
+  color:#fff;
+}
+#newProjectBtn.manage-projects-only:not(:disabled):hover{
+  background:#166534;
+  border-color:#166534;
+  color:#fff;
+}
+#newProjectBtn.manage-projects-only:focus-visible{
+  outline:3px solid #86efac;
+  outline-offset:3px;
+}
+
+/* Pilot v1.3 — directory search appears only in All Offices mode. */
+.aht-ob-employee-search{max-width:100%;margin:12px 0 8px}
+.aht-ob-employee-search input{max-width:100%}
+.aht-ob-employee-search input::-webkit-search-cancel-button{cursor:pointer}

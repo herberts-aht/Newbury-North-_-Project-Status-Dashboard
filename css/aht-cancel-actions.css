@@ -1,0 +1,51 @@
+/* AHT Global — Consistent Cancel Actions v1 (2026-10-19)
+   Global application modals: one orange-outline Cancel appearance.
+   Intentional: Cancel is distinct from primary Save and destructive red Delete.
+   Button behavior is unchanged. All four dashboard modal types are covered.
+*/
+:is(
+  #cancelModal,
+  .pte-actions button.btn[data-pte-close],
+  .modal-actions button.btn[data-pc-close],
+  #siteOperationsModalBackdrop .modal-actions button.btn[onclick*="SiteOperations.closeModal"],
+  button.btn.aht-cancel
+) {
+  color: #9a4d05;
+  background-color: #ffffff;
+  border: 1px solid #d97706;
+  font-weight: 700;
+}
+
+:is(
+  #cancelModal,
+  .pte-actions button.btn[data-pte-close],
+  .modal-actions button.btn[data-pc-close],
+  #siteOperationsModalBackdrop .modal-actions button.btn[onclick*="SiteOperations.closeModal"],
+  button.btn.aht-cancel
+):hover:not(:disabled) {
+  color: #7c3902;
+  border-color: #b45309;
+  background-color: #fff7ed;
+}
+
+:is(
+  #cancelModal,
+  .pte-actions button.btn[data-pte-close],
+  .modal-actions button.btn[data-pc-close],
+  #siteOperationsModalBackdrop .modal-actions button.btn[onclick*="SiteOperations.closeModal"],
+  button.btn.aht-cancel
+):focus-visible {
+  outline: 3px solid rgba(217,119,6,.25);
+  outline-offset: 2px;
+}
+
+:is(
+  #cancelModal,
+  .pte-actions button.btn[data-pte-close],
+  .modal-actions button.btn[data-pc-close],
+  #siteOperationsModalBackdrop .modal-actions button.btn[onclick*="SiteOperations.closeModal"],
+  button.btn.aht-cancel
+):disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}

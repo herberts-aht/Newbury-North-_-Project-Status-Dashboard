@@ -311,3 +311,61 @@
   max-width:100%;
   margin:10px 0 8px auto;
 }
+
+/* Task scheduling modes */
+.pte-schedule-extra[hidden], .pte-schedule-extra [hidden], #pteTargetDateField[hidden] {display:none!important;}
+.pte-schedule-extra {border:1px solid #d5e3eb;border-radius:8px;padding:12px;margin:8px 0;background:#f5f9fc;}
+.pte-schedule-extra .field {margin-bottom:10px;}
+.pte-schedule-extra label {display:block;}
+.pte-schedule-extra input,.pte-schedule-extra textarea {width:100%;}
+.pte-schedule-extra small {display:block;margin:4px 0 8px;color:#627585;}
+.pte-schedule-inline {display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:640px){.pte-schedule-inline{grid-template-columns:1fr}}
+.pw-warning-review-needed {background:#fff2d8!important;color:#815100!important;border-color:#e8bd65!important;}
+
+
+/* AHT predecessor selector full-width v1
+   Keep existing checkboxes, paths, and selection behavior unchanged. */
+#projectTaskEditorModal .pte-deliverable-grid > .pte-field:has(> #ptePredecessor) {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+#projectTaskEditorModal #ptePredecessor {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  max-height: 280px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+#projectTaskEditorModal #ptePredecessor .pte-predecessor-option span {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Do not silently classify historical placeholders as committed due dates. */
+.pte-legacy-schedule-note{
+  display:block;padding:10px 12px;color:#795108;background:#fff7e4;
+  border:1px solid #e8cc92;border-radius:7px;font-size:11px;line-height:1.5;
+}
+.pte-legacy-schedule-note[hidden]{display:none!important;}
+
+/* AHT Sequential Date Review v1 — review one confirmed classification at a time */
+.pte-date-review-queue-banner{
+  display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;
+  margin:0 0 16px;padding:10px 13px;border:1px solid #b8d8ec;
+  background:#eef7fc;color:#17425e;border-radius:8px;font-size:12px;
+}
+.pte-date-review-queue-banner strong{font-weight:800}
+.pte-date-review-queue-banner span{font-weight:700}
+.pte-date-review-queue-banner small{flex-basis:100%;font-size:11px;color:#536978}
+.pte-date-review-queue-banner[hidden],#pteSaveAndNextReview[hidden]{display:none!important}
+#pteSaveAndNextReview{border:1px solid #0079b3;color:#005e8b;background:#e8f5fc;font-weight:750;}
+#pteSaveAndNextReview:hover,#pteSaveAndNextReview:focus-visible{
+  background:#d4edf9;outline:2px solid #8fd1f7;outline-offset:1px;
+}
+
+/* AHT Date Review Skip v1 — explicit no-save path through historical dates */
+#pteSkipDateReview{border:1px solid #b4c3cd;background:#fff;color:#425664;font-weight:750}
+#pteSkipDateReview:hover,#pteSkipDateReview:focus-visible{background:#edf4f8;outline:2px solid #8fd1f7;outline-offset:1px}
+#pteSkipDateReview[hidden]{display:none!important}

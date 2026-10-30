@@ -126,6 +126,13 @@ const ProjectWorkItems = (() => {
 
       startDate: item.startDate ?? "",
       targetDate: item.targetDate ?? "",
+      // Persist scheduling separately from task status and milestone fields.
+      scheduleMode: String(item.scheduleMode ?? ""),
+      scheduleReason: String(item.scheduleReason ?? ""),
+      scheduleReviewDate: item.scheduleReviewDate ?? "",
+      scheduleTrigger: String(item.scheduleTrigger ?? ""),
+      scheduleOffsetDays: Number(item.scheduleOffsetDays ?? 0),
+      scheduleTriggerDate: item.scheduleTriggerDate ?? "",
 
       percentComplete: clampPercent(item.percentComplete),
       progressWeight: normalizedWeight(item.progressWeight),

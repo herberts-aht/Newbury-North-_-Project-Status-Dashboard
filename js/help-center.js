@@ -4743,8 +4743,10 @@
   }
 
   function open(tab=null){
-    const backdrop=document.getElementById("helpCenterBackdrop");
-    if(!backdrop)return;
+    const helpView=
+      document.getElementById("help");
+
+    if(!helpView)return;
 
     const accessTab=document.querySelector('[data-help-tab="access"]');
     if(accessTab){
@@ -4761,26 +4763,29 @@
       tab="guide";
     }
 
-    backdrop.style.display="flex";
+    if(typeof showView==="function"){
+      showView("help");
+    }else{
+      document
+        .querySelectorAll(".view")
+        .forEach(view=>
+          view.classList.toggle(
+            "active",
+            view.id==="help"
+          )
+        );
+    }
 
     if(tab){
       setTab(tab);
     }else{
       showHelpHome();
     }
-
-    const closeButton=
-      document.getElementById("closeHelpCenterBtn");
-
-    closeButton?.focus();
   }
 
   function close(){
-    const backdrop=
-      document.getElementById("helpCenterBackdrop");
-
-    if(backdrop){
-      backdrop.style.display="none";
+    if(typeof showView==="function"){
+      showView("projects");
     }
   }
 
@@ -5460,7 +5465,10 @@
     );
 
     document.getElementById("sidebarHelpBtn")
-      ?.addEventListener("click",()=>open());
+      ?.addEventListener(
+        "click",
+        ()=>open()
+      );
 
     document.getElementById("adminAccessRequestBtn")
       ?.addEventListener("click",()=>open("access"));
@@ -5484,13 +5492,6 @@
           ()=>setTab(button.dataset.helpTab)
         )
       );
-
-    document.getElementById("helpCenterBackdrop")
-      ?.addEventListener("click",event=>{
-        if(event.target===event.currentTarget){
-          close();
-        }
-      });
 
     document.getElementById("helpTopicBackdrop")
       ?.addEventListener("click",event=>{
@@ -5517,13 +5518,6 @@
       if(topic?.style.display==="flex"){
         closeTopic();
         return;
-      }
-
-      const center=
-        document.getElementById("helpCenterBackdrop");
-
-      if(center?.style.display==="flex"){
-        close();
       }
     });
   }

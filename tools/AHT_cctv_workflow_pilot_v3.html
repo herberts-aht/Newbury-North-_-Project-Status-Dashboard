@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT CCTV Camera Markup Tool · Security V3.4</title>
+<title>AHT CCTV Camera Markup Tool · Security V3.5.10</title>
+<!-- AHT_CCTV_V3_5_10: visible project-linked SharePoint button using authenticated dashboard picker API -->
+<!-- AHT_CCTV_V3_5_9: use the same authenticated project-PDF picker bridge as the other four markup editors -->
+<!-- AHT_CCTV_V3_5_8: AHT-standard jump navigation, one scrolling sidebar, preserved drawing engine -->
+<!-- AHT_CCTV_V3_5_7: Open Plan default, clearer SharePoint options, expanded submenus and sharper visual design -->
+<!-- AHT_CCTV_V3_5_6: five-tab layout with sticky editing toolbar; no core marker or export changes -->
+<!-- AHT_CCTV_V3_5_5: bulk adjustments for radius, reach, arrow length and grouped colors -->
+<!-- AHT_CCTV_V3_5: 360 LiDAR radius + drawing-area appearance controls -->
 <!-- AHT_CCTV_SITE_SECURITY_V3_3: independent pole arms and camera aim, compatible with V3.2 JSON -->
 <!-- AHT_CCTV_SITE_SECURITY_V3_1: flexible poles, per-head coverage, length visibility controls -->
 <!-- AHT_CCTV_SITE_SECURITY_V3_4: multi-LiDAR arms, arm length, standalone LiDAR arrow clearance -->
@@ -238,6 +245,142 @@
 #securityControls input[type="range"], #securityControls select { width:100%; box-sizing:border-box; }
 #securityControls .row button { flex:1; }
 #securityControls input[type="color"] { width:58px;height:32px; }
+
+/* V3.5.6 - five-tab workspace, existing input and export handlers retained */
+#sidebar { display:flex;flex-direction:column;padding-bottom:0; }
+#cctvTabNav { position:sticky;top:0;z-index:35;background:#fff;padding:9px 2px 8px;border-bottom:1px solid #d3dce4;display:grid;grid-template-columns:1.02fr .78fr .84fr .91fr 1.4fr;gap:4px; }
+#cctvTabNav button { min-width:0;padding:9px 2px 8px;line-height:1.15;font-size:10.5px;font-weight:750;border:1px solid #c5d3df;background:#f5f8fb;color:#244c66;border-radius:6px;min-height:43px; }
+#cctvTabNav button[aria-selected="true"] { background:#185fa5;color:#fff;border-color:#185fa5;box-shadow:inset 0 -3px 0 #0f3d70; }
+#cctvTabNav button:focus-visible { outline:2px solid #d89b2a;outline-offset:1px; }
+#cctvTabPages { flex:1;min-height:0; }
+.cctv-tab-pane { display:block; }
+.cctv-tab-pane[hidden] { display:none!important; }
+.cctv-tab-pane .workflow-step { margin:10px 0 12px; }
+.cctv-tab-pane .workflow-step .step-heading {margin-bottom:10px;}
+#modeDock { position:sticky;top:60px;z-index:34;margin:0 -13px;padding:7px 13px 5px;box-shadow:0 2px 6px rgba(0,0,0,.08); }
+#cctvAlwaysToolbar { display:grid;grid-template-columns:minmax(0,1.3fr) repeat(3,minmax(0,.82fr));gap:5px;align-items:stretch; }
+#cctvAlwaysToolbar button { height:34px;min-width:0;padding:5px 2px;font-size:11px;font-weight:750;line-height:1.1; }
+#cctvAlwaysToolbar #selectBtn { height:34px;padding:5px 2px;font-size:11px; }
+#cctvAlwaysToolbar #quickSaveBtn { background:#edf5fd;color:#135889;border:1px solid #93b5d5; }
+#modeDock .mode-note { font-size:10px;padding:5px 0 0; }
+#modeDock .compact { font-size:10px;margin:2px 0 0; }
+#cctvTabAdjust #selectionSettings { margin:8px 0; }
+#cctvTabAdjust #selectionSettings > summary {font-size:13px;}
+#cctvTabAdjust #viewRow, #cctvTabAdjust #securityControls {margin:10px 0;}
+#cctvTabLayers #layerVisibilityPanel {margin:8px 0 12px;}
+#cctvTabReview #detailsSection {margin:10px 0 12px;}
+#cctvTabReview #detailsSection .step-heading {margin-bottom:6px;}
+#cctvTabFinish #countsSettings {margin:12px 0;}
+@media(max-width:760px){#cctvTabNav{gap:2px}#cctvTabNav button{font-size:9.5px;padding:8px 1px}#cctvAlwaysToolbar button{font-size:10px}}
+
+/* V3.5.7: sharp, modern AHT presentation; no changes to canvas layers or export. */
+:root {
+  --border:#c7d4e1; --border2:#b5c6d6; --text:#142a40; --text2:#3c5368;
+  --muted:#5f7386; --bg:#f4f7fb; --card:#ffffff; --accent:#145f97;
+}
+body { -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+#sidebar { width:352px; background:#fff; border-left:1px solid #c7d5e3; }
+#main { background:#e4e8ed; }
+.editor-head { background:#fff; padding-bottom:11px; }
+.editor-head h1 { color:#0e416b; letter-spacing:.01em; font-size:17px; font-weight:800; }
+.editor-brand-explainer { background:#f3f7fb!important; border-left:3px solid #1966a0!important; color:#344d65!important; }
+#cctvTabNav {
+  background:#fff; border-bottom:2px solid #d9e3ed; gap:5px; padding:8px 1px 10px;
+  grid-template-columns:1.2fr .75fr .87fr .85fr 1.43fr;
+}
+#cctvTabNav button {
+  background:#f4f8fc; border:1px solid #b7c9da; border-radius:5px; color:#234a68;
+  box-shadow:0 1px 0 rgba(20,65,97,.06); font-size:10.7px; font-weight:750;
+  min-height:46px; padding:7px 2px; letter-spacing:0; line-height:1.2;
+}
+#cctvTabNav button:hover { background:#e6f1fa; border-color:#8aabc6; }
+#cctvTabNav button[aria-selected="true"] {
+  background:#155f99; border-color:#155f99; color:#fff;
+  box-shadow:inset 0 -3px 0 #0a3f70,0 2px 5px rgba(20,70,120,.13);
+}
+#cctvTabNav button:focus-visible,button:focus-visible,a:focus-visible {outline:2px solid #117866;outline-offset:2px;}
+#modeDock { background:#fff; box-shadow:0 3px 8px rgba(16,42,64,.09); border-bottom:1px solid #cfdeea; }
+#cctvAlwaysToolbar { grid-template-columns:1.23fr .84fr .84fr 1.05fr; gap:5px; }
+#cctvAlwaysToolbar button { height:36px; font-size:10.7px; border-radius:5px; }
+#cctvAlwaysToolbar #quickSaveBtn {
+  background:#edf7f5; color:#0d6658; border:1px solid #87b9af; font-weight:800;
+}
+#cctvAlwaysToolbar #quickSaveBtn:hover { background:#dff2ec; }
+.workflow-step { border:1px solid #cfdae5; border-radius:8px; background:#fff; box-shadow:0 1px 4px rgba(20,58,84,.055); }
+.step-heading h2 { font-size:14px; color:#123c5d; font-weight:800; }
+.step-number { background:#e2f1f9; color:#115a8b; border:1px solid #c8dce9; }
+.fold { border:1px solid #ccd9e5; background:#fafcff; border-radius:6px; }
+.fold[open] { background:#fff; border-color:#b6cbdc; }
+.fold > summary { color:#184b6f; font-size:12px; font-weight:750; }
+button { border-color:#bccbda; border-radius:5px; }
+button:hover { border-color:#749bb9; }
+button.primary { background:#155f99; border-color:#155f99; }
+button.primary:hover { background:#0d4f83; }
+button, input, select, textarea { outline-offset:2px; }
+#chooseBtn { font-size:12px; min-height:39px; height:auto; }
+.plan-source-options { display:flex; flex-direction:column; gap:7px; }
+.secondary-plan-source {
+  background:#f0f8f6; color:#105d54; border:1px solid #8ebbb2;
+  font-size:11.5px; font-weight:750; min-height:36px;
+}
+.secondary-plan-source:hover { background:#ddf0e9; border-color:#5b9c8e; }
+.sharepoint-browser-link { display:block; text-align:center; font-size:11px; font-weight:700; color:#145f97; padding:5px; text-decoration:underline; text-underline-offset:2px; }
+.source-helper {font-size:10.7px; line-height:1.42; color:#4d6479; padding:9px 10px; background:#f5f8fc; border-left:3px solid #adc5d8; border-radius:3px;}
+#fileName { font-weight:600; }
+#planSection { margin-top:9px; }
+#cctvTabPages .workflow-step { margin:9px 0 12px; }
+@media(max-width:760px){#sidebar{width:310px}#cctvTabNav{gap:3px}#cctvTabNav button{font-size:10px;padding:6px 1px}}
+
+/* AHT CCTV V3.5.8: standard six-step jump navigation (same model as Shades). */
+#sidebar {display:block;width:352px;padding:0 12px 18px;scroll-behavior:auto;background:#fff;}
+#ahtStickyControls {
+  position:sticky;top:0;z-index:50;background:#fff;
+  padding:8px 0 7px;margin:0 -12px 6px;padding-left:12px;padding-right:12px;
+  border-bottom:1px solid #cedce9;box-shadow:0 3px 8px rgba(32,57,81,.07);
+}
+#ahtWorkflowNav {padding:9px 9px 8px;border:1px solid #bdd3e7;border-radius:8px;background:#f4f8fd;}
+.aht-workflow-kicker {color:#164b76;font-weight:850;letter-spacing:.08em;font-size:10px;line-height:1.3;margin-bottom:8px;}
+.aht-workflow-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;}
+.aht-jump {
+ min-width:0;min-height:41px;padding:6px 3px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ background:#fff;border:1px solid #bfd2e3;color:#1f486d;border-radius:5px;
+ font-size:11px;font-weight:700;line-height:1.15;box-shadow:0 1px 0 rgba(33,63,98,.04);
+}
+.aht-jump b {font-size:10px;line-height:1.2;}
+.aht-jump:hover {background:#eaf3fb;border-color:#8eafcd;}
+.aht-jump.active {background:#e8f2fb;border:2px solid #206da7;color:#104b7b;padding:5px 2px;box-shadow:inset 0 -2px 0 #99c4e6;}
+.aht-workflow-helper {font-size:10.5px;color:#45647e;line-height:1.3;margin-top:7px;}
+#ahtStickyControls #modeDock {
+ position:relative;top:auto;z-index:auto;margin:7px 0 0;padding:0;
+ background:transparent;border:0;box-shadow:none;
+}
+#ahtEditingToolbar {display:grid;grid-template-columns:1.45fr 1fr 1fr;gap:6px;}
+#ahtEditingToolbar button {height:32px;padding:5px 4px;font-size:11px;font-weight:750;min-width:0;border-radius:5px;}
+#ahtEditingToolbar #selectBtn {width:100%;height:32px;font-size:11px;padding:5px 4px;background:#147568;color:#fff;border-color:#147568;}
+#ahtEditingToolbar #selectBtn:not(.on) {background:#eef8f5;color:#156459;border-color:#91bfb4;}
+#ahtStickyControls .mode-note {padding:5px 0 0;margin:0;font-size:10px;}
+#ahtStickyControls .compact {margin-top:3px;font-size:10px;}
+#ahtScrollableSections {padding-top:1px;padding-bottom:25px;}
+.aht-step-block {scroll-margin-top:calc(var(--aht-sticky-height, 200px) + 8px);}
+.aht-step-block>.workflow-step {margin:9px 0 12px;}
+#ahtStepAdjust>#bulkAdjustPanel {margin:9px 0 13px;}
+#ahtStepExport>#countsSettings {margin:8px 0 12px;}
+#ahtStepReview>#detailsSection {margin-top:9px;}
+#changeDetails {scroll-margin-top:calc(var(--aht-sticky-height, 200px) + 8px);}
+#planSection .plan-source-options {gap:0;}
+#chooseBtn {min-height:38px;font-size:12px;}
+#planSection {border-color:#cbd9e5;}
+#layerVisibilityPanel, #bulkAdjustPanel, #countsSettings, #selectionSettings {scroll-margin-top:calc(var(--aht-sticky-height, 200px) + 8px);}
+@media(max-width:760px){#sidebar{width:312px}#ahtWorkflowNav{padding:7px}#ahtStickyControls{padding-left:9px;padding-right:9px;margin-left:-12px;margin-right:-12px}}
+
+/* Project-linked SharePoint option matches the existing AHT markup tools. */
+#planSection #ahtOpenProjectPdf {
+  display:block; width:100%; min-height:36px; padding:8px 9px; margin-top:7px;
+  border:1px solid #abc5d9; border-radius:6px;
+  background:#eff6fa; color:#205c82;
+  font-weight:700; font-size:12px; line-height:1.3;
+}
+#planSection #ahtOpenProjectPdf:hover { background:#e4f1f8; border-color:#7cabc7; }
 </style>
 </head>
 <body>
@@ -255,10 +398,26 @@
       <p class="editor-brand-explainer">Preliminary camera positions and illustrative viewing areas. Not a verified coverage study.</p>
     </header>
 
+
+    <nav id="ahtWorkflowNav" aria-label="Drawing workflow — jump to any step">
+      <div class="aht-workflow-kicker">YOUR DRAWING WORKFLOW — JUMP TO ANY STEP</div>
+      <div class="aht-workflow-grid" role="group" aria-label="Jump to drawing sections">
+        <button type="button" class="aht-jump active" data-aht-jump="plan" aria-current="step"><b>1</b><span>Open</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="place"><b>2</b><span>Place</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="adjust"><b>3</b><span>Adjust</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="layers"><b>4</b><span>Layers</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="review"><b>5</b><span>Review</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="export"><b>6</b><span>Export</span></button>
+      </div>
+      <div class="aht-workflow-helper">Select a step to jump there. All sections stay available while scrolling.</div>
+    </nav>
     <section class="workflow-step" id="planSection">
-      <div class="step-heading"><span class="step-number">1</span><h2>Open a Drawing</h2></div>
+      <div class="step-heading"><span class="step-number">1</span><h2>Open a Plan PDF</h2></div>
       <input type="file" id="fileInput" accept="application/pdf,.pdf" style="display:none">
-      <button class="primary full" id="chooseBtn">Choose plan PDF…</button>
+      <div class="plan-source-options" role="group" aria-label="Choose PDF source">
+        <button type="button" class="primary full" id="chooseBtn">Choose plan PDF…</button>
+        <button type="button" id="ahtOpenProjectPdf">Browse SharePoint project PDFs…</button>
+      </div>
       <div class="muted" id="fileName" style="margin-top:5px">No file chosen</div>
       <div id="pageRow" style="display:none"><label class="lbl">Drawing page</label><select id="pageSel"></select></div>
       <details class="fold" id="drawingSettings">
@@ -290,7 +449,7 @@
     </div>
 
     <section class="workflow-step" id="placeSection">
-      <div class="step-heading"><span class="step-number">2</span><h2>Mark a Change</h2></div>
+      <div class="step-heading"><span class="step-number">2</span><h2>Place Devices &amp; Markups</h2></div>
       <div class="muted helper">Choose a device, then click its location on the PDF. For an Omnitrax perimeter, click each corner and press Enter to finish. Other devices return to Select / Adjust after placement.</div>
       <div class="minor-label">Layout / Markup Type</div>
       <div class="camera-stage-chooser" role="group" aria-label="Camera layout type">
@@ -329,8 +488,8 @@
     </section>
 
     <section class="workflow-step" id="detailsSection">
-      <div class="step-heading"><span class="step-number">3</span><h2>Identify the Change</h2></div>
-      <div class="muted">After placing a change, this section opens automatically. Room number is optional.</div>
+      <div class="step-heading"><span class="step-number">✓</span><h2>Identify Changes (optional)</h2></div>
+      <div class="muted">Work on your layout first. Identify room / area details here when ready; this form never opens after simply placing equipment. Room number is optional.</div>
     <div id="changeDetails" class="panel" style="display:none">
       <strong style="font-size:14px">Change Details</strong>
       <div class="muted" id="detailState" style="margin:5px 0">New markup</div>
@@ -341,7 +500,7 @@
       <label class="lbl">Change note (optional)</label>
       <textarea id="detailComment" rows="2" placeholder="Reason or direction for engineering" style="width:100%;box-sizing:border-box"></textarea>
       <div class="row" style="margin-top:8px"><button class="primary" id="detailSave">Save details</button><button id="detailLater">Identify later</button></div>
-      <div class="muted" style="margin-top:5px">Room name identifies the change in the review list and PDF. You can identify it later, but it stays flagged.</div>
+      <div class="muted" style="margin-top:5px">Identify changes when you finish laying out devices. Unidentified changes stay in the review list and will trigger a reminder on export or closing.</div>
     </div>
 
 
@@ -399,6 +558,23 @@
           <label class="lbl">Arrow length: <span id="lidarLenVal">18</span></label><input id="lidarLenRange" type="range" min="4" max="80" step="1" value="18">
           <div class="grid2" style="margin-top:7px"><div><label class="lbl">Arrow color</label><input type="color" id="lidarArrowColor" value="#6b21a8"></div><div><label class="lbl">Arrow width: <span id="lidarArrowWidthVal">3</span></label><input type="range" id="lidarArrowWidth" min="1" max="16" step="0.5" value="3"></div></div>
         </div>
+        <div id="lidar360Controls" style="display:none">
+          <strong style="font-size:13px">LiDAR 360° Coverage</strong>
+          <div class="muted" style="margin:5px 0 9px">Illustrative circular detection area. Use the radius as a reference number only, not a dimensional measurement. Confirm actual coverage and mounting with the selected LiDAR manufacturer.</div>
+          <label class="lbl" for="lidar360Radius">Circle radius: <span id="lidar360RadiusVal">0.5</span> (reference only)</label>
+          <input id="lidar360Radius" type="range" min="0.05" max="30" step="0.05" value="0.5" style="width:100%">
+          <label class="lbl" for="lidar360RadiusNumber">Or enter exact radius value (0.05–500)</label>
+          <input id="lidar360RadiusNumber" type="number" min="0.05" max="500" step="0.05" value="0.5">
+          <label class="lbl" for="lidar360Color">Circle outline / fill color</label>
+          <input id="lidar360Color" type="color" value="#7c3aed" style="width:92px;height:34px">
+          <label class="chk" style="margin-top:8px"><input id="lidar360OutlineEnabled" type="checkbox" checked><span>Show dotted outline for this LiDAR</span></label>
+          <label class="lbl" for="lidar360LineWidth">Dotted outline width: <span id="lidar360LineWidthVal">3</span></label>
+          <input id="lidar360LineWidth" type="range" min="1" max="16" step="1" value="3" style="width:100%">
+          <label class="chk" style="margin-top:8px"><input id="lidar360FillEnabled" type="checkbox"><span>Fill circle using outline color</span></label>
+          <label class="lbl" for="lidar360FillOpacity">Fill opacity: <span id="lidar360FillOpacityVal">20</span>%</label>
+          <input id="lidar360FillOpacity" type="range" min="0" max="100" step="5" value="20" style="width:100%">
+          <div class="muted">Move the LiDAR symbol to reposition the center. Drag the yellow edge handle to resize. Circle exports to PDF and saves with JSON.</div>
+        </div>
         <div id="omniControls" style="display:none">
           <strong style="font-size:13px">Senstar Omnitrax Paired Run</strong>
           <div class="muted" style="margin:4px 0 8px">The tool draws one orthogonal route and shows the two underground runs in parallel.</div>
@@ -422,7 +598,7 @@
     <div class="panel" id="selPanel"><div class="muted">Nothing selected.</div></div>
     <div id="selTools" style="display:none">
       <div id="devRow">
-      <label class="lbl">Room / area (required for changes)</label>
+      <label class="lbl">Room / area (identify when ready)</label>
       <input type="text" id="noteInput" list="noteList" placeholder="e.g. Primary Bedroom">
       <datalist id="noteList"></datalist>
       <label class="lbl"><span id="szLabel">Size of this device</span>: <span id="szVal">100</span>%</label>
@@ -448,7 +624,11 @@
 
       <div id="arrowNoteRow" style="display:none">
         <strong style="font-size:13px">Arrow Note / Pointer Callout</strong>
-        <div class="muted" style="margin:5px 0 7px">Drag the tip to point at an item. Drag the label to move just the text; drag the line to move both.</div>
+        <label class="chk" style="margin:9px 0"><input type="checkbox" id="arrowNoteIndividualVisible" checked><span>Show this note and its arrows</span></label>
+        <div class="muted" style="margin:5px 0 7px">One text box can point to multiple locations. Drag any arrow tip independently; move the label without moving targets.</div>
+        <div class="row" style="margin:7px 0"><button type="button" id="noteAddPointer">+ Add another arrow</button><button type="button" id="noteCancelPointer" style="display:none">Cancel placement</button></div>
+        <div class="row"><select id="notePointerSelect" aria-label="Arrow tip to remove"></select><button type="button" id="noteRemovePointer">Remove selected arrow</button></div>
+        <div class="muted" id="notePointerState">Click Add another arrow, then click its target on the drawing.</div>
         <label class="lbl" for="arrowNoteText">Note text</label>
         <textarea id="arrowNoteText" rows="3" style="width:100%;font:inherit;padding:5px;box-sizing:border-box"></textarea>
         <div class="grid2" style="margin-top:6px">
@@ -473,11 +653,69 @@
     </details>
 
     <section class="workflow-step" id="reviewSection">
-      <div class="step-heading"><span class="step-number">4</span><h2>Review Changes</h2></div>
+      <div class="step-heading"><span class="step-number">4</span><h2>Review Change Tracking</h2></div>
+      <div id="trackingReviewReminder" class="panel" style="border:1px solid #b6cedd;background:#f4f8fb;margin-bottom:9px" role="status" aria-live="polite">
+        <strong id="trackingReminderCount">No changes need identification.</strong>
+        <div id="trackingReminderMessage" class="muted" style="margin-top:5px">Place your items freely, then identify room / area and change reason when ready.</div>
+        <button type="button" id="trackingReviewNext" style="display:none;margin-top:8px;width:100%">Identify next outstanding change</button>
+      </div>
       <div class="panel" id="changeReview">No changes yet.</div>
       <div class="chk" id="lenChkRow" style="display:none;margin:10px 0;padding:8px 10px;border:1px solid #b9cfdf;border-radius:6px;background:#f2f8fc">
         <input type="checkbox" id="lenChk" checked><label for="lenChk"><strong>Show estimated lengths on drawing + exported PDF</strong></label>
       </div>
+      <details class="fold" id="bulkAdjustPanel">
+        <summary>Bulk Adjustments <span>Apply to all pages · Sizes + colors</span></summary>
+        <div class="panel" style="background:#f6f9fd;border:1px solid #b5cde1;margin-top:8px">
+          <strong style="font-size:13px">Set once · Apply to All</strong>
+          <div class="muted" style="margin:5px 0 10px">These actions update existing matching items on every page, including camera and LiDAR heads attached to poles. Nothing changes until you press Apply. Use Undo to reverse an action. Hidden layers are included.</div>
+          <label class="lbl" for="bulkLidarLength">All directional LiDAR arrow lengths (4–80)</label>
+          <div class="row"><input type="number" id="bulkLidarLength" min="4" max="80" step="1" value="18" aria-label="LiDAR arrow length"><button type="button" id="bulkLidarLengthApply">Apply to All</button></div>
+          <label class="lbl" for="bulkLidar360Radius">All LiDAR 360° circle radii (0.05–500)</label>
+          <div class="row"><input type="number" id="bulkLidar360Radius" min="0.05" max="500" step="0.05" value="0.5" aria-label="LiDAR 360 circle radius"><button type="button" id="bulkLidar360RadiusApply">Apply to All</button></div>
+          <label class="lbl" for="bulkCameraReach">All camera viewing-area lengths (1.2–16)</label>
+          <div class="row"><input type="number" id="bulkCameraReach" min="1.2" max="16" step="0.1" value="4.2" aria-label="Camera viewing reach"><button type="button" id="bulkCameraReachApply">Apply to All</button></div>
+          <div class="muted" style="margin-top:6px">Camera reach includes fixed, PTZ, fisheye, and camera heads on poles. Each item's direction, angle, visibility and placement are preserved. Measurements here are illustrative reference values, not verified feet.</div>
+          <div style="border-top:1px solid #c7d9e9;padding-top:9px;margin-top:12px">
+            <strong style="font-size:13px">Change Color by Type</strong>
+            <label class="lbl" for="bulkColorType">Which items to recolor</label>
+            <select id="bulkColorType">
+              <optgroup label="Viewing areas (not camera icons)">
+                <option value="cam">Fixed cameras — coverage color (including pole heads)</option>
+                <option value="ptz">PTZ cameras — coverage color (including pole heads)</option>
+                <option value="fish">360° fisheye cameras — coverage color</option>
+              </optgroup>
+              <optgroup label="LiDAR and perimeter">
+                <option value="lidar">Directional LiDAR arrows (including pole heads)</option>
+                <option value="lidar360">360° LiDAR outlines + fills</option>
+                <option value="omnitraxA">Senstar OmniTrax — Run A</option>
+                <option value="omnitraxB">Senstar OmniTrax — Run B</option>
+              </optgroup>
+              <optgroup label="Annotations">
+                <option value="relocate">Move / relocation arrows</option>
+                <option value="arrow_note">Text note arrows (not note text)</option>
+                <option value="area">Callout borders</option>
+              </optgroup>
+            </select>
+            <div class="row" style="margin-top:7px"><input type="color" id="bulkColorValue" value="#00cbd4" aria-label="New color" style="height:33px;max-width:94px"><button type="button" id="bulkColorApply">Apply Color to Type</button></div>
+            <div class="muted" style="margin-top:6px">Camera icon colors still indicate initial vs proposed layout; only their viewing-area colors change. LiDAR arrow and 360 circle colors change on plan and PDF.</div>
+          </div>
+          <div id="bulkAdjustStatus" class="muted" role="status" aria-live="polite" style="margin-top:9px;font-weight:700"></div>
+        </div>
+      </details>
+      <details class="fold" id="layerVisibilityPanel">
+        <summary>Drawing Layers / Visibility <span>Hide all · Show all · By device type</span></summary>
+        <div class="panel" style="background:#f3f7fa;border:1px solid #c7d9e5;margin-top:8px">
+          <div class="row" style="margin-bottom:8px"><button type="button" id="layersShowAll">Show All Items</button><button type="button" id="layersHideAll">Hide All Items</button></div>
+          <div class="muted" style="margin-bottom:7px">Visibility only — placed objects, counts and saved positions are not deleted. Applies to the drawing and PDF export. Coverage-only switches are available here on the Layers tab.</div>
+          <div id="layerChecklist" style="display:grid;grid-template-columns:1fr;gap:3px"></div>
+          <div class="muted" id="layerStatus" style="margin-top:8px"></div>
+          <div id="hiddenNoteTools" style="display:none;margin-top:10px;padding-top:8px;border-top:1px solid #c9d9e7">
+            <strong style="font-size:12px">Individually hidden arrow notes</strong>
+            <div class="muted">Restore a note here even when it is no longer visible on the plan.</div>
+            <div id="hiddenNoteList"></div>
+          </div>
+        </div>
+      </details>
       <details class="fold" id="countsSettings">
         <summary>Device counts and drawing options</summary>
         <div class="panel" id="counts"><div class="muted">No devices yet.</div></div>
@@ -486,7 +724,21 @@
     </section>
 
     <section class="workflow-step" id="exportSection">
-      <div class="step-heading"><span class="step-number">5</span><h2>Save / Share</h2></div>
+      <div class="step-heading"><span class="step-number">5</span><h2>Save / Export</h2></div>
+      <div class="panel" id="cameraAppearanceControls" style="margin:8px 0 12px;background:#f1f6fc;border:1px solid #b6cbdf">
+        <strong style="font-size:12px">Camera viewing-area appearance (on plan + PDF)</strong>
+        <label class="chk" style="margin:8px 0"><input type="checkbox" id="cameraOutlineChk" checked><span>Show camera viewing-area outlines</span></label>
+        <label class="lbl" for="cameraFillStrength">Camera fill strength: <span id="cameraFillStrengthVal">100</span>%</label>
+        <input id="cameraFillStrength" type="range" min="0" max="100" step="5" value="100" style="width:100%">
+        <div class="muted">Turn outlines off and lower fill strength (try 35%) to keep floor plans legible. Does not change camera angles or positions.</div>
+        <div style="margin-top:9px;padding-top:8px;border-top:1px solid #c8d6e6">
+          <strong style="font-size:12px">Show / Hide Coverage Layers — All Devices</strong>
+          <label class="chk"><input type="checkbox" id="showAllCameraCones" checked><span>Show all camera viewing cones</span></label>
+          <label class="chk"><input type="checkbox" id="showAllLidar360Fills" checked><span>Show all LiDAR 360 circle fills</span></label>
+          <label class="chk"><input type="checkbox" id="showAllLidar360Outlines" checked><span>Show all LiDAR 360 dotted outlines</span></label>
+          <div class="muted">These switches control the drawing and PDF, not the saved device positions. Each LiDAR also has its own dotted-outline switch.</div>
+        </div>
+      </div>
       <label class="chk pdf-view-option"><input type="checkbox" id="pdfViewChk" checked><span>Include illustrative camera viewing areas in PDF</span></label>
       <!-- AHT_PDF_LEGEND_TOGGLE_V3: opt-in PDF title/device legend -->
       <label class="chk pdf-legend-option" style="display:flex;gap:8px;align-items:center;margin:9px 0 7px"><input type="checkbox" id="pdfLegendChk"><span><strong>Include title and device legend in exported PDF</strong></span></label>
@@ -512,7 +764,7 @@
 
   <div id="main">
     <div id="viewport"><div id="stage"><canvas id="cv"></canvas><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div></div>
-    <div id="empty">Choose a plan PDF to begin.<br>The sheet scale is read from the drawing when possible.</div>
+    <div id="empty">Open a plan PDF to begin.<br>The sheet scale is read from the drawing when possible.</div>
     <div id="banner"></div>
     <div id="omniFinishDock" role="status" aria-live="polite" style="display:none;position:absolute;top:48px;left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;background:#fff7da;border:3px solid #ad5f00;color:#613700;padding:13px 18px;border-radius:12px;box-shadow:0 5px 20px #0003;text-align:center;min-width:290px;font-weight:900">
       <div style="font-size:13px;letter-spacing:.4px">OMNITRAX ROUTE ACTIVE</div>
@@ -526,7 +778,113 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script>
-const CFG = {"title":"AHT CCTV Camera Markup Tool","fileTag":"CCTV","iconScale":1.5,"devices":[{"key":"cam","label":"Fixed Camera","style":"tile","color":"#ff00ff","fill":"#ff00ff","textColor":"#ffffff","glyph":"CC\nTV","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"ptz","label":"PTZ Camera","style":"ptz","color":"#2752b8","fill":"#ffffff","textColor":"#2752b8","glyph":"PTZ","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"pole3","label":"Camera Pole (multi-head)","style":"pole3","color":"#343a40","fill":"#ffffff","textColor":"#1f2937","rotatable":true,"kind":"pole","vcolor":"#00cbd4"},{"key":"lidar","label":"LiDAR","style":"lidar","color":"#6b21a8","fill":"#ffffff","textColor":"#6b21a8","rotatable":true,"kind":"lidar","vcolor":"#00cbd4"},{"key":"omnitrax","label":"Senstar Omnitrax Perimeter","style":"omni","color":"#2563eb","secondaryColor":"#ef4444","kind":"route"},{"key":"fish","label":"360° Fisheye Camera","style":"tile","color":"#b85c5c","fill":"#addef7","textColor":"#000000","glyph":"CC\nTV","preview":"circle","vcolor":"#00cbd4","kind":"point"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","overlay":true,"kind":"point"},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","overlay":true,"kind":"point"}],"preview":{"title":"Illustrative Camera View","defaultPreset":1,"presets":[{"name":"Narrow","r":20,"angle":45},{"name":"Standard","r":12,"angle":80},{"name":"Wide","r":9,"angle":110}],"disclaimer":"Illustrative viewing areas are not validated camera coverage. Visible areas can be included in review PDFs."}};
+// AHT_CCTV_V3_5_8: AHT-style single scrolling sidebar with sticky jump navigation.
+// Move original DOM nodes, never clone them: all IDs, handlers, JSON and export remain.
+(function(){
+  const get=id=>document.getElementById(id);
+  const sidebar=get('sidebar');
+  const dock=get('modeDock');
+  const sticky=document.createElement('div');sticky.id='ahtStickyControls';
+  const jump=get('ahtWorkflowNav');
+  sidebar.insertBefore(sticky,jump);
+  sticky.appendChild(jump);
+  sticky.appendChild(dock);
+  const workspace=document.createElement('div');workspace.id='ahtScrollableSections';
+  sticky.insertAdjacentElement('afterend',workspace);
+  const blocks={};
+  function step(key,title){
+    const section=document.createElement('section');
+    section.id='ahtStep'+key[0].toUpperCase()+key.slice(1);
+    section.className='aht-step-block';
+    section.dataset.ahtStep=key;
+    blocks[key]=section;
+    workspace.appendChild(section);
+    return section;
+  }
+  step('plan','Open').appendChild(get('planSection'));
+  step('place','Place').appendChild(get('placeSection'));
+  const adjust=step('adjust','Adjust');
+  const adjustSection=document.createElement('section');
+  adjustSection.id='adjustDeviceSection';adjustSection.className='workflow-step';
+  adjustSection.innerHTML='<div class="step-heading"><span class="step-number">3</span><h2>Adjust Selected Items</h2></div><div class="muted helper">Select an item on the drawing to adjust its position, size, direction, color or annotation. Use Bulk Adjustments to update matching items together.</div>';
+  adjust.appendChild(adjustSection);
+  const selected=get('selectionSettings');selected.open=true;
+  adjustSection.appendChild(selected);
+  selected.querySelector('summary').innerHTML='Selected Item / Individual Settings <span>Device · Position · Style · Notes</span>';
+  selected.appendChild(get('viewRow'));
+  selected.appendChild(get('securityControls'));
+  adjust.appendChild(get('bulkAdjustPanel'));
+  const layers=step('layers','Layers');
+  const layerSection=document.createElement('section');
+  layerSection.id='ahtLayerSection';layerSection.className='workflow-step';
+  layerSection.innerHTML='<div class="step-heading"><span class="step-number">4</span><h2>Drawing Layers &amp; Appearance</h2></div><div class="muted helper">Show or hide groups of devices without deleting them. The same choices carry into review PDFs.</div>';
+  layers.appendChild(layerSection);
+  layerSection.appendChild(get('layerVisibilityPanel'));
+  layerSection.appendChild(get('cameraAppearanceControls'));
+  const lengthToggle=get('lenChkRow');
+  if(lengthToggle)layerSection.appendChild(lengthToggle);
+  const notesChk=get('notesChk');const notesRow=notesChk && notesChk.closest('label');
+  if(notesRow)layerSection.appendChild(notesRow);
+  const review=step('review','Review');
+  review.appendChild(get('reviewSection'));
+  review.appendChild(get('detailsSection'));
+  const exportBlock=step('export','Export');
+  exportBlock.appendChild(get('exportSection'));
+  exportBlock.appendChild(get('countsSettings'));
+  [get('drawingSettings'),get('bulkAdjustPanel'),get('layerVisibilityPanel'),get('countsSettings')].forEach(detail=>{if(detail)detail.open=true;});
+  // Match the four established tools: pinned select/undo/redo, no duplicate quick-save button.
+  const history=dock.querySelector('.edit-history-bar');
+  const toolbar=document.createElement('div');toolbar.id='ahtEditingToolbar';
+  dock.insertBefore(toolbar,dock.firstChild);
+  toolbar.appendChild(get('selectBtn'));
+  toolbar.appendChild(get('undoBtn'));
+  toolbar.appendChild(get('redoBtn'));
+  if(history)history.remove();
+  function jumpTo(key,instant){
+    const target=blocks[key];if(!target)return;
+    document.querySelectorAll('#ahtWorkflowNav [data-aht-jump]').forEach(btn=>{
+      const active=btn.dataset.ahtJump===key;
+      btn.classList.toggle('active',active);
+      if(active)btn.setAttribute('aria-current','step');else btn.removeAttribute('aria-current');
+    });
+    // Align section below sticky controls without scrolling the entire browser page.
+    const top=target.getBoundingClientRect().top - sidebar.getBoundingClientRect().top + sidebar.scrollTop - sticky.getBoundingClientRect().height - 10;
+    sidebar.scrollTo({top:Math.max(0,top),behavior:instant?'instant':'smooth'});
+  }
+  // Existing "Edit details" action calls this; now it jumps to Review instead of hiding other sections.
+  window.cctvActivateTab=function(key){jumpTo(key==='finish'?'review':key,false);};
+  document.querySelectorAll('#ahtWorkflowNav [data-aht-jump]').forEach(btn=>{
+    btn.addEventListener('click',()=>jumpTo(btn.dataset.ahtJump,false));
+  });
+  let ticking=false;
+  sidebar.addEventListener('scroll',()=>{
+    if(ticking)return;
+    ticking=true;
+    requestAnimationFrame(()=>{
+      ticking=false;
+      const line=sticky.getBoundingClientRect().bottom+16;
+      let active='plan';
+      Object.entries(blocks).forEach(([key,block])=>{if(block.getBoundingClientRect().top<=line)active=key;});
+      document.querySelectorAll('#ahtWorkflowNav [data-aht-jump]').forEach(btn=>{
+        const yes=btn.dataset.ahtJump===active;
+        btn.classList.toggle('active',yes);
+        if(yes)btn.setAttribute('aria-current','step');else btn.removeAttribute('aria-current');
+      });
+    });
+  },{passive:true});
+  if(typeof window.ResizeObserver==='function'){
+    const ro=new ResizeObserver(()=>{
+      document.documentElement.style.setProperty('--aht-sticky-height',Math.ceil(sticky.getBoundingClientRect().height)+'px');
+    });
+    ro.observe(sticky);
+  }
+  document.documentElement.style.setProperty('--aht-sticky-height',Math.ceil(sticky.getBoundingClientRect().height)+'px');
+  sidebar.scrollTop=0;
+})();
+</script>
+
+<script>
+const CFG = {"title":"AHT CCTV Camera Markup Tool","fileTag":"CCTV","iconScale":1.5,"devices":[{"key":"cam","label":"Fixed Camera","style":"tile","color":"#ff00ff","fill":"#ff00ff","textColor":"#ffffff","glyph":"CC\nTV","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"ptz","label":"PTZ Camera","style":"ptz","color":"#2752b8","fill":"#ffffff","textColor":"#2752b8","glyph":"PTZ","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"pole3","label":"Camera Pole (multi-head)","style":"pole3","color":"#343a40","fill":"#ffffff","textColor":"#1f2937","rotatable":true,"kind":"pole","vcolor":"#00cbd4"},{"key":"lidar","label":"LiDAR","style":"lidar","color":"#6b21a8","fill":"#ffffff","textColor":"#6b21a8","rotatable":true,"kind":"lidar","vcolor":"#00cbd4"},{"key":"lidar360","label":"LiDAR 360° Coverage","style":"lidar","color":"#7c3aed","fill":"#ffffff","textColor":"#7c3aed","kind":"lidar360","vcolor":"#00cbd4"},{"key":"omnitrax","label":"Senstar Omnitrax Perimeter","style":"omni","color":"#2563eb","secondaryColor":"#ef4444","kind":"route"},{"key":"fish","label":"360° Fisheye Camera","style":"tile","color":"#b85c5c","fill":"#addef7","textColor":"#000000","glyph":"CC\nTV","preview":"circle","vcolor":"#00cbd4","kind":"point"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","overlay":true,"kind":"point"},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","overlay":true,"kind":"point"}],"preview":{"title":"Illustrative Camera View","defaultPreset":1,"presets":[{"name":"Narrow","r":20,"angle":45},{"name":"Standard","r":12,"angle":80},{"name":"Wide","r":9,"angle":110}],"disclaimer":"Illustrative viewing areas are not validated camera coverage. Visible areas can be included in review PDFs."}};
 const NS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
 // Keep annotations in a separate screen-space SVG for crisp zoomed symbols.
@@ -601,8 +959,150 @@ const isArea = m => m.type === 'area';
 // AHT_ARROW_NOTE_V1: pointer-based annotation with editable label and independently draggable arrow tip.
 const isArrowNote = m => m.type === 'arrow_note';
 const isAnnotation = m => isArea(m) || isArrowNote(m);
+// AHT_CCTV_LAYERS_V1: non-destructive visibility of drawing objects and annotations.
+// Separate type visibility from cone/coverage visibility and from individual note visibility.
+const DRAWING_LAYERS = [
+ {id:'fixed',label:'Fixed cameras'},
+ {id:'ptz',label:'PTZ cameras (standalone)'},
+ {id:'fisheye',label:'360° fisheye cameras'},
+ {id:'poles',label:'Camera poles (including mounted heads)'},
+ {id:'lidar',label:'Directional LiDAR'},
+ {id:'lidar360',label:'360° LiDAR devices'},
+ {id:'senstar',label:'Senstar OmniTrax perimeter'},
+ {id:'move',label:'Move / relocation arrows'},
+ {id:'notes',label:'Text notes with arrows'},
+ {id:'callouts',label:'Area / text callouts'},
+ {id:'added',label:'Added-device circles'},
+ {id:'removed',label:'Remove-device markers'}
+];
+const layerVisibility=Object.fromEntries(DRAWING_LAYERS.map(layer=>[layer.id,true]));
+function drawingLayer(m){
+ if(!m)return null;
+ const byType={cam:'fixed',cam_ex:'fixed',ptz:'ptz',fish:'fisheye',fish_ex:'fisheye',pole3:'poles',lidar:'lidar',lidar360:'lidar360',omnitrax:'senstar',relocate:'move',arrow_note:'notes',area:'callouts',addmark:'added',rmmark:'removed',remove:'removed'};
+ return byType[m.type]||null;
+}
+function visibleMarker(m){
+ const layer=drawingLayer(m);
+ return (!layer || layerVisibility[layer]!==false) && !(isArrowNote(m) && m.hidden===true);
+}
+function loadDrawingLayers(data){
+ DRAWING_LAYERS.forEach(l=>{layerVisibility[l.id]=data?.[l.id]!==false;});
+ syncDrawingLayers();
+}
+function syncDrawingLayers(){
+ document.querySelectorAll('#layerChecklist input[data-layer]').forEach(input=>{input.checked=layerVisibility[input.dataset.layer]!==false;});
+ const n=DRAWING_LAYERS.filter(l=>layerVisibility[l.id]!==false).length;
+ $('layerStatus').textContent=n+' / '+DRAWING_LAYERS.length+' layers visible';
+ renderHiddenNoteList();
+}
+function renderHiddenNoteList(){
+ const list=$('hiddenNoteList'),wrap=$('hiddenNoteTools');
+ if(!list||!wrap)return;
+ const hidden=markers.filter(m=>isArrowNote(m)&&m.hidden===true);
+ wrap.style.display=hidden.length?'block':'none';
+ list.replaceChildren();
+ hidden.forEach((m,i)=>{
+   const row=document.createElement('div');row.className='row';row.style.marginTop='6px';
+   const desc=document.createElement('span');desc.className='muted';desc.style.flex='1';desc.textContent='P'+(m.page||1)+' · '+String(m.text||'Note').slice(0,48);
+   const btn=document.createElement('button');btn.type='button';btn.textContent='Show note';btn.style.flex='none';
+   btn.addEventListener('click',()=>{pushUndo();m.hidden=false;layerVisibility.notes=true;syncDrawingLayers();refresh();status('Restored the selected arrow note.');});
+   row.append(desc,btn);list.appendChild(row);
+ });
+}
+function initDrawingLayers(){
+ const list=$('layerChecklist');if(!list)return;
+ DRAWING_LAYERS.forEach(layer=>{
+   const lab=document.createElement('label');lab.className='chk';lab.style.margin='2px 0';
+   const input=document.createElement('input');input.type='checkbox';input.dataset.layer=layer.id;input.checked=true;
+   const span=document.createElement('span');span.textContent=layer.label;
+   lab.append(input,span);list.appendChild(lab);
+   input.addEventListener('change',()=>{layerVisibility[layer.id]=input.checked;syncDrawingLayers();refresh();});
+ });
+ $('layersShowAll').addEventListener('click',()=>{DRAWING_LAYERS.forEach(l=>layerVisibility[l.id]=true);markers.filter(isArrowNote).forEach(m=>m.hidden=false);syncDrawingLayers();refresh();});
+ $('layersHideAll').addEventListener('click',()=>{DRAWING_LAYERS.forEach(l=>layerVisibility[l.id]=false);syncDrawingLayers();refresh();});
+ syncDrawingLayers();
+}
+initDrawingLayers();
+// AHT_CCTV_BULK_V1: apply explicit sizes and colors across every saved page.
+// This modifies the same per-marker properties used by SVG, PDF and JSON.
+function bulkLidarTargets(){
+ const all=[];
+ markers.forEach(m=>{
+  if(isLidar(m))all.push(m);
+  if(isPole(m)){
+   ensurePole(m).forEach(h=>{if(h.kind==='lidar')all.push(h);});
+   const legacy=poleLidar(m);if(legacy.enabled)all.push(legacy);
+  }
+ });
+ return all;
+}
+function bulkCameraTargets(kind=null){
+ const all=[];
+ markers.forEach(m=>{
+  if(DEV[m.type]?.preview && (!kind || m.type===kind || (kind==='cam'&&m.type==='cam_ex') || (kind==='fish'&&m.type==='fish_ex')))all.push({item:m,head:false});
+  if(isPole(m))ensurePole(m).forEach(h=>{if(h.kind!=='lidar'&&(!kind||h.kind===kind))all.push({item:h,head:true});});
+ });
+ return all;
+}
+function bulkAll(type){
+ if(type==='lidar')return bulkLidarTargets();
+ if(type==='lidar360')return markers.filter(isLidar360);
+ if(type==='cam'||type==='ptz'||type==='fish')return bulkCameraTargets(type);
+ if(type==='omnitraxA'||type==='omnitraxB')return markers.filter(isOmnitrax);
+ if(type==='relocate')return markers.filter(m=>m.type==='relocate');
+ if(type==='arrow_note')return markers.filter(isArrowNote);
+ if(type==='area')return markers.filter(isArea);
+ return [];
+}
+function bulkInput(id,min,max){
+ const n=Number($(id).value);
+ if(!Number.isFinite(n)||String($(id).value).trim()===''||n<min||n>max){
+  const msg='Enter a number from '+min+' to '+max+' before applying.';
+  $('bulkAdjustStatus').textContent=msg;status(msg);return null;
+ }
+ return n;
+}
+function bulkCommit(name,targets,edit){
+ if(!targets.length){
+  const msg='No matching items found. No changes made.';
+  $('bulkAdjustStatus').textContent=msg;status(msg);return;
+ }
+ pushUndo();targets.forEach(edit);refresh();
+ const msg=name+' updated on '+targets.length+' item'+(targets.length===1?'':'s')+' across all pages. Undo can reverse this.';
+ $('bulkAdjustStatus').textContent=msg;status(msg);
+}
+$('bulkLidarLengthApply').addEventListener('click',()=>{
+ const v=bulkInput('bulkLidarLength',4,80);if(v===null)return;
+ bulkCommit('Directional LiDAR arrow length',bulkLidarTargets(),m=>m.length=v);
+});
+$('bulkLidar360RadiusApply').addEventListener('click',()=>{
+ const v=bulkInput('bulkLidar360Radius',.05,500);if(v===null)return;
+ bulkCommit('LiDAR 360 circle radius',markers.filter(isLidar360),m=>{ensureLidar360(m);m.radiusRef=v;});
+});
+$('bulkCameraReachApply').addEventListener('click',()=>{
+ const v=bulkInput('bulkCameraReach',1.2,16);if(v===null)return;
+ bulkCommit('Camera viewing-area reach',bulkCameraTargets(),t=>{if(t.head)t.item.reach=v;else t.item.coverageSize=v;});
+});
+const bulkColorDefaults={cam:'#00cbd4',ptz:'#00cbd4',fish:'#00cbd4',lidar:'#6b21a8',lidar360:'#7c3aed',omnitraxA:'#2563eb',omnitraxB:'#ef4444',relocate:'#fff200',arrow_note:'#c52b2b',area:'#e0262e'};
+$('bulkColorType').addEventListener('change',()=>{$('bulkColorValue').value=bulkColorDefaults[$('bulkColorType').value]||'#00cbd4';});
+$('bulkColorApply').addEventListener('click',()=>{
+ const type=$('bulkColorType').value,color=$('bulkColorValue').value;
+ if(!/^#[0-9a-fA-F]{6}$/.test(color)){status('Choose a valid color first.');return;}
+ const targets=bulkAll(type);
+ const labels={cam:'Fixed-camera viewing-area color',ptz:'PTZ viewing-area color',fish:'Fisheye viewing-area color',lidar:'Directional LiDAR arrow color',lidar360:'LiDAR 360 circle color',omnitraxA:'Senstar run A color',omnitraxB:'Senstar run B color',relocate:'Move arrow color',arrow_note:'Text note arrow color',area:'Callout border color'};
+ bulkCommit(labels[type]||'Color',targets,t=>{
+  if(type==='cam'||type==='ptz'||type==='fish'){
+   if(t.head)t.item.viewColor=color;else t.item.coverageColor=color;
+  }else if(type==='lidar'||type==='relocate')t.arrowColor=color;
+  else if(type==='lidar360'){ensureLidar360(t);t.circleColor=color;}
+  else if(type==='omnitraxA')t.color1=color;
+  else if(type==='omnitraxB')t.color2=color;
+  else if(type==='arrow_note'||type==='area')t.color=color;
+ });
+});
+
 const ARROW_NOTE_TEXT = 'NOTE', ARROW_NOTE_COLOR = '#c52b2b';
-function arrowNoteGeom(m, wfn, view=vp) {
+function arrowNoteGeom(m, wfn, view=vp, tip=[m.x,m.y]) {
   const fs = Math.max(8,Math.max(view.width,view.height)/210) * (Number(m.fs)||1);
   const lines=String(m.text == null ? ARROW_NOTE_TEXT : m.text).split(/\r?\n/).slice(0,15);
   const pad=fs*.5, lh=fs*1.25;
@@ -610,10 +1110,10 @@ function arrowNoteGeom(m, wfn, view=vp) {
   const h=Math.max(lh,lines.length*lh)+pad*1.15;
   const lx=Number.isFinite(m.x2)?m.x2:m.x+fs*12,ly=Number.isFinite(m.y2)?m.y2:m.y-fs*5;
   const bx=lx-w/2,by=ly-h/2;
-  const dx=m.x-lx,dy=m.y-ly;
+  const dx=tip[0]-lx,dy=tip[1]-ly;
   const factor=Math.max(Math.abs(dx)/(w/2||1),Math.abs(dy)/(h/2||1));
   const start=factor>1?[lx+dx/factor,ly+dy/factor]:[lx,ly];
-  const end=[m.x,m.y];
+  const end=tip;
   const theta=Math.atan2(end[1]-start[1],end[0]-start[0]);
   const stroke=Math.max(.65,areaSw()*.55*(Number(m.lineSize)||1));
   const head=Math.max(stroke*3.6,fs*.45)*(Number(m.headSize)||1);
@@ -622,6 +1122,18 @@ function arrowNoteGeom(m, wfn, view=vp) {
     [end[0]-head*Math.cos(theta+.48),end[1]-head*Math.sin(theta+.48)]];
   return {fs,lines,pad,lh,w,h,lx,ly,bx,by,start,end,stroke,arrow,
     base:i=>by+pad*.48+fs*.82+i*lh};
+}
+let pendingArrowTipNoteId=null;
+function noteTargets(m){return [[m.x,m.y],...(Array.isArray(m.extraTips)?m.extraTips:[]).filter(p=>Array.isArray(p)&&Number.isFinite(p[0])&&Number.isFinite(p[1]))];}
+function notePointerState(){
+ const m=markers.find(x=>x.id===[...sel][0]); if(!m||!isArrowNote(m))return;
+ const selEl=$('notePointerSelect'),last=Number(selEl.value)||0;
+ selEl.innerHTML='';noteTargets(m).forEach((_,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent='Arrow '+(i+1);selEl.appendChild(o);});
+ selEl.value=String(Math.min(last,noteTargets(m).length-1));
+ $('noteRemovePointer').disabled=noteTargets(m).length<=1;
+ $('noteAddPointer').disabled=pendingArrowTipNoteId===m.id;
+ $('noteCancelPointer').style.display=pendingArrowTipNoteId===m.id?'block':'none';
+ $('notePointerState').textContent=pendingArrowTipNoteId===m.id?'Click the next target on the drawing. Esc cancels.':noteTargets(m).length+' arrow(s) attached to this one note.';
 }
 function setArrowNote(fn) {
   const ids=[...sel];if(ids.length!==1)return;
@@ -653,6 +1165,15 @@ DEV.cam_ex = { ...DEV.cam, key:'cam_ex', label:'Fixed Camera (legacy revision)',
 DEV.fish_ex = { ...DEV.fish, key:'fish_ex', label:'360° Fisheye Camera (legacy revision)', vcolor:'#ff9400' };
 const VIEW_COLORS = Object.freeze({initial:'#00cbd4', proposed:'#ff9400'});
 let layoutMode = 'initial';
+function showCameraCones(){return $('showAllCameraCones').checked;}
+function showLidar360Fills(){return $('showAllLidar360Fills').checked;}
+function showLidar360Outlines(){return $('showAllLidar360Outlines').checked;}
+['showAllCameraCones','showAllLidar360Fills','showAllLidar360Outlines'].forEach(id=>$(id).addEventListener('change',refresh));
+function cameraOutlinesOn(){return $('cameraOutlineChk').checked;}
+function cameraFillFactor(){return Math.max(0,Math.min(1,Number($('cameraFillStrength').value)/100));}
+function cameraAreaPaint(style){return {...style,fillOpacity:style.fillOpacity*cameraFillFactor(),strokeOpacity:cameraOutlinesOn()?style.strokeOpacity:0};}
+$('cameraOutlineChk').addEventListener('change',()=>refresh());
+$('cameraFillStrength').addEventListener('input',e=>{$('cameraFillStrengthVal').textContent=e.target.value;refresh();});
 function cameraStage(m) { return m?.layoutStage === 'proposed' ? 'proposed' : m?.layoutStage === 'initial' ? 'initial' : (m?.type === 'cam_ex'||m?.type === 'fish_ex' ? 'proposed':'initial'); }
 function isCamera(m) { return m && (m.type==='cam'||m.type==='fish'||m.type==='ptz'||m.type==='cam_ex'||m.type==='fish_ex'); }
 function setLayoutMode(mode) {
@@ -667,10 +1188,43 @@ let relocationStart = null;
 let pendingDetailId = null;
 let lastRoomName='', lastRoomNumber='';
 function roomForChange(){ return ''; } // Details are entered in the sidebar, never over the plan.
-const STAGED_TYPES = new Set(['cam','fish','ptz','pole3','lidar','omnitrax']);
+const STAGED_TYPES = new Set(['cam','fish','ptz','pole3','lidar','lidar360','omnitrax']);
 function isStaged(m){ return !!m && STAGED_TYPES.has(m.type); }
 function isPole(m){ return !!m && m.type === 'pole3'; }
 function isLidar(m){ return !!m && m.type === 'lidar'; }
+function isLidar360(m){return !!m && m.type==='lidar360';}
+function ensureLidar360(m){
+ if(!m)return m;
+ // Older V3.5 JSON radiusFt is migrated to a display-only reference number.
+ if(!Number.isFinite(Number(m.radiusRef)))m.radiusRef=Number.isFinite(Number(m.radiusFt))?Number(m.radiusFt):0.5;
+ if(!Number.isFinite(m.radiusRef))m.radiusRef=0.5;
+ if(typeof m.showOutline!=='boolean')m.showOutline=true;
+ if(!Number.isFinite(Number(m.circleLineWidth)))m.circleLineWidth=3;
+ if(!/^#[0-9a-fA-F]{6}$/.test(m.circleColor||''))m.circleColor=DEV.lidar360.color;
+ if(typeof m.fillEnabled!=='boolean')m.fillEnabled=false;
+ if(!Number.isFinite(Number(m.fillOpacity)))m.fillOpacity=20;
+ return m;
+}
+function lidar360RadiusRef(m){ensureLidar360(m);return Math.max(0.05,Math.min(500,Number(m.radiusRef)||0.5));}
+// Screen-size reference: independent of calibrated plan distance.
+function lidar360RefUnit(view=vp){return Math.max(8,Math.min(28,Math.max(view?.width||1000,view?.height||1000)/58));}
+function lidar360RadiusPts(m,view=vp){return lidar360RadiusRef(m)*lidar360RefUnit(view);}
+function lidar360Width(m){ensureLidar360(m);return Math.max(1,Math.min(16,Number(m.circleLineWidth)||3));}
+function lidar360FillAlpha(m){ensureLidar360(m);return m.fillEnabled?Math.max(0,Math.min(100,Number(m.fillOpacity)||0))/100:0;}
+function lidar360Poly(m,view=vp){const r=lidar360RadiusPts(m,view),out=[];for(let i=0;i<144;i++){const a=2*Math.PI*i/144;out.push([m.x+Math.cos(a)*r,m.y+Math.sin(a)*r]);}return out;}
+function updateLidar360Panel(m){
+ $('lidar360Radius').value=Math.min(30,lidar360RadiusRef(m));
+ $('lidar360RadiusNumber').value=Number(lidar360RadiusRef(m).toFixed(2));
+ $('lidar360RadiusVal').textContent=Number(lidar360RadiusRef(m).toFixed(2));
+ $('lidar360OutlineEnabled').checked=m.showOutline!==false;
+ $('lidar360Color').value=m.circleColor;
+ $('lidar360LineWidth').value=lidar360Width(m);
+ $('lidar360LineWidthVal').textContent=lidar360Width(m);
+ $('lidar360FillEnabled').checked=m.fillEnabled;
+ $('lidar360FillOpacity').value=Math.max(0,Math.min(100,Number(m.fillOpacity)||0));
+ $('lidar360FillOpacityVal').textContent=$('lidar360FillOpacity').value;
+}
+
 function isOmnitrax(m){ return !!m && m.type === 'omnitrax'; }
 function newPoleHead(rel=0,fov=80,tier=1,kind='cam'){
   return {kind,rel,aimOffset:0,fov,tier,reach:4.2,viewColor:null,viewOpacity:18,showRange:true,length:18,arrowWidth:3,arrowColor:null};
@@ -827,7 +1381,7 @@ function drawPoleScreen(m,dm,g,gDev,gPrev,gTxt,isSel){
      drawLidarHeadScreen(m,h,pos,headSize,dm,g,gTxt,gDev,isSel,i);
    }else{
      const spec=headPreviewSpec(m,h,dm),style=headPreviewStyle(m,h);
-     if(h.showRange!==false){el('polygon',{points:ptsStr(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec)),fill:style.fill,'fill-opacity':style.fillOpacity,stroke:style.stroke,'stroke-opacity':style.strokeOpacity,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);}
+     if(showCameraCones()&&h.showRange!==false){const paint=cameraAreaPaint(style);el('polygon',{points:ptsStr(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec)),fill:paint.fill,'fill-opacity':paint.fillOpacity,stroke:cameraOutlinesOn()?paint.stroke:'none','stroke-opacity':paint.strokeOpacity,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);}
      el('circle',{cx:pos.x,cy:pos.y,r:headSize*.52,fill:'#fff',stroke:'#303942','stroke-width':Math.max(1,dm*.065)},g);
      drawIcon(headDev,pos.x,pos.y,headSize,g,gTxt);
    }
@@ -858,11 +1412,37 @@ function drawOmniScreen(m,dev,g,gDev,gTxt,dm,d0,isSel,showLen){
   if(isSel)m.pts.forEach(([x,y],i)=>el('circle',{cx:x,cy:y,r:Math.max(7/zoom,5.3),fill:'#fff200',stroke:'#1a1a18','stroke-width':1.8,'vector-effect':'non-scaling-stroke','data-handle':'omni-vertex','data-index':i,'data-id':m.id,style:'cursor:move'},gDev));
   if(showLen&&runs.center.length>1){const a=runs.center[0],b=runs.center[runs.center.length-1];const t=el('text',{x:(a[0]+b[0])/2,y:(a[1]+b[1])/2-d0*.85,'text-anchor':'middle','font-size':d0*.8,'font-weight':700,fill:'#1a1a18',stroke:'#fff','stroke-width':d0*.2,'paint-order':'stroke'},gTxt);t.textContent=estimatedDistance(m);}
 }
-function finishPendingOmni(){ if(!pendingRoute) return; if(pendingRoute.pts.length < 2){ pendingRoute=null; drawRubber(null); refresh(); status('Omnitrax route cancelled.'); return; } pushUndo(); const pts = pendingRoute.pts.slice(); const m={id:nextId++, page:pageNum, type:'omnitrax', x:pts[0][0], y:pts[0][1], pts, gap:10, color1:DEV.omnitrax.color, color2:DEV.omnitrax.secondaryColor, segmentStyles:new Array(pts.length-1).fill('solid'), segmentAxes:pts.slice(1).map((pt,i)=>Math.abs(pt[0]-pts[i][0])>=Math.abs(pt[1]-pts[i][1])?'h':'v'), layoutStage:layoutMode, note:roomForChange()}; markers.push(m); sel=new Set([m.id]); pendingRoute=null; if(!$('placeMultiple').checked) setTool(null); drawRubber(null); refresh(); openChangeDetails(m.id); syncOmniFinish(); status('Omnitrax paired run added.'); }
+function finishPendingOmni(){ if(!pendingRoute) return; if(pendingRoute.pts.length < 2){ pendingRoute=null; drawRubber(null); refresh(); status('Omnitrax route cancelled.'); return; } pushUndo(); const pts = pendingRoute.pts.slice(); const m={id:nextId++, page:pageNum, type:'omnitrax', x:pts[0][0], y:pts[0][1], pts, gap:10, color1:DEV.omnitrax.color, color2:DEV.omnitrax.secondaryColor, segmentStyles:new Array(pts.length-1).fill('solid'), segmentAxes:pts.slice(1).map((pt,i)=>Math.abs(pt[0]-pts[i][0])>=Math.abs(pt[1]-pts[i][1])?'h':'v'), layoutStage:layoutMode, note:roomForChange()}; markers.push(m); sel=new Set([m.id]); pendingRoute=null; if(!$('placeMultiple').checked) setTool(null); drawRubber(null); refresh(); syncOmniFinish(); status('Omnitrax paired run added.'); }
+
+// V3.5.4: Placement-first workflow. Identifying equipment changes is a deliberate review step.
+function unidentifiedChanges(){
+  return markers.filter(m=>!isAnnotation(m) && !(m.roomName || (m.note && m.note.trim())));
+}
+function showIdentificationReminder(){
+  const missing=unidentifiedChanges();
+  const count=$('trackingReminderCount'),message=$('trackingReminderMessage'),next=$('trackingReviewNext');
+  if(!count||!message||!next)return;
+  count.textContent=missing.length ? (missing.length+' change'+(missing.length===1?'':'s')+' not yet identified') : 'All placed changes are identified';
+  message.textContent=missing.length
+    ? 'Continue placing and adjusting equipment. Before issuing a tracked change list, identify the room / area and reason for each outstanding mark. Room number and reason are optional in the current form.'
+    : 'No unidentified equipment changes remain. You can still edit details using Review Changes.';
+  next.style.display=missing.length?'block':'none';
+}
+$('trackingReviewNext').onclick=()=>{
+  const m=unidentifiedChanges()[0];if(m)void focusReviewMarker(m.id);
+};
+// Browsers only allow their standard warning when a tab/window is closed.
+// The exact review requirements appear in the visible Step 4 reminder instead.
+window.addEventListener('beforeunload',e=>{
+  if(!unidentifiedChanges().length)return;
+  e.preventDefault();
+  e.returnValue='';
+});
 
 function openChangeDetails(id){
   pendingDetailId=id;
   const m=markers.find(x=>x.id===id);if(!m)return;
+  if(typeof window.cctvActivateTab==='function')window.cctvActivateTab('finish');
   const panel=$('changeDetails');panel.style.display='block';
   $('detailsEmpty').style.display='none';
   const parts=m.note&&m.note.match(/^([^—]+)\s—\s(.+)$/);
@@ -1132,6 +1712,22 @@ async function detectScale(page) {
 
 // ---------- load PDF ----------
 $('chooseBtn').onclick = () => $('fileInput').click();
+// Use the exact same dashboard project picker API as Shades, Speakers, PIR and Access.
+// Keep the button in the HTML so browser-cache failures cannot hide it.
+$('ahtOpenProjectPdf').addEventListener('click', () => {
+  try {
+    const host = window.parent;
+    if (host === window || !host.AHTProjectDocumentPicker ||
+        typeof host.AHTProjectDocumentPicker.openForEditor !== 'function') {
+      window.alert('Open CCTV through the signed-in AHT Dashboard > Tools & Utilities to browse SharePoint project PDFs. Local PDFs remain available.');
+      return;
+    }
+    host.AHTProjectDocumentPicker.openForEditor(window);
+  } catch (err) {
+    console.error('AHT SharePoint project PDF picker:', err);
+    window.alert('The dashboard SharePoint picker is unavailable. You can still open a local PDF.');
+  }
+});
 $('fileInput').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   if(pdfDoc && markers.length && !pendingLoad){
@@ -1170,7 +1766,7 @@ async function openPage(first) {
   vp = page.getViewport({ scale: 1, rotation: rotationForPage(page, pageNum) });
   if (first) {
     if (pendingLoad) {
-      markers = pendingLoad.markers.map(m=>{if(isPole(m))ensurePole(m);if(isOmnitrax(m))ensureOmni(m);return m;}); nextId = Math.max(0, ...markers.map(m => m.id)) + 1;
+      markers = pendingLoad.markers.map(m=>{if(isPole(m))ensurePole(m);if(isOmnitrax(m))ensureOmni(m);if(isLidar360(m))ensureLidar360(m);return m;}); nextId = Math.max(0, ...markers.map(m => m.id)) + 1;
       if (pendingLoad.calPtsPerFt) { calibratedPtsPerFt = pendingLoad.calPtsPerFt; } else { calibratedPtsPerFt = null; inchesPerFt = pendingLoad.inchesPerFt || inchesPerFt; }
       buildScaleSel(null); $('scaleNote').textContent = 'Scale restored from saved work.';
       pendingLoad = null;
@@ -1302,14 +1898,16 @@ function refresh() {
   const gArea = el('g', {}, scene), gPrev = el('g', {}, scene), gDev = el('g', {}, scene), gTxt = el('g', { style: 'pointer-events:none' }, scene), gCall = el('g', {}, scene);
   const d0 = iconBase();
   const spec = {};
-  pageMarkers().filter(m => m.showRange === true).forEach(m => {
+  pageMarkers().filter(m => visibleMarker(m) && showCameraCones() && m.showRange === true).forEach(m => {
     const dev = DEV[m.type]; const sp = dev && previewSpec(dev, m);
     if (!sp) return;
     const ps = pStyle(dev, m);
-    el('polygon', { points: ptsStr(previewPoly(m, sp)), fill: ps.fill, 'fill-opacity': ps.fillOpacity, stroke: ps.stroke, 'stroke-opacity': ps.strokeOpacity, 'stroke-width': ps.strokeWidth, 'vector-effect': 'non-scaling-stroke', style: 'pointer-events:none' }, gPrev);
+    const paint=cameraAreaPaint(ps);
+    el('polygon', { points: ptsStr(previewPoly(m, sp)), fill: paint.fill, 'fill-opacity': paint.fillOpacity, stroke:cameraOutlinesOn()?paint.stroke:'none', 'stroke-opacity': paint.strokeOpacity, 'stroke-width': paint.strokeWidth, 'vector-effect': 'non-scaling-stroke', style: 'pointer-events:none' }, gPrev);
   });
   const showNotes = $('notesChk').checked, showLen = $('lenChk').checked;
   pageMarkers().forEach(m => {
+    if (!visibleMarker(m)) return;
     const dev = DEV[m.type]; if (!dev) return;
     const isSel = sel.has(m.id);
     const g = el('g', { 'data-id': m.id, style: 'cursor:pointer' }, gDev);
@@ -1342,6 +1940,12 @@ function refresh() {
       const style=arrowStyle(m,dm,dev.color);
       el('polygon',{points:ptsStr(lidarArrowPts(start[0],start[1],end[0],end[1],lidarArrowHeadSize(start[0],start[1],end[0],end[1],style.width))),fill:style.color},g);
       if (isSel) { el('circle',{cx:end[0],cy:end[1],r:Math.max(dm*.14,5/zoom),fill:'#fff200',stroke:'#4b1c74','stroke-width':1.5,'data-handle':'len','data-id':m.id,style:'cursor:grab'},gDev); el('circle',{cx:m.x+Math.sin((m.rot||0)*Math.PI/180)*dm,cy:m.y-Math.cos((m.rot||0)*Math.PI/180)*dm,r:Math.max(dm*.14,5/zoom),fill:'#fff',stroke:'#4b1c74','stroke-width':1.5,'data-handle':'dir','data-id':m.id,style:'cursor:grab'},gDev); }
+    } else if (dev.kind === 'lidar360') {
+      ensureLidar360(m);
+      const rad=lidar360RadiusPts(m),col=m.circleColor,sw=lidar360Width(m);
+      el('circle',{cx:m.x,cy:m.y,r:rad,fill:(showLidar360Fills()&&m.fillEnabled)?col:'none','fill-opacity':showLidar360Fills()?lidar360FillAlpha(m):0,stroke:(showLidar360Outlines()&&m.showOutline!==false)?col:'none','stroke-width':sw,'stroke-dasharray':'4 7','stroke-linecap':'round','vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);
+      drawIcon(actualDev(dev,m),m.x,m.y,dm,g,gTxt);
+      if(isSel)el('circle',{cx:m.x+rad,cy:m.y,r:Math.max(dm*.18,6/zoom),fill:'#fff200',stroke:'#634d1d','stroke-width':1.7,'data-handle':'lidar360-radius','data-id':m.id,style:'cursor:ew-resize'},gDev);
     } else if (dev.kind === 'pole') {
       drawPoleScreen(m,dm,g,gDev,gPrev,gTxt,isSel);
     } else {
@@ -1368,6 +1972,7 @@ function refresh() {
     if (showNotes && m.note) { const t = el('text', { x: m.x + dm * 0.7, y: m.y - dm * 0.7, 'font-size': d0 * 0.55, fill: '#1a1a18', stroke: '#fff', 'stroke-width': d0 * 0.16, 'paint-order': 'stroke' }, gTxt); t.textContent = m.note; }
   });
   pageAreas().forEach(m => {
+    if (!visibleMarker(m)) return;
     const r = areaRect(m), col = m.color || AREA_COL, sw = areaSw(), isSel = sel.has(m.id), G = callGeom(m, wScreen);
     const ga = el('g', { 'data-id': m.id, style: 'cursor:pointer' }, gArea), rw = r.x1 - r.x0, rh = r.y1 - r.y0;
     el('rect', { x: r.x0, y: r.y0, width: rw, height: rh, fill: col, 'fill-opacity': m.shade == null ? 0.12 : m.shade, style: 'pointer-events:none' }, ga);
@@ -1382,14 +1987,18 @@ function refresh() {
   });
 
   pageArrowNotes().forEach(m=>{
+    if (!visibleMarker(m)) return;
     const G=arrowNoteGeom(m,wScreen),col=m.color||ARROW_NOTE_COLOR,txt=m.textColor||col, fill=m.fillColor||'#ffffff', opacity=m.fillOpacity==null?.95:Number(m.fillOpacity), picked=sel.has(m.id);
     const g=el('g',{'data-id':m.id,style:'cursor:pointer'},gCall);
-    el('line',{x1:G.start[0],y1:G.start[1],x2:G.end[0],y2:G.end[1],stroke:'transparent','stroke-width':Math.max(10/zoom,G.stroke*5),'stroke-linecap':'round'},g);
-    el('line',{x1:G.start[0],y1:G.start[1],x2:G.end[0],y2:G.end[1],stroke:col,'stroke-width':G.stroke,'stroke-linecap':'round',style:'pointer-events:none'},g);
-    el('polygon',{points:ptsStr(G.arrow),fill:col,style:'pointer-events:none'},g);
+    noteTargets(m).forEach((tip,i)=>{
+      const a=arrowNoteGeom(m,wScreen,vp,tip);
+      el('line',{x1:a.start[0],y1:a.start[1],x2:a.end[0],y2:a.end[1],stroke:'transparent','stroke-width':Math.max(10/zoom,a.stroke*5),'stroke-linecap':'round'},g);
+      el('line',{x1:a.start[0],y1:a.start[1],x2:a.end[0],y2:a.end[1],stroke:col,'stroke-width':a.stroke,'stroke-linecap':'round',style:'pointer-events:none'},g);
+      el('polygon',{points:ptsStr(a.arrow),fill:col,style:'pointer-events:none'},g);
+      el('circle',{cx:tip[0],cy:tip[1],r:Math.max(7/zoom,a.stroke*2.5),fill:picked?'#fff200':'transparent',stroke:picked?col:'transparent','stroke-width':Math.max(1,a.stroke*.6),'data-id':m.id,'data-handle':i===0?'note-tip':'note-extra-tip','data-index':i-1,style:'cursor:grab'},g);
+    });
     el('rect',{x:G.bx,y:G.by,width:G.w,height:G.h,rx:G.fs*.14,fill,'fill-opacity':opacity,stroke:picked?'#e0a900':col,'stroke-width':G.stroke*.75,'data-id':m.id,'data-handle':'note-label',style:'cursor:move'},g);
     G.lines.forEach((line,i)=>{const t=el('text',{x:G.lx,y:G.base(i),'text-anchor':'middle','font-size':G.fs,'font-weight':700,fill:txt,'font-family':'Helvetica,Arial,sans-serif',style:'pointer-events:none'},g);t.textContent=line;});
-    el('circle',{cx:m.x,cy:m.y,r:Math.max(7/zoom,G.stroke*2.5),fill:picked?'#fff200':'transparent',stroke:picked?col:'transparent','stroke-width':Math.max(1,G.stroke*.6),'data-id':m.id,'data-handle':'note-tip',style:'cursor:grab'},g);
     if(picked)el('circle',{cx:G.lx,cy:G.ly,r:Math.max(5/zoom,G.stroke*2),fill:'#ffffff',stroke:col,'stroke-width':1,'data-id':m.id,'data-handle':'note-label',style:'cursor:move'},g);
   });
   el('g', { id: 'rubber', style: 'pointer-events:none' }, scene);
@@ -1421,6 +2030,15 @@ moveColorWrap.innerHTML='<label class="lbl" for="moveArrowColor"><strong>Move ar
 $('selPanel').insertAdjacentElement('afterend',moveColorWrap);
 
 // Arrow Note options save with work JSON and follow the same undo history as other markups.
+$('noteAddPointer').onclick=()=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isArrowNote(m))return;pendingArrowTipNoteId=m.id;banner('Arrow Note: click a second or third target on the plan. Press Esc to cancel.');notePointerState();};
+$('noteCancelPointer').onclick=()=>{pendingArrowTipNoteId=null;banner('');notePointerState();};
+$('noteRemovePointer').onclick=()=>{
+ const m=markers.find(x=>x.id===[...sel][0]);if(!isArrowNote(m)||noteTargets(m).length<=1)return;
+ const idx=Number($('notePointerSelect').value)||0;pushUndo();m.extraTips=Array.isArray(m.extraTips)?m.extraTips:[];
+ if(idx===0){const tip=m.extraTips.shift();if(tip){m.x=tip[0];m.y=tip[1];}}else m.extraTips.splice(idx-1,1);
+ refresh();notePointerState();
+};
+$('arrowNoteIndividualVisible').addEventListener('change',e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isArrowNote(m))return;pushUndo();m.hidden=!e.target.checked;syncDrawingLayers();refresh();});
 $('arrowNoteText').addEventListener('focus',()=>pushUndo());
 $('arrowNoteText').addEventListener('input',e=>setArrowNote(m=>{m.text=e.target.value;}));
 [['arrowNoteColor','color'],['arrowNoteTextColor','textColor'],['arrowNoteFill','fillColor']].forEach(([id,key])=>{
@@ -1457,10 +2075,11 @@ function updatePanels() {
   // Changes are grouped by room so no markup is silently lost in a total.
   const documented=markers.filter(m=>!isAnnotation(m));
   const missing=documented.filter(m=>!(m.roomName||(m.note && m.note.trim())));
+  showIdentificationReminder();
   const rev=$('changeReview'); rev.replaceChildren();
   const summary=document.createElement('strong');
   summary.textContent=documented.length+' placed marks · '+missing.length+' need attention';rev.appendChild(summary);
-  if(missing.length){const warning=document.createElement('div');warning.className='missing';warning.style.cssText='color:#ae342a;margin:8px 0;font-weight:700';warning.textContent='⚠ Identify a room for '+missing.length+' markup(s) before sharing.';rev.appendChild(warning);}
+  if(missing.length){const warning=document.createElement('div');warning.className='missing';warning.style.cssText='color:#ae342a;margin:8px 0;font-weight:700';warning.textContent='⚠ '+missing.length+' markup(s) still need room / area identification before being considered tracked changes.';rev.appendChild(warning);}
   if(!documented.length){const empty=document.createElement('div');empty.className='muted';empty.textContent='No markups yet.';rev.appendChild(empty);}
   const groups={};documented.forEach(m=>{const room=(m.note||'').trim() || '⚠ Needs Room';(groups[room]??=[]).push(m);});
   Object.keys(groups).sort((a,b)=>a.localeCompare(b)).forEach(room=>{
@@ -1493,6 +2112,8 @@ function updatePanels() {
       $('arrowNoteFill').value=m.fillColor||'#ffffff';
       const fields=[['arrowNoteOpacity','arrowNoteOpacityVal',Math.round((m.fillOpacity??.95)*100)],['arrowNoteFs','arrowNoteFsVal',Math.round((m.fs||1)*100)],['arrowNoteLine','arrowNoteLineVal',Math.round((m.lineSize||1)*100)],['arrowNoteHead','arrowNoteHeadVal',Math.round((m.headSize||1)*100)]];
       fields.forEach(([id,label,v])=>{$(id).value=v;$(label).textContent=v;});
+      $('arrowNoteIndividualVisible').checked=m.hidden!==true;
+      notePointerState();
       return;
     }
     $('devRow').style.display = isArea(m) ? 'none' : 'block'; $('areaRow').style.display = isArea(m) ? 'block' : 'none';
@@ -1529,9 +2150,10 @@ function updatePanels() {
       }
     } else { $('wallPIRControls').style.display='none'; }
     if (dev.rotatable) { $('rotRange').value = m.rot || 0; $('rotVal').textContent = Math.round(m.rot || 0); }
-    const sec=$('securityControls'); const poleBox=$('poleControls'), lidarBox=$('lidarControls'), omniBox=$('omniControls'); sec.style.display='none'; poleBox.style.display='none'; lidarBox.style.display='none'; omniBox.style.display='none';
+    const sec=$('securityControls'); const poleBox=$('poleControls'), lidarBox=$('lidarControls'), omniBox=$('omniControls'), lidar360Box=$('lidar360Controls'); sec.style.display='none'; poleBox.style.display='none'; lidarBox.style.display='none'; omniBox.style.display='none'; lidar360Box.style.display='none';
     if (isPole(m)) { ensurePole(m); sec.style.display='block'; poleBox.style.display='block'; $('poleRotRange').value = (m.rot||0); $('poleRotVal').textContent=Math.round(m.rot||0); const pl=poleLidar(m); $('poleLidarEnabled').checked=!!pl.enabled; $('poleLidarOptions').style.display=pl.enabled?'block':'none'; $('poleLidarAngleRange').value=pl.rel||0; $('poleLidarAngleVal').textContent=Math.round(pl.rel||0); $('poleLidarLenRange').value=pl.length||18; $('poleLidarLenVal').textContent=Math.round(pl.length||18); $('poleLidarColor').value=pl.arrowColor||DEV.lidar.color; $('poleLidarWidth').value=pl.arrowWidth||3; $('poleLidarWidthVal').textContent=pl.arrowWidth||3; renderPoleHeads(m); }
     else if (isLidar(m)) { sec.style.display='block'; lidarBox.style.display='block'; $('lidarDirRange').value=(m.rot||0); $('lidarDirVal').textContent=Math.round(m.rot||0); $('lidarLenRange').value=lidarLength(m); $('lidarLenVal').textContent=lidarLength(m); $('lidarArrowColor').value=m.arrowColor||DEV.lidar.color; $('lidarArrowWidth').value=m.arrowWidth||3; $('lidarArrowWidthVal').textContent=m.arrowWidth||3; }
+    else if (isLidar360(m)){ensureLidar360(m);sec.style.display='block';lidar360Box.style.display='block';updateLidar360Panel(m);}
     else if (isOmnitrax(m)) { ensureOmni(m); sec.style.display='block'; omniBox.style.display='block'; $('omniShowEstLengths').checked=$('lenChk').checked; $('omniGapRange').value=Number(m.gap)||10; $('omniGapVal').textContent=Math.round(Number(m.gap)||10); $('omniColor1').value=m.color1||DEV.omnitrax.color; $('omniColor2').value=m.color2||DEV.omnitrax.secondaryColor; const segSel=$('omniSegSelect'); segSel.innerHTML=''; for(let i=0;i<m.pts.length-1;i++){ const o=document.createElement('option'); o.value=i; o.textContent='Segment '+(i+1)+' · '+(m.segmentStyles[i]||'solid'); segSel.appendChild(o);} segSel.value=String(Math.min(m.omniSegIdx||0, Math.max(0,m.pts.length-2))); const idx=m.omniVertexIdx; $('omniVertexState').textContent=Number.isInteger(idx)?('Selected corner: '+(idx+1)+' of '+m.pts.length):'Select a yellow corner on the drawing.'; $('omniRemoveCorner').disabled=!Number.isInteger(idx)||m.pts.length<=2; }
     else { $('securityControls').style.display='none'; }
     if (dev.rotatable) { $('rotRange').value = m.rot || 0; $('rotVal').textContent = Math.round(m.rot || 0); }
@@ -1625,6 +2247,18 @@ $('lidarLenRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]);
 $('lidarArrowColor').onchange=e=>withSelected(m=>{if(isLidar(m))m.arrowColor=e.target.value;});
 $('lidarArrowWidth').onpointerdown=()=>pushUndo();
 $('lidarArrowWidth').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isLidar(m))return;m.arrowWidth=+e.target.value;refresh();};
+const selectedLidar360=()=>markers.find(x=>x.id===[...sel][0]);
+function setLidar360Field(key,value){const m=selectedLidar360();if(!isLidar360(m))return;ensureLidar360(m);m[key]=value;refresh();}
+$('lidar360Radius').addEventListener('pointerdown',()=>pushUndo());
+$('lidar360Radius').addEventListener('input',e=>setLidar360Field('radiusRef',Number(e.target.value)));
+$('lidar360RadiusNumber').addEventListener('change',e=>{const v=Math.max(0.05,Math.min(500,Number(e.target.value)||0.5));pushUndo();setLidar360Field('radiusRef',v);});
+$('lidar360OutlineEnabled').addEventListener('change',e=>{pushUndo();setLidar360Field('showOutline',e.target.checked);});
+$('lidar360Color').addEventListener('change',e=>{pushUndo();setLidar360Field('circleColor',e.target.value);});
+$('lidar360LineWidth').addEventListener('pointerdown',()=>pushUndo());
+$('lidar360LineWidth').addEventListener('input',e=>setLidar360Field('circleLineWidth',Number(e.target.value)));
+$('lidar360FillEnabled').addEventListener('change',e=>{pushUndo();setLidar360Field('fillEnabled',e.target.checked);});
+$('lidar360FillOpacity').addEventListener('pointerdown',()=>pushUndo());
+$('lidar360FillOpacity').addEventListener('input',e=>setLidar360Field('fillOpacity',Number(e.target.value)));
 $('omniGapRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isOmnitrax(m)) return; ensureOmni(m); m.gap=+e.target.value; $('omniGapVal').textContent=Math.round(m.gap); refresh(); };
 $('omniColor1').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isOmnitrax(m)) return; ensureOmni(m); m.color1=e.target.value; refresh(); };
 $('omniColor2').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isOmnitrax(m)) return; ensureOmni(m); m.color2=e.target.value; refresh(); };
@@ -1674,7 +2308,7 @@ $('areaFs').oninput = e => setArea(m => { m.fs = parseFloat(e.target.value) / 10
 $('areaReset').onclick = () => { pushUndo(); setArea(m => { delete m.lx; delete m.ly; const g = callGeom(m, wScreen); m.lx = (m.x + m.x2) / 2; m.ly = Math.min(m.y, m.y2) - g.h * 0.8; }); };
 $('delBtn').onclick = delSel; $('dupBtn').onclick = dupSel;
 function delSel() { if (!sel.size) return; pushUndo(); markers = markers.filter(m => !sel.has(m.id)); sel.clear(); refresh(); }
-function dupSel() { if (!sel.size) return; pushUndo(); const ns = new Set(); [...sel].forEach(id => { const m = markers.find(x => x.id === id); const n = JSON.parse(JSON.stringify(m)); n.id = nextId++; n.x = m.x + iconBase() * 1.2; n.y = m.y + iconBase() * 1.2; if (n.x2 !== undefined) { n.x2 += iconBase() * 1.2; n.y2 += iconBase() * 1.2; } if (n.lx !== undefined) { n.lx += iconBase() * 1.2; n.ly += iconBase() * 1.2; } if (Array.isArray(n.pts)) n.pts = n.pts.map(([x,y])=>[x+iconBase()*1.2,y+iconBase()*1.2]); markers.push(n); ns.add(n.id); }); sel = ns; refresh(); }
+function dupSel() { if (!sel.size) return; pushUndo(); const ns = new Set(); [...sel].forEach(id => { const m = markers.find(x => x.id === id); const n = JSON.parse(JSON.stringify(m)); n.id = nextId++; n.x = m.x + iconBase() * 1.2; n.y = m.y + iconBase() * 1.2; if (n.x2 !== undefined) { n.x2 += iconBase() * 1.2; n.y2 += iconBase() * 1.2; } if (n.lx !== undefined) { n.lx += iconBase() * 1.2; n.ly += iconBase() * 1.2; } if (Array.isArray(n.pts)) n.pts = n.pts.map(([x,y])=>[x+iconBase()*1.2,y+iconBase()*1.2]); if (Array.isArray(n.extraTips))n.extraTips=n.extraTips.map(([x,y])=>[x+iconBase()*1.2,y+iconBase()*1.2]); markers.push(n); ns.add(n.id); }); sel = ns; refresh(); }
 $('iconSize').oninput = e => { iconMult = parseFloat(e.target.value); refresh(); };
 $('notesChk').onchange = refresh;
 $('lenChk').onchange = () => { $('omniShowEstLengths').checked = $('lenChk').checked; refresh(); };
@@ -1707,11 +2341,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && tool==='omnitrax' && pendingRoute) { e.preventDefault(); finishPendingOmni(); return; }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.code === 'Space') { spaceDown = true; e.preventDefault(); }
-  if (e.key === 'Escape') { if (tool==='omnitrax' && pendingRoute) { cancelOmniRoute(); return; } setTool(null); calMode = null; sel.clear(); banner(''); refresh(); }
+  if (e.key === 'Escape') { if(pendingArrowTipNoteId!==null){pendingArrowTipNoteId=null;banner('');refresh();return;} if (tool==='omnitrax' && pendingRoute) { cancelOmniRoute(); return; } setTool(null); calMode = null; sel.clear(); banner(''); refresh(); }
   if ((e.key === 'Delete' || e.key === 'Backspace') && sel.size) { e.preventDefault(); delSel(); }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? $('redoBtn') : $('undoBtn')).click(); }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); dupSel(); }
-  if (sel.size && e.key.startsWith('Arrow')) { e.preventDefault(); const st = e.shiftKey ? 6 : 1; const dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0; pushUndo(); sel.forEach(id => { const m = markers.find(x => x.id === id); m.x += dx; m.y += dy; if (m.x2 !== undefined) { m.x2 += dx; m.y2 += dy; } if (m.lx !== undefined) { m.lx += dx; m.ly += dy; } if (Array.isArray(m.pts)) m.pts = m.pts.map(([x,y])=>[x+dx,y+dy]); }); refresh(); }
+  if (sel.size && e.key.startsWith('Arrow')) { e.preventDefault(); const st = e.shiftKey ? 6 : 1; const dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0; pushUndo(); sel.forEach(id => { const m = markers.find(x => x.id === id); m.x += dx; m.y += dy; if (m.x2 !== undefined) { m.x2 += dx; m.y2 += dy; } if (m.lx !== undefined) { m.lx += dx; m.ly += dy; } if (Array.isArray(m.pts)) m.pts = m.pts.map(([x,y])=>[x+dx,y+dy]); if(Array.isArray(m.extraTips))m.extraTips=m.extraTips.map(([x,y])=>[x+dx,y+dy]); }); refresh(); }
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
 $('viewport').addEventListener('contextmenu', e => e.preventDefault());
@@ -1731,12 +2365,17 @@ $('viewport').addEventListener('pointerdown', e => {
     else { const d = Math.hypot(pt[0] - calMode.p1[0], pt[1] - calMode.p1[1]); const real = parseFloat(prompt('Real-world distance between the two points, in feet (e.g. 20):')); calMode = null; banner(''); $('ov').style.cursor = 'default'; if (real > 0 && d > 0) { calibratedPtsPerFt = d / real; buildScaleSel(null); $('scaleNote').textContent = 'Calibrated from your two points.'; refresh(); } drawRubber(null); }
     return;
   }
+  if (pendingArrowTipNoteId!==null && overStage) {
+    const m=markers.find(x=>x.id===pendingArrowTipNoteId);pendingArrowTipNoteId=null;banner('');
+    if(isArrowNote(m)){pushUndo();if(!Array.isArray(m.extraTips))m.extraTips=[];m.extraTips.push([pt[0],pt[1]]);sel=new Set([m.id]);refresh();status('Additional arrow attached to the same note.');}
+    return;
+  }
   if (tool) {
     if (hitId !== null && !handle) { /* allow clicking existing while placing = select instead */ }
     if (!overStage) return;
     if (tool === 'relocate') {
       if (!relocationStart) { relocationStart = pt; banner('Relocate: click proposed NEW position'); }
-      else { pushUndo(); const [x,y] = relocationStart; const m = {id:nextId++,page:pageNum,type:'relocate',x,y,x2:pt[0],y2:pt[1],note:roomForChange(),size:1}; markers.push(m); sel=new Set([m.id]); relocationStart=null; setTool(null); refresh(); openChangeDetails(m.id); }
+      else { pushUndo(); const [x,y] = relocationStart; const m = {id:nextId++,page:pageNum,type:'relocate',x,y,x2:pt[0],y2:pt[1],note:roomForChange(),size:1}; markers.push(m); sel=new Set([m.id]); relocationStart=null; setTool(null); refresh(); }
       return;
     }
     if(tool==='arrow_note'){
@@ -1750,15 +2389,15 @@ $('viewport').addEventListener('pointerdown', e => {
       else { addOmniPoint(pt); }
     } else if (dev.kind === 'line') {
       if (!pendingLine) { pendingLine = { x: pt[0], y: pt[1] }; banner('Click the end point'); }
-      else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pendingLine.x, y: pendingLine.y, x2: pt[0], y2: pt[1], note: roomForChange() }; markers.push(m); pendingLine = null; sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); else banner('Placing: ' + dev.label + ' — click start, then end (Esc to stop)'); drawRubber(null); refresh(); openChangeDetails(m.id); }
-    } else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pt[0], y: pt[1], rot: 0, fov: dev.preview === 'circle' ? 360 : 80, showRange: !!dev.preview, layoutStage:isStaged({type:tool})?layoutMode:undefined, note: roomForChange() }; if (tool==='pole3') { m.heads = makePoleHeads(); m.showRange = true; } if (tool==='lidar') { m.length = 18; } if (tool==='ptz') { m.fov = 120; m.size=.45; } markers.push(m); sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); refresh(); openChangeDetails(m.id); }
+      else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pendingLine.x, y: pendingLine.y, x2: pt[0], y2: pt[1], note: roomForChange() }; markers.push(m); pendingLine = null; sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); else banner('Placing: ' + dev.label + ' — click start, then end (Esc to stop)'); drawRubber(null); refresh(); }
+    } else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pt[0], y: pt[1], rot: 0, fov: dev.preview === 'circle' ? 360 : 80, showRange: !!dev.preview, layoutStage:isStaged({type:tool})?layoutMode:undefined, note: roomForChange() }; if (tool==='pole3') { m.heads = makePoleHeads(); m.showRange = true; } if (tool==='lidar') { m.length = 18; } if(tool==='lidar360'){ensureLidar360(m);m.showRange=true;} if (tool==='ptz') { m.fov = 120; m.size=.45; } markers.push(m); sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); refresh(); }
     return;
   }
   if (hitId !== null) {
     if (e.shiftKey) { sel.has(hitId) ? sel.delete(hitId) : sel.add(hitId); refresh(); return; }
     if (!sel.has(hitId)) { sel = new Set([hitId]); refresh(); }
-    const m0 = {}; markers.forEach(m => { if (sel.has(m.id)) m0[m.id] = { x: m.x, y: m.y, x2: m.x2, y2: m.y2, lx: m.lx, ly: m.ly, cx:m.cx,cy:m.cy, pts:Array.isArray(m.pts)?m.pts.map(p=>p.slice()):undefined }; });
-    drag = { mode: handle ? 'handle' : 'move', start: pt, m0, handle, id: hitId, headIndex:handle==='pole-arm'||handle==='pole-aim'?Number(e.target.getAttribute('data-index')):null, vertexIndex:handle==='omni-vertex'?Number(e.target.getAttribute('data-index')):null, moved: false }; if(handle==='omni-vertex'){const m=markers.find(x=>x.id===hitId);if(m){m.omniVertexIdx=drag.vertexIndex;refresh();}}
+    const m0 = {}; markers.forEach(m => { if (sel.has(m.id)) m0[m.id] = { x: m.x, y: m.y, x2: m.x2, y2: m.y2, lx: m.lx, ly: m.ly, cx:m.cx,cy:m.cy,extraTips:Array.isArray(m.extraTips)?m.extraTips.map(p=>p.slice()):undefined, pts:Array.isArray(m.pts)?m.pts.map(p=>p.slice()):undefined }; });
+    drag = { mode: handle ? 'handle' : 'move', start: pt, m0, handle, id: hitId, tipIndex:handle==='note-extra-tip'?Number(e.target.getAttribute('data-index')):null, headIndex:handle==='pole-arm'||handle==='pole-aim'?Number(e.target.getAttribute('data-index')):null, vertexIndex:handle==='omni-vertex'?Number(e.target.getAttribute('data-index')):null, moved: false }; if(handle==='omni-vertex'){const m=markers.find(x=>x.id===hitId);if(m){m.omniVertexIdx=drag.vertexIndex;refresh();}}
     return;
   }
   if (e.shiftKey && overStage) { drag = { mode: 'marq', start: pt, cur: pt }; return; }
@@ -1777,7 +2416,7 @@ $('viewport').addEventListener('pointermove', e => {
     const dx = pt[0] - drag.start[0], dy = pt[1] - drag.start[1];
     if (!drag.moved && Math.hypot(dx, dy) * zoom < 3) return;
     if (!drag.moved) { pushUndo(); drag.moved = true; }
-    markers.forEach(m => { const o = drag.m0[m.id]; if (!o) return; m.x = o.x + dx; m.y = o.y + dy; if (o.x2 !== undefined) { m.x2 = o.x2 + dx; m.y2 = o.y2 + dy; } if (o.lx !== undefined) { m.lx = o.lx + dx; m.ly = o.ly + dy; } if (Array.isArray(m.pts) && Array.isArray(o.pts)) m.pts = o.pts.map(([x,y])=>[x+dx,y+dy]); if(m.type==='relocate'){const cx=o.cx??(o.x+o.x2)/2, cy=o.cy??((o.y+o.y2)/2-Math.min(35,Math.abs(o.x2-o.x)*.2));m.cx=cx+dx;m.cy=cy+dy;} });
+    markers.forEach(m => { const o = drag.m0[m.id]; if (!o) return; m.x = o.x + dx; m.y = o.y + dy; if (o.x2 !== undefined) { m.x2 = o.x2 + dx; m.y2 = o.y2 + dy; } if (o.lx !== undefined) { m.lx = o.lx + dx; m.ly = o.ly + dy; } if (Array.isArray(m.pts) && Array.isArray(o.pts)) m.pts = o.pts.map(([x,y])=>[x+dx,y+dy]); if (Array.isArray(o.extraTips)) m.extraTips=o.extraTips.map(([x,y])=>[x+dx,y+dy]); if(m.type==='relocate'){const cx=o.cx??(o.x+o.x2)/2, cy=o.cy??((o.y+o.y2)/2-Math.min(35,Math.abs(o.x2-o.x)*.2));m.cx=cx+dx;m.cy=cy+dy;} });
     refresh();
   } else if (drag.mode === 'handle') {
     if (!drag.moved) { pushUndo(); drag.moved = true; }
@@ -1799,6 +2438,7 @@ $('viewport').addEventListener('pointermove', e => {
       if(Number.isInteger(idx)&&idx>=0&&idx<m.pts.length){m.pts[idx]=[pt[0],pt[1]];m.omniVertexIdx=idx;if(idx===0){m.x=pt[0];m.y=pt[1];}}
     } else if (isArrowNote(m)) {
       if(h==='note-tip'){m.x=pt[0];m.y=pt[1];}
+      else if(h==='note-extra-tip' && Number.isInteger(drag.tipIndex) && Array.isArray(m.extraTips) && m.extraTips[drag.tipIndex])m.extraTips[drag.tipIndex]=[pt[0],pt[1]];
       else if(h==='note-label'){m.x2=pt[0];m.y2=pt[1];}
     } else if (m.type === 'area') {
       const o = drag.m0[m.id];
@@ -1809,6 +2449,7 @@ $('viewport').addEventListener('pointermove', e => {
       const dx = pt[0] - m.x, dy = pt[1] - m.y, dist = Math.hypot(dx, dy), ang = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
       if ((DEV[m.type]?.preview === 'cone' || isLidar(m)) && h === 'dir') { m.rot = Math.round(ang); }
       else if (isLidar(m) && h === 'len') { m.length = Math.max(4, Math.min(80, dist / (iconBase()*0.32))); }
+      else if (isLidar360(m) && h === 'lidar360-radius') {m.radiusRef=Math.max(0.05,Math.min(500,dist/lidar360RefUnit()));}
       else if (DEV[m.type]?.preview === 'cone' && h === 'fov') {
         const diff=Math.abs(((ang-(m.rot||0)+540)%360)-180);
         m.fov=Math.max(10,Math.min(360,Math.round(2*diff/5)*5));
@@ -1830,15 +2471,14 @@ $('viewport').addEventListener('pointerup', e => {
     const m=markers.find(x=>x.id===drag.id);
     if(m){if(Math.hypot(m.x2-m.x,m.y2-m.y)<iconBase()*2){m.x2=m.x+iconBase()*5;m.y2=m.y-iconBase()*3;}
       if(!$('placeMultiple').checked)setTool(null);
-      $('selectionSettings').open=true;refresh();$('selectionSettings').scrollIntoView({block:'start',behavior:'smooth'});
-      setTimeout(()=>{$('arrowNoteText').focus({preventScroll:true});},90);
+      $('selectionSettings').open=true;refresh();banner('Arrow note placed. Open Adjust to edit its text and pointers.');
     }
   }
   if (drag && drag.mode === 'draw') {
     const m = markers.find(x => x.id === drag.id);
     if (Math.abs(m.x2 - m.x) < 8 || Math.abs(m.y2 - m.y) < 8) { m.x2 = m.x + 12 * ptsPerFt(); m.y2 = m.y + 8 * ptsPerFt(); }
     const x0 = Math.min(m.x, m.x2), x1 = Math.max(m.x, m.x2), y0 = Math.min(m.y, m.y2); const g = callGeom(m, wScreen);
-    m.lx = (x0 + x1) / 2; m.ly = y0 - g.h * 0.8; if (!$('placeMultiple').checked) setTool(null); $('selectionSettings').open=true; refresh(); $('selectionSettings').scrollIntoView({block:'start',behavior:'smooth'}); setTimeout(()=>{$('areaText').focus({preventScroll:false});},120);
+    m.lx = (x0 + x1) / 2; m.ly = y0 - g.h * 0.8; if (!$('placeMultiple').checked) setTool(null); $('selectionSettings').open=true; refresh(); banner('Callout placed. Open Adjust to edit its text and appearance.');
   }
   if (drag && drag.mode === 'marq') {
     const [x0, x1] = [Math.min(drag.start[0], drag.cur[0]), Math.max(drag.start[0], drag.cur[0])], [y0, y1] = [Math.min(drag.start[1], drag.cur[1]), Math.max(drag.start[1], drag.cur[1])];
@@ -1850,14 +2490,21 @@ $('viewport').addEventListener('pointerup', e => {
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 5, pdfName, page: pageNum, layoutMode, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, showLengths: $('lenChk').checked, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 7, pdfName, page: pageNum, layoutMode, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, showLengths: $('lenChk').checked, cameraAppearance:{outlines:cameraOutlinesOn(),fillStrength:Number($('cameraFillStrength').value)}, coverageVisibility:{cameraCones:showCameraCones(),lidar360Fills:showLidar360Fills(),lidar360Outlines:showLidar360Outlines()}, drawingLayers:{...layerVisibility}, markers }, null, 1)], { type: 'application/json' })); status('Saved work JSON. '+(unidentifiedChanges().length?unidentifiedChanges().length+' change(s) still need identification for tracked review.':'All placed changes are identified.')); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
   r.onload = () => { try {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
     $('pdfLegendChk').checked = o.pdfLegend === true;
+    $('cameraOutlineChk').checked=o.cameraAppearance?.outlines!==false;
+    $('cameraFillStrength').value=Math.max(0,Math.min(100,Number(o.cameraAppearance?.fillStrength ?? 100)));
+    $('cameraFillStrengthVal').textContent=$('cameraFillStrength').value;
+    $('showAllCameraCones').checked=o.coverageVisibility?.cameraCones!==false;
+    $('showAllLidar360Fills').checked=o.coverageVisibility?.lidar360Fills!==false;
+    $('showAllLidar360Outlines').checked=o.coverageVisibility?.lidar360Outlines!==false;
 
+    loadDrawingLayers(o.drawingLayers);
     if (o.tool && o.tool !== CFG.fileTag) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || isAnnotation(m); const bad = o.markers.filter(m => !okM(m)).length;
     // Map v1 NEW/EXISTING menu IDs to v2 camera types and retain their teal/orange colors.
@@ -1870,8 +2517,9 @@ $('loadInput').onchange = e => {
     });
     setLayoutMode(o.layoutMode || 'initial');
     $('lenChk').checked = o.showLengths !== false; // Older JSON files default to showing lengths.
-    if (pdfDoc) { pushUndo(); markers = ms.map(m => { if (isPole(m)) ensurePole(m); if (isOmnitrax(m)) ensureOmni(m); if (isLidar(m) && !Number.isFinite(m.length)) m.length = 18; return m; }); nextId = Math.max(0, ...markers.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); pageRotations={...(o.pageRotations || {})}; void openPage(false).then(()=>fit()).catch(console.error); status('Loaded ' + markers.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
+    if (pdfDoc) { pushUndo(); markers = ms.map(m => { if (isPole(m)) ensurePole(m); if (isOmnitrax(m)) ensureOmni(m); if (isLidar(m) && !Number.isFinite(m.length)) m.length = 18; if(isLidar360(m))ensureLidar360(m); return m; }); nextId = Math.max(0, ...markers.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); pageRotations={...(o.pageRotations || {})}; void openPage(false).then(()=>fit()).catch(console.error); status('Loaded ' + markers.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
     else { pendingLoad = { markers: ms, page: o.page, inchesPerFt: o.inchesPerFt, calPtsPerFt: o.calPtsPerFt, pageRotations: o.pageRotations || {} }; status('Work loaded (' + ms.length + ' devices). Now choose the plan PDF' + (o.pdfName ? ': ' + o.pdfName : '') + '.'); }
+    syncDrawingLayers(); // Refresh the restore list for hidden notes in the newly loaded JSON.
     if (bad) status($('status').textContent + ' ' + bad + ' unknown devices skipped.');
   } catch (err) { status('Could not read that work file: ' + err.message); } };
   r.readAsText(f); e.target.value = '';
@@ -1912,7 +2560,7 @@ $('csvBtn').onclick = () => {
 function hexRgb(h, PDFLib) { const n = parseInt(h.slice(1), 16); return PDFLib.rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); }
 $('pdfBtn').onclick = async () => {
   if (!pdfBytes || !vp) { status('Choose a plan first.'); return; }
-  const missing=markers.filter(m=>!isAnnotation(m)&&!m.note); if(missing.length&&!confirm(missing.length+' markups have no room/area. Export anyway?'))return;
+  const missing=unidentifiedChanges(); if(missing.length&&!confirm(missing.length+' change(s) are not yet identified by room / area.\n\nYou can export this layout as a draft, but these changes will not be fully described or grouped in the tracked review.\n\nTo identify them, choose Review Changes > Identify next outstanding change.\n\nExport the draft PDF anyway?'))return;
   status('Building PDF for all drawing pages…');
   try {
     const { PDFDocument, StandardFonts, rgb, degrees } = PDFLib;
@@ -1931,7 +2579,7 @@ $('pdfBtn').onclick = async () => {
     // AHT_CCTV_MULTIPAGE_EXPORT_V1 — keep original pages and apply each page's OWN markup.
     // Use the matching PDF.js viewport, not the last page displayed in the editor.
     for (let exportPageNum = 1; exportPageNum <= pages.length; exportPageNum++) {
-      const pageMarkersForExport = markers.filter(m => (m.page || 1) === exportPageNum);
+      const pageMarkersForExport = markers.filter(m => (m.page || 1) === exportPageNum && visibleMarker(m));
       if (!pageMarkersForExport.length) continue; // untouched pages remain in the output PDF
       const page = pages[exportPageNum - 1];
       const pdfJsPage = await pdfDoc.getPage(exportPageNum);
@@ -1943,10 +2591,17 @@ $('pdfBtn').onclick = async () => {
       const conv = (x, y) => vp.convertToPdfPoint(x, y);
     const o = conv(0, 0), px = conv(1, 0), py = conv(0, 1);
     const ang = Math.atan2(px[1] - o[1], px[0] - o[0]);
+    // AHT_CCTV_PDF_HIDDEN_PATH_GUARD_V3511: no black fallback stroke on hidden coverage.
     const polygon = (pts, fill, fo, stroke, so, sw, dash) => {
+      // pdf-lib draws an SVG path in black when both colors are omitted.
+      // Invisible LiDAR/camera layers must not emit a path at all.
+      if (!fill && !stroke) return;
       const p = pts.map(q => conv(q[0], q[1]));
       const d = 'M ' + p.map(q => q[0].toFixed(2) + ' ' + (-q[1]).toFixed(2)).join(' L ') + ' Z';
-      const opt = { x: 0, y: 0 }; if (fill) { opt.color = fill; opt.opacity = fo; } if (stroke) { opt.borderColor = stroke; opt.borderOpacity = so; opt.borderWidth = sw; if (dash) opt.borderDashArray = dash; }
+      const opt = { x: 0, y: 0 };
+      if (fill) { opt.color = fill; opt.opacity = fo; }
+      if (stroke) { opt.borderColor = stroke; opt.borderOpacity = so; opt.borderWidth = sw; if (dash) opt.borderDashArray = dash; }
+      else { opt.borderWidth = 0; } // fill-only paths must not acquire a black outline
       page.drawSvgPath(d, opt);
     };
     const text = (str, vx, vy, size, color, center) => {
@@ -1956,12 +2611,22 @@ $('pdfBtn').onclick = async () => {
       page.drawText(str, { x: p[0] - dx * off, y: p[1] - dy * off, size, font, color, rotate: degrees(ang * 180 / Math.PI) });
     };
     const d0 = iconBase();
+    // Draw large LiDAR coverage beneath ALL camera icons and security markups.
+    PM.filter(isLidar360).forEach(m=>{
+      ensureLidar360(m);
+      const drawFill = showLidar360Fills() && m.fillEnabled && lidar360FillAlpha(m) > 0;
+      const drawOutline = showLidar360Outlines() && m.showOutline !== false;
+      if (!drawFill && !drawOutline) return; // keep symbol, skip hidden coverage entirely
+      const col=hexRgb(m.circleColor,PDFLib);
+      polygon(lidar360Poly(m,vp),drawFill?col:null,drawFill?lidar360FillAlpha(m):0,drawOutline?col:null,1,lidar360Width(m),[3,6]);
+    });
     // CCTV viewing areas are useful for review. Draw beneath device icons if requested.
-    if($('pdfViewChk').checked) PM.forEach(m=>{
+    if(showCameraCones() && $('pdfViewChk').checked) PM.forEach(m=>{
       const dev=DEV[m.type];
       if(!m.showRange||!dev?.preview)return;
       const spec=previewSpec(dev,m), paint=pStyle(dev,m);
-      polygon(previewPoly(m,spec),hexRgb(paint.fill,PDFLib),paint.fillOpacity,hexRgb(paint.stroke,PDFLib),paint.strokeOpacity,Math.max(1.2,iconBase()*0.08));
+      const styled=cameraAreaPaint(paint);
+      polygon(previewPoly(m,spec),hexRgb(styled.fill,PDFLib),styled.fillOpacity,cameraOutlinesOn()?hexRgb(styled.stroke,PDFLib):null,styled.strokeOpacity,Math.max(1.2,iconBase()*0.08));
     });
     const white = rgb(1, 1, 1), black = rgb(0.1, 0.1, 0.1);
     const wPdf = (t, f) => font.widthOfTextAtSize(t, f);
@@ -2000,6 +2665,8 @@ $('pdfBtn').onclick = async () => {
         const end=lidarEnd(m),start=lidarArrowStart(m.x,m.y,m.rot||0,dm),a=conv(start[0],start[1]),b=conv(end[0],end[1]),style=arrowStyle(m,dm,dev.color);
         page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:style.width,color:hexRgb(style.color,PDFLib),lineCap:1});
         polygon(lidarArrowPts(start[0],start[1],end[0],end[1],lidarArrowHeadSize(start[0],start[1],end[0],end[1],style.width)),hexRgb(style.color,PDFLib),1,null,0,0);
+      } else if (dev.kind === 'lidar360') {
+        drawIconPdf(actualDev(dev,m),m.x,m.y,dm,polygon,text,hexRgb,PDFLib);
       } else if (dev.kind === 'pole') {
         ensurePole(m);drawIconPdf(DEV.pole3,m.x,m.y,dm,polygon,text,hexRgb,PDFLib);
         m.heads.forEach(h=>{
@@ -2018,9 +2685,10 @@ $('pdfBtn').onclick = async () => {
             if(h.tier>1)text('A'+h.tier,pos.x+headSize*.35,pos.y+headSize*.66,dm*.26,rgb(.15,.2,.27),false);
             return;
           }
-          if($('pdfViewChk').checked&&h.showRange!==false){
+          if(showCameraCones() && $('pdfViewChk').checked&&h.showRange!==false){
             const sp=headPreviewSpec(m,h,dm),st=headPreviewStyle(m,h);
-            polygon(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},sp),hexRgb(st.fill,PDFLib),st.fillOpacity,hexRgb(st.stroke,PDFLib),st.strokeOpacity,1.3);
+            const styled=cameraAreaPaint(st);
+            polygon(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},sp),hexRgb(styled.fill,PDFLib),styled.fillOpacity,cameraOutlinesOn()?hexRgb(styled.stroke,PDFLib):null,styled.strokeOpacity,1.3);
           }
           polygon(previewPoly({x:pos.x,y:pos.y},{kind:'circle',angle:360,rpt:headSize*.52}),rgb(1,1,1),1,rgb(.2,.24,.28),1,Math.max(1,dm*.065));
           drawIconPdf(headDev,pos.x,pos.y,headSize,polygon,text,hexRgb,PDFLib);
@@ -2047,9 +2715,11 @@ $('pdfBtn').onclick = async () => {
     // AHT_ARROW_NOTE_V1: export notes per sheet in the same coordinate space as the source PDF.
     notes.forEach(m=>{
       const G=arrowNoteGeom(m,wPdf,vp),col=hexRgb(m.color||ARROW_NOTE_COLOR,PDFLib),txt=hexRgb(m.textColor||m.color||ARROW_NOTE_COLOR,PDFLib),fill=hexRgb(m.fillColor||'#ffffff',PDFLib);
-      const start=conv(...G.start),end=conv(...G.end);
-      page.drawLine({start:{x:start[0],y:start[1]},end:{x:end[0],y:end[1]},thickness:G.stroke,color:col});
-      polygon(G.arrow,col,1,null,0,0);
+      noteTargets(m).forEach(tip=>{
+        const a=arrowNoteGeom(m,wPdf,vp,tip),start=conv(...a.start),end=conv(...a.end);
+        page.drawLine({start:{x:start[0],y:start[1]},end:{x:end[0],y:end[1]},thickness:a.stroke,color:col});
+        polygon(a.arrow,col,1,null,0,0);
+      });
       polygon([[G.bx,G.by],[G.bx+G.w,G.by],[G.bx+G.w,G.by+G.h],[G.bx,G.by+G.h]],fill,m.fillOpacity==null?.95:Number(m.fillOpacity),col,1,G.stroke*.75);
       G.lines.forEach((line,i)=>{const clean=String(line).replace(/[^\x20-\x7e]/g,'?');text(clean,G.lx,G.base(i),G.fs,txt,true);});
     });

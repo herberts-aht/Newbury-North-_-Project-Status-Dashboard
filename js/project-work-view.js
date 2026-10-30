@@ -10,7 +10,10 @@ const ProjectWorkView = (() => {
   let seededProjectKey = null;
   let projectWorkMode = "hierarchy";
   let actionDisplayMode = "list";
+  const expandedActionGroups = new Set();
   let actionWaitingOnFilter = "all";
+  let actionPriorityFilter = "all";
+  const skippedDateReviewIds = new Set();
   let deliveryPhaseFilter = "all";
 
   function escapeHtml(value) {
@@ -427,13 +430,13 @@ const ProjectWorkView = (() => {
 
         <div class="pw-status pw-status-with-warning">
           <span>${buildingPending
-            ? '<span class="pw-building-label">Awaiting plans</span>'
-            : escapeHtml(item.status || "—")}</span>
+            ? '<span class="pw-building-label aht-status-pill aht-status--neutral">Awaiting plans</span>'
+            : AHTStatusUI.badge(item.status || "—", escapeHtml)}</span>
 
           ${
             warning
               ? `
-                <span class="pw-warning-inline ${warningClass(item)}">
+                <span class="pw-warning-inline ${warningClass(item)} ${AHTStatusUI.classFor(warningLabel(item))}">
                   ${escapeHtml(warning)}
                 </span>
 
@@ -456,7 +459,7 @@ const ProjectWorkView = (() => {
         </div>
 
         <div class="pw-meta pw-target">
-          ${dateLabel(item.targetDate)}
+          ${item.scheduleMode ? escapeHtml(AHTScheduling.dateLabel(item)) : dateLabel(item.targetDate)}
         </div>
 
         <div
@@ -757,11 +760,20 @@ const ProjectWorkView = (() => {
   }
 
   function actionDueDate(item) {
-    return (
-      item?.requiredBy ||
-      item?.targetDate ||
-      ""
-    );
+    if (["TBD", "Floating"].includes(item?.scheduleMode) && !item?.targetDate) {
+      return item?.requiredBy || "";
+    }
+    return item?.requiredBy || item?.targetDate || "";
+  }
+
+  function scheduleReviewNeeded(item) {
+    if (!item || taskIsComplete(item)) return false;
+    const mode = item.scheduleMode || "";
+    const watchDate = mode === "Tentative"
+      ? item.targetDate
+      : (mode === "TBD" || (mode === "Floating" && !item.scheduleTriggerDate)) ? item.scheduleReviewDate : "";
+    const days = daysUntil(watchDate);
+    return days !== null && days < 0;
   }
 
   /*
@@ -773,6 +785,8 @@ const ProjectWorkView = (() => {
     if (!item || item.archived || taskIsComplete(item)) {
       return "on-track";
     }
+
+    if (scheduleReviewNeeded(item)) return "review-needed";
 
     const dueIn =
       daysUntil(actionDueDate(item));
@@ -796,7 +810,7 @@ const ProjectWorkView = (() => {
      * The task itself has already missed its required/target date.
      */
     if (dueIn !== null && dueIn < 0) {
-      return "overdue";
+      return item.scheduleMode === "Tentative" ? "review-needed" : "overdue";
     }
 
     /*
@@ -877,6 +891,8 @@ const ProjectWorkView = (() => {
 
   function warningLabel(item) {
     switch (warningState(item)) {
+      case "review-needed":
+        return "Schedule Review Needed";
       case "overdue":
         return "Overdue";
 
@@ -914,6 +930,12 @@ const ProjectWorkView = (() => {
 
     const downstreamCount =
       incompleteDependentsFor(item).length;
+
+    if (state === "review-needed") {
+      return item.scheduleMode === "Tentative"
+        ? "Estimated date passed — reconfirm schedule"
+        : "Schedule review date passed — set or confirm next date";
+    }
 
     if (state === "overdue") {
       const daysLate =
@@ -999,6 +1021,8 @@ const ProjectWorkView = (() => {
 
   function warningRank(item) {
     switch (warningState(item)) {
+      case "review-needed":
+        return 1;
       case "overdue":
         return 1;
 
@@ -1033,6 +1057,7 @@ const ProjectWorkView = (() => {
       status === "Waiting" ||
       status === "Awaiting Review" ||
       status === "Blocked" ||
+      warning === "review-needed" ||
       warning === "overdue" ||
       warning === "at-risk" ||
       warning === "due-soon" ||
@@ -1134,6 +1159,12 @@ const ProjectWorkView = (() => {
       return "overdue";
     }
 
+    // A child with a floating/TBD/estimated review must not disappear
+    // when the Action Required view groups tasks under a workstream.
+    if (states.includes("review-needed")) {
+      return "review-needed";
+    }
+
     if (states.includes("at-risk")) {
       return "at-risk";
     }
@@ -1145,14 +1176,41 @@ const ProjectWorkView = (() => {
     return "on-track";
   }
 
-  function earliestActionDate(members) {
-    const dates = members
-      .map(actionDueDate)
-      .filter(Boolean)
-      .sort();
-
-    return dates[0] || "";
+  // Choose the date driving attention, keeping a schedule review distinct
+  // from a real deliverable deadline or Input Needed By commitment.
+  function attentionDateInfo(item) {
+    const mode = String(item?.scheduleMode || "");
+    const state = warningState(item);
+    if (state === "review-needed") {
+      if (mode === "Tentative" && item.targetDate) {
+        return { date: item.targetDate, label: "Estimated date · review" };
+      }
+      if (["TBD", "Floating"].includes(mode) && item.scheduleReviewDate) {
+        return { date: item.scheduleReviewDate, label: "Schedule review" };
+      }
+    }
+    if (item?.requiredBy) return { date: item.requiredBy, label: "Input needed by" };
+    if (item?.targetDate) return {
+      date: item.targetDate,
+      label: mode === "Tentative" ? "Estimated target" : mode === "Floating" ? "Dependent target" : "Target date"
+    };
+    if (["TBD", "Floating"].includes(mode) && item?.scheduleReviewDate) {
+      return { date: item.scheduleReviewDate, label: "Schedule review" };
+    }
+    return { date: "", label: "No date assigned" };
   }
+
+  function actionGroupDateInfo(members, dependencyDate) {
+    const ranked = members
+      .map(member => ({ member, ...attentionDateInfo(member) }))
+      .filter(entry => entry.date)
+      .sort((a, b) => warningRank(a.member) - warningRank(b.member) || a.date.localeCompare(b.date));
+    if (ranked.length) return { date: ranked[0].date, label: ranked[0].label };
+    return dependencyDate
+      ? { date: dependencyDate, label: "Predecessor target" }
+      : { date: "", label: "No date assigned" };
+  }
+
 
   function dependencyRequiredBy(item) {
     const dates =
@@ -1226,11 +1284,10 @@ const ProjectWorkView = (() => {
           .filter(Boolean)
       )];
 
-      const earliest =
-        earliestActionDate(members);
-
       const dependencyDue =
         dependencyRequiredBy(root);
+
+      const actionDate = actionGroupDateInfo(members, dependencyDue);
 
       return {
         ...root,
@@ -1243,6 +1300,9 @@ const ProjectWorkView = (() => {
 
         __actionState: actionSummaryState(members),
 
+        __actionDate: actionDate.date,
+        __actionDateType: actionDate.label,
+
         waitingOn:
           waitingNames.length === 1
             ? waitingNames[0]
@@ -1252,7 +1312,6 @@ const ProjectWorkView = (() => {
 
         requiredBy:
           dependencyDue ||
-          earliest ||
           root.requiredBy ||
           ""
       };
@@ -1260,12 +1319,14 @@ const ProjectWorkView = (() => {
 
     return summaries.sort((a, b) => {
       const aDate = String(
+        a.__actionDate ||
         a.requiredBy ||
         a.targetDate ||
         "9999-12-31"
       );
 
       const bDate = String(
+        b.__actionDate ||
         b.requiredBy ||
         b.targetDate ||
         "9999-12-31"
@@ -1317,6 +1378,10 @@ const ProjectWorkView = (() => {
      * normal "what we need" wording.
      */
     if (!descendants.length) {
+      if (warningState(item) === "review-needed") {
+        const context = item.informationRequired || item.blockerDependency || "Confirm the current schedule";
+        return `Schedule review needed · ${context}`;
+      }
       return (
         item.informationRequired ||
         item.blockerDependency ||
@@ -1326,6 +1391,7 @@ const ProjectWorkView = (() => {
     }
 
     const counts = {
+      "review-needed": 0,
       overdue: 0,
       "at-risk": 0,
       "due-soon": 0,
@@ -1339,7 +1405,9 @@ const ProjectWorkView = (() => {
         state = "at-risk";
       }
 
-      if (state === "overdue") {
+      if (state === "review-needed") {
+        counts["review-needed"] += 1;
+      } else if (state === "overdue") {
         counts.overdue += 1;
       } else if (state === "at-risk") {
         counts["at-risk"] += 1;
@@ -1356,6 +1424,10 @@ const ProjectWorkView = (() => {
     });
 
     const details = [];
+
+    if (counts["review-needed"]) {
+      details.push(`${counts["review-needed"]} schedule review${counts["review-needed"] === 1 ? "" : "s"} needed`);
+    }
 
     if (counts.overdue) {
       details.push(
@@ -1407,16 +1479,151 @@ const ProjectWorkView = (() => {
     )].sort((a, b) => a.localeCompare(b));
   }
 
-  function visibleActionRequiredItems() {
-    const records = actionSummaryItems();
+  // Quick filters operate on actual underlying actionable items, not just the
+  // single (sometimes inherited) status shown on a workstream summary.
+  // Counts therefore describe individual actions; the UI also shows group count.
+  function actionFilterCandidates(item) {
+    const members = Array.isArray(item?.__actionMembers)
+      ? item.__actionMembers
+      : [item];
+    const grouped = members.some(member => String(member.id) !== String(item.id));
+    if (!grouped) return members;
 
-    if (actionWaitingOnFilter === "all") {
-      return records;
+    return members.filter(member => {
+      if (String(member.id) !== String(item.id)) return true;
+      // An inherited parent-at-risk rollup is not another actionable task.
+      // Retain the parent when it carries its own dated or blocking obligation.
+      return Boolean(member.targetDate || member.requiredBy || member.waitingOn ||
+        member.informationRequired || member.blockerDependency ||
+        ["Waiting", "Awaiting Review", "Blocked"].includes(String(member.status || "")));
+    });
+  }
+
+  function matchesActionPriority(item, priority) {
+    if (priority === "all") return true;
+    const warning = warningState(item);
+    if (priority === "overdue") return warning === "overdue";
+    if (priority === "review") return warning === "review-needed";
+    if (priority === "risk") return warning === "at-risk" || warning === "parent-at-risk";
+    if (priority === "unclassified") return actionDateTypeUnclassified(item);
+    if (priority === "waiting") {
+      return Boolean(item.waitingOn || item.informationRequired || item.blockerDependency ||
+        predecessorIncomplete(item) ||
+        ["Waiting", "Awaiting Review", "Blocked"].includes(String(item.status || "")));
     }
+    return false;
+  }
 
-    return records.filter(
-      item => actionWaitingOnName(item) === actionWaitingOnFilter
+  function actionPriorityCounts(records) {
+    const all = new Map();
+    records.forEach(group => actionFilterCandidates(group).forEach(item => all.set(String(item.id),item)));
+    const items = [...all.values()];
+    return Object.fromEntries(["all", "overdue", "review", "risk", "waiting", "unclassified"]
+      .map(type => [type, items.filter(item => matchesActionPriority(item,type)).length]));
+  }
+
+  function visibleActionRequiredItems() {
+    const records = actionSummaryItems().filter(item =>
+      actionWaitingOnFilter === "all" || actionWaitingOnName(item) === actionWaitingOnFilter
     );
+
+    if (actionPriorityFilter === "all") return records;
+
+    return records.map(group => {
+      const matching = actionFilterCandidates(group)
+        .filter(item => matchesActionPriority(item,actionPriorityFilter));
+      if (!matching.length) return null;
+      const dateInfo = actionGroupDateInfo(matching, "");
+      return {
+        ...group,
+        __actionMembers: matching,
+        __actionGrouped: matching.some(item => String(item.id) !== String(group.id)),
+        __actionState: actionSummaryState(matching),
+        __actionDate: dateInfo.date,
+        __actionDateType: dateInfo.label
+      };
+    }).filter(Boolean).sort((a,b) =>
+      warningRank(a) - warningRank(b) ||
+      String(a.__actionDate || "9999-12-31").localeCompare(String(b.__actionDate || "9999-12-31")) ||
+      String(a.title || "").localeCompare(String(b.title || ""))
+    );
+  }
+
+  // Historical target dates stay unclassified until the PM confirms them.
+  // Queue only actionable records in the current project and Waiting On filter;
+  // the same underlying work item may appear in multiple parent summaries.
+  function unclassifiedDateReviewQueue() {
+    const seen = new Map();
+    actionSummaryItems()
+      .filter(group => actionWaitingOnFilter === "all" || actionWaitingOnName(group) === actionWaitingOnFilter)
+      .forEach(group => actionFilterCandidates(group).forEach(item => {
+        if (actionDateTypeUnclassified(item) && !item.archived && !skippedDateReviewIds.has(String(item.id))) {
+          seen.set(String(item.id), item);
+        }
+      }));
+    return [...seen.values()].sort((a,b) =>
+      String(a.targetDate || "9999-12-31").localeCompare(String(b.targetDate || "9999-12-31")) ||
+      String(a.title || "").localeCompare(String(b.title || ""))
+    );
+  }
+
+  function dateReviewQueueCount() {
+    return unclassifiedDateReviewQueue().length;
+  }
+
+  function dateReviewSkippedCount() {
+    return skippedDateReviewIds.size;
+  }
+
+  function startDateReviewQueue() {
+    // A fresh pass includes every remaining unclassified date; skipped tasks are
+    // never written to SharePoint and return the next time the PM starts.
+    skippedDateReviewIds.clear();
+    return reviewNextUnclassifiedDate();
+  }
+
+  function skipUnclassifiedDate(id) {
+    const record = ProjectWorkItems.getItem(id);
+    if (!record || !actionDateTypeUnclassified(record) || record.archived || taskIsComplete(record)) return null;
+    skippedDateReviewIds.add(String(record.id));
+    const nextId = reviewNextUnclassifiedDate();
+    if (!nextId) {
+      render();
+      window.alert?.(`Review pass finished. ${skippedDateReviewIds.size} task${skippedDateReviewIds.size === 1 ? "" : "s"} skipped without any changes. Select Review dates one by one to revisit them.`);
+    }
+    return nextId;
+  }
+
+  function reviewNextUnclassifiedDate(excludeId = "") {
+    const next = unclassifiedDateReviewQueue().find(item => String(item.id) !== String(excludeId));
+    if (!next) return null;
+    reviewDateType(next.id);
+    return next.id;
+  }
+
+  function actionPriorityControls(records) {
+    const counts = actionPriorityCounts(records);
+    const options = [
+      ["all", "All actions"],
+      ["overdue", "Overdue"],
+      ["review", "Schedule Review"],
+      ["risk", "At Risk"],
+      ["waiting", "Waiting / Blocked"],
+      ["unclassified", "Date Type Not Set"]
+    ];
+    return `<div class="pw-action-priority-bar" role="group" aria-label="Filter action items by urgency">
+      ${options.map(([value,label]) => `<button type="button"
+         class="pw-action-priority-btn ${actionPriorityFilter === value ? "active" : ""}"
+         aria-pressed="${actionPriorityFilter === value}"
+         onclick="ProjectWorkView.setActionPriorityFilter('${value}')">
+         ${escapeHtml(label)} <span class="pw-action-priority-count">${counts[value]}</span>
+       </button>`).join("")}
+      ${actionPriorityFilter === "unclassified" && counts.unclassified > 0 ? `
+        <button type="button" class="pw-date-review-start"
+          onclick="ProjectWorkView.startDateReviewQueue()">
+          Review dates one by one →
+        </button>` : ""}
+    </div>`;
   }
 
   function actionWaitingOnFilterControl() {
@@ -1622,6 +1829,78 @@ const ProjectWorkView = (() => {
     `;
   }
 
+
+  // Action Required keeps groups compact until the PM wants the exact
+  // outstanding tasks. Historical records stay actionable; their dates are
+  // identified as not yet classified, rather than silently downgraded.
+  function actionGroupMembers(item) {
+    const all = Array.isArray(item?.__actionMembers) ? item.__actionMembers : [];
+    return all.filter(member => String(member.id) !== String(item.id))
+      .sort((a, b) => warningRank(a) - warningRank(b) ||
+        String(attentionDateInfo(a).date || "9999").localeCompare(String(attentionDateInfo(b).date || "9999")) ||
+        String(a.title || "").localeCompare(String(b.title || "")));
+  }
+
+  function actionDateTypeUnclassified(item) {
+    // An Input Needed By date is NOT a task due date and needs no due-date classification.
+    return !item?.scheduleMode && Boolean(item?.targetDate);
+  }
+
+  function actionGroupToggle(item) {
+    const children = actionGroupMembers(item);
+    if (!children.length) return "";
+    const expanded = expandedActionGroups.has(String(item.id));
+    return `<button type="button" class="pw-action-expand" data-action-group-toggle="${escapeHtml(item.id)}"
+      aria-expanded="${expanded}" aria-label="${expanded ? "Hide" : "Show"} ${children.length} tasks under ${escapeHtml(item.title)}"
+      onclick="event.stopPropagation();ProjectWorkView.toggleActionGroup(this.dataset.actionGroupToggle)">
+        ${expanded ? "Hide tasks ▲" : `View ${children.length} tasks ▼`}
+      </button>`;
+  }
+
+  function dateReviewButton(item) {
+    if (!actionDateTypeUnclassified(item)) return "";
+    return `<button type="button" class="pw-verify-date-btn"
+       data-review-schedule-id="${escapeHtml(item.id)}"
+       title="Review the stored due date without changing it automatically"
+       onclick="event.stopPropagation();event.preventDefault();ProjectWorkView.reviewDateType(this.dataset.reviewScheduleId)"
+       onkeydown="event.stopPropagation()">Review date type</button>`;
+  }
+
+  function reviewDateType(id) {
+    const item = ProjectWorkItems.getItem(id);
+    if (!item) return;
+    window.ProjectTaskEditor?.open({id: item.id, reviewQueue: true});
+    // ProjectTaskEditor initially focuses Task Name; move focus to the scheduling choice.
+    setTimeout(() => document.getElementById("pteScheduleMode")?.focus(), 50);
+  }
+
+  function actionGroupDetails(item) {
+    const children = actionGroupMembers(item);
+    if (!children.length || !expandedActionGroups.has(String(item.id))) return "";
+    return `<div class="pw-action-detail-panel" aria-label="Tasks needing attention under ${escapeHtml(item.title)}">
+      ${children.map(child => {
+        const due = attentionDateInfo(child);
+        const warning = warningLabel(child);
+        const dateUnclassified = actionDateTypeUnclassified(child);
+        return `<div class="pw-action-detail-item" role="button" tabindex="0" data-project-work-item-id="${escapeHtml(child.id)}"
+          aria-label="Open task ${escapeHtml(child.title)}">
+          <span class="pw-action-detail-title">${escapeHtml(child.title)}</span>
+          <span class="pw-action-detail-state aht-status-pill ${AHTStatusUI.classFor(warning || actionStatusLabel(child))}">${escapeHtml(warning || actionStatusLabel(child))}</span>
+          <span class="pw-action-detail-date">${dateLabel(due.date)}<small>${escapeHtml(due.label)}</small></span>
+          <span class="pw-action-detail-legacy">${dateUnclassified ? dateReviewButton(child) : ""}</span>
+          <span class="pw-action-detail-arrow">›</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  function toggleActionGroup(id) {
+    const key = String(id ?? "");
+    if (expandedActionGroups.has(key)) expandedActionGroups.delete(key);
+    else expandedActionGroups.add(key);
+    render();
+  }
+
   function actionRequiredCard(item) {
     const needed =
       actionAttentionSummary(item);
@@ -1636,9 +1915,8 @@ const ProjectWorkView = (() => {
       item.owner ||
       "Unassigned";
 
-    const due =
-      item.requiredBy ||
-      item.targetDate;
+    const due = item.__actionDate || "";
+    const dueType = item.__actionDateType || "Next date";
 
     return `
       <article
@@ -1657,14 +1935,14 @@ const ProjectWorkView = (() => {
             ${
               warningLabel(item)
                 ? `
-                  <span class="pw-warning-badge ${warningClass(item)}">
+                  <span class="pw-warning-badge ${warningClass(item)} ${AHTStatusUI.classFor(warningLabel(item))}">
                     ${escapeHtml(warningLabel(item))}
                   </span>
                 `
                 : ""
             }
 
-            <span class="pw-action-status ${actionStatusClass(item)}">
+            <span class="pw-action-status ${actionStatusClass(item)} ${AHTStatusUI.classFor(actionStatusLabel(item))}">
               ${escapeHtml(actionStatusLabel(item))}
             </span>
           </div>
@@ -1680,8 +1958,9 @@ const ProjectWorkView = (() => {
           </div>
 
           <div>
-            <span>Input Needed By</span>
+            <span>${escapeHtml(dueType)}</span>
             <strong>${dateLabel(due)}</strong>
+            ${!item.__actionGrouped ? dateReviewButton(item) : ""}
           </div>
 
         </div>
@@ -1705,6 +1984,8 @@ const ProjectWorkView = (() => {
           ${escapeHtml(actionPath(item))}
         </div>
 
+        ${actionGroupToggle(item)}
+        ${actionGroupDetails(item)}
         <div class="pw-action-card-footer">
           <span>View details</span>
           <strong>›</strong>
@@ -1722,7 +2003,8 @@ const ProjectWorkView = (() => {
         ? "Attention Summary"
         : "What We Need";
 
-    const due = item.requiredBy || item.targetDate;
+    const due = item.__actionDate || "";
+    const dueType = item.__actionDateType || "Next date";
 
     return `
       <div
@@ -1734,11 +2016,11 @@ const ProjectWorkView = (() => {
 
         <div class="pw-action-who">
           <strong>${escapeHtml(item.waitingOn || item.owner || "Unassigned")}</strong>
-          <span>${escapeHtml(actionStatusLabel(item))}</span>
+          ${AHTStatusUI.badge(actionStatusLabel(item), escapeHtml)}
           ${
             warningLabel(item)
               ? `
-                <span class="pw-warning-inline ${warningClass(item)}">
+                <span class="pw-warning-inline ${warningClass(item)} ${AHTStatusUI.classFor(warningLabel(item))}">
                   ${escapeHtml(warningLabel(item))}
                 </span>
               `
@@ -1749,10 +2031,13 @@ const ProjectWorkView = (() => {
         <div class="pw-action-needed">
           <strong>${escapeHtml(needed)}</strong>
           <span>${escapeHtml(actionPath(item))}</span>
+          ${actionGroupToggle(item)}
         </div>
 
         <div class="pw-action-date">
-          ${dateLabel(due)}
+          <strong>${dateLabel(due)}</strong>
+          <span class="pw-action-date-kind">${escapeHtml(dueType)}</span>
+          ${!item.__actionGrouped ? dateReviewButton(item) : ""}
         </div>
 
         <div class="pw-action-related">
@@ -1766,12 +2051,17 @@ const ProjectWorkView = (() => {
         <div class="pw-action-chevron">›</div>
 
       </div>
+      ${actionGroupDetails(item)}
     `;
   }
 
   function renderActionRequired(root) {
     const allRecords = actionSummaryItems();
     const records = visibleActionRequiredItems();
+
+    const filteredGroups = actionWaitingOnFilter === "all"
+      ? allRecords
+      : allRecords.filter(item => actionWaitingOnName(item) === actionWaitingOnFilter);
 
     root.innerHTML = `
       <div class="pw-action-view">
@@ -1792,6 +2082,12 @@ const ProjectWorkView = (() => {
             ${actionWaitingOnFilterControl()}
             ${actionViewToggle()}
           </div>
+        </div>
+
+        ${actionPriorityControls(filteredGroups)}
+        <div class="pw-action-result-count" role="status" aria-live="polite">
+          Showing ${records.length} ${records.length === 1 ? "group" : "groups"}
+          ${actionPriorityFilter !== "all" ? "matching selected priority" : "requiring attention"}
         </div>
 
         ${
@@ -1815,7 +2111,7 @@ const ProjectWorkView = (() => {
                 <div class="pw-action-row pw-action-head">
                   <div>Waiting On</div>
                   <div>What We Need</div>
-                  <div>Input Needed By</div>
+                  <div>Next Date / Type</div>
                   <div>Blocking / Related Work</div>
                   <div>Owner</div>
                   <div></div>
@@ -2061,7 +2357,7 @@ const ProjectWorkView = (() => {
 
         <div class="pw-detail-box">
           <span>Status</span>
-          <strong>${buildingPending ? "Planning" : escapeHtml(item.status || "—")}</strong>
+          <strong>${AHTStatusUI.badge(buildingPending ? "Planning" : item.status || "—", escapeHtml)}</strong>
         </div>
 
         <div class="pw-detail-box">
@@ -2070,8 +2366,8 @@ const ProjectWorkView = (() => {
         </div>
 
         <div class="pw-detail-box">
-          <span>Target</span>
-          <strong>${dateLabel(item.targetDate)}</strong>
+          <span>Target / Schedule</span>
+          <strong>${item.scheduleMode ? escapeHtml(AHTScheduling.dateLabel(item)) : dateLabel(item.targetDate)}</strong>
         </div>
 
       </div>
@@ -2564,6 +2860,14 @@ const ProjectWorkView = (() => {
     render();
   }
 
+  function setActionPriorityFilter(value) {
+    if (!["all", "overdue", "review", "risk", "waiting", "unclassified"].includes(value)) return;
+    actionPriorityFilter = value;
+    // Collapse stale panels when their members change after filtering.
+    expandedActionGroups.clear();
+    render();
+  }
+
   function setActionDisplayMode(mode) {
     if (!["cards", "list"].includes(mode)) return;
 
@@ -2587,7 +2891,7 @@ const ProjectWorkView = (() => {
   }
 
   function openItem(id) {
-    
+
     window.__projectPlanSelectedTaskId = id;
 projectWorkMode = "hierarchy";
 currentWorkItemId = id;
@@ -2600,6 +2904,9 @@ currentWorkItemId = id;
     seededProjectKey = null;
     projectWorkMode = "hierarchy";
     actionWaitingOnFilter = "all";
+    actionPriorityFilter = "all";
+    skippedDateReviewIds.clear();
+    expandedActionGroups.clear();
     render();
   }
 
@@ -2626,7 +2933,8 @@ currentWorkItemId = id;
   });
 
   document.addEventListener("click", event => {
-    const row = event.target.closest(".pw-row-clickable, .pw-action-row:not(.pw-action-head), .pw-action-card");
+    if (event.target.closest("[data-action-group-toggle]")) return;
+    const row = event.target.closest("[data-project-work-item-id], .pw-row-clickable, .pw-action-row:not(.pw-action-head), .pw-action-card");
     if (!row) return;
 
     const id = row.dataset.projectWorkItemId;
@@ -2637,8 +2945,9 @@ currentWorkItemId = id;
 
   document.addEventListener("keydown", event => {
     if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.target.closest("[data-action-group-toggle]")) return;
 
-    const row = event.target.closest(".pw-row-clickable, .pw-action-row:not(.pw-action-head), .pw-action-card");
+    const row = event.target.closest("[data-project-work-item-id], .pw-row-clickable, .pw-action-row:not(.pw-action-head), .pw-action-card");
     if (!row) return;
 
     const id = row.dataset.projectWorkItemId;
@@ -2666,6 +2975,14 @@ currentWorkItemId = id;
     setDeliveryPhaseFilter,
     setActionDisplayMode,
     setActionWaitingOnFilter,
+    setActionPriorityFilter,
+    toggleActionGroup,
+    reviewDateType,
+    reviewNextUnclassifiedDate,
+    startDateReviewQueue,
+    skipUnclassifiedDate,
+    dateReviewQueueCount,
+    dateReviewSkippedCount,
     openOverview,
     openItem,
     onProjectChanged
@@ -2730,6 +3047,7 @@ window.ProjectWorkView = ProjectWorkView;
   }
 
   document.addEventListener("click", event => {
+    if (event.target.closest("[data-action-group-toggle]")) return;
     const target = taskTarget(event);
     if (!target) return;
 
@@ -2756,6 +3074,7 @@ window.ProjectWorkView = ProjectWorkView;
       return;
     }
 
+    if (event.target.closest("[data-action-group-toggle]")) return;
     const target = taskTarget(event);
     if (!target) return;
 
