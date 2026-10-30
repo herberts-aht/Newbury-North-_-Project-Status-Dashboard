@@ -55,6 +55,7 @@ const APP_CONFIG = Object.freeze({
     // Other AHT accounts are matched to a configured dashboard user by email/name,
     // Entra Members otherwise receive a safe AHT Internal profile. Entra Guests are External and receive no project access until assigned.
     adminEmails: Object.freeze(["stace@ahtglobal.com"]),
+    adminObjectId: "8feae494-8b0e-43a5-be9f-4bb6c5b36298",
 
     // Dedicated Entra Security Group assigned to the Enterprise Application.
     // Membership in this group is the gate for dashboard access.

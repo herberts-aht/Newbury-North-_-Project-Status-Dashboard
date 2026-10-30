@@ -1,0 +1,14 @@
+/* Standalone dashboard Tools integration — deliberately scoped to one card/panel. */
+#tools #aht-project-forms-launcher [hidden]{display:none!important}
+#tools #aht-project-forms-launcher{margin:16px 0 20px;box-sizing:border-box;font-family:inherit}
+#tools #aht-project-forms-launcher *{box-sizing:border-box}
+#tools #aht-project-forms-launcher .aht-forms-tile{border:1px solid #d5e1eb;background:#fff;box-shadow:0 2px 9px rgba(28,64,87,.05);border-radius:12px;padding:18px;display:flex;align-items:center;gap:17px;flex-wrap:wrap}
+#tools #aht-project-forms-launcher .aht-forms-tile-icon{background:#e6f2f9;color:#004e84;border-radius:9px;padding:10px;font-size:23px;font-weight:700}
+#tools #aht-project-forms-launcher .aht-forms-tile-copy{flex:1;min-width:175px}
+#tools #aht-project-forms-launcher .aht-forms-tile-copy strong{color:#153b54;font-size:17px}
+#tools #aht-project-forms-launcher .aht-forms-tile-copy p{margin:4px 0 0;color:#5e7180;line-height:1.5;font-size:13px}
+#tools #aht-project-forms-launcher .aht-forms-open,#tools #aht-project-forms-launcher .aht-forms-back{border:1px solid #005a95;border-radius:8px;padding:10px 14px;background:#004e84;color:white;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
+#tools #aht-project-forms-launcher .aht-forms-back{background:white;color:#004e84}
+#tools #aht-project-forms-launcher .aht-forms-panel{overflow:hidden;border:1px solid #d7e2e9;border-radius:12px;background:white}
+#tools #aht-project-forms-launcher .aht-forms-toolbar{display:flex;align-items:center;gap:20px;padding:10px 14px;background:#f2f7fb;border-bottom:1px solid #d7e2e9;color:#153b54}
+#tools #aht-project-forms-launcher iframe{display:block;width:100%;height:calc(100vh - 230px);min-height:680px;border:0;background:#fff}

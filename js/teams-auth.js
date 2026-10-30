@@ -10,33 +10,109 @@ async function startTeamsAuthentication() {
       redirectUri: `${window.location.origin}/teams-auth.html`
     },
     cache: {
-      cacheLocation: "sessionStorage"
+      cacheLocation: "localStorage"
     }
   });
 
-  const redirectResult = await msalInstance.handleRedirectPromise();
+  const redirectResult =
+    await msalInstance.handleRedirectPromise();
 
-  if (redirectResult?.account) {
-    const tokenResponse = await msalInstance.acquireTokenSilent({
-      scopes: APP_CONFIG.entra.scopes,
-      account: redirectResult.account
-    });
-
-    await microsoftTeams.authentication.notifySuccess(
-      JSON.stringify({
-        accessToken: tokenResponse.accessToken,
-        account: {
-          username: redirectResult.account.username,
-          name: redirectResult.account.name
-        }
-      })
+  const params =
+    new URLSearchParams(
+      window.location.search
     );
-    return;
+
+  const teamsLoginHint =
+    String(
+      params.get("loginHint") || ""
+    ).trim();
+
+  let account =
+    redirectResult?.account ||
+    msalInstance.getAllAccounts()[0] ||
+    null;
+
+  if (account) {
+    msalInstance.setActiveAccount(account);
+
+    try {
+      const tokenResponse =
+        await msalInstance.acquireTokenSilent({
+          scopes: APP_CONFIG.entra.scopes,
+          account
+        });
+
+      await microsoftTeams.authentication.notifySuccess(
+        JSON.stringify({
+          accessToken: tokenResponse.accessToken,
+          account: {
+            username: account.username,
+            name: account.name
+          }
+        })
+      );
+
+      return;
+    } catch (error) {
+      console.warn(
+        "Cached Teams account could not acquire a token silently.",
+        error
+      );
+    }
   }
 
+  /*
+   * Teams already knows the signed-in user.
+   * Use that identity hint before asking for any interaction.
+   */
+  if (teamsLoginHint) {
+    try {
+      const silentResult =
+        await msalInstance.ssoSilent({
+          scopes: APP_CONFIG.entra.scopes,
+          loginHint: teamsLoginHint
+        });
+
+      account = silentResult.account;
+
+      if (account) {
+        msalInstance.setActiveAccount(account);
+      }
+
+      await microsoftTeams.authentication.notifySuccess(
+        JSON.stringify({
+          accessToken: silentResult.accessToken,
+          account: {
+            username:
+              account?.username ||
+              teamsLoginHint,
+            name:
+              account?.name || ""
+          }
+        })
+      );
+
+      return;
+
+    } catch (error) {
+      console.warn(
+        "Teams silent SSO was not available; interactive authentication required.",
+        error
+      );
+    }
+  }
+
+  /*
+   * Interactive fallback.
+   * Supply loginHint so Microsoft does NOT need to ask
+   * the user which account they are using.
+   */
   await msalInstance.loginRedirect({
     scopes: APP_CONFIG.entra.scopes,
-    prompt: "select_account"
+    ...(teamsLoginHint
+      ? { loginHint: teamsLoginHint }
+      : {}
+    )
   });
 }
 

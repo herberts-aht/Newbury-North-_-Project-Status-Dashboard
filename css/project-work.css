@@ -1104,3 +1104,13 @@
   margin-top:0;
   white-space:nowrap;
 }
+
+/* Project Plan: auxiliary buildings awaiting architectural scope */
+#projectWork .pw-building-row{background:#fbfcfe}
+#projectWork .pw-building-row:hover{background:#f3f8fc}
+#projectWork .pw-building-label{display:inline-block;border:1px solid #c8dbe9;background:#eef6fb;color:#315b79;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700}
+#projectWork .pw-building-no-progress{font-size:12px;font-weight:700;color:#657789}
+#projectWork .pw-building-summary{display:flex;flex-direction:column;gap:5px;background:#f4f8fc;border:1px solid #d3e2ed;border-radius:10px;padding:12px 14px;color:#304d63}
+#projectWork .pw-building-summary strong{font-size:13px}
+#projectWork .pw-building-summary span{font-size:12px;line-height:1.45}
+#projectWork .pw-building-empty{padding:22px 16px;color:#5c7081;background:#fafcfe;border:1px dashed #c8dbe9;border-radius:8px;font-size:13px}

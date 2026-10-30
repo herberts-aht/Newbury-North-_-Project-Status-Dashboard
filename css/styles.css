@@ -4721,6 +4721,74 @@ main.container{
   }
 }
 
+
+/* === HELP TICKET STEP LAYOUT === */
+
+#dashboardHelpTicketForm .help-ticket-step{
+  border:1px solid #d5dce3;
+  border-radius:9px;
+  margin-bottom:12px;
+  background:#fff;
+  overflow:hidden;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-heading{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:10px 13px 8px;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-number{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 24px;
+  width:24px;
+  height:24px;
+  border:1px solid #aeb8c2;
+  border-radius:50%;
+  box-sizing:border-box;
+  background:#fff;
+  color:#344454;
+  font-size:12px;
+  font-weight:600;
+  line-height:1;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-title{
+  font-size:14px;
+  font-weight:700;
+  line-height:18px;
+  color:#2f3d4a;
+  white-space:nowrap;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-subtitle{
+  margin-top:1px;
+  font-size:11px;
+  font-weight:400;
+  line-height:15px;
+  color:#617285;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-content{
+  padding:0 13px 13px;
+}
+
+#dashboardHelpTicketForm .help-ticket-step[hidden]{
+  display:none !important;
+}
+
+#dashboardHelpTicketForm #helpRequestCategory{
+  width:100%;
+}
+
+#dashboardHelpTicketForm .help-request-actions{
+  border-top:1px solid #d9e0e6;
+  margin-top:2px;
+  padding-top:12px;
+}
 /* === SIDEBAR HELP ENTRY === */
 
 #sidebarHelpBtn{
@@ -6901,5 +6969,551 @@ main.container{
 
   .pte-owner-picker-toolbar {
     grid-template-columns: 1fr;
+  }
+}
+
+/* === HELP TICKET STEP VISUAL HIERARCHY === */
+
+#dashboardHelpTicketForm .help-ticket-step{
+  border-color:#cbd8e3;
+  box-shadow:0 1px 2px rgba(26,55,78,.04);
+}
+
+#dashboardHelpTicketForm .help-ticket-step-heading{
+  background:#f3f7fa;
+  border-bottom:1px solid #dce6ee;
+  padding:10px 12px 9px;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-number{
+  border-color:#9fb5c7;
+  background:#f9fcfe;
+  color:#225f88;
+  font-weight:700;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-title{
+  color:#243746;
+  font-weight:750;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-subtitle{
+  color:#647b8e;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-content{
+  background:#fff;
+  padding-top:11px;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-primary{
+  border-color:#b9cedd;
+}
+
+#dashboardHelpTicketForm .help-ticket-step-primary
+.help-ticket-step-heading{
+  background:#edf4f8;
+}
+
+/* ==========================================================
+   ADMIN SUPPORT QUEUE SCROLLING
+   ========================================================== */
+
+#helpTicketQueue,
+#accessRequestQueue{
+  max-height:420px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+
+#helpTicketQueue{
+  min-height:120px;
+}
+
+#accessRequestQueue{
+  min-height:120px;
+}
+
+/* ==========================================================
+   SUPPORT REQUEST DESTRUCTIVE ACTIONS
+   ========================================================== */
+
+.support-request-workflow-actions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.support-request-destructive-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-right:auto;
+}
+
+.support-archive-btn{
+  border:1px solid #c94343 !important;
+  background:#fff !important;
+  color:#b52f2f !important;
+}
+
+.support-archive-btn:hover{
+  background:#fff5f5 !important;
+  border-color:#b52f2f !important;
+  color:#9f2525 !important;
+}
+
+.support-delete-btn{
+  border:1px solid #b52f2f !important;
+  background:#b52f2f !important;
+  color:#fff !important;
+}
+
+.support-delete-btn:hover:not(:disabled){
+  background:#982323 !important;
+  border-color:#982323 !important;
+  color:#fff !important;
+}
+
+.support-delete-btn:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+
+@media(max-width:700px){
+  .support-request-workflow-actions{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .support-request-destructive-actions{
+    width:100%;
+  }
+
+  .support-request-destructive-actions .btn,
+  .support-request-workflow-actions >
+  #saveSupportRequestStatusBtn{
+    flex:1;
+  }
+}
+
+/* ==========================================================
+   ADMINISTRATION LANDING PAGE
+   ========================================================== */
+
+.admin-section-hidden{
+  display:none !important;
+}
+
+.admin-cover{
+  margin-bottom:18px;
+}
+
+.admin-cover-heading{
+  margin-bottom:14px;
+}
+
+.admin-cover-heading h3{
+  margin:2px 0 4px;
+  color:#263f52;
+  font-size:18px;
+}
+
+.admin-cover-heading p{
+  margin:0;
+  color:#6c7f8f;
+  font-size:13px;
+}
+
+.admin-cover-grid{
+  display:grid;
+  grid-template-columns:
+    repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+
+.admin-cover-card{
+  width:100%;
+  min-height:138px;
+  padding:0;
+  overflow:hidden;
+
+  border:1px solid #cad8e3;
+  border-radius:10px;
+
+  background:#fff;
+  text-align:left;
+
+  box-shadow:
+    0 3px 13px rgba(30,55,75,.05);
+
+  cursor:pointer;
+
+  transition:
+    border-color .15s ease,
+    box-shadow .15s ease,
+    transform .15s ease;
+}
+
+.admin-cover-card:hover{
+  border-color:#9fb7c8;
+
+  box-shadow:
+    0 6px 18px rgba(30,55,75,.09);
+
+  transform:translateY(-1px);
+}
+
+.admin-cover-card-head{
+  display:block;
+
+  padding:11px 14px;
+
+  border-bottom:
+    1px solid #d5e0e8;
+
+  background:#eef4f8;
+
+  color:#284b63;
+
+  font-size:14px;
+  font-weight:750;
+}
+
+.admin-cover-card-text{
+  display:block;
+
+  padding:14px 14px 4px;
+
+  min-height:48px;
+
+  color:#607587;
+
+  font-size:12px;
+  line-height:1.45;
+}
+
+.admin-cover-card-open{
+  display:block;
+
+  padding:
+    8px 14px 14px;
+
+  color:#32709b;
+
+  font-size:12px;
+  font-weight:700;
+}
+
+.admin-section-toolbar{
+  display:flex;
+  align-items:center;
+  gap:16px;
+
+  margin-bottom:14px;
+  padding:11px 13px;
+
+  border:
+    1px solid #cddae4;
+
+  border-radius:9px;
+
+  background:#f3f7fa;
+}
+
+.admin-section-toolbar h3{
+  margin:1px 0 0;
+  color:#29485e;
+  font-size:16px;
+}
+
+.admin-section-toolbar .eyebrow{
+  margin:0;
+}
+
+@media(max-width:760px){
+
+  .admin-cover-grid{
+    grid-template-columns:1fr;
+  }
+
+  .admin-section-toolbar{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
+
+/* ==========================================================
+   ROOM BUILDER FILE UPLOAD WIDTH
+   ========================================================== */
+
+#roomBuilderPanel input[type="file"]{
+  width:100%;
+  min-width:0;
+  font-size:12px;
+}
+
+#roomBuilderPanel input[type="file"]::file-selector-button{
+  margin-right:8px;
+}
+
+#roomBuilderPanel .room-builder-upload,
+#roomBuilderPanel .room-upload-card,
+#roomBuilderPanel .upload-from-computer{
+  min-width:220px;
+}
+
+/* ==========================================================
+   PROJECT ADMIN USER ACCESS LAYOUT
+   Full Admin remains unchanged.
+   ========================================================== */
+
+#entraAccessPanel.project-admin-access-layout
+.entra-access-actions{
+  grid-template-columns:minmax(0,720px);
+  justify-content:start;
+}
+
+#entraAccessPanel.project-admin-access-layout
+#addAhtUserCard{
+  width:100%;
+  max-width:720px;
+}
+
+#entraAccessPanel.project-admin-access-layout
+#addAhtUserCard > .admin-grid{
+  grid-template-columns:1fr 1fr;
+}
+
+@media(max-width:800px){
+
+  #entraAccessPanel.project-admin-access-layout
+  .entra-access-actions{
+    grid-template-columns:1fr;
+  }
+
+  #entraAccessPanel.project-admin-access-layout
+  #addAhtUserCard{
+    max-width:none;
+  }
+
+  #entraAccessPanel.project-admin-access-layout
+  #addAhtUserCard > .admin-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+/* ==========================================================
+   PROJECT ADMIN USER ACCESS - WIDE LAYOUT
+   Full Admin layout remains unchanged.
+   ========================================================== */
+
+#entraAccessPanel.project-admin-access-layout
+.entra-access-actions{
+  grid-template-columns:1fr;
+  width:100%;
+}
+
+#entraAccessPanel.project-admin-access-layout
+#addAhtUserCard{
+  width:100%;
+  max-width:none;
+}
+
+#entraAccessPanel.project-admin-access-layout
+#addAhtUserCard > .admin-grid{
+  grid-template-columns:
+    minmax(360px,1.35fr)
+    minmax(280px,.85fr);
+  gap:16px;
+}
+
+@media(max-width:900px){
+
+  #entraAccessPanel.project-admin-access-layout
+  #addAhtUserCard > .admin-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+/* ==========================================================
+   HELP CENTER LANDING PAGE
+   ========================================================== */
+
+.help-center-section-toolbar{
+  display:flex;
+  align-items:center;
+  margin:10px 0 8px;
+}
+
+.help-home{
+  padding:2px 0 8px;
+}
+
+.help-home-heading{
+  margin-bottom:14px;
+}
+
+.help-home-heading h3{
+  margin:3px 0 4px;
+  color:#263f52;
+  font-size:19px;
+}
+
+.help-home-heading p{
+  margin:0;
+  color:#687d8e;
+  font-size:13px;
+}
+
+.help-home-grid{
+  display:grid;
+  grid-template-columns:
+    repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+
+.help-home-card{
+  width:100%;
+  min-height:132px;
+  padding:0;
+  overflow:hidden;
+
+  border:1px solid #cad8e3;
+  border-radius:10px;
+
+  background:#fff;
+
+  text-align:left;
+  cursor:pointer;
+
+  box-shadow:
+    0 3px 12px rgba(30,55,75,.045);
+
+  transition:
+    border-color .15s ease,
+    box-shadow .15s ease,
+    transform .15s ease;
+}
+
+.help-home-card:hover{
+  border-color:#9db7ca;
+
+  box-shadow:
+    0 6px 18px rgba(30,55,75,.09);
+
+  transform:translateY(-1px);
+}
+
+.help-home-card-head{
+  display:block;
+
+  padding:11px 14px;
+
+  border-bottom:
+    1px solid #d5e1e9;
+
+  background:#eef4f8;
+
+  color:#294c64;
+
+  font-size:14px;
+  font-weight:750;
+}
+
+.help-home-card-text{
+  display:block;
+
+  min-height:48px;
+
+  padding:
+    13px 14px 4px;
+
+  color:#607587;
+
+  font-size:12px;
+  line-height:1.45;
+}
+
+.help-home-card-open{
+  display:block;
+
+  padding:
+    8px 14px 14px;
+
+  color:#32709b;
+
+  font-size:12px;
+  font-weight:700;
+}
+
+.help-home-card-action
+.help-home-card-head{
+  background:#e8f2f8;
+  color:#1f5b80;
+}
+
+@media(max-width:700px){
+
+  .help-home-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+
+/* AHT TOOLS LANDING PAGE */
+
+.tools-launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+  align-items: stretch;
+}
+
+.tools-launcher-grid > .card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 22px;
+  border-radius: 10px;
+}
+
+.tools-launcher-grid h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.tools-launcher-grid p {
+  margin: 0;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.tools-launcher-grid .btn {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
+.tools-launcher-grid .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1100px) {
+  .tools-launcher-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .tools-launcher-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

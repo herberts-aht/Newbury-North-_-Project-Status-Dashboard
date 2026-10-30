@@ -389,7 +389,10 @@ const ProjectWorkView = (() => {
   }
 
   function workItemRow(item, options = {}) {
-    const progress = ProjectWorkItems.displayedProgress(item.id);
+    const buildingPending = ProjectWorkItems.isUnscopedBuilding(item);
+    const progress = buildingPending
+      ? null
+      : ProjectWorkItems.displayedProgress(item.id);
     const children = ProjectWorkItems.childrenOf(item.id);
 
     const showWarning = Boolean(options.showWarning);
@@ -404,20 +407,28 @@ const ProjectWorkView = (() => {
 
     return `
       <div
-        class="pw-row pw-row-clickable"
+        class="pw-row pw-row-clickable${buildingPending ? " pw-building-row" : ""}"
         role="button"
         tabindex="0"
         data-project-work-item-id="${escapeHtml(item.id)}"
       >
         <div class="pw-title">
           <strong>${escapeHtml(item.title)}</strong>
-          <div class="small">${escapeHtml(itemSecondaryText(item))}</div>
+          <div class="small">${buildingPending
+            ? "Building · Architectural plans pending · No tasks assigned"
+            : escapeHtml(itemSecondaryText(item))}</div>
         </div>
 
-        ${progressBar(progress)}
+        ${buildingPending
+          ? '<span class="pw-building-no-progress">Not scoped</span>'
+          : progress == null
+            ? '<span class="pw-building-no-progress">—</span>'
+            : progressBar(progress)}
 
         <div class="pw-status pw-status-with-warning">
-          <span>${escapeHtml(item.status || "—")}</span>
+          <span>${buildingPending
+            ? '<span class="pw-building-label">Awaiting plans</span>'
+            : escapeHtml(item.status || "—")}</span>
 
           ${
             warning
@@ -758,6 +769,7 @@ const ProjectWorkView = (() => {
    * Parent roll-up is handled separately so we do not recurse.
    */
   function baseWarningState(item) {
+    if (ProjectWorkItems.isUnscopedBuilding(item)) return "on-track";
     if (!item || item.archived || taskIsComplete(item)) {
       return "on-track";
     }
@@ -1005,6 +1017,7 @@ const ProjectWorkView = (() => {
   }
 
   function isActionableItem(item) {
+    if (ProjectWorkItems.isUnscopedBuilding(item)) return false;
     if (!item || item.archived || taskIsComplete(item)) {
       return false;
     }
@@ -1850,13 +1863,20 @@ const ProjectWorkView = (() => {
       item => String(item.projectId) === key && !item.archived
     );
 
-    const waiting = all.filter(
+    const pendingBuildings = all.filter(
+      item => ProjectWorkItems.isUnscopedBuilding(item)
+    );
+    const managedRecords = all.filter(
+      item => !ProjectWorkItems.isUnscopedBuilding(item)
+    );
+
+    const waiting = managedRecords.filter(
       item =>
         String(item.status).includes("Waiting") ||
         item.status === "Awaiting Review"
     ).length;
 
-    const blocked = all.filter(
+    const blocked = managedRecords.filter(
       item => item.status === "Blocked" || item.blockerDependency
     ).length;
 
@@ -1872,8 +1892,8 @@ const ProjectWorkView = (() => {
           </div>
 
           <div class="pw-summary-card">
-            <span>Tasks</span>
-            <strong>${all.length}</strong>
+            <span>Work Items</span>
+            <strong>${managedRecords.length}</strong>
           </div>
 
           <div
@@ -1892,6 +1912,13 @@ const ProjectWorkView = (() => {
             <strong>${blocked}</strong>
           </div>
         </div>
+
+        ${pendingBuildings.length ? `
+          <div class="pw-building-summary" role="note">
+            <strong>${pendingBuildings.length} auxiliary building${pendingBuildings.length === 1 ? "" : "s"} awaiting architectural plans</strong>
+            <span>Each building remains separate. No assigned tasks, dates, or progress are expected yet.</span>
+          </div>
+        ` : ""}
 
         <div>
           <div class="pw-section-head">
@@ -1978,7 +2005,10 @@ const ProjectWorkView = (() => {
   }
 
   function renderItem(root, item) {
-    const progress = ProjectWorkItems.displayedProgress(item.id);
+    const buildingPending = ProjectWorkItems.isUnscopedBuilding(item);
+    const progress = buildingPending
+      ? null
+      : ProjectWorkItems.displayedProgress(item.id);
     const children = ProjectWorkItems.childrenOf(item.id);
 
     const predecessors =
@@ -2013,7 +2043,7 @@ const ProjectWorkView = (() => {
       <div class="pw-detail-banner">
 
         <div class="pw-detail-box pw-detail-title">
-          <span>Task</span>
+          <span>${buildingPending ? "Building" : "Task"}</span>
           <strong>${escapeHtml(item.title)}</strong>
           <div class="small">
             ${escapeHtml(
@@ -2025,13 +2055,13 @@ const ProjectWorkView = (() => {
         </div>
 
         <div class="pw-detail-box">
-          <span>Progress</span>
-          <strong>${progress == null ? "—" : `${progress}%`}</strong>
+          <span>${buildingPending ? "Scope" : "Progress"}</span>
+          <strong>${buildingPending ? "Awaiting plans" : progress == null ? "—" : `${progress}%`}</strong>
         </div>
 
         <div class="pw-detail-box">
           <span>Status</span>
-          <strong>${escapeHtml(item.status || "—")}</strong>
+          <strong>${buildingPending ? "Planning" : escapeHtml(item.status || "—")}</strong>
         </div>
 
         <div class="pw-detail-box">
@@ -2045,6 +2075,13 @@ const ProjectWorkView = (() => {
         </div>
 
       </div>
+
+      ${buildingPending ? `
+        <div class="pw-building-summary" role="note">
+          <strong>Architectural plans pending</strong>
+          <span>This is a separate building within the project, not an unfinished task. No building-specific work has been assigned yet.</span>
+        </div>
+      ` : ""}
 
       <div class="pw-detail-secondary">
 
@@ -2179,7 +2216,9 @@ const ProjectWorkView = (() => {
               ${
                 children.length
                   ? "Subtask progress rolls up automatically into this task."
-                  : "This task does not have any subtasks yet. Its entered progress drives the hierarchy above it."
+                  : buildingPending
+                    ? "No building tasks assigned. Keep this building separate until plans and scope are available."
+                    : "This task does not have any subtasks yet. Its entered progress drives the hierarchy above it."
               }
             </div>
           </div>
@@ -2220,7 +2259,9 @@ const ProjectWorkView = (() => {
                   .join("")}
               </div>
             `
-            : `
+            : buildingPending
+              ? '<div class="pw-building-empty">Awaiting building drawings and approved scope; nothing to update.</div>'
+              : `
               <div class="pw-leaf-detail">
 
                 <div class="pw-leaf-progress">

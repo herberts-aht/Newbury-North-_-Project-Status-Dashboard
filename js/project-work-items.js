@@ -264,6 +264,53 @@ const ProjectWorkItems = (() => {
   }
 
   /*
+   * Separate building identity from an actual assigned work item.
+   *
+   * The five original 2200 Gordon auxiliary-building records were seeded
+   * as Tasks in SharePoint, but currently represent distinct locations
+   * awaiting architectural drawings, with no assigned work. This is a
+   * read-time classification: it DOES NOT mutate records in SharePoint.
+   * A building automatically becomes progress-eligible when real work,
+   * ownership, dates, or other commitments are added.
+   *
+   * Newly-created records can explicitly use ItemType=Building.
+   */
+  const legacyPlanningBuildingKeys = new Set([
+    "2200-GORDON-aux-plant",
+    "2200-GORDON-aux-guard",
+    "2200-GORDON-aux-gallery",
+    "2200-GORDON-aux-tennis",
+    "2200-GORDON-aux-pool-cabana"
+  ]);
+
+  function isUnscopedBuilding(item) {
+    if (!item || item.archived) return false;
+
+    const identityIsBuilding =
+      legacyPlanningBuildingKeys.has(String(item.id || "")) ||
+      ["building", "location"].includes(
+        String(item.itemType || "").trim().toLowerCase()
+      );
+
+    if (!identityIsBuilding) return false;
+
+    const status = String(item.status || "").trim().toLowerCase();
+    if (!["planned", "planning", "not started"].includes(status)) {
+      return false;
+    }
+
+    return !(
+      hasChildren(item.id) ||
+      String(item.owner || "").trim() ||
+      item.startDate || item.targetDate || item.requiredBy ||
+      String(item.waitingOn || "").trim() ||
+      String(item.informationRequired || "").trim() ||
+      String(item.blockerDependency || "").trim() ||
+      (Array.isArray(item.predecessorIds) && item.predecessorIds.length)
+    );
+  }
+
+  /*
    * Progress rule:
    *
    * LEAF:
@@ -291,6 +338,12 @@ const ProjectWorkItems = (() => {
 
     const item = getItem(id);
     if (!item || item.archived) return null;
+
+    // Building placeholders are not zero-percent tasks or progress weights.
+    if (isUnscopedBuilding(item)) {
+      memo.set(key, null);
+      return null;
+    }
 
     stack.add(key);
 
@@ -518,6 +571,7 @@ const ProjectWorkItems = (() => {
     descendantsOf,
     rootsForProject,
     hasChildren,
+    isUnscopedBuilding,
 
     calculateProgress,
     displayedProgress,

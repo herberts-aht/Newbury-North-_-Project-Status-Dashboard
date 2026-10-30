@@ -8,6 +8,23 @@ let msalInstance = null;
 let microsoftAccount = null;
 let teamsAccessToken = null;
 
+/*
+ * Teams Nested App Authentication (NAA)
+ *
+ * IMPORTANT:
+ * - Normal browser/mobile browser authentication continues to use
+ *   the existing MSAL 2.x instance above.
+ * - NAA is used only inside a supported Microsoft Teams host.
+ * - Set this to false for an immediate Teams-auth rollback.
+ */
+const TEAMS_NAA_ENABLED = true;
+
+let teamsNaaInstance = null;
+let teamsNaaActive = false;
+
+const TEAMS_NAA_BUNDLE_URL =
+  "js/vendor/msal-browser-v5.bundle.js?v=20261005-naa-stage2";
+
 const TEMP_PASSWORDS = {
   stacy: "ahtadmin8626",
   aht: "ahtadmin",
@@ -78,7 +95,9 @@ function normalizeDashboardRole(value, isGuest = false) {
     "Project Admin",
     "Editor",
     "Viewer",
-    "External Viewer"
+    "External Viewer",
+    "Operations Manager",
+    "Warehouse Manager"
   ].includes(role)
     ? role
     : "Viewer";
@@ -403,6 +422,215 @@ async function loadSharedDashboardProfile(graphUser) {
   }
 }
 
+async function ensureTeamsNaaLibrary(){
+  if(
+    window.msal5?.createNestablePublicClientApplication
+  ){
+    return;
+  }
+
+  await new Promise((resolve,reject)=>{
+    const existing =
+      document.querySelector(
+        'script[data-aht-msal5="1"]'
+      );
+
+    if(existing){
+      existing.addEventListener(
+        "load",
+        resolve,
+        { once:true }
+      );
+
+      existing.addEventListener(
+        "error",
+        ()=>reject(
+          new Error(
+            "MSAL v5 NAA library could not be loaded."
+          )
+        ),
+        { once:true }
+      );
+
+      return;
+    }
+
+    const script =
+      document.createElement("script");
+
+    script.src =
+      TEAMS_NAA_BUNDLE_URL;
+
+    script.async = true;
+
+    script.dataset.ahtMsal5 = "1";
+
+    script.onload = resolve;
+
+    script.onerror = ()=>{
+      reject(
+        new Error(
+          "MSAL v5 NAA library could not be loaded."
+        )
+      );
+    };
+
+    document.head.appendChild(script);
+  });
+
+  if(
+    !window.msal5
+      ?.createNestablePublicClientApplication
+  ){
+    throw new Error(
+      "MSAL v5 loaded but NAA support was unavailable."
+    );
+  }
+}
+
+
+async function initializeTeamsNaa(){
+  teamsNaaActive = false;
+  teamsNaaInstance = null;
+
+  if(!TEAMS_NAA_ENABLED){
+    return false;
+  }
+
+  if(window.self === window.top){
+    return false;
+  }
+
+  if(
+    !window.microsoftTeams?.app ||
+    !window.microsoftTeams?.nestedAppAuth
+      ?.isNAAChannelRecommended
+  ){
+    console.info(
+      "Teams NAA capability is unavailable; using existing authentication."
+    );
+
+    return false;
+  }
+
+  /*
+   * Microsoft requires TeamsJS to initialize before MSAL NAA.
+   */
+  await microsoftTeams.app.initialize();
+
+  let recommended = false;
+
+  try{
+    recommended =
+      microsoftTeams.nestedAppAuth
+        .isNAAChannelRecommended() === true;
+  }catch(error){
+    console.warn(
+      "Could not determine Teams NAA capability.",
+      error
+    );
+
+    return false;
+  }
+
+  if(!recommended){
+    console.info(
+      "Teams host does not recommend NAA; using existing authentication."
+    );
+
+    return false;
+  }
+
+  await ensureTeamsNaaLibrary();
+
+  teamsNaaInstance =
+    await window.msal5
+      .createNestablePublicClientApplication({
+        auth:{
+          clientId:
+            APP_CONFIG.entra.clientId,
+
+          authority:
+            `https://login.microsoftonline.com/${APP_CONFIG.entra.tenantId}`,
+
+          supportsNestedAppAuth:true
+        }
+      });
+
+  teamsNaaActive = true;
+
+  console.info(
+    "AHT Teams NAA authentication enabled."
+  );
+
+  return true;
+}
+
+
+async function acquireTeamsNaaAccessToken(
+  scopes,
+  { interactive = true } = {}
+){
+  if(
+    !teamsNaaActive ||
+    !teamsNaaInstance
+  ){
+    throw new Error(
+      "Teams NAA authentication is not active."
+    );
+  }
+
+  const request = {
+    scopes:
+      Array.isArray(scopes)
+        ? scopes
+        : [scopes]
+  };
+
+  let result;
+
+  try{
+    result =
+      await teamsNaaInstance
+        .acquireTokenSilent(request);
+
+  }catch(error){
+
+    if(!interactive){
+      throw error;
+    }
+
+    const InteractionRequired =
+      window.msal5
+        ?.InteractionRequiredAuthError;
+
+    const interactionRequired =
+      InteractionRequired &&
+      error instanceof InteractionRequired;
+
+    if(!interactionRequired){
+      throw error;
+    }
+
+    result =
+      await teamsNaaInstance
+        .acquireTokenPopup(request);
+  }
+
+  if(!result?.accessToken){
+    throw new Error(
+      "Teams NAA did not return an access token."
+    );
+  }
+
+  if(result.account){
+    microsoftAccount =
+      result.account;
+  }
+
+  return result.accessToken;
+}
+
 const MicrosoftAuthProvider = {
   async initialize() {
     if (!window.msal?.PublicClientApplication) {
@@ -412,6 +640,29 @@ const MicrosoftAuthProvider = {
       throw new Error("Microsoft sign-in is enabled, but the Entra tenant/client ID is missing from js/config.js.");
     }
 
+    /*
+     * Attempt Teams NAA first, but never allow an NAA failure
+     * to prevent the existing authentication system from loading.
+     */
+    if(window.self !== window.top){
+      try{
+        await initializeTeamsNaa();
+      }catch(error){
+        teamsNaaActive = false;
+        teamsNaaInstance = null;
+
+        console.warn(
+          "Teams NAA initialization failed; existing Teams authentication will be used.",
+          error
+        );
+      }
+    }
+
+    /*
+     * Keep the existing MSAL 2.x instance intact.
+     * This remains the browser/mobile-browser auth provider
+     * and the Teams fallback provider.
+     */
     msalInstance = new msal.PublicClientApplication({
       auth: {
         clientId: APP_CONFIG.entra.clientId,
@@ -420,7 +671,7 @@ const MicrosoftAuthProvider = {
         postLogoutRedirectUri: microsoftRedirectUri()
       },
       cache: {
-        cacheLocation: "sessionStorage"
+        cacheLocation: "localStorage"
       }
     });
 
@@ -433,12 +684,76 @@ const MicrosoftAuthProvider = {
     const embedded =
       window.self !== window.top;
 
+    /*
+     * Supported Teams host:
+     * use NAA instead of the old authentication popup.
+     */
+    if(
+      embedded &&
+      teamsNaaActive &&
+      teamsNaaInstance
+    ){
+      try{
+        await acquireTeamsNaaAccessToken(
+          APP_CONFIG.entra.scopes,
+          { interactive:true }
+        );
+
+        if(!microsoftAccount){
+          throw new Error(
+            "Teams NAA authenticated but did not return Microsoft account information."
+          );
+        }
+
+        return await this.restoreSession();
+
+      }catch(error){
+        /*
+         * Do not strand the user if NAA fails.
+         * Disable NAA for this page load and continue into
+         * the existing Teams authentication flow below.
+         */
+        console.warn(
+          "Teams NAA sign-in failed; falling back to existing Teams authentication.",
+          error
+        );
+
+        teamsNaaActive = false;
+        teamsNaaInstance = null;
+      }
+    }
+
     if (embedded) {
       await microsoftTeams.app.initialize();
 
+      let teamsLoginHint = "";
+
+      try {
+        const context =
+          await microsoftTeams.app.getContext();
+
+        teamsLoginHint =
+          context?.user?.loginHint ||
+          context?.user?.userPrincipalName ||
+          "";
+      } catch (error) {
+        console.warn(
+          "Could not read Teams login hint.",
+          error
+        );
+      }
+
+      const authUrl =
+        `${window.location.origin}/teams-auth.html` +
+        (
+          teamsLoginHint
+            ? `?loginHint=${encodeURIComponent(teamsLoginHint)}`
+            : ""
+        );
+
       const result = await new Promise((resolve, reject) => {
         microsoftTeams.authentication.authenticate({
-          url: `${window.location.origin}/teams-auth.html`,
+          url: authUrl,
           width: 600,
           height: 535,
           successCallback: resolve,
@@ -469,24 +784,83 @@ const MicrosoftAuthProvider = {
   },
 
   async signOut() {
-    const account = microsoftAccount || msalInstance?.getActiveAccount();
+    /*
+     * Microsoft Teams owns the signed-in host identity when NAA
+     * is active. NAA does not support MSAL logout APIs.
+     *
+     * Clear only the dashboard-side account state. Opening or
+     * signing in again can immediately restore the Teams identity.
+     */
+    if(
+      teamsNaaActive &&
+      teamsNaaInstance
+    ){
+      microsoftAccount = null;
+      teamsAccessToken = null;
+      return;
+    }
+
+    const account =
+      microsoftAccount ||
+      msalInstance?.getActiveAccount();
+
     microsoftAccount = null;
-    if (account) {
+
+    if(account){
       await msalInstance.logoutRedirect({
         account,
-        postLogoutRedirectUri: microsoftRedirectUri()
+        postLogoutRedirectUri:
+          microsoftRedirectUri()
       });
     }
   },
 
   async restoreSession() {
-    if (!teamsAccessToken) {
-      microsoftAccount = msalInstance?.getActiveAccount() || msalInstance?.getAllAccounts()[0] || null;
-      if (!microsoftAccount) return null;
-      msalInstance.setActiveAccount(microsoftAccount);
+    /*
+     * Teams NAA:
+     * Ask the host silently for User.Read during application startup.
+     * If the Teams-hosted user already has consent, this allows the
+     * dashboard to restore without showing the login screen.
+     */
+    if(
+      teamsNaaActive &&
+      teamsNaaInstance
+    ){
+      if(!microsoftAccount){
+        try{
+          await acquireTeamsNaaAccessToken(
+            ["User.Read"],
+            { interactive:false }
+          );
+        }catch(error){
+          console.info(
+            "Teams NAA silent session restore requires interaction.",
+            error
+          );
+
+          return null;
+        }
+      }
+
+    }else if(!teamsAccessToken){
+
+      microsoftAccount =
+        msalInstance?.getActiveAccount() ||
+        msalInstance?.getAllAccounts()[0] ||
+        null;
+
+      if(!microsoftAccount){
+        return null;
+      }
+
+      msalInstance.setActiveAccount(
+        microsoftAccount
+      );
     }
 
-    if (!microsoftAccount) return null;
+    if(!microsoftAccount){
+      return null;
+    }
 
     // User.Read is sufficient for /me and lets Entra tell us whether the
     // authenticated identity is an internal Member or a B2B Guest.
@@ -512,28 +886,75 @@ const MicrosoftAuthProvider = {
 
 let AuthProvider = APP_CONFIG.authProvider === "microsoft" ? MicrosoftAuthProvider : DemoAuthProvider;
 
-async function getMicrosoftAccessToken(scopes = APP_CONFIG.entra.scopes, { interactive = true } = {}) {
-  if (!msalInstance) throw new Error("Microsoft authentication has not been initialized.");
-  const account = microsoftAccount || msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
-  if (!account) throw new Error("Sign in with Microsoft before accessing SharePoint.");
+async function getMicrosoftAccessToken(
+  scopes = APP_CONFIG.entra.scopes,
+  { interactive = true } = {}
+){
+  /*
+   * NAA token acquisition is completely separate from the
+   * existing browser MSAL 2.x cache.
+   */
+  if(
+    teamsNaaActive &&
+    teamsNaaInstance
+  ){
+    return await acquireTeamsNaaAccessToken(
+      scopes,
+      { interactive }
+    );
+  }
 
-  // Teams desktop authentication supplies the Graph token through the
-  // Teams authentication flow. Use it directly instead of opening another
-  // MSAL browser popup inside the Teams desktop webview.
-  if (teamsAccessToken) {
+  if(!msalInstance){
+    throw new Error(
+      "Microsoft authentication has not been initialized."
+    );
+  }
+
+  const account =
+    microsoftAccount ||
+    msalInstance.getActiveAccount() ||
+    msalInstance.getAllAccounts()[0];
+
+  if(!account){
+    throw new Error(
+      "Sign in with Microsoft before accessing SharePoint."
+    );
+  }
+
+  /*
+   * Legacy Teams popup authentication fallback.
+   */
+  if(teamsAccessToken){
     return teamsAccessToken;
   }
 
-  try {
-    const result = await msalInstance.acquireTokenSilent({ account, scopes });
+  try{
+    const result =
+      await msalInstance.acquireTokenSilent({
+        account,
+        scopes
+      });
+
     return result.accessToken;
-  } catch (error) {
-    if (!interactive) throw error;
-    const result = await msalInstance.acquireTokenPopup({ account, scopes });
+
+  }catch(error){
+
+    if(!interactive){
+      throw error;
+    }
+
+    const result =
+      await msalInstance.acquireTokenPopup({
+        account,
+        scopes
+      });
+
     return result.accessToken;
   }
 }
-window.getMicrosoftAccessToken = getMicrosoftAccessToken;
+
+window.getMicrosoftAccessToken =
+  getMicrosoftAccessToken;
 
 function configureLoginScreen() {
   const microsoftMode = APP_CONFIG.authProvider === "microsoft";

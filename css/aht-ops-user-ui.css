@@ -1,0 +1,21 @@
+/* AHT Operations v4 isolated user management styling */
+.aht-ops-role-group,.aht-ops-grants{margin:10px 0;padding:12px;border:1px solid #d1e2ef;border-radius:8px;background:#f3f8fc;color:#274863}
+.aht-ops-role-group select{display:block;width:100%;padding:7px;margin:6px 0;border:1px solid #b9cfe0;border-radius:5px}
+.aht-ops-role-group p,.aht-ops-grants p{font-size:12px;line-height:1.4;margin:8px 0 0;color:#4d6a7e}
+.aht-ops-grants strong{color:#195a87}
+.aht-ops-grant-option{display:block;padding:6px 0;font-size:12px;color:#344e63}
+.aht-ops-nav-hide{display:none!important}
+.aht-ops-role-group[hidden],.aht-ops-grants[hidden]{display:none!important}
+
+/* Operations position + Teams send status, local-only correction */
+.aht-ops-position-heading{font-size:12px;font-weight:750;margin-bottom:6px;color:#274863}
+.aht-ops-required{font-weight:600;color:#a73535}
+.aht-ops-radio-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.aht-ops-radio{display:flex;align-items:center;gap:8px;border:1px solid #b9cfe0;background:#fff;border-radius:7px;padding:12px;cursor:pointer;font-size:13px;color:#274863}
+.aht-ops-radio:has(input:checked){border-color:#146bac;background:#e4f1fc;box-shadow:inset 0 0 0 1px #146bac}
+.aht-ops-radio input{accent-color:#146bac;width:16px;height:16px;flex:none;margin:0}
+@media (max-width:620px){.aht-ops-radio-options{grid-template-columns:1fr}}
+#ops-question-status{min-height:20px;font-size:13px;line-height:1.45;font-weight:600;white-space:normal}
+#ops-question-status[data-state="sending"]{color:#14629d}
+#ops-question-status[data-state="error"]{color:#a12b38}
+#ops-question-status[data-state="success"]{color:#166c51}

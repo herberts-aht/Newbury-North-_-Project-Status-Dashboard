@@ -7,7 +7,7 @@
 <meta name="application-name" content="AHT Project Control" />
 <meta name="apple-mobile-web-app-title" content="AHT Project Control" />
 <meta property="og:title" content="AHT Project Control" />
-<link rel="stylesheet" href="css/styles.css?v=20260928154437" />
+<link rel="stylesheet" href="css/styles.css?v=20261005-help-cover1" />
 <link rel="stylesheet" href="css/branding.css" />
 <link rel="stylesheet" href="css/mobile.css" />
   <link rel="stylesheet" href="css/site-operations.css?v=0.14.60">
@@ -141,6 +141,8 @@
 }
 </style>
 
+<link rel="stylesheet" href="css/aht-operations.css?v=ops-lead-scroll1" />
+<link rel="stylesheet" href="css/aht-ops-user-ui.css?v=4-radios1" />
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -220,6 +222,15 @@
           Gantt
         </button>
 
+
+
+        <!-- AHT-OPERATIONS-PILOT-V1: read-only Operations navigation -->
+        <div class="nav-section-label" data-aht-ops-navlabel hidden>Operations</div>
+        <button class="nav-section-item" type="button" data-view="operations" hidden>Operations</button>
+        <div class="nav-section-label">Tools</div>
+        <button class="nav-section-item" data-view="tools">
+          Tools & Utilities
+        </button>
 
         <div class="nav-section-label">Support</div>
 
@@ -509,6 +520,98 @@
   </div>
 </section>
 
+
+    <!-- AHT-OPERATIONS-PILOT-V1: Operations workspace -->
+    <!-- AHT-OPERATIONS-INTEGRATION-V4: review-only Operations UI -->
+    <section id="operations" class="view" aria-label="Operations">
+      <header class="ops-heading"><div><div class="ops-eyebrow">AHT Project Control</div><h2>Operations</h2><p class="ops-subtitle">Site progress and upcoming work · planning visibility only</p></div><span class="ops-office" id="ops-office">Office</span></header>
+      <div id="ops-empty-access" class="ops-empty" hidden></div>
+      <div id="ops-content">
+        <div class="ops-filters">
+          <div class="ops-filter"><label for="ops-project">Project</label><select id="ops-project"><option value="all">All visible projects</option></select></div>
+          <div class="ops-filter"><label for="ops-window">Lookahead</label><select id="ops-window"><option value="7">7 days</option><option value="14">14 days</option><option value="30" selected>30 days</option><option value="60">60 days</option></select></div>
+          <div class="ops-filter"><label for="ops-search">Project / phase / work area</label><input id="ops-search" type="search" placeholder="Search existing work…" autocomplete="off" /></div>
+        </div>
+        <div class="ops-tabs" role="tablist" aria-label="Operations views">
+          <button type="button" role="tab" aria-selected="true" data-ops-tab="overview">Lookahead</button>
+          <button type="button" role="tab" aria-selected="false" data-ops-tab="progress">Site Progress</button>
+          <button type="button" role="tab" aria-selected="false" data-ops-tab="calendar">Calendar</button>
+          <button type="button" role="tab" aria-selected="false" data-ops-tab="timeline">Timeline</button>
+        </div>
+        <div class="ops-display" id="ops-display" aria-label="Lookahead display"><button type="button" data-ops-display="card" aria-pressed="true">Cards</button><button type="button" data-ops-display="list" aria-pressed="false">List</button></div>
+        <div class="ops-stats" id="ops-summary"></div><div id="ops-main" aria-live="polite"></div>
+        <p class="ops-footer">Read-only from Project Plan and Site Operations. Project Managers maintain schedules and field progress. D-Tools and warehouse systems remain separate.</p>
+      </div>
+    </section>
+    <section id="tools" class="view">
+<div class="page-header">
+        <div>
+          <div class="eyebrow">AHT Project Control</div>
+          <h2>Tools & Utilities</h2>
+          <p>Project planning, device layouts, and field utilities.</p>
+        </div>
+      </div>
+<!-- AHT-TOOLS-HUB-V1: begin; confined to #tools view -->
+<link rel="stylesheet" href="tools/aht-tools-hub.css?v=4-forms-merge">
+<link rel="stylesheet" href="tools/aht-project-document-picker.css?v=2">
+<div id="aht-tools-hub">
+  <div data-aht-hub-menu>
+    <p class="aht-hub-intro">Choose a plan markup or production tool. Save work inside each markup tool before switching editors.</p>
+    <div class="aht-hub-section"><h3>Plan Markup</h3><span>5 tools</span></div>
+    <div class="aht-hub-grid">
+      <button class="aht-hub-card" type="button" data-aht-tool="lighting">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 14a6 6 0 1 1 8 0c-1 1-1.5 2-1.5 3.5h-5C9.5 16 9 15 8 14Z"/><path d="M9.5 20h5M10.5 22h3"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Lighting / Keypads / PIR</span><span class="aht-hub-description">Keypads, motion sensors, gateways and lighting-device changes</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="shades">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16M6 7h12v11H6zM8 11h8M8 14h8M12 18v3"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Shades &amp; Drapery</span><span class="aht-hub-description">Shade runs, drapery, outlets and head-end locations</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="cctv">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 13-2 3 6-13 2-3-6ZM8 13l-1 3m1 0h10M13 13l2 3"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">CCTV Cameras</span><span class="aht-hub-description">Fixed and fisheye cameras, coverage and change annotations</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="devices">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="7" r="1"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Device Locations</span><span class="aht-hub-description">Speakers, subs, TVs, indoor/outdoor APs, projectors and screens</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="access">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14a4 4 0 1 1 3.5-2L9 16H6v3H3v-4l5.5-5"/><circle cx="13.5" cy="8" r=".7"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Access Control</span><span class="aht-hub-description">Door openings, linked devices, systems and hardware schedules</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+    </div>
+    <div class="aht-hub-section"><h3>Production Tools</h3><span>2 tools</span></div>
+    <div class="aht-hub-grid">
+      <button class="aht-hub-card" type="button" data-aht-tool="labels">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h14l4 7-4 7H3V5Z"/><circle cx="7" cy="12" r="1.5"/><path d="M11 10h6m-6 4h6"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Wire Label Printer</span><span class="aht-hub-description">Prepare and print installation wire labels</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="forms">
+        <span class="aht-hub-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Project Forms</span><span class="aht-hub-description">Branded delivery tickets and configurable project forms</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+
+    </div>
+  </div>
+  <div data-aht-hub-panel hidden>
+    <div class="aht-hub-toolbar">
+      <button type="button" class="aht-hub-back" data-aht-hub-back>← Back to Tools</button>
+      <span class="aht-hub-title" data-aht-hub-title></span>
+      <button type="button" class="aht-hub-fit" data-aht-hub-fit title="Show the complete PDF page in the available drawing area">⤢ Fit Drawing</button>
+
+    </div>
+    <iframe class="aht-hub-frame" data-aht-hub-frame title="AHT Project Markup Tool" src="about:blank" loading="eager"></iframe>
+  </div>
+</div>
+<script src="js/project-document-locations.js?v=2"></script>
+<script src="tools/aht-project-document-picker.js?v=20261030-label-sharepoint-v1"></script>
+<!-- AHT-OPS-TOOLS-V3 -->
+<script src="js/aht-tool-access.js?v=4-local"></script>
+<script src="tools/aht-tools-hub.js?v=20261030-label-sharepoint-v1"></script>
+<!-- AHT-TOOLS-HUB-V1: end -->
+<!-- AHT-PROJECT-FORMS-TOOLS-MERGE-V4 -->
+</section>
+
     <section id="admin" class="view">
       <div class="page-header">
         <div><div class="eyebrow">System Control</div><h2>Administration</h2><p>Manage projects, user assignments, and access.</p></div>
@@ -519,7 +622,121 @@
           <button class="btn primary manage-projects-only" id="newProjectBtn">Add Project</button>
         </div>
       </div>
-      <div class="admin-panel manage-projects-only">
+      <div id="adminCover" class="admin-cover">
+
+        <div class="admin-cover-heading">
+          <div class="eyebrow">Administration Center</div>
+          <h3>Select an area to manage</h3>
+          <p>
+            Project setup, user access, support requests, and system activity.
+          </p>
+        </div>
+
+        <div class="admin-cover-grid">
+
+          <button
+            type="button"
+            class="admin-cover-card manage-projects-only"
+            data-admin-section="projects"
+          >
+            <span class="admin-cover-card-head">
+              Projects &amp; Setup
+            </span>
+
+            <span class="admin-cover-card-text">
+              Manage projects and build project room structures.
+            </span>
+
+            <span class="admin-cover-card-open">
+              Open Projects &amp; Setup ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="admin-cover-card manage-access-only"
+            data-admin-section="access"
+          >
+            <span class="admin-cover-card-head">
+              Users &amp; Access
+            </span>
+
+            <span class="admin-cover-card-text">
+              Add AHT users, manage dashboard profiles, roles, and project access.
+            </span>
+
+            <span class="admin-cover-card-open">
+              Open Users &amp; Access ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="admin-cover-card"
+            data-admin-section="support"
+          >
+            <span class="admin-cover-card-head">
+              Support
+            </span>
+
+            <span class="admin-cover-card-text">
+              Review Help Tickets and Access &amp; User Requests.
+            </span>
+
+            <span class="admin-cover-card-open">
+              Open Support ›
+            </span>
+          </button>
+
+
+          <button
+            type="button"
+            class="admin-cover-card"
+            data-admin-section="audit"
+          >
+            <span class="admin-cover-card-head">
+              System
+            </span>
+
+            <span class="admin-cover-card-text">
+              Review the administrative Change Log and system activity.
+            </span>
+
+            <span class="admin-cover-card-open">
+              Open Change Log ›
+            </span>
+          </button>
+
+        </div>
+      </div>
+
+
+      <div
+        id="adminSectionToolbar"
+        class="admin-section-toolbar hidden"
+      >
+        <button
+          type="button"
+          class="btn"
+          id="adminBackToCoverBtn"
+        >
+          ← Back to Administration
+        </button>
+
+        <div>
+          <div class="eyebrow">
+            Administration
+          </div>
+
+          <h3 id="adminSectionTitle">
+            Administration
+          </h3>
+        </div>
+      </div>
+      <div id="adminProjectsPanel" class="admin-panel manage-projects-only">
+
         <h3 style="margin-top:0">Projects</h3>
         <div id="projectAdminList" class="project-admin-list"></div>
       </div>
@@ -801,6 +1018,7 @@
                 <option>Editor</option>
                 <option>Viewer</option>
                 <option>Project Admin</option>
+                <option value="Operations">Operations</option>
               </select>
             </div>
 
@@ -989,7 +1207,10 @@
       </div>
 
 
-      <div class="admin-panel support-request-admin-panel">
+      <div
+        id="adminHelpTicketsPanel"
+        class="admin-panel support-request-admin-panel"
+      >
         <div class="support-request-panel-heading">
           <div>
             <div class="eyebrow">Dashboard Support</div>
@@ -1023,6 +1244,7 @@
             <option>Waiting</option>
             <option>Resolved</option>
             <option>Closed</option>
+            <option>Archived</option>
           </select>
 
           <input
@@ -1043,7 +1265,10 @@
       </div>
 
 
-      <div class="admin-panel support-request-admin-panel">
+      <div
+        id="adminAccessRequestsPanel"
+        class="admin-panel support-request-admin-panel"
+      >
         <div class="support-request-panel-heading">
           <div>
             <div class="eyebrow">Access Administration</div>
@@ -1210,6 +1435,26 @@
             ></div>
 
             <div class="support-request-workflow-actions">
+
+              <div class="support-request-destructive-actions">
+                <button
+                  class="btn support-archive-btn hidden"
+                  id="archiveSupportRequestBtn"
+                  type="button"
+                >
+                  Archive Ticket
+                </button>
+
+                <button
+                  class="btn support-delete-btn hidden"
+                  id="deleteSupportRequestBtn"
+                  type="button"
+                  title="Permanently delete this Help Ticket."
+                >
+                  Delete Ticket
+                </button>
+              </div>
+
               <button
                 class="btn primary"
                 id="saveSupportRequestStatusBtn"
@@ -1217,6 +1462,7 @@
               >
                 Save Changes
               </button>
+
             </div>
 
           </div>
@@ -1314,7 +1560,25 @@
       <button class="btn" id="closeHelpCenterBtn" type="button">Close</button>
     </div>
 
-    <div class="help-tabs" role="tablist" aria-label="Help Center sections">
+    <div
+      id="helpCenterSectionToolbar"
+      class="help-center-section-toolbar hidden"
+    >
+      <button
+        type="button"
+        class="btn"
+        id="backToHelpCenterBtn"
+      >
+        ← Back to Help Center
+      </button>
+    </div>
+
+    <div
+      id="helpCenterTabs"
+      class="help-tabs hidden"
+      role="tablist"
+      aria-label="Help Center sections"
+    >
       <button type="button" data-help-tab="guide">User Guide</button>
       <button type="button" data-help-tab="howto">How To</button>
       <button type="button" data-help-tab="faq">FAQ</button>
@@ -1344,11 +1608,11 @@
 
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
 <script src="https://res.cdn.office.net/teams-js/2.34.0/js/MicrosoftTeams.min.js"></script>
-<script src="js/config.js?v=20260928151951"></script>
+<script src="js/config.js?v=20261005-teamsfix1"></script>
 <script src="data/projects.js"></script>
-<script src="js/data-provider.js?v=20260930-projectdelete2"></script>
+<script src="js/data-provider.js?v=20261005-teamsfix1"></script>
 <script src="js/storage.js"></script>
-<script src="js/auth.js?v=20261001-teams2"></script>
+<script src="js/auth.js?v=20261005-naa-stage2"></script>
 <script src="js/microsoft-access.js?v=1790254956"></script>
 <script src="js/permissions.js"></script>
 <script src="js/project-contacts.js?v=20260928163552"></script>
@@ -1561,8 +1825,8 @@
   }
 </style>
 <script src="js/room-builder.js?v=20261002-1"></script>
-  <script src="js/dashboard.js?v=20260929-relatedplan1"></script>
-<script src="js/help-center.js?v=20260925-1718"></script>
+  <script src="js/dashboard.js?v=20261005-project-admin-access1"></script>
+<script src="js/help-center.js?v=20261005-help-tabs-hidden1"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="js/app.js?v=0.15.2"></script>
@@ -2053,6 +2317,14 @@ function formatLastUpdated(project){
  return `${date} · ${time}${project.lastUpdatedBy?` · ${project.lastUpdatedBy}`:""}`;
 }
 function showView(id){
+ // AHT Ops v4 UI navigation guard (not SharePoint access control).
+ if (window.AHTOpsUserUI?.isOperations(currentUser) && !["operations","tools"].includes(id)) id="operations";
+ // AHT-OPERATIONS-PILOT-V1: access guard on direct navigation as well as hidden tab.
+ if(id === "operations"){
+   if(!window.AHTOperations || !window.AHTOperations.canAccess()) id = "projects";
+   else queueMicrotask(() => window.AHTOperations?.onView());
+ }
+
  const canOpenAdministration=
    Boolean(
      currentUser?.canManageProjects ||
@@ -2560,10 +2832,14 @@ function startNewUser(){
      ? '<option>Admin</option>'+
        '<option>Project Admin</option>'+
        '<option>Editor</option>'+
-       '<option>Viewer</option>'
+       '<option>Viewer</option>'+
+       '<option>Operations Manager</option>'+
+       '<option>Warehouse Manager</option>'
      : '<option>Project Admin</option>'+
        '<option>Editor</option>'+
-       '<option>Viewer</option>';
+       '<option>Viewer</option>'+
+       '<option>Operations Manager</option>'+
+       '<option>Warehouse Manager</option>';
 
  adminRoleSelect.value="Editor";
  adminRoleSelect.disabled=false;
@@ -2597,9 +2873,16 @@ if(addAhtUserBtn){
        document.getElementById("addAhtUserEmail")?.value||""
      ).trim();
 
+   if(document.getElementById('addAhtUserRole')?.value==='Operations' &&
+      !window.AHTOpsUserUI?.selectedPosition?.()){
+     alert('Select Operations Manager or Warehouse Manager before adding the user.');
+     document.querySelector('#ahtOpsNewGroup input[type="radio"]')?.focus();
+     return;
+   }
+
    const role=
      String(
-       document.getElementById("addAhtUserRole")?.value||"Viewer"
+       window.AHTOpsUserUI?.resolveAddRole(document.getElementById("addAhtUserRole")?.value||"Viewer")||"Viewer"
      ).trim();
 
    const employeeDirectory=
@@ -2683,6 +2966,8 @@ if(addAhtUserBtn){
        "Viewer",
        "Editor",
        "Project Admin",
+       "Operations Manager",
+       "Warehouse Manager",
        ...(operatorCanAssignAdmin?["Admin"]:[])
      ].includes(role)
    ){
@@ -2695,7 +2980,7 @@ if(addAhtUserBtn){
        "#addAhtUserProjects input:checked"
      )].map(input=>input.value);
 
-   if(!selectedProjects.length && role!=="Admin"){
+   if(!selectedProjects.length && role!=="Admin" && !window.AHTOpsUserUI?.isOperations({role})){
      alert("Assign at least one project.");
      return;
    }
@@ -2722,6 +3007,7 @@ if(addAhtUserBtn){
    };
 
    setUserRoleFlags(user);
+   if (!window.AHTOpsUserUI?.prepareNewUser(user, String(selectedEmployee.division||"").trim())) return;
 
    USERS.push(user);
 
@@ -2759,7 +3045,7 @@ if(addAhtUserBtn){
          const entraUser=
            await window.MicrosoftAccess.grantInternalAccess(
              email,
-             role
+             window.AHTOpsUserUI?.isOperations({role}) ? "Viewer" : role
            );
 
          if(entraUser?.id){
@@ -2792,6 +3078,7 @@ if(addAhtUserBtn){
      document.getElementById("addAhtUserName").value="";
      document.getElementById("addAhtUserEmail").value="";
      document.getElementById("addAhtUserRole").value="Editor";
+     window.AHTOpsUserUI?.resetNewPosition?.();
 
      document
        .querySelectorAll("#addAhtUserProjects input")
@@ -3086,6 +3373,7 @@ saveAccessBtn.onclick=async()=>{
 
  user.active=requestedActive;
  setUserRoleFlags(user);
+ if (!window.AHTOpsUserUI?.captureManagedUser(user)) return;
 
  const selected=[...projectAssignmentList.querySelectorAll("input:checked")].map(x=>x.value);
 
@@ -3900,6 +4188,12 @@ commentForm.onsubmit=async e=>{
 initializeApplication();
 </script>
 <!-- Dedicated low-voltage wall pathway under development with Newbury Engineering to simplify routing, avoid post-tension slab fastening, and reduce conflicts with mechanical, plumbing, and electrical trades. -->
+<script src="js/aht-project-forms-locations.js?v=5"></script>
+<script src="tools/aht-project-forms-host.js?v=5"></script>
+
+
+<script src="js/aht-ops-user-ui.js?v=4-radios1"></script>
+<script src="js/aht-operations.js?v=ops-lead-scroll1"></script>
 </body>
 </html>
 

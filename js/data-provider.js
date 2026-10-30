@@ -1081,19 +1081,19 @@ const SharePointDataProvider = {
   },
 
   async sendTeamsActivityNotification({
-    recipientEmail,
+    recipientObjectId,
     activityType,
     topic,
     previewText,
     templateParameters = []
   }) {
-    const email = String(recipientEmail || "").trim();
-    if (!email) throw new Error("Teams notification recipient email is missing.");
+    const objectId = String(recipientObjectId || "").trim();
+    if (!objectId) throw new Error("Teams notification recipient Object ID is missing.");
 
     const token = await getMicrosoftAccessToken(["TeamsActivity.Send"]);
 
     const response = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}/teamwork/sendActivityNotification`,
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(objectId)}/teamwork/sendActivityNotification`,
       {
         method: "POST",
         headers: {
@@ -1102,16 +1102,19 @@ const SharePointDataProvider = {
         },
         body: JSON.stringify({
           topic: {
-            source: "text",
-            value: String(topic || "AHT Project Control Dashboard"),
-            webUrl: "https://newburynorth.ahtglobal.com/"
+            source: "entityUrl",
+            value: "https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/f8cf3a4f-a95f-4089-a568-721d1ed756f5"
           },
-          activityType: String(activityType || ""),
+          activityType: "systemDefault",
           previewText: {
             content: String(previewText || "AHT Project Control Dashboard notification.")
           },
-          teamsAppId: APP_CONFIG.entra.teams.appId,
-          templateParameters
+          templateParameters: [
+            {
+              name: "systemDefaultText",
+              value: String(previewText || "AHT Project Control Dashboard notification.")
+            }
+          ]
         })
       }
     );
@@ -2307,19 +2310,7 @@ const SharePointDataProvider = {
     };
   },
   async getDashboardAccessRows() {
-    return this.getListRows(this.config.lists.dashboardAccess, [
-      "Title",
-      "ProfileKey",
-      "DisplayName",
-      "Company",
-      "DashboardRole",
-      "ProjectKeys",
-      "Active",
-      "EntraObjectId",
-      "EntraUserType",
-      "RoleTestingEnabled",
-      "ManagementDivisions"
-    ]);
+    return this.getListRows(this.config.lists.dashboardAccess);
   },
 
   dashboardAccessProjects(value) {
@@ -2360,6 +2351,9 @@ const SharePointDataProvider = {
         : "",
       company: fields.Company || "AHT Global",
       role,
+
+      homeOffice: String(fields.OfficeHome || "").trim(),
+      toolGrants: String(fields.ToolGrants || "").split(/[;,|]/).map(v=>v.trim()).filter(Boolean),
       active: fields.Active !== false,
       projects: this.dashboardAccessProjects(fields.ProjectKeys),
       entraObjectId: fields.EntraObjectId || "",
@@ -2961,7 +2955,9 @@ const SharePointDataProvider = {
           "Admin",
           "Project Admin",
           "Editor",
-          "Viewer"
+          "Viewer",
+          "Operations Manager",
+          "Warehouse Manager"
         ].includes(role)
       ) {
         role =
@@ -3002,6 +2998,8 @@ const SharePointDataProvider = {
           Array.isArray(user.projects)
             ? user.projects.filter(Boolean).join(";")
             : "",
+        ...(role === "Operations Manager" || role === "Warehouse Manager" ? { OfficeHome: String(user.homeOffice || user.division || "").trim(), ToolGrants: (Array.isArray(user.toolGrants) ? user.toolGrants : []).filter(k => ["labels","lighting","shades","cctv","devices","access"].includes(k)).join(";") } : {}),
+
 
         Active:
           user.active !== false,

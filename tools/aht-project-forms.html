@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AHT Project Forms</title>
+<link rel="stylesheet" href="aht-project-forms.css?v=7"></head>
+<body>
+<header class="app-header"><div class="brand"><img src="aht-project-forms-logo.png" alt="AHT Global"><div><strong>PROJECT FORMS</strong><small>AHT Project Control</small></div></div><div id="connection" class="connection">Checking dashboard connection…</div></header>
+<main class="layout">
+<section class="edit-area">
+  <div class="actions"><div><span class="eyebrow">PRODUCTION TOOLS / PROJECT FORMS</span><h1>Project Forms</h1><p class="muted">Standard form by default. Layout changes affect this ticket only.</p></div><div class="action-buttons"><button id="resetForm" class="button light" type="button">New Form</button><button id="editLayout" class="button light" type="button">Customize This Form</button><button id="saveMaster" class="button light owner-only" type="button" hidden>Update Master Template</button></div></div>
+  <div id="message" class="notice" role="status" hidden></div>
+  <section class="panel"><div class="section-heading"><h2>Form details</h2><span class="hint">Required fields marked *</span></div>
+    <div class="fields">
+      <label class="wide">Form name *<input id="formTitle" list="formTitleChoices" maxlength="72" value="Delivery Ticket" placeholder="Enter the name shown on the PDF"><datalist id="formTitleChoices"><option value="Delivery Ticket"><option value="Equipment Handoff"><option value="Material Transfer"><option value="Receiving Report"><option value="Project Form"></datalist></label>
+      <label>Project <span class="hint">(required for SharePoint only)</span><select id="project"><option value="">Select project…</option></select></label>
+      <label>Date *<input id="date" type="date" required></label>
+      <label>Recipient / For *<input id="to" maxlength="150" placeholder="Company or recipient"></label>
+      <label>From<input id="from" maxlength="150" value="AHT Global"></label>
+      <label class="wide">Details / Reference (optional)<input id="description" maxlength="240" placeholder="Example: Guest house lighting panels"></label>
+    </div>
+    <div class="folder-row"><div><strong>SharePoint destination</strong>
+    <button id="sharePointHelp" class="help-icon" type="button" aria-label="Why save to SharePoint?" title="Why save to SharePoint?">?</button>
+    <div class="muted" id="folderSummary">Choose a folder when you want to issue this document to SharePoint.</div>
+    <div id="sharePointExplanation" class="help-copy" hidden><strong>Why save?</strong> Saving the issued PDF in SharePoint gives the project or office team an official, retrievable copy, with a reference number and existing SharePoint access controls. Preview/Print PDF doesn't save anything. This tool is not an inventory system or a second document library. Signed copies can be uploaded separately.</div></div><button class="button light" id="chooseFolder" type="button">Choose Folder</button></div>
+  </section>
+  <section class="panel"><div class="section-heading"><h2>Items</h2><span id="rowCount" class="hint">0 rows</span></div>
+    <div class="table-scroll"><table class="entry-table"><thead><tr id="tableHead"></tr></thead><tbody id="tableBody"></tbody></table></div>
+    <div class="table-actions"><button class="button light" id="addRow" type="button">+ Add Row</button><span id="total" class="total"></span></div>
+    <div id="layoutPanel" class="layout-panel" hidden><div class="section-heading"><h3>One-off layout editor</h3><button id="doneLayout" class="button small" type="button">Done</button></div><p class="muted">Rename, resize, reorder, add or remove columns. Changes stay with this ticket, not the default template.</p><div id="columnControls"></div><button id="addColumn" class="button light" type="button">+ Add Column</button></div>
+  </section>
+  <section class="panel"><div class="section-heading"><h2>Notes / Exceptions</h2><span class="hint">Optional</span></div><textarea id="notes" rows="4" maxlength="20000" placeholder="Receiving notes, exceptions, handling instructions…"></textarea></section>
+  <section class="panel"><div class="section-heading"><h2>Acknowledgement</h2><span class="hint">Signature lines on PDF</span></div><p class="muted">The printed ticket includes separate printed-name, signature, and date lines for both parties. Signed tickets can be uploaded separately in SharePoint.</p></section>
+  <div class="footer-actions"><button id="preview" class="button light" type="button">Preview / Print PDF</button><button id="saveSharePoint" class="button primary" type="button">Issue PDF to SharePoint</button></div><p class="tiny">Issued PDFs are stored only in SharePoint, not in a dashboard document repository. A reference number is assigned when saved.</p>
+</section>
+<aside class="aside"><div class="aside-card"><span class="eyebrow">AHT GLOBAL</span><h2>Form summary</h2><div class="pair"><span>Status</span><strong id="status">Draft</strong></div><div class="pair"><span>Reference</span><strong id="ticketNo">Assigned on issue</strong></div><div class="pair"><span>Project</span><strong id="summaryProject">Not selected</strong></div><div class="pair"><span>Line items</span><strong id="summaryItems">0</strong></div><div class="pair"><span>Quantity</span><strong id="summaryQty">0</strong></div><hr><p class="muted small">Issued documents remain in the selected SharePoint folder. This tool does not store copies.</p><a id="issuedLink" class="issued-link" target="_blank" rel="noopener" hidden>Open issued PDF in SharePoint ↗</a></div><div class="aside-card"><strong>Template permissions</strong><p class="muted small">Anyone with edit access may customize their own form. Only the site owner can change the defaults for future forms.</p><button id="requestTemplate" class="button light small" type="button">Request Master Template Change</button></div></aside>
+</main>
+<dialog id="folderDialog" class="folder-dialog"><div class="dialog-head"><h2>Choose SharePoint folder</h2><button id="closeFolder" class="button light small" type="button">Close</button></div><p id="folderPath" class="muted">Loading folders…</p><div id="driveChooser"></div><div id="folderList" class="folder-list"></div><div class="dialog-actions"><button id="folderUp" class="button light" type="button">← Up</button><button id="useFolder" class="button primary" type="button">Use this folder</button></div></dialog>
+<dialog id="requestDialog" class="folder-dialog request-dialog"><div class="dialog-head"><h2>Request a master-template change</h2><button id="closeRequest" class="button light small" type="button">Close</button></div><p class="muted small">This requests a change to the default forms used in the future. You can still customize this document without approval.</p><label class="request-label">What should change?<textarea id="requestDetails" rows="6" maxlength="4000" placeholder="Describe which fields, columns, or layout should change, and why."></textarea></label><div class="dialog-actions"><button id="sendRequest" class="button primary" type="button">Submit Request</button></div></dialog>
+<script src="aht-project-forms-sharepoint.js?v=5" defer></script>
+<script src="aht-project-forms.js?v=7" defer></script>
+</body></html>
