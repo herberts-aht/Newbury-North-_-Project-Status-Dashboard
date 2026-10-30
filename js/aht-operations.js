@@ -27,7 +27,7 @@
  function allProjects(){try{return typeof state!=='undefined'&&Array.isArray(state.projects)?state.projects:[];}catch(_){return [];}}
  function visibleProjects(){if(!canAccess())return [];const u=user(),list=allProjects().filter(p=>p&&!p.archived);if(isAdmin(u))return list;const o=norm(office(u));return o?list.filter(p=>norm(p.division||p.office||p.homeOffice)===o):[];}
  function selectedDashboardProject(){try{return typeof state!=='undefined'?String(state.currentProjectId||''):'';}catch(_){return '';}}
- const local={project:'all',window:30,search:'',tab:'overview',display:'card',expanded:new Set(),monthOffset:0,site:{loading:false,loaded:false,projectId:'',locations:[],operations:[],error:''},siteOffice:{loading:false,loaded:false,signature:'',byProject:new Map(),error:''},currentTreeProject:''};
+ const local={project:'all',window:30,search:'',tab:'overview',display:'card',bucket:'current',expanded:new Set(),monthOffset:0,site:{loading:false,loaded:false,projectId:'',locations:[],operations:[],error:''},siteOffice:{loading:false,loaded:false,signature:'',byProject:new Map(),error:''},currentTreeProject:''};
  function updateNav(){const allowed=canAccess();nav.hidden=!allowed;if(label)label.hidden=!allowed;root.hidden=!allowed;if(!allowed&&root.classList.contains('active')){root.classList.remove('active');nav.classList.remove('active');document.getElementById('projects')?.classList.add('active');document.querySelector('.sidebar-nav [data-view="projects"]')?.classList.add('active');}}
  function projectOf(item,byId,bySP){return byId.get(String(item.projectId))||bySP.get(String(item.projectSharePointId));}
  function ancestry(item,lookup){const stack=[],seen=new Set([String(item.id)]);let x=item;for(let i=0;i<14;i++){const key=x?.parentWorkItemId;if(!key||seen.has(String(key)))break;seen.add(String(key));x=lookup.get(String(key));if(!x)break;if(x.title)stack.unshift(String(x.title));}return stack;}
@@ -73,10 +73,26 @@
  function itemCard(x){const open=local.expanded.has('item:'+x.key);return `<article data-expand="item:${esc(x.key)}" tabindex="0" aria-expanded="${open}" class="ops-item ${x.overdue?'ops-mark-overdue':x.atRisk?'ops-mark-risk':''}"><div class="ops-item-top"><span class="ops-project">${esc(x.projectName)}</span><span class="ops-pill-pair">${stateBadge(x)}${healthBadge(x)}</span></div><button class="ops-item-expand" type="button" data-expand="item:${esc(x.key)}" aria-expanded="${open}"><span class="ops-item-title">${esc(x.title)}</span><span class="ops-chevron">${open?'▾':'▸'}</span></button><div class="ops-location">${esc(x.path||x.workstream||'Work area not specified')}</div><div class="ops-item-tags">${x.phase?`<span>${esc(x.phase)}</span>`:''}${x.workstream?`<span>${esc(x.workstream)}</span>`:''}</div><p class="ops-dates">${esc(dateText(x.startDate))}${x.targetDate?' · Target '+esc(dateText(x.targetDate)):''}</p>${open?detail(x):''}</article>`;}
  function itemTable(items){return `<div class="ops-list-wrap"><table class="ops-list"><thead><tr><th>Project / area</th><th>Activity / phase</th><th>Start</th><th>Target</th><th>Status</th><th>Schedule</th></tr></thead><tbody>${items.map(x=>{const open=local.expanded.has('item:'+x.key);return `<tr class="ops-list-row" data-expand="item:${esc(x.key)}" tabindex="0" aria-expanded="${open}"><td>${esc(x.projectName)}<small>${esc(x.path)}</small></td><td><button class="ops-list-expand" data-expand="item:${esc(x.key)}" aria-expanded="${open}">${open?'▾':'▸'} ${esc(x.title)}</button><small>${esc(x.phase||x.workstream)}</small></td><td>${esc(dateText(x.startDate))}</td><td>${esc(dateText(x.targetDate))}</td><td>${stateBadge(x)}</td><td>${healthBadge(x)}</td></tr>${open?`<tr><td colspan="6">${detail(x)}</td></tr>`:''}`;}).join('')}</tbody></table></div>`;}
  function group(title,list,empty){return `<section class="ops-section"><div class="ops-section-title"><h3>${esc(title)}</h3><span>${list.length}</span></div>${list.length?(local.display==='list'?itemTable(list):`<div class="ops-grid">${list.map(itemCard).join('')}</div>`):`<div class="ops-empty">${esc(empty)}</div>`}</section>`;}
- function renderLookahead(items){const underway=items.filter(x=>x.bucket==='current'),upcoming=items.filter(x=>x.days!==null&&x.days>=0&&x.days<=local.window),later=items.filter(x=>x.days!==null&&x.days>local.window&&x.days<=60),attention=items.filter(x=>x.overdue||x.blocked||x.waiting||x.atRisk||x.start===null);
+ // AHT-OPS-LOOKAHEAD-CATEGORIES-V1: one visible category, all four selectors always in view.
+ function renderLookahead(items){
+  const underway=items.filter(x=>x.bucket==='current');
+  const upcoming=items.filter(x=>x.days!==null&&x.days>=0&&x.days<=local.window);
+  const later=items.filter(x=>x.days!==null&&x.days>local.window&&x.days<=60);
+  const attention=items.filter(x=>x.overdue||x.blocked||x.waiting||x.atRisk||x.start===null);
   const sort=(a,b)=>(a.days??999)-(b.days??999)||a.projectName.localeCompare(b.projectName);
-  $('#ops-summary').innerHTML=`<div class="ops-stat"><strong>${underway.length}</strong><span>Reported in progress</span></div><div class="ops-stat"><strong>${upcoming.length}</strong><span>Starts within ${local.window} days</span></div><div class="ops-stat"><strong>${later.length}</strong><span>Beyond window to 60 days</span></div><div class="ops-stat"><strong>${attention.length}</strong><span>Need review / schedule attention</span></div>`;
-  $('#ops-main').innerHTML=group('In progress',underway,'No work marked In Progress.')+group(`Starting within ${local.window} days`,upcoming.sort(sort),'No confirmed future starts in this window.')+group('Further out · 60 days',later.sort(sort),'No scheduled starts in this range.')+group('Attention / clarification',attention,'No waiting, blocked, overdue, or floating items.');
+  const categories=[
+   {key:'current',title:'In progress',label:'In progress',rows:underway,empty:'No work marked In Progress.'},
+   {key:'upcoming',title:`Starting within ${local.window} days`,label:`Starting within ${local.window} days`,rows:upcoming.sort(sort),empty:'No confirmed future starts in this window.'},
+   {key:'later',title:'Further out · 60 days',label:'Further out to 60 days',rows:later.sort(sort),empty:'No scheduled starts in this range.'},
+   {key:'attention',title:'Attention / clarification',label:'Attention / clarification',rows:attention,empty:'No waiting, blocked, overdue, or floating items.'}
+  ];
+  if(!categories.some(c=>c.key===local.bucket))local.bucket='current';
+  const summary=$('#ops-summary');
+  summary.setAttribute('role','group');
+  summary.setAttribute('aria-label','Lookahead categories; choose one to view its activities');
+  summary.innerHTML=categories.map(c=>`<button type="button" class="ops-stat ops-stat-select${local.bucket===c.key?' is-active':''}" data-ops-bucket="${c.key}" aria-pressed="${local.bucket===c.key}" aria-controls="ops-main"><strong>${c.rows.length}</strong><span>${esc(c.label)}</span></button>`).join('');
+  const selected=categories.find(c=>c.key===local.bucket);
+  $('#ops-main').innerHTML=group(selected.title,selected.rows,selected.empty);
  }
  function renderCalendar(items){$('#ops-summary').innerHTML='';const anchor=new Date(today());anchor.setDate(1);anchor.setMonth(anchor.getMonth()+local.monthOffset);const y=anchor.getFullYear(),m=anchor.getMonth(),padding=new Date(y,m,1).getDay(),max=new Date(y,m+1,0).getDate();let html=`<div class="ops-month-nav"><button type="button" data-ops-month="-1" aria-label="Previous month">‹</button><strong>${esc(anchor.toLocaleDateString('en-US',{month:'long',year:'numeric'}))}</strong><button type="button" data-ops-month="1" aria-label="Next month">›</button></div><div class="ops-calendar"><div class="ops-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(s=>`<span>${s}</span>`).join('')}</div><div class="ops-calendar-grid">`;for(let i=0;i<padding;i++)html+='<div class="ops-calendar-cell ops-calendar-blank"></div>';for(let d=1;d<=max;d++){const at=new Date(y,m,d).getTime(),hits=items.filter(x=>x.start===at);html+=`<div class="ops-calendar-cell"><strong>${d}</strong>${hits.slice(0,3).map(x=>`<div class="ops-calendar-event" title="${esc(x.projectName+' / '+x.title)}">${esc(x.projectName)} · ${esc(x.phase||x.title)}</div>`).join('')}${hits.length>3?`<small>+${hits.length-3} more</small>`:''}</div>`;}$('#ops-main').innerHTML=html+'</div></div><p class="ops-explainer">Confirmed start dates only. This calendar does not change the Project Plan.</p>';}
  function renderTimeline(items){$('#ops-summary').innerHTML='';const base=today(),end=base+60*ms;const rows=items.filter(x=>x.start!==null&&x.start<=end&&(parseDay(x.targetDate)??x.start)>=base).sort((a,b)=>a.projectName.localeCompare(b.projectName)||(a.start||0)-(b.start||0));if(!rows.length){$('#ops-main').innerHTML='<p class="ops-empty">No dated activities intersect the next 60 days.</p>';return;}let html='<div class="ops-timeline"><div class="ops-timeline-head"><span>Project / area</span><span>Today</span><span>30 days</span><span>60 days</span></div>';for(const x of rows.slice(0,100)){const st=Math.max(base,x.start),e=Math.min(end,(parseDay(x.targetDate)??x.start)+ms);const left=Math.max(0,(st-base)/(60*ms)*100),width=Math.max(1,(e-st)/(60*ms)*100);html+=`<div class="ops-time-row"><div class="ops-time-label"><b>${esc(x.projectName)}</b><span>${esc(x.phase||x.title)}${x.path?' · '+esc(x.path):''}</span></div><div class="ops-time-track"><span class="ops-time-bar${x.overdue?' ops-time-alert':''}" style="left:${left.toFixed(2)}%;width:${Math.min(100-left,width).toFixed(2)}%" title="${esc(x.title+' · '+dateText(x.startDate))}"></span></div></div>`;}$('#ops-main').innerHTML=html+'</div><p class="ops-explainer">Read-only high-level timeline; Project Plan is the source of scheduling dates.</p>';}
@@ -368,7 +384,17 @@
  $('#ops-project').addEventListener('change',e=>{local.project=e.target.value;$('#ops-main').scrollTop=0;refresh();});
  $('#ops-window').addEventListener('change',e=>{local.window=Number(e.target.value)||30;$('#ops-main').scrollTop=0;refresh();});
  $('#ops-search').addEventListener('input',e=>{local.search=e.target.value;$('#ops-main').scrollTop=0;refresh();});
- root.addEventListener('click',e=>{const t=e.target.closest('[data-ops-tab]');if(t){local.tab=t.dataset.opsTab;$('#ops-main').scrollTop=0;refresh();return;}
+ root.addEventListener('click',e=>{
+  const bucket=e.target.closest('[data-ops-bucket]');
+  if(bucket){
+   local.bucket=bucket.dataset.opsBucket;
+   $('#ops-main').scrollTop=0;
+   refresh();
+   const active=root.querySelector('[data-ops-bucket="'+local.bucket+'"]');
+   if(active)active.focus({preventScroll:true});
+   return;
+  }
+  const t=e.target.closest('[data-ops-tab]');if(t){local.tab=t.dataset.opsTab;$('#ops-main').scrollTop=0;refresh();return;}
   const display=e.target.closest('[data-ops-display]');if(display){local.display=display.dataset.opsDisplay;$('#ops-main').scrollTop=0;refresh();return;}
   const alert=e.target.closest('[data-alert]');if(alert){e.preventDefault();openQuestion(alert.dataset.alert);return;}
   if(e.target.closest('a,button,input,select,textarea,[role=link]')&&!e.target.closest('[data-expand]'))return;
