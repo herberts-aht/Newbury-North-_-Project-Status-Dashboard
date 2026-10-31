@@ -2365,10 +2365,14 @@ const SharePointDataProvider = {
       fields.DashboardRole ||
       "Viewer";
 
-    const role =
-      storedRole === "Administrator"
-        ? "Admin"
-        : storedRole;
+    // SharePoint historical Choice labels and internal role IDs are both supported.
+    // Do not change stored values or promote Operations users.
+    const roleAliases = {
+      "Administrator": "Admin",
+      "Internal Editor": "Editor",
+      "Executive Viewer": "Viewer"
+    };
+    const role = roleAliases[storedRole] || storedRole;
 
     const canAdmin =
       role === "Admin";
