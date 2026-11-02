@@ -1,0 +1,9 @@
+{
+  "name": "aht-project-control-ai-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/functions/*.js",
+  "engines": {"node": ">=22"},
+  "dependencies": {"@azure/functions": "^4.7.2"}
+}

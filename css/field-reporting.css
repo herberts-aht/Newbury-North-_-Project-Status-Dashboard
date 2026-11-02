@@ -1,0 +1,229 @@
+/* AHT Field Reporting v1 — isolated styles, navy / blue brand palette. */
+#fieldReporting{--fr-navy:#123451;--fr-blue:#1769aa;--fr-pale:#eaf4fb;--fr-border:#cad9e6;--fr-muted:#536c80;color:var(--fr-navy)}
+#fieldReporting *{box-sizing:border-box}
+#fieldReporting .fr-wrap{max-width:1120px;margin:0 auto;padding:3px 0 28px}
+#fieldReporting .fr-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+#fieldReporting h2{margin:2px 0 6px;font-size:clamp(22px,3vw,30px);color:var(--fr-navy)}
+#fieldReporting h3{margin:0 0 7px;font-size:17px;color:var(--fr-navy)}
+#fieldReporting .fr-muted{color:var(--fr-muted);font-size:13px;line-height:1.45}
+#fieldReporting .fr-eyebrow{font-size:11px;letter-spacing:0.11em;text-transform:uppercase;color:var(--fr-blue);font-weight:800}
+#fieldReporting .fr-demo{font-size:12px;border:1px solid #adc9de;border-radius:999px;color:#175e94;background:#e8f4fb;padding:6px 10px;font-weight:700;white-space:nowrap}
+#fieldReporting .fr-card{background:#fff;border:1px solid var(--fr-border);border-radius:15px;padding:20px;box-shadow:0 2px 6px #0a32450a}
+#fieldReporting .fr-tabs{display:flex;gap:6px;margin-bottom:15px;flex-wrap:wrap}
+#fieldReporting button{font:inherit;cursor:pointer}
+#fieldReporting .fr-tab,#fieldReporting .fr-btn{border-radius:9px;padding:11px 15px;border:1px solid var(--fr-border);background:#fff;color:#244961;font-weight:700;min-height:44px}
+#fieldReporting .fr-tab[aria-selected=true]{background:var(--fr-navy);border-color:var(--fr-navy);color:#fff}
+#fieldReporting .fr-btn-primary{background:var(--fr-blue);color:#fff;border-color:var(--fr-blue)}
+#fieldReporting .fr-btn-danger{border-color:#d8b3a8;color:#9b392c;background:#fff}
+#fieldReporting button:disabled{opacity:0.45;cursor:not-allowed}
+#fieldReporting .fr-caption{font-size:12px;color:var(--fr-muted);margin:0 0 9px}
+#fieldReporting .fr-field{display:flex;flex-direction:column;gap:7px;margin-bottom:15px}
+#fieldReporting label{font-weight:700;color:#1d435f;font-size:13px}
+#fieldReporting select,#fieldReporting textarea,#fieldReporting input[type=text]{width:100%;font:inherit;border:1px solid #b5c8d8;border-radius:9px;padding:12px;background:#fff;color:#173e58;min-height:45px}
+#fieldReporting textarea{min-height:125px;resize:vertical;line-height:1.45}
+#fieldReporting .fr-capture{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+#fieldReporting .fr-record-wrap{border:1px dashed #a5c1d5;border-radius:13px;background:#f5fafe;padding:20px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:11px;text-align:center}
+#fieldReporting .fr-record{width:92px;height:92px;border-radius:50%;background:#14679f;border:4px solid #d5eaf7;display:grid;place-items:center;color:white;font-weight:800;box-shadow:0 5px 14px #074b7223}
+#fieldReporting .fr-record.is-recording{background:#a32f41;border-color:#f7d4d6;animation:fr-pulse 1.4s infinite}
+@keyframes fr-pulse{50%{box-shadow:0 0 0 12px #d72a3c19}}
+#fieldReporting .fr-record-icon{font-size:27px;line-height:1}
+#fieldReporting .fr-main-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:16px}
+#fieldReporting .fr-status{border-radius:9px;padding:12px 14px;background:#ebf5fb;color:#244964;margin-top:12px;font-size:13px}
+#fieldReporting .fr-status.fr-warning{background:#fff5df;color:#6c5119}
+#fieldReporting .fr-status.fr-success{background:#edf8f0;color:#205934}
+#fieldReporting .fr-queue{display:grid;gap:12px}
+#fieldReporting .fr-report{border:1px solid var(--fr-border);border-radius:12px;padding:14px;background:#fff}
+#fieldReporting .fr-report-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+#fieldReporting .fr-report-top strong{color:#183b56}
+#fieldReporting .fr-pill{display:inline-block;border-radius:999px;padding:4px 9px;background:#e9f3f9;color:#185c8b;font-size:11px;font-weight:800;white-space:nowrap}
+#fieldReporting .fr-pill.is-done{color:#276338;background:#e9f5ed}
+#fieldReporting .fr-pill.is-question{background:#fff1d8;color:#765018}
+#fieldReporting details{margin-top:9px}
+#fieldReporting summary{cursor:pointer;color:var(--fr-blue);font-size:13px;font-weight:700;padding:4px 0}
+#fieldReporting .fr-original{white-space:pre-wrap;color:#38566c;font-size:13px;background:#f3f7fb;padding:11px;border-radius:8px;margin-top:7px;overflow-wrap:anywhere}
+#fieldReporting .fr-proposal{border-top:1px solid #e1eaf0;padding-top:13px;margin-top:13px}
+#fieldReporting .fr-proposal-title{font-size:13px;font-weight:800;color:var(--fr-navy);margin-bottom:8px}
+#fieldReporting .fr-options{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 4px}
+#fieldReporting .fr-options label{display:inline-flex;gap:6px;align-items:center;font-weight:600;font-size:13px}
+#fieldReporting .fr-options input{accent-color:var(--fr-blue)}
+#fieldReporting .fr-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#fieldReporting .fr-history{border-top:1px solid #e1eaf0;margin-top:12px;padding-top:12px}
+#fieldReporting .fr-empty{border:1px dashed #bacfdd;border-radius:12px;background:#f7fbfd;padding:23px;text-align:center;color:var(--fr-muted)}
+#fieldReporting .fr-sr{position:absolute;clip:rect(0,0,0,0);width:1px;height:1px;overflow:hidden}
+#fieldReporting audio{display:block;width:100%;max-width:430px;margin-top:9px}
+@media(max-width:720px){#fieldReporting .fr-wrap{padding:0 0 24px}#fieldReporting .fr-capture{grid-template-columns:1fr}#fieldReporting .fr-card{padding:16px}#fieldReporting .fr-head{align-items:center}#fieldReporting .fr-record-wrap{padding:18px}#fieldReporting .fr-main-actions .fr-btn-primary{width:100%}#fieldReporting .fr-main-actions{flex-direction:column;align-items:stretch}#fieldReporting .fr-tab{flex:1}}
+
+
+/* v1.2 layout refinement: recording first, text underneath, no empty audio control. */
+#fieldReporting [hidden]{display:none!important}
+#fieldReporting .fr-capture{display:flex;flex-direction:column;gap:14px}
+#fieldReporting .fr-record-wrap{
+  display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;
+  justify-content:stretch;gap:10px 16px;text-align:left;padding:16px 20px;min-height:112px
+}
+#fieldReporting .fr-record{width:74px;height:74px;grid-column:1;grid-row:1;flex-shrink:0}
+#fieldReporting .fr-record-copy{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+#fieldReporting .fr-record-copy strong{font-size:16px}
+#fieldReporting .fr-record-wrap audio,#fieldReporting .fr-record-wrap #fr-clear-audio{
+  grid-column:1/-1;max-width:100%;margin:0
+}
+#fieldReporting .fr-text-wrap{display:flex;flex-direction:column;gap:8px}
+#fieldReporting .fr-text-wrap textarea{min-height:112px}
+#fieldReporting .fr-text-wrap .fr-muted{margin:0}
+@media(max-width:480px){
+  #fieldReporting .fr-record-wrap{padding:14px;grid-template-columns:66px minmax(0,1fr);gap:10px}
+  #fieldReporting .fr-record{width:64px;height:64px}
+  #fieldReporting .fr-record-copy strong{font-size:15px}
+}
+
+/* Desktop navigation: keep Administration accessible even as new tools are added.
+   Maintain the original horizontal navigation on mobile/tablet. */
+@media(min-width:981px){
+  .sidebar{overflow:hidden}
+  .sidebar-nav{min-height:0;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;
+    scrollbar-width:thin;scrollbar-color:rgba(185,214,234,.55) transparent;padding-right:4px}
+  .sidebar-footer{flex:0 0 auto}
+}
+
+/* v2 SharePoint-backed report UI */
+#fieldReporting .fr-review-note{margin-top:10px;padding:10px 12px;background:#f0f6fa;border-radius:8px;font-size:13px;white-space:pre-wrap;color:#29485e}
+#fieldReporting .fr-toolbar{justify-content:space-between;padding:7px 0 13px}
+#fieldReporting .fr-review-explainer{margin-bottom:12px}
+#fieldReporting .fr-refresh{margin-top:12px}
+#fieldReporting .fr-bottom-note{margin-top:15px}
+#fieldReporting .fr-proposal textarea{width:100%;min-height:65px}
+#fieldReporting .fr-demo{white-space:nowrap}
+#fieldReporting [hidden]{display:none!important}
+
+#fieldReporting .fr-connection{padding:10px 13px;border:1px solid #ecc08c;background:#fff7e9;color:#754918;border-radius:10px;margin:9px 0;font-size:13px}
+
+/* v2.1 related-record evidence, PM only. */
+#fieldReporting .fr-related{margin-top:12px;background:#f7fbfe;border:1px solid #d7e7f1;border-radius:11px;padding:13px}
+#fieldReporting .fr-refs-title{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:7px;margin-bottom:10px;font-size:13px;color:#173c59}
+#fieldReporting .fr-reference-row{border-top:1px solid #dce8f0;padding:11px 0;display:flex;flex-direction:column;gap:5px;overflow-wrap:anywhere}
+#fieldReporting .fr-reference-row strong{font-size:14px;color:#123451}
+#fieldReporting .fr-reference-caption{font-size:11px;color:#27658f;font-weight:750}
+#fieldReporting .fr-reference-actions,#fieldReporting .fr-reference-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+#fieldReporting .fr-reference-actions{margin-top:4px}
+#fieldReporting .fr-reference-footer{border-top:1px solid #dce8f0;padding-top:10px}
+#fieldReporting .fr-source-link{display:inline-flex;align-items:center;min-height:36px;color:#1265a1;font-size:13px;font-weight:750;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:720px){#fieldReporting .fr-reference-actions,#fieldReporting .fr-reference-footer{align-items:flex-start;flex-direction:column}#fieldReporting .fr-source-link{min-height:44px}}
+
+/* v2.2 compact, source-linked, PM-approved project change */
+#fieldReporting .fr-pm-proposal{margin:12px 0;border:1px solid #b8d3e6;border-left:4px solid #1a6ba5;border-radius:10px;padding:13px;background:#f2f8fc}
+#fieldReporting .fr-pm-proposal .fr-proposal-title{font-size:15px}
+#fieldReporting .fr-pm-proposal .fr-field{margin:12px 0}
+#fieldReporting .fr-pm-proposal select{min-height:44px}
+#fieldReporting .fr-proposal-help{margin-top:12px}
+#fieldReporting .fr-change-diff{margin-top:14px;padding:12px;background:white;border:1px solid #bfd5e2;border-radius:9px;overflow-wrap:anywhere;font-size:13px}
+#fieldReporting .fr-change-diff p{margin:8px 0}
+#fieldReporting .fr-diff-before,#fieldReporting .fr-diff-after{padding:8px 10px;margin:6px 0;border-radius:6px;white-space:pre-wrap}
+#fieldReporting .fr-diff-before{background:#f6f6f6;color:#455565}
+#fieldReporting .fr-diff-after{background:#edf7f0;color:#194b35}
+#fieldReporting .fr-diff-before span,#fieldReporting .fr-diff-after span{font-weight:750;display:block;margin-bottom:3px}
+
+/* v2.3 SharePoint-backed PM change planner */
+#fieldReporting .fr-plan-entry{padding:12px 0;border-top:1px solid #d8e5ee}
+#fieldReporting .fr-plan-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+#fieldReporting .fr-plan-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+#fieldReporting .fr-plan-actions .fr-btn{padding:8px 11px;font-size:12px;min-height:39px}
+#fieldReporting .fr-add-action{margin:13px 0;padding:10px 12px;background:#fff;border:1px solid #d0e0eb;border-radius:10px}
+#fieldReporting .fr-add-action summary{font-size:14px}
+#fieldReporting .fr-add-action .fr-field{margin-top:10px}
+#fieldReporting .fr-half{flex:1 1 190px}
+#fieldReporting .fr-half input,#fieldReporting .fr-half select{width:100%}
+#fieldReporting .fr-plan-warning{padding:10px;color:#7b3c17;background:#fff2db;border-radius:8px;margin-top:8px;font-weight:700;font-size:12px}
+#fieldReporting .fr-history-panel{border-top:1px solid #dce8f0;margin-top:14px;padding-top:10px}
+#fieldReporting .fr-history-line{border-bottom:1px solid #e3edf3;padding:8px 0;font-size:12px;display:flex;gap:8px;flex-wrap:wrap}
+#fieldReporting .fr-history-line span{color:#667c8a}
+@media(max-width:720px){#fieldReporting .fr-plan-actions .fr-btn{flex:1 1 auto}}
+
+/* v2.4 — draft preview and action-specific fields */
+#fieldReporting [data-draft-target-wrap][hidden],#fieldReporting [data-draft-create-field][hidden],#fieldReporting [data-draft-replacement-field][hidden]{display:none!important}
+#fieldReporting [data-plan-add]:disabled{opacity:.56;cursor:not-allowed}
+#fieldReporting [data-draft-preview-result]:not(:empty){margin-top:12px}
+
+/* v2.5 — single, confirmed decision wording (no report IDs in activity text) */
+#fieldReporting [data-draft-replacement-field] textarea{min-height:105px}
+#fieldReporting [data-draft-replacement-field] .fr-muted{margin:0}
+
+/* v2.6 — guided Field Reporting review. AHT navy / blue; status is text, not filled buttons. */
+#fieldReporting .fr-report{padding:15px 16px}
+#fieldReporting .fr-review-head{display:flex;gap:12px;align-items:center;justify-content:space-between}
+#fieldReporting .fr-review-head .fr-report-top{flex:1;min-width:0}
+#fieldReporting .fr-open-report{min-width:112px;white-space:nowrap}
+#fieldReporting .fr-report-closed{background:#fff}
+#fieldReporting .fr-queue-summary{margin-top:8px;color:#617689;font-size:12px;line-height:1.45}
+#fieldReporting .fr-workflow{margin-top:16px;border:1px solid #cbdce8;border-radius:12px;background:#fff;overflow:hidden}
+#fieldReporting .fr-workflow-top{padding:13px 15px 8px;display:flex;gap:8px;justify-content:space-between;align-items:center;font-size:13px;color:#173e59}
+#fieldReporting .fr-step-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;padding:6px 12px 10px}
+#fieldReporting .fr-step-button{display:flex;align-items:center;gap:7px;padding:11px 8px;border:1px solid #d0dce6;background:white;color:#20465f;border-radius:9px;text-align:left;min-width:0;min-height:67px}
+#fieldReporting .fr-step-button[aria-current=step]{background:#133b58;border-color:#133b58;color:#fff;box-shadow:0 0 0 1px #123b58}
+#fieldReporting .fr-step-number{width:22px;height:22px;flex:0 0 22px;display:grid;place-items:center;border:1px solid currentColor;border-radius:50%;font-size:11px;font-weight:750}
+#fieldReporting .fr-step-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+#fieldReporting .fr-step-copy strong{font-size:12px;line-height:1.1;overflow-wrap:anywhere}
+#fieldReporting .fr-step-copy small{font-size:11px;font-weight:700;color:#6b8190;line-height:1.2;overflow-wrap:anywhere}
+#fieldReporting .fr-step-button[data-state=complete]:not([aria-current=step]) .fr-step-copy small{color:#27713c}
+#fieldReporting .fr-step-button[data-state=pending]:not([aria-current=step]) .fr-step-copy small{color:#986216}
+#fieldReporting .fr-step-button[data-state=attention]:not([aria-current=step]) .fr-step-copy small{color:#a93d32}
+#fieldReporting .fr-step-button[aria-current=step] .fr-step-copy small{color:#e3edf4}
+#fieldReporting .fr-step-legend{display:flex;flex-wrap:wrap;gap:8px 17px;padding:0 14px 13px;border-bottom:1px solid #e1eaf0;color:#617789;font-size:11px}
+#fieldReporting .fr-step-legend span{display:inline-flex;align-items:center;gap:6px}
+#fieldReporting .fr-legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8}
+#fieldReporting .fr-legend-dot.is-done{background:#368651}
+#fieldReporting .fr-legend-dot.is-pending{background:#c58529}
+#fieldReporting .fr-legend-dot.is-attention{background:#bc4b3f}
+#fieldReporting .fr-legend-dot.is-idle{background:#9ba9b6}
+#fieldReporting .fr-workflow-panes{padding:16px}
+#fieldReporting .fr-step-panel{min-height:136px}
+#fieldReporting .fr-step-heading{margin-bottom:12px}
+#fieldReporting .fr-step-heading h3{font-size:17px;margin:0 0 5px;color:#163e5d}
+#fieldReporting .fr-step-heading p{margin:0}
+#fieldReporting .fr-step-footer{display:flex;justify-content:flex-end;border-top:1px solid #e4ecf1;margin-top:17px;padding-top:14px}
+#fieldReporting .fr-step-footer .fr-btn{min-height:42px}
+#fieldReporting .fr-step-panel .fr-pm-proposal{margin:0}
+#fieldReporting .fr-step-panel .fr-add-action{margin:0;background:#f8fbfd}
+#fieldReporting .fr-step-panel .fr-add-action>summary[hidden]{display:none!important}
+#fieldReporting .fr-step-panel .fr-related{margin:0}
+#fieldReporting .fr-manual-records{border:1px solid #dce6ed;border-radius:9px;margin-top:12px;padding:12px;background:#fff;color:#244a64;font-size:13px}
+#fieldReporting .fr-manual-records strong{font-size:13px}
+#fieldReporting .fr-manual-records p{margin:6px 0 10px}
+#fieldReporting .fr-record-search{margin-bottom:8px}
+#fieldReporting .fr-step-panel .fr-plan-entry{border:1px solid #d7e5ed;border-radius:9px;padding:12px;margin-bottom:9px;background:#fbfdff}
+#fieldReporting .fr-step-panel .fr-history-panel{padding-top:8px;border-top:1px solid #d8e5ee}
+#fieldReporting .fr-step-panel .fr-change-diff{background:white}
+#fieldReporting .fr-acknowledgment{margin-top:16px;border-top:1px solid #dfe9f0;padding-top:9px}
+#fieldReporting .fr-acknowledgment .fr-proposal{margin-top:0;border:0}
+#fieldReporting .fr-review-complete{margin:9px 0}
+#fieldReporting .fr-step-empty{margin:15px 0;padding:16px;background:#f6f9fc;border:1px dashed #c8d8e3;border-radius:9px}
+#fieldReporting .fr-workflow button:focus-visible,#fieldReporting .fr-open-report:focus-visible{outline:3px solid #5aa5dd;outline-offset:2px}
+@media(max-width:980px){
+  #fieldReporting .fr-step-nav{grid-template-columns:repeat(5,minmax(105px,1fr));overflow-x:auto;padding-bottom:14px}
+  #fieldReporting .fr-step-button{min-height:66px}
+}
+@media(max-width:600px){
+  #fieldReporting .fr-review-head{align-items:flex-start;flex-direction:column}
+  #fieldReporting .fr-review-head .fr-open-report{width:100%}
+  #fieldReporting .fr-workflow-panes{padding:12px}
+  #fieldReporting .fr-step-nav{grid-template-columns:repeat(5,118px)}
+  #fieldReporting .fr-step-footer .fr-btn{width:100%}
+}
+
+/* v2.7 Azure AI read-only recommendations, in the same guided workflow */
+#fieldReporting .fr-ai-panel{border:1px solid #cddfea;border-radius:10px;padding:14px;margin-bottom:14px;background:#f8fbfd}
+#fieldReporting .fr-ai-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+#fieldReporting .fr-ai-heading strong{color:#17476a;font-size:14px}
+#fieldReporting .fr-ai-heading p{margin:4px 0 0}
+#fieldReporting .fr-ai-heading .fr-btn{min-width:170px}
+#fieldReporting .fr-ai-result{margin-top:14px;border-top:1px solid #cfdee8;padding-top:12px}
+#fieldReporting .fr-ai-result>strong{color:#184968}
+#fieldReporting .fr-ai-result>p{font-size:13px;line-height:1.6}
+#fieldReporting .fr-ai-finding{border:1px solid #d8e5ee;padding:12px;border-radius:8px;margin:9px 0;background:#fff;color:#1f435b;font-size:13px}
+#fieldReporting .fr-ai-finding strong{display:block;margin:5px 0}
+#fieldReporting .fr-ai-finding p{margin:5px 0;line-height:1.5}
+#fieldReporting .fr-ai-type{font-size:11px;font-weight:750;color:#37688b;text-transform:uppercase;letter-spacing:.03em}
+#fieldReporting .fr-ai-suggestion{padding:8px 10px;border-left:3px solid #3e83b0;background:#eef6fb;margin:8px 0;line-height:1.5}
+#fieldReporting .fr-ai-error{color:#8a382e;font-size:13px;padding:11px;margin-top:9px;background:#fff4f1;border:1px solid #ebc9c4;border-radius:7px}
+#fieldReporting .fr-ai-gaps{border-top:1px solid #d9e4ea;padding-top:9px}
+#fieldReporting .fr-ai-signin{display:inline-block;margin-top:10px;text-decoration:none!important}
+@media(max-width:600px){#fieldReporting .fr-ai-heading{align-items:flex-start;flex-direction:column}#fieldReporting .fr-ai-heading .fr-btn{width:100%}}
