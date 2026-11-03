@@ -146,6 +146,8 @@
 <link rel="stylesheet" href="css/aht-ops-user-ui.css?v=20261030-integrated1" />
 <link rel="stylesheet" href="css/aht-status-ui.css?v=20261030-integrated1" />
 <link rel="stylesheet" href="css/aht-cancel-actions.css?v=20261019-cancel1" />
+<!-- AHT-FIELD-REPORTING-PILOT-V1: style -->
+<link rel="stylesheet" href="css/field-reporting.css?v=spv27-ai1" />
 </head>
 <body>
 <div id="startupStatus" class="startup-status">
@@ -229,6 +231,8 @@
 
         <!-- AHT-OPERATIONS-PILOT-V1: read-only Operations navigation -->
         <div class="nav-section-label" data-aht-ops-navlabel hidden>Operations</div>
+        <!-- AHT-FIELD-REPORTING-PILOT-V1: nav -->
+        <button class="nav-section-item" type="button" data-view="fieldReporting" hidden>Field Reporting</button>
         <button class="nav-section-item" type="button" data-view="operations" hidden>Operations</button>
         <div class="nav-section-label">Tools</div>
         <button class="nav-section-item" data-view="tools">
@@ -527,6 +531,8 @@
 
     <!-- AHT-OPERATIONS-PILOT-V1: Operations workspace -->
     <!-- AHT-OPERATIONS-INTEGRATION-V4: review-only Operations UI -->
+    <!-- AHT-FIELD-REPORTING-PILOT-V1: workspace -->
+    <section id="fieldReporting" class="view" aria-label="Field Reporting"></section>
     <section id="operations" class="view" aria-label="Operations">
       <header class="ops-heading"><div><div class="ops-eyebrow">AHT Project Control</div><h2>Operations</h2><p class="ops-subtitle">Site progress and upcoming work · planning visibility only</p></div><span class="ops-office" id="ops-office">Office</span></header>
       <div id="ops-empty-access" class="ops-empty" hidden></div>
@@ -2335,6 +2341,13 @@ function showView(id){
    if(!window.AHTOperations || !window.AHTOperations.canAccess()) id = "projects";
    else queueMicrotask(() => window.AHTOperations?.onView());
  }
+
+ // AHT-FIELD-REPORTING-PILOT-V1: demo-only role guard and refresh.
+ if(id === "fieldReporting"){
+   if(!window.AHTFieldReporting?.canAccess()) id = "projects";
+   else queueMicrotask(() => window.AHTFieldReporting.onView());
+ }
+
 
  const canOpenAdministration=
    Boolean(
@@ -4225,5 +4238,10 @@ initializeApplication();
 
 <script src="js/aht-ops-user-ui.js?v=20261030-integrated1"></script>
 <script src="js/aht-operations.js?v=20261030-integrated1"></script>
+<!-- AHT-FIELD-REPORTING-PILOT-V1: script -->
+<script src="js/field-reporting.js?v=spv27-ai1"></script>
+<!-- AHT_VERSION_DISPLAY_20261102: version metadata and footer display only -->
+<script src="js/aht-build-info.js?v=20261102-1"></script>
+<script src="js/aht-version-display.js?v=20261102-1"></script>
 </body>
 </html>

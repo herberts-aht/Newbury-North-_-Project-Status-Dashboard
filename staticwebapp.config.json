@@ -1,0 +1,6 @@
+{
+  "routes": [
+    {"route":"/api/analyze-report","methods":["POST"],"allowedRoles":["authenticated"]}
+  ],
+  "platform": {"apiRuntime": "node:22"}
+}
