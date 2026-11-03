@@ -1,5 +1,6 @@
 'use strict';
 /* AHT Field Reporting AI — read-only analysis endpoint. No SharePoint credentials or writes. */
+const {authenticateApiRequest}=require('./entra-auth');
 const FORMATS = new Set(['confirmed_decision','unapproved_option','reported_completed_work','outstanding_dependency','issue_or_risk','other']);
 const SCHEMA = {
   type:'object',additionalProperties:false,
@@ -18,17 +19,6 @@ const INSTRUCTIONS = `You analyze AHT Global technician reports for a PROJECT MA
 const HEADERS={'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 function respond(status,body){return {status,jsonBody:body,headers:HEADERS};}
 function error(status,message){return respond(status,{ok:false,error:message});}
-function principalFromHeader(raw){
-  if(!raw || raw.length>8192)return null;
-  try{const p=JSON.parse(Buffer.from(raw,'base64').toString('utf8'));return p&&typeof p==='object'?p:null;}catch{return null;}
-}
-function isAhtUser(p,allowedDomains){
-  const domain=String(p?.userDetails||'').trim().toLowerCase().split('@').at(-1);
-  const allowed=String(allowedDomains||'ahtglobal.com').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
-  return p && ['aad','azureactivedirectory'].includes(String(p.identityProvider||'').toLowerCase()) &&
-    Array.isArray(p.userRoles) && p.userRoles.includes('authenticated') &&
-    domain && allowed.includes(domain) && /^[^\s@]+@[^\s@]+$/.test(String(p.userDetails||''));
-}
 const clean=(v,n=400)=>String(v??'').trim().slice(0,n);
 function validateAndNormalize(json, candidates){
   if(!json || typeof json!=='object' || !Array.isArray(json.findings) || !Array.isArray(json.missing_information) || typeof json.summary!=='string')throw Error('Unexpected model response format. Nothing was saved.');
@@ -56,12 +46,13 @@ function validEndpoint(endpoint){
       /^[-a-z0-9]+\.openai\.azure\.com$/i.test(u.hostname) && (!u.pathname || u.pathname==='/')?u.origin:null;
   }catch{return null;}
 }
-async function analyzeRequest(req,{env=process.env,fetchFn=fetch}={}){
+async function analyzeRequest(req,{env=process.env,fetchFn=fetch,authenticate=authenticateApiRequest}={}){
   if(req.method!=='POST')return error(405,'POST required.');
-  // SWA route authorization is the first gate. The second gate is enforced here.
-  const principal=principalFromHeader(req.headers.get('x-ms-client-principal'));
-  if(!isAhtUser(principal,env.AHT_ALLOWED_EMAIL_DOMAINS))return error(401,'AHT Microsoft sign-in required for AI analysis.');
+  // Global safety switch always blocks model requests when disabled.
   if(env.AHT_AI_ENABLED!=='true')return error(503,'Azure AI has not been enabled for this deployment yet.');
+  // SWA route allows MSAL Bearer tokens through. All authorization happens here.
+  const identity=await authenticate(req,env);
+  if(!identity.ok)return error(identity.status||401,identity.error||'AHT API authorization failed.');
   const endpoint=validEndpoint(env.AHT_FOUNDRY_OPENAI_ENDPOINT);
   if(!endpoint || !env.AHT_FOUNDRY_API_KEY || !/^[a-z0-9][a-z0-9_.-]{1,80}$/i.test(env.AHT_FOUNDRY_DEPLOYMENT||''))return error(503,'AI server settings are incomplete. Ask the Azure administrator to configure the API.');
   let payload;
@@ -89,4 +80,4 @@ async function analyzeRequest(req,{env=process.env,fetchFn=fetch}={}){
   }catch(ex){return error(ex?.name==='AbortError'?504:502,ex?.name==='AbortError'?'Azure AI analysis timed out. Try again.':'AI response could not be verified. Nothing was saved.');}
   finally{clearTimeout(timeout);}
 }
-module.exports={analyzeRequest,isAhtUser,validEndpoint,validateAndNormalize,SCHEMA};
+module.exports={analyzeRequest,validEndpoint,validateAndNormalize,SCHEMA};

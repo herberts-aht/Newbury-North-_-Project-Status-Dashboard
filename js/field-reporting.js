@@ -828,18 +828,14 @@
     if(!report||!projectIds().has(report.projectId)||!report.original?.trim()||aiStates.get(report.id)?.state==='loading')return;
     aiStates.set(report.id,{state:'loading'});showAI(box,report);
     try{
-      // SWA's own Entra sign-in is separate from the existing Graph/MSAL token.
-      const authRes=await fetch('/.auth/me',{credentials:'same-origin',cache:'no-store'});
-      if(!authRes.ok)throw Error('Azure AI sign-in check unavailable.');
-      const auth=await authRes.json();const user=auth?.clientPrincipal;
-      if(!user||!['aad','azureactivedirectory'].includes(String(user.identityProvider||'').toLowerCase())){
-        aiStates.set(report.id,{state:'error',message:'An additional Microsoft sign-in is required for the protected Azure AI service. Use Sign in below, then reopen this report.',needsLogin:true});showAI(box,report);
-        const panel=box.querySelector('[data-fr-ai-panel]');const link=document.createElement('a');link.className='fr-btn fr-ai-signin';link.textContent='Sign in to Azure AI';
-        link.href='/.auth/login/aad?post_login_redirect_uri='+encodeURIComponent(window.location.pathname||'/');panel.appendChild(link);return;
-      }
+      // Request an API-specific Entra token using the already signed-in AHT account.
+      // This never uses the legacy Graph/Teams token shortcut or a separate SWA sign-in.
+      if(typeof window.getAhtAiAccessToken!=='function')throw Error('AHT Microsoft API sign-in is not available. Refresh and try again.');
+      const apiToken=await window.getAhtAiAccessToken({interactive:true});
+      if(!apiToken)throw Error('Microsoft did not issue an AI API access token.');
       const matches=relatedStates.get(report.id)?.items||[];
       const candidateRecords=matches.slice(0,12).map(v=>({title:v.title,kind:v.kind||v.source,status:v.status,description:v.description}));
-      const response=await fetch('/api/analyze-report',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectName:report.project||projectName(report.projectId),reportText:report.original,candidateRecords})});
+      const response=await fetch('/api/analyze-report',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiToken}`},body:JSON.stringify({projectName:report.project||projectName(report.projectId),reportText:report.original,candidateRecords})});
       const type=response.headers.get('content-type')||'';
       if(!type.includes('json'))throw Error('Secure AI service returned an unexpected response. Please check the API deployment and sign-in.');
       const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'AI analysis failed.');

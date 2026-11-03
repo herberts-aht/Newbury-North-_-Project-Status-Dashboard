@@ -4,6 +4,11 @@
   "private": true,
   "type": "commonjs",
   "main": "src/functions/*.js",
-  "engines": {"node": ">=22"},
-  "dependencies": {"@azure/functions": "^4.7.2"}
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.7.2",
+    "jose": "^6.1.0"
+  }
 }

@@ -953,6 +953,32 @@ async function getMicrosoftAccessToken(
   }
 }
 
+// Dedicated access token for AHT Project Control API. Never reuse a cached Graph/Teams token.
+// The Entra backend must independently validate signature, tenant, audience and scope.
+async function getAhtAiAccessToken({interactive = true} = {}) {
+  const scopes = ['api://b6151c38-5c7b-47c1-8f33-f1a3b08edbe6/Analyze.Reports'];
+  if (teamsNaaActive && teamsNaaInstance) {
+    return acquireTeamsNaaAccessToken(scopes, {interactive});
+  }
+  if (!msalInstance) throw new Error('AHT Microsoft authentication is not initialized.');
+  const account = microsoftAccount || msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
+  if (!account) throw new Error('Sign in to AHT Project Control before running AI analysis.');
+  const request = {account, scopes};
+  try {
+    const result = await msalInstance.acquireTokenSilent(request);
+    if (!result?.accessToken) throw new Error('No API access token returned.');
+    return result.accessToken;
+  } catch (error) {
+    if (!interactive) throw error;
+    const InteractionRequired = window.msal?.InteractionRequiredAuthError;
+    if (!InteractionRequired || !(error instanceof InteractionRequired)) throw error;
+    const result = await msalInstance.acquireTokenPopup(request);
+    if (!result?.accessToken) throw new Error('No API access token returned.');
+    return result.accessToken;
+  }
+}
+window.getAhtAiAccessToken = getAhtAiAccessToken;
+
 window.getMicrosoftAccessToken =
   getMicrosoftAccessToken;
 
