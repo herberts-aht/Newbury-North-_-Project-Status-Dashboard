@@ -2819,7 +2819,7 @@ const ProjectWorkView = (() => {
 
     if (!view || !root) return;
 
-    seedPrototypeData();
+    // Production: never insert demonstration project tasks.
 
     syncProjectPlanHeaderActions();
 
