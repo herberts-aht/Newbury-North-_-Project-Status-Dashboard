@@ -835,7 +835,7 @@
       if(!apiToken)throw Error('Microsoft did not issue an AI API access token.');
       const matches=relatedStates.get(report.id)?.items||[];
       const candidateRecords=matches.slice(0,12).map(v=>({title:v.title,kind:v.kind||v.source,status:v.status,description:v.description}));
-      const response=await fetch('/api/analyze-report',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiToken}`},body:JSON.stringify({projectName:report.project||projectName(report.projectId),reportText:report.original,candidateRecords})});
+      const response=await fetch('/api/analyze-report',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-AHT-Access-Token':`Bearer ${apiToken}`},body:JSON.stringify({projectName:report.project||projectName(report.projectId),reportText:report.original,candidateRecords})});
       const type=response.headers.get('content-type')||'';
       if(!type.includes('json'))throw Error('Secure AI service returned an unexpected response. Please check the API deployment and sign-in.');
       const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'AI analysis failed.');

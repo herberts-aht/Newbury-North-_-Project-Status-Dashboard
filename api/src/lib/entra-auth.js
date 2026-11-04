@@ -14,7 +14,9 @@ async function authenticateApiRequest(req,env=process.env,{joseLibrary=null,keys
   // Restrict first rollout to explicit Entra object IDs; no allow-list means access denied.
   const allowed=allowedUserIds(env);
   if(!allowed.length)return reject(503,'AI authorized-user list is not configured.');
-  const raw=req.headers.get('authorization')||'';
+  // SWA managed Functions can replace the standard Authorization header with an internal token.
+  // Read only our explicitly supplied end-user API token header; never fall back to Authorization.
+  const raw=req.headers.get('x-aht-access-token')||'';
   const match=/^Bearer\s+([^\s]+)$/i.exec(raw);
   if(!match||match[1].length>12000)return reject(401,'A valid AHT API access token is required.');
   let jose,decoded,claims;
