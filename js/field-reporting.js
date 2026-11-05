@@ -1168,17 +1168,39 @@
     btn.disabled = true;
     try {
       const p = provider(), driveId = await audioDrive();
-      // Graph /content redirects with 302; browser Authorization preflight cannot follow it.
-      // Use Graph's short-lived preauthenticated download URL instead.
-      const item = await p.graph(`/drives/${encodeURIComponent(driveId)}/root:/${encodeURIComponent(filename)}:?$select=id,name,@microsoft.graph.downloadUrl`);
-      const downloadUrl = item['@microsoft.graph.downloadUrl'];
-      if (!downloadUrl || !/^https:\/\//.test(downloadUrl)) throw Error('Microsoft did not provide an audio download URL.');
+      // Do not use $select for the temporary download annotation: Graph may omit it.
+      // Request the DriveItem normally so we also receive its SharePoint webUrl.
+      const item = await p.graph(`/drives/${encodeURIComponent(driveId)}/root:/${encodeURIComponent(filename)}:`);
+      const downloadUrl = item?.['@microsoft.graph.downloadUrl'];
+      const fallback = item?.webUrl;
+      const previousLink = btn.parentElement.querySelector('[data-audio-sharepoint]');
+      if (previousLink) previousLink.remove();
+      // This link is a user-clickable fallback, never an automatic cross-origin redirect.
+      if (fallback) {
+        const u = new URL(fallback);
+        if (u.protocol === 'https:' && u.hostname === 'ahtglobalteam.sharepoint.com') {
+          const link = document.createElement('a');
+          link.href = u.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.className = 'fr-btn';
+          link.dataset.audioSharepoint = '1';
+          link.textContent = 'Open recording in SharePoint';
+          btn.insertAdjacentElement('afterend', link);
+        }
+      }
+      if (!downloadUrl || !/^https:\/\//.test(downloadUrl)) {
+        throw Error('Microsoft did not provide a direct playback URL. Use Open recording in SharePoint.');
+      }
       const response = await fetch(downloadUrl);
-      if (!response.ok) throw Error('Could not open recording ('+response.status+')');
+      if (!response.ok) throw Error('Could not download recording (' + response.status + '). Use Open recording in SharePoint.');
       const blob = await response.blob();
       if (activeAudioUrl) URL.revokeObjectURL(activeAudioUrl);
-      activeAudioUrl = URL.createObjectURL(blob); audio.src = activeAudioUrl; audio.hidden = false; await audio.play();
-    } catch(e) {alert('Audio unavailable: '+(e.message || e));}
+      activeAudioUrl = URL.createObjectURL(blob);
+      audio.src = activeAudioUrl;
+      audio.hidden = false;
+      await audio.play();
+    } catch (e) {alert('Audio unavailable: ' + (e.message || e));}
     finally {btn.disabled = false;}
   }
   function onView() {if (!permitted()) {syncNav();return;} layout(); fillProjects(); render(); refresh();}
