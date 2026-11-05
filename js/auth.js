@@ -999,6 +999,24 @@ function configureLoginScreen() {
 }
 
 function showSignedInApplication() {
+  // Only restore a dedicated Field Update home-screen launch that was interrupted
+  // by Microsoft redirect sign-in. Do not change the shared MSAL redirect URI.
+  try {
+    const key = 'aht.fieldUpdate.standaloneReturn';
+    const launchedAt = Number(sessionStorage.getItem(key) || 0);
+    const standalone = window.navigator.standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)')?.matches;
+    if (standalone && launchedAt && (Date.now() - launchedAt) < 10 * 60 * 1000 &&
+        window.location.pathname === '/') {
+      window.location.replace('/field-update.html');
+      return;
+    }
+    if (launchedAt && (Date.now() - launchedAt) >= 10 * 60 * 1000) {
+      sessionStorage.removeItem(key);
+    }
+  } catch (error) {
+    console.warn('Field Update launch restoration unavailable:', error);
+  }
   loginScreen.classList.add("hidden");
   app.classList.remove("hidden");
   render();

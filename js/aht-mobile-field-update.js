@@ -12,6 +12,16 @@
   if (!dedicatedPath && params.get('fieldUpdate') !== '1') return;
 
   const HOME = 'aht.fieldUpdate.lastProject';
+  // An installed iPhone app may return to / after Microsoft sign-in.
+  // Remember only standalone Field Update launches, not normal dashboard visits.
+  try {
+    if (window.navigator.standalone === true ||
+        window.matchMedia?.('(display-mode: standalone)')?.matches) {
+      sessionStorage.setItem('aht.fieldUpdate.standaloneReturn', String(Date.now()));
+    }
+  } catch (error) {
+    console.warn('Field Update launch marker unavailable:', error);
+  }
   const app = document.getElementById('app');
   const root = document.getElementById('fieldReporting');
   if (!app || !root) return;
@@ -85,7 +95,8 @@
       reports.textContent = showingReports ? 'My reports' : 'New update';
     });
     header.querySelector('#aht-quick-exit').addEventListener('click', function () {
-      // No state mutation: return to the existing full dashboard.
+      // Explicit exit clears standalone launch restoration before opening dashboard.
+      try { sessionStorage.removeItem('aht.fieldUpdate.standaloneReturn'); } catch (_) {}
       window.location.href = '/';
     });
   }
@@ -131,8 +142,17 @@
   }
 
   addHeadMetadata();
-  // The dashboard authenticates asynchronously. Observe its existing signed-in state.
+  // Auth and SharePoint project permissions can become ready after #app is shown.
+  // Retry briefly, only for Field Update, without changing the access checks.
   new MutationObserver(start).observe(app, { attributes: true, attributeFilter: ['class'] });
-  // The signed-in user may already be restored by the time this script executes.
+  let ahtFieldUpdateRetryCount = 0;
+  const ahtFieldUpdateRetryTimer = window.setInterval(function () {
+    start();
+    ahtFieldUpdateRetryCount++;
+    if (started || ahtFieldUpdateRetryCount >= 80) {
+      window.clearInterval(ahtFieldUpdateRetryTimer);
+    }
+  }, 250);
+  window.addEventListener('pageshow', start);
   start();
 })();
