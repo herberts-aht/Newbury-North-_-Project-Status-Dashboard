@@ -1,6 +1,10 @@
 {
   "routes": [
     {
+      "route": "/field-update.html",
+      "rewrite": "/index.html"
+    },
+    {
       "route": "/api/analyze-report",
       "methods": [
         "POST"

@@ -1,12 +1,15 @@
-/* AHT Mobile Field Update v2.9.6 — presentation-only entry to existing Field Reporting.
- * Only runs when ?fieldUpdate=1. No parallel authentication, SharePoint writes,
+/* AHT Mobile Field Update v2.9.8 — presentation-only entry to existing Field Reporting.
+ * Runs for /field-update.html or the legacy ?fieldUpdate=1 URL. No parallel authentication, SharePoint writes,
  * notification logic, or approval flow. All submission behavior remains in
  * js/field-reporting.js with its existing project/role checks.
  */
 (function () {
   'use strict';
   const params = new URLSearchParams(window.location.search);
-  if (params.get('fieldUpdate') !== '1') return;
+  // Dedicated URL survives an iOS home-screen launch even when query parameters do not.
+  // Do not activate mobile mode for the normal dashboard (including other installed PWAs).
+  const dedicatedPath = window.location.pathname.replace(/\/+$/, '') === '/field-update.html';
+  if (!dedicatedPath && params.get('fieldUpdate') !== '1') return;
 
   const HOME = 'aht.fieldUpdate.lastProject';
   const app = document.getElementById('app');
@@ -83,7 +86,7 @@
     });
     header.querySelector('#aht-quick-exit').addEventListener('click', function () {
       // No state mutation: return to the existing full dashboard.
-      window.location.href = window.location.pathname;
+      window.location.href = '/';
     });
   }
 
