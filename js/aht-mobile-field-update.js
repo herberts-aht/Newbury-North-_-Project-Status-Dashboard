@@ -57,23 +57,74 @@
     document.title = 'AHT Field Update';
   }
 
-  function setProjectPreference() {
+  function requireProjectSelection() {
     const select = root.querySelector('#fr-project');
-    if (!select || select.dataset.ahtQuickWatched) return;
+    const submit = root.querySelector('#fr-submit');
+    if (!select || !submit || select.dataset.ahtQuickWatched) return;
     select.dataset.ahtQuickWatched = '1';
-    let saved = '';
-    try { saved = localStorage.getItem(HOME) || ''; } catch (_) {}
-    function restore() {
-      // Never select a project the signed-in user cannot see.
-      const match = Array.from(select.options).find(option => option.value === saved);
-      if (match && select.value !== saved) select.value = saved;
+    let confirmed = '';
+    let updating = false;
+    const wrap = root.querySelector('#fr-project-wrap');
+    const hint = root.querySelector('#fr-project-hint');
+
+    function resetUnconfirmed() {
+      if (updating) return;
+      updating = true;
+      try {
+        // The shared PM form sometimes repopulates this select and selects the first
+        // project automatically. Mobile capture must instead show a blank prompt.
+        let placeholder = Array.from(select.options).find(o => o.value === '');
+        if (!placeholder) {
+          placeholder = new Option('Select project…', '');
+          select.insertBefore(placeholder, select.firstChild);
+        }
+        placeholder.disabled = true;
+        if (wrap) wrap.hidden = false; // Even a single-project technician confirms the job.
+        if (hint) hint.textContent = 'Choose the job for this report before submitting.';
+        const stillValid = confirmed && Array.from(select.options).some(o => o.value === confirmed);
+        if (!stillValid) {
+          confirmed = '';
+          select.value = '';
+        } else if (select.value !== confirmed) {
+          // A programmatic refresh is not a technician selection.
+          select.value = confirmed;
+        }
+      } finally { updating = false; }
     }
-    restore();
-    select.addEventListener('change', function () {
-      saved = select.value;
-      try { localStorage.setItem(HOME, saved); } catch (_) {}
+
+    select.addEventListener('change', function (event) {
+      if (!event.isTrusted) return; // Never accept programmatic selection as confirmation.
+      confirmed = select.value;
+      if (hint) hint.textContent = confirmed
+        ? 'Project confirmed for this update.'
+        : 'Choose the job for this report before submitting.';
     });
-    new MutationObserver(restore).observe(select, { childList: true });
+
+    // Capturing the click before the existing Field Reporting handler prevents any
+    // upload when there has been no deliberate project choice. All normal SharePoint
+    // and permission checks are still performed by the original handler afterward.
+    root.addEventListener('click', function (event) {
+      if (event.target !== submit && !submit.contains(event.target)) return;
+      const valid = confirmed && select.value === confirmed &&
+        Array.from(select.options).some(o => o.value === confirmed);
+      if (valid) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (wrap) wrap.hidden = false;
+      resetUnconfirmed();
+      const status = root.querySelector('#fr-status');
+      if (status) {
+        status.textContent = 'Select the correct project before submitting your update.';
+        status.className = 'fr-status fr-warning';
+        status.hidden = false;
+      }
+      select.focus();
+    }, true);
+
+    new MutationObserver(resetUnconfirmed).observe(select, { childList: true });
+    if (wrap) new MutationObserver(() => { if (wrap.hidden) wrap.hidden = false; })
+      .observe(wrap, { attributes: true, attributeFilter: ['hidden'] });
+    resetUnconfirmed();
   }
 
   function installQuickHeader() {
@@ -135,7 +186,7 @@
       if (root.classList.contains('active') && root.querySelector('#fr-pane-capture')) {
         root.querySelector('#fr-tab-capture')?.click();
         installQuickHeader();
-        setProjectPreference();
+        requireProjectSelection();
         prepareCopy();
       }
     });
