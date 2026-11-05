@@ -427,3 +427,42 @@
 @media(max-width:450px){
  #fieldReporting .fr-step-panel[data-fr-panel="2"] .fr-step-heading{align-items:flex-start}
 }
+
+
+/* v2.9.5 — Readable, expandable history with eligibility-gated Undo. */
+#fieldReporting .fr-step-panel[data-fr-panel="5"] .fr-history-panel{padding:0;margin:10px 0 0}
+#fieldReporting .fr-step-panel[data-fr-panel="5"] .fr-history-panel>summary{
+  display:block;border:0;background:transparent;color:#153D60;font-size:16px;
+  font-weight:500;padding:7px 0 11px
+}
+#fieldReporting .fr-history-event{border:1px solid #d6e3ec;border-radius:9px;background:#fff;margin:0 0 8px;overflow:hidden}
+#fieldReporting .fr-history-event>summary{
+  display:flex;align-items:center;justify-content:space-between;gap:9px 14px;
+  padding:12px 14px;font-size:13px;color:#153D60;font-weight:500;list-style-position:inside
+}
+#fieldReporting .fr-history-event[open]>summary{border-bottom:1px solid #e2eaf0;background:#f8fbfd}
+#fieldReporting .fr-history-summary{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+#fieldReporting .fr-history-event-name{font-weight:500;color:#163B55;text-transform:capitalize}
+#fieldReporting .fr-history-time{font-weight:400;font-size:12px;color:#577086;overflow-wrap:anywhere}
+#fieldReporting .fr-history-state{border:1px solid #d3e1eb;border-radius:7px;background:#fff;padding:4px 8px;font-size:11px;white-space:nowrap;font-weight:500}
+#fieldReporting .fr-history-state.is-eligible{border-color:#F58A20;color:#C96600}
+#fieldReporting .fr-history-state.is-undone{border-color:#cdd8e2;color:#566e82}
+#fieldReporting .fr-history-body{padding:13px 15px 15px;font-size:13px;color:#34526A;overflow-wrap:anywhere}
+#fieldReporting .fr-history-title{color:#153D60;font-weight:500;margin:0 0 6px;font-size:14px}
+#fieldReporting .fr-history-change-type{font-size:12px;color:#587186;margin:0 0 9px}
+#fieldReporting .fr-history-fields{display:grid;gap:0;margin:9px 0;border:1px solid #e0e9ef;border-radius:7px;overflow:hidden}
+#fieldReporting .fr-history-field{display:grid;grid-template-columns:160px minmax(0,1fr);gap:12px;padding:8px 10px;background:#f9fbfd;border-bottom:1px solid #e0e9ef}
+#fieldReporting .fr-history-field:last-child{border-bottom:0}
+#fieldReporting .fr-history-field dt{color:#506e83;font-weight:500}
+#fieldReporting .fr-history-field dd{margin:0;white-space:pre-wrap}
+#fieldReporting .fr-history-prior{color:#6b7d8d}
+#fieldReporting .fr-history-arrow{margin:0 8px;color:#6a8ba2}
+#fieldReporting .fr-history-notice{font-size:12px;color:#5e7283;margin:9px 0}
+#fieldReporting .fr-history-note{margin:9px 0;font-size:12px}
+#fieldReporting .fr-history-body .fr-btn-undo{background:#fff;border:1px solid #F58A20;color:#E87500;font-weight:500;box-shadow:none;min-height:38px}
+#fieldReporting .fr-history-body .fr-btn-undo:hover{background:#FFF8F0}
+@media(max-width:600px){
+  #fieldReporting .fr-history-field{grid-template-columns:1fr;gap:3px}
+  #fieldReporting .fr-history-event>summary{align-items:flex-start}
+  #fieldReporting .fr-history-state{margin-top:2px}
+}

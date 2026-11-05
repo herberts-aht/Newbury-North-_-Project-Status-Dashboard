@@ -231,7 +231,52 @@
   }
   function readAudit(value){const a=JSON.parse(value||'[]');if(!Array.isArray(a))throw Error('Audit trail is invalid. Stop without writing.');return a;}
   function historyEntries(r){try{return readAudit(r.history);}catch(_){return [];}}
-  function historyHtml(r){const entries=historyEntries(r).slice(-16).reverse();return entries.length?entries.map(x=>`<div class="fr-history-line"><span>${esc(dateText(x.at))} · ${esc(x.by||'Unknown')}</span><strong>${esc(x.event||x.action||x.after||'Review')}</strong>${x.targetId?' · '+esc(x.targetList+' #'+x.targetId):''}</div>`).join(''):'<p class="fr-muted">No decisions recorded yet.</p>';}
+  // v2.9.5: The audit trail is a read-only record of events. Only an applied,
+  // snapshot-backed approval can offer Undo; the existing guarded Undo path
+  // still re-reads SharePoint and enforces exact record version + dependencies.
+  function historyFields(sn){
+    if(!sn || !sn.after || typeof sn.after!=='object')return '';
+    const labels={Title:'Title',DeliveryPhase:'Phase',Workstream:'Workstream',WorkStatus:'Status',OperationalStatus:'Status',
+      InformationRequired:'Information required',BlockerDependency:'Blocker / dependency',CurrentActivity:'Current activity',PercentComplete:'Progress'};
+    const keys=Object.keys(sn.after).filter(k=>Object.prototype.hasOwnProperty.call(labels,k));
+    const shown=sn.kind==='create'?keys.filter(k=>['Title','DeliveryPhase','Workstream','WorkStatus','InformationRequired','BlockerDependency'].includes(k)):keys;
+    const values=shown.map(k=>{
+      const prev=sn.kind==='create'?'—':shortText(sn.before?.[k]??'(blank)',350);
+      const next=shortText(sn.after[k]??'(blank)',350);
+      return `<div class="fr-history-field"><dt>${esc(labels[k])}</dt><dd>${sn.kind==='create'?esc(next):`<span class="fr-history-prior">${esc(prev)}</span><span class="fr-history-arrow" aria-label="changed to">→</span><span>${esc(next)}</span>`}</dd></div>`;
+    }).join('');
+    return values?`<dl class="fr-history-fields">${values}</dl>`:'';
+  }
+  function historyHtml(r){
+    let events;
+    try{events=readAudit(r.history);}catch(_){return '<p class="fr-plan-warning">History could not be read. Do not undo until an administrator reviews the audit trail.</p>';}
+    if(!events.length)return '<p class="fr-muted">No history recorded yet.</p>';
+    const plan=planFor(r)||[];
+    return events.slice().reverse().map((x,i)=>{
+      const label=String(x.event||x.action||x.after||'Review event');
+      const isApproval=label==='approved and applied' && Boolean(x.proposalId);
+      const a=isApproval?plan.find(item=>item.id===x.proposalId):null;
+      const sn=a?.snapshot;
+      // Audit identity and snapshot target must correspond. A missing, older,
+      // or mismatched snapshot is always view-only.
+      const linked=Boolean(isApproval&&sn&&String(sn.id)===String(x.targetId)&&sn.list===x.targetList);
+      const undoAvailable=linked&&a.state==='applied'&&Boolean(sn.etagAfter);
+      const wasUndone=linked&&a.state==='undone';
+      const target=linked?`${sn.list} #${sn.id}`:x.targetId?`${x.targetList||'Project record'} #${x.targetId}`:'';
+      const title=linked?(a.targetName||a.title||sn.title||'Project change'):(x.note||x.replacement||'');
+      const status=wasUndone?'<span class="fr-history-state is-undone">Undone</span>':undoAvailable?'<span class="fr-history-state is-eligible">Undo available*</span>':'';
+      const recordFields=linked?historyFields(sn):'';
+      const note=linked&&a.note?`<p class="fr-history-note"><strong>PM note:</strong> ${esc(a.note)}</p>`:'';
+      const changeType=linked?`<p class="fr-history-change-type">${sn.kind==='create'?'Created project work item':'Updated project record'}${target?' · '+esc(target):''}</p>`:target?`<p class="fr-history-change-type">${esc(target)}</p>`:'';
+      const detail=linked?`${sn.kind==='create'?'<p class="fr-muted">Before: no project work item existed.</p>':''}${recordFields}${note}`:x.before!==undefined||x.after!==undefined?`<p class="fr-muted">${x.before!==undefined?'Before: '+esc(shortText(x.before,300))+' · ':''}${x.after!==undefined?'After: '+esc(shortText(x.after,300)):''}</p>`:'';
+      const outcome=wasUndone?'<p class="fr-history-notice">This change was already undone. Its history is preserved.</p>':undoAvailable?'<p class="fr-history-notice">*Undo will recheck the current SharePoint record and block reversal if it changed or has dependent work.</p>':'';
+      const undoButton=undoAvailable?'<button type="button" class="fr-btn fr-btn-undo" data-plan-undo>Undo this change</button>':'';
+      return `<details class="fr-history-event" ${linked?`data-plan-id="${esc(a.id)}"`:''}>
+        <summary><span class="fr-history-summary"><span class="fr-history-event-name">${esc(label)}</span><span class="fr-history-time">${esc(dateText(x.at))} · ${esc(x.by||'Unknown')}</span></span>${status}</summary>
+        <div class="fr-history-body">${title?`<p class="fr-history-title">${esc(shortText(title,240))}</p>`:''}${changeType}${detail}${outcome}${undoButton}</div>
+      </details>`;
+    }).join('');
+  }
   function proposalHtml(report){return planMarkup(report);}
   async function updatePlan(r,mutator){
     if(!reviewer()||!projectIds().has(r.projectId))throw Error('PM/project access unavailable.');
@@ -1043,8 +1088,11 @@
     if(pending.length)pending.forEach(x=>p4.appendChild(x));else{const message=document.createElement('p');message.className='fr-muted fr-step-empty';message.textContent='No pending proposals for this report. Add one in Step 3, or review completed actions in Step 5.';p4.appendChild(message);}
     p4.appendChild(workflowNext(5,'View history →'));
     const p5=workflowPanel(5,'History & reversals','Review prior changes below. Undo is a separate, protected action available only for eligible applied changes.');
-    entries.filter(x=>['applied','undone'].includes(x.dataset.planState)).forEach(x=>p5.appendChild(x));
-    if(history){history.open=false;history.querySelector('summary').textContent='View history ('+historyEntries(r).length+')';p5.appendChild(history);}
+    // History is the primary reversal workspace. Retain the old applied-action
+    // card only when an older record has no linked approval audit event.
+    const historicalIds=new Set(historyEntries(r).filter(x=>x.event==='approved and applied'&&x.proposalId).map(x=>String(x.proposalId)));
+    entries.filter(x=>['applied','undone'].includes(x.dataset.planState)&&!historicalIds.has(x.dataset.planId)).forEach(x=>p5.appendChild(x));
+    if(history){history.open=true;history.querySelector('summary').textContent='Change history ('+historyEntries(r).length+')';p5.appendChild(history);}
     const panes=document.createElement('div');panes.className='fr-workflow-panes';[p1,p2,p3,p4,p5].forEach(x=>panes.appendChild(x));workflow.appendChild(panes);
     source.remove();box.appendChild(workflow);
     showAI(box,r);
