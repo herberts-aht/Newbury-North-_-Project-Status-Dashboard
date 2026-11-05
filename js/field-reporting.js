@@ -1,7 +1,7 @@
-/* AHT Field Reporting v2.7 — optional secure Azure AI recommendations on guided PM workflow.
+/* AHT Field Reporting v2.9 — PM-focused, read-only AI findings with explicit approval.
  * Uses existing Microsoft sign-in and SharePointDataProvider.
  * Applies an explicit, previewed update to one project record only after PM confirmation.
- * AI is read-only; speech transcription, Teams alerts and automatic project updates remain unavailable.
+ * AI is read-only. Automatic speech transcription, Teams alerts and project updates remain unavailable.
  */
 (function () {
   'use strict';
@@ -25,6 +25,7 @@
   const reviewPreviews = new Map();
   const workflowSteps = new Map();
   const aiStates = new Map();
+  const draftAutoFilled = new Set();
   let activeReviewId = '';
   const actor = () => { try { return typeof currentUser === 'undefined' ? null : currentUser; } catch (_) { return null; } };
   function role(u) {
@@ -118,20 +119,32 @@
     relatedProjectCache.set(projectId,task);
     try {return await task;}catch(e){relatedProjectCache.delete(projectId);throw e;}
   }
+  function refreshRelatedDisplay(report){
+    const box=[...root.querySelectorAll('.fr-report[data-report]')].find(x=>x.dataset.report===report.id);
+    const current=box?.querySelector('.fr-related');if(!current)return;
+    const wrapper=document.createElement('div');wrapper.innerHTML=referenceHtml(report);
+    current.replaceWith(wrapper.firstElementChild);
+  }
   async function findRelated(report, force=false) {
     if (!reviewer() || !projectIds().has(report.projectId)) return;
-    const current=relatedStates.get(report.id);
-    if(current && (current.state==='loading' || (!force && current.state==='ready')))return;
+    const existing=relatedStates.get(report.id);
+    if(existing?.state==='loading')return existing.promise;
+    if(existing?.state==='ready'&&!force)return;
     if(force)relatedProjectCache.delete(report.projectId);
-    relatedStates.set(report.id,{state:'loading',items:[],warnings:[]});renderReview();
-    try {
-      if(!String(report.original || '').trim()) throw Error('This is an audio-only report. A transcript or typed report is needed before searching its meaning.');
-      const index=await loadProjectReferences(report.projectId);
-      const found=index.records.flatMap(s=>candidatesFor(report,s)).filter(x=>verifiedSourceUrl(x.url,index.siteUrl));
-      found.sort((a,b)=>b.score-a.score);
-      relatedStates.set(report.id,{state:'ready',items:found.slice(0,5).map(x=>({...x,url:verifiedSourceUrl(x.url,index.siteUrl)})),warnings:index.warnings,manual:false,allItems:[]});
-    } catch(e) {relatedStates.set(report.id,{state:'error',error:String(e.message || e),items:[],warnings:[]});}
-    renderReview();
+    const state={state:'loading',items:[],warnings:[],promise:null};
+    relatedStates.set(report.id,state);refreshRelatedDisplay(report);
+    const search=(async()=>{
+      try{
+        if(!String(report.original||'').trim())throw Error('Audio-only report: typed notes or a transcript are required to search report meaning.');
+        const index=await loadProjectReferences(report.projectId);
+        const found=index.records.flatMap(group=>candidatesFor(report,group)).filter(x=>verifiedSourceUrl(x.url,index.siteUrl));
+        found.sort((x,y)=>y.score-x.score);
+        relatedStates.set(report.id,{state:'ready',items:found.slice(0,5).map(x=>({...x,url:verifiedSourceUrl(x.url,index.siteUrl)})),warnings:index.warnings,manual:false,allItems:[]});
+      }catch(e){relatedStates.set(report.id,{state:'error',error:String(e.message||e),items:[],warnings:[]});}
+      refreshRelatedDisplay(report);
+    })();
+    state.promise=search;
+    return search;
   }
   // Local, conservative intent hint. This is NOT an AI analysis service.
   function reportIntent(text) {
@@ -182,11 +195,11 @@
         ${a.action==='unknown'&&a.state==='proposed'?'<div class="fr-muted">Uncertain: no project write is allowed. Choose Clarify or Reject.</div>':''}
         ${a.action==='record'&&a.state==='proposed'&&!a.replacement?'<div class="fr-plan-warning">Older proposal: replacement wording is missing. Reject it and add a new proposal before applying.</div>':''}
         ${a.state==='applying'||a.state==='undoing'?'<div class="fr-plan-warning">A SharePoint write may be incomplete. Do not retry. Reconcile this action with an administrator.</div>':''}
-        ${preview?`<div class="fr-change-diff"><strong>Verify before applying</strong><div class="fr-diff-before"><span>Current SharePoint value</span>${esc(preview.summaryBefore)}</div><div class="fr-diff-after"><span>Approved replacement</span>${esc(preview.summaryAfter)}</div><p class="fr-muted">${esc(preview.impact||'No other records will change.')}</p><button type="button" class="fr-btn fr-btn-primary" data-plan-apply>Approve & apply to SharePoint</button></div>`:''}
+        ${preview?`<div class="fr-change-diff"><strong>Verify before applying</strong><div class="fr-diff-before"><span>Current SharePoint value</span>${esc(preview.summaryBefore)}</div><div class="fr-diff-after"><span>${preview.mode==='create'?'New work item to be created':'Proposed change'}</span>${esc(preview.summaryAfter)}</div><p class="fr-muted">${esc(preview.impact||'No other records will change.')}</p><button type="button" class="fr-btn fr-btn-primary" data-plan-apply>Approve & apply to SharePoint</button></div>`:''}
         <div class="fr-plan-actions">
           ${a.state==='proposed'&&a.action!=='unknown'&&(a.action!=='record'||a.replacement)?'<button type="button" class="fr-btn" data-plan-preview>Review exact change</button>':''}
           ${a.state==='proposed'?'<button type="button" class="fr-btn" data-plan-clarify>Needs clarification</button><button type="button" class="fr-btn" data-plan-reject>Reject</button>':''}
-          ${a.state==='applied'&&a.snapshot?'<button type="button" class="fr-btn" data-plan-undo>Undo (verify current record)</button>':''}
+          ${a.state==='applied'&&a.snapshot?'<button type="button" class="fr-btn fr-btn-undo" data-plan-undo>↶ Undo change</button>':''}
         </div>
       </div>`;
     }).join('');
@@ -198,8 +211,8 @@
       <details class="fr-add-action" open><summary>Add a proposed change</summary>
         <div class="fr-field"><label>Proposed action</label><select data-plan-action>
           <option value="none">Unknown — needs clarification</option>
-          <option value="record" ${hint.action==='record'?'selected':''}>Replace deliverable activity with confirmed decision</option>
-          <option value="complete" ${hint.action==='complete'?'selected':''}>Mark an existing task or deliverable Complete</option>
+          <option value="record">Replace deliverable activity with confirmed decision</option>
+          <option value="complete">Mark an existing task or deliverable Complete</option>
           <option value="newTask">Create a new task</option><option value="newMilestone">Create a new milestone</option>
         </select></div>
         <div class="fr-field" data-draft-target-wrap><label>Matching project record</label><select data-plan-target><option value="">Select a record — never guessed</option></select></div>
@@ -207,11 +220,13 @@
         <div class="fr-inline" data-draft-create-field><div class="fr-field fr-half"><label>Workstream for new item</label><input type="text" data-plan-workstream maxlength="90" placeholder="e.g., AV / Audio"/></div>
           <div class="fr-field fr-half"><label>Project phase for new item</label><select data-plan-phase><option value="">Select when creating new work</option><option value="Planning">Planning</option><option value="Engineering">Engineering</option><option value="Coordination">Coordination</option><option value="Installation">Installation</option><option value="Rough-In">Rough-In</option><option value="Trim">Trim</option><option value="Final">Final</option></select></div></div>
         <div class="fr-field" data-draft-replacement-field hidden><label>Confirmed replacement wording for Current Activity *</label><textarea data-plan-replacement maxlength="1800" placeholder="Enter the final wording for the deliverable. This replaces the existing Current Activity after PM approval."></textarea><p class="fr-muted">The original report and prior activity remain in approval history. Do not paste a report ID here.</p></div>
-        <div class="fr-field"><label>PM note / clarification (optional)</label><textarea data-plan-note maxlength="1200" placeholder="Explain the intended change or what needs checking."></textarea></div>
+        <div class="fr-field" data-draft-create-field><label>Information Required — saved to project task</label><textarea data-plan-info-required maxlength="1200" placeholder="What needs confirmation or follow-up?"></textarea></div>
+        <div class="fr-field" data-draft-create-field><label>Blocker / Dependency — saved to project task</label><textarea data-plan-blocker maxlength="1200" placeholder="What is preventing the work from moving forward?"></textarea></div>
+        <div class="fr-field"><label>PM note / clarification (approval history only)</label><textarea data-plan-note maxlength="1200" placeholder="Optional context for the review record."></textarea></div>
         <div class="fr-plan-actions"><button type="button" class="fr-btn" data-draft-preview>Preview before saving</button><button type="button" class="fr-btn fr-btn-primary" data-plan-add disabled>Save proposal to SharePoint</button></div>
         <div data-draft-preview-result aria-live="polite"></div>
       </details>
-      <details class="fr-history-panel"><summary>Approval history (${historyEntries(r).length})</summary>${historyHtml(r)}</details>
+      <details class="fr-history-panel"><summary>View history (${historyEntries(r).length})</summary>${historyHtml(r)}</details>
     </section>`;
   }
   function readAudit(value){const a=JSON.parse(value||'[]');if(!Array.isArray(a))throw Error('Audit trail is invalid. Stop without writing.');return a;}
@@ -243,10 +258,12 @@
       workstream:box.querySelector('[data-plan-workstream]').value.trim(),
       phase:box.querySelector('[data-plan-phase]').value,
       note:box.querySelector('[data-plan-note]').value.trim(),
+      informationRequired:box.querySelector('[data-plan-info-required]').value.trim(),
+      blockerDependency:box.querySelector('[data-plan-blocker]').value.trim(),
       replacement:box.querySelector('[data-plan-replacement]').value.trim()
     };
   }
-  function draftKey(d){return JSON.stringify([d.action,d.target,d.title,d.workstream,d.phase,d.note,d.replacement]);}
+  function draftKey(d){return JSON.stringify([d.action,d.target,d.title,d.workstream,d.phase,d.note,d.replacement,d.informationRequired,d.blockerDependency]);}
   function validateReplacement(value){
     const v=String(value||'').trim();
     if(!v)throw Error('Enter the PM-confirmed replacement wording for Current Activity before previewing.');
@@ -291,7 +308,7 @@
     const box=e.target.closest('[data-report]');if(box)syncDraftTarget(box);
   }
   function onDraftEdited(e){
-    if(!e.target?.matches?.('[data-plan-action],[data-plan-target],[data-plan-title],[data-plan-workstream],[data-plan-phase],[data-plan-note],[data-plan-replacement]'))return;
+    if(!e.target?.matches?.('[data-plan-action],[data-plan-target],[data-plan-title],[data-plan-workstream],[data-plan-phase],[data-plan-note],[data-plan-replacement],[data-plan-info-required],[data-plan-blocker]'))return;
     const box=e.target.closest('[data-report]');if(!box)return;
     if(e.target.matches('[data-plan-action]'))syncDraftTarget(box,true);
     invalidateDraft(box);
@@ -321,7 +338,7 @@
   }
   async function onPlanAdd(e){const btn=e.target.closest('[data-plan-add]');if(!btn||!reviewer())return;
     const box=btn.closest('[data-report]'),r=records.find(x=>x.id===box?.dataset.report);if(!r)return;
-    const d=readDraft(box),{action,target,title,workstream,phase,note,replacement}=d;
+    const d=readDraft(box),{action,target,title,workstream,phase,note,replacement,informationRequired,blockerDependency}=d;
     const approvedPreview=draftPreviews.get(r.id);
     if(!approvedPreview||approvedPreview.signature!==draftKey(d)||approvedPreview.plan!==r.plan)return alert('Preview these exact values before saving the proposal.');
     try{checkDraft(r,d);}catch(err){return alert(err.message||err);}
@@ -330,7 +347,7 @@
     try{await updatePlan(r,async (plan,history)=>{
       if(plan.length>=30)throw Error('At most 30 proposed actions per report.');
       const id='p-'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
-      plan.push({id,action:action==='none'?'unknown':action,target, targetName:match?.title||'',title,workstream,phase,note,replacement:action==='record'?replacement:'',sourceReportClientId:r.clientId,state:'proposed',at:new Date().toISOString(),by:identity()});
+      plan.push({id,action:action==='none'?'unknown':action,target, targetName:match?.title||'',title,workstream,phase,note,informationRequired,blockerDependency,replacement:action==='record'?replacement:'',sourceReportClientId:r.clientId,state:'proposed',at:new Date().toISOString(),by:identity()});
       history.push({at:new Date().toISOString(),by:identity(),event:'proposal added',proposalId:id,action,sourceReportClientId:r.clientId});
       return true;
     });}catch(err){alert('Could not save proposal: '+(err.message||err));}finally{btn.disabled=false;}
@@ -409,11 +426,11 @@
     const workKey=key+'-field-'+safeId;
     const work=await p.getListRows('Project Work Items');
     if(work.some(x=>String(x.fields?.WorkItemKey||'')===workKey))throw Error('This proposed task already exists; do not create it twice.');
-    const fields={Title:a.title,WorkItemKey:workKey,ProjectKey:key,ProjectSharePointId:Number(project.id),ItemType:a.action==='newTask'?'Task':'Milestone',Workstream:a.workstream,DeliveryPhase:a.phase,WorkStatus:'Planned',PercentComplete:0,ProgressWeight:1,TrackProgress:true,PredecessorKeys:'[]',WorkVisibility:'Project',Archived:false};
+    const fields={Title:a.title,WorkItemKey:workKey,ProjectKey:key,ProjectSharePointId:Number(project.id),ItemType:a.action==='newTask'?'Task':'Milestone',Workstream:a.workstream,DeliveryPhase:a.phase,WorkStatus:'Planned',PercentComplete:0,ProgressWeight:1,TrackProgress:true,PredecessorKeys:'[]',WorkVisibility:'Project',Archived:false,InformationRequired:String(a.informationRequired||'').slice(0,1200),BlockerDependency:String(a.blockerDependency||'').slice(0,1200)};
     const liveReport=await freshItem(p,REPORTS,r.id),reportEtag=liveReport.eTag||liveReport['@odata.etag'];
     if(!reportEtag || String(liveReport.fields?.ReviewPlan||'')!==r.plan)throw Error('Report was edited. Refresh.');
     return {p,mode:'create',kind:'work',list:'Project Work Items',fields,reportEtag,id:'',title:a.title,
-      summaryBefore:'No existing work item',summaryAfter:`${fields.ItemType}: ${a.title} | ${a.phase} / ${a.workstream} | Planned | no due date`,
+      summaryBefore:'No existing work item',summaryAfter:`${fields.ItemType}: ${a.title} | ${a.phase} / ${a.workstream} | Planned | no due date\nInformation Required: ${fields.InformationRequired||'(none)'}\nBlocker / Dependency: ${fields.BlockerDependency||'(none)'}`,
       impact:'A new planned work item will be created. No dates, owners, predecessors or other records will be changed.'};
   }
   async function onPlanPreview(e){const btn=e.target.closest('[data-plan-preview]');if(!btn||!reviewer())return;
@@ -467,11 +484,25 @@
       workflowSteps.set(r.id,5);alert('PM-approved change applied to SharePoint and saved to report history.');await refresh();
     }catch(err){alert((staged?'A CHANGE MAY HAVE BEEN MADE. DO NOT RETRY. Please check the project record and report approval history. ':'Could not apply: ')+(err.message||err));if(!staged)btn.disabled=false;await refresh();}
   }
+  // v2.9: clarify the exact Undo impact; verification remains server-side in onPlanUndo.
+  function confirmUndo(sn,r){
+    const operation=sn.kind==='create'?'ARCHIVE the new task':'RESTORE the prior fields of';
+    const message=`${operation}: ${sn.title}\nProject: ${projectName(r.projectId)}\nSharePoint record: ${sn.id}\n\nThe field report and review history remain. Undo only proceeds if the SharePoint record version still matches.`;
+    if(typeof HTMLDialogElement==='undefined' || !document.createElement('dialog').showModal)return Promise.resolve(window.confirm('Undo approved change?\n\n'+message));
+    return new Promise(resolve=>{
+      const dialog=document.createElement('dialog');dialog.className='fr-undo-dialog';
+      dialog.innerHTML=`<div class="fr-undo-content"><h3>Undo approved change?</h3><p class="fr-undo-impact">${esc(sn.kind==='create'?'Archive newly created task':'Restore previous values')}</p><strong>${esc(sn.title)}</strong><p class="fr-muted">${esc(projectName(r.projectId))} · SharePoint record #${esc(sn.id)}</p><p>${esc(sn.kind==='create'?'The new task will be archived and removed from the active plan.':'The previous field values will be restored if the record is unchanged.')}</p><p class="fr-muted">Original report and history are kept. SharePoint version will be verified.</p><div class="fr-undo-actions"><button type="button" class="fr-btn" data-undo-cancel>Cancel</button><button type="button" class="fr-btn fr-btn-undo" data-undo-confirm>↶ Undo change</button></div></div>`;
+      let resolved=false;const done=ok=>{if(resolved)return;resolved=true;dialog.close();dialog.remove();resolve(ok);};
+      dialog.addEventListener('click',e=>{if(e.target.closest('[data-undo-confirm]'))done(true);else if(e.target.closest('[data-undo-cancel]'))done(false);});
+      dialog.addEventListener('cancel',e=>{e.preventDefault();done(false);});
+      document.body.appendChild(dialog);dialog.showModal();
+    });
+  }
   async function onPlanUndo(e){const btn=e.target.closest('[data-plan-undo]');if(!btn||!reviewer())return;
     const box=btn.closest('[data-report]'),r=records.find(x=>x.id===box?.dataset.report),id=btn.closest('[data-plan-id]')?.dataset.planId;
     const a=r&&planFor(r)?.find(x=>x.id===id),sn=a?.snapshot;
     if(!a||a.state!=='applied'||!sn||!projectIds().has(r.projectId))return;
-    if(!window.confirm('Undo this approved change?\n\n'+sn.title+'\n\nUndo is allowed only if SharePoint shows the exact record version this approval created.'))return;
+    if(!await confirmUndo(sn,r))return;
     btn.disabled=true;let staged=false;
     try{
       const p=provider(),site=await p.getSite(),reportListId=await p.getListId(REPORTS);
@@ -507,7 +538,7 @@
       const hist=readAudit(String(final.fields?.ReviewHistory||''));hist.push({at:done.undoneAt,by:identity(),event:'undone',proposalId:id,action:a.action,targetList:sn.list,targetId:sn.id});
       if(JSON.stringify(hist).length>48000||JSON.stringify(finalPlan).length>48000)throw Error('Audit storage full; reconciliation required.');
       await p.graph(`/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(reportListId)}/items/${encodeURIComponent(r.id)}/fields`,{method:'PATCH',headers:{'If-Match':fe},body:JSON.stringify({ReviewPlan:JSON.stringify(finalPlan),ReviewHistory:JSON.stringify(hist)})});
-      relatedProjectCache.delete(r.projectId);relatedStates.delete(r.id);workflowSteps.set(r.id,5);alert('Undo recorded. Prior field values were restored (or the new item was archived).');await refresh();
+      relatedProjectCache.delete(r.projectId);relatedStates.delete(r.id);workflowSteps.set(r.id,5);alert(sn.kind==='create'?'Undo successful: '+sn.title+' was archived from '+projectName(r.projectId)+'. The report and approval history were retained.':'Undo successful: previous values were restored for '+sn.title+'. Approval history was retained.');await refresh();
     }catch(err){alert((staged?'Undo may be incomplete. Do not retry automatically. ':'Undo blocked: ')+(err.message||err));await refresh();}
     finally{if(!staged)btn.disabled=false;}
   }
@@ -543,24 +574,24 @@
   }
   function referenceHtml(r) {
     const state=relatedStates.get(r.id);
-    const head='<div class="fr-refs-title"><strong>Related project records</strong><span class="fr-muted">Possible matches, not approved task changes</span></div>';
-    if(!state) return `<section class="fr-related">${head}<button type="button" class="fr-btn" data-find-related>Find related records</button></section>`;
+    const head='<div class="fr-refs-title"><strong>Matching project records</strong><span class="fr-muted">Source-linked suggestions only</span></div>';
+    if(!state) return `<section class="fr-related">${head}<div class="fr-muted">Checking matching project records automatically when this report is opened.</div></section>`;
     if(state.state==='loading')return `<section class="fr-related">${head}<div class="fr-muted">Searching this project's existing records…</div></section>`;
     if(state.state==='error')return `<section class="fr-related">${head}<div class="fr-muted">${esc(state.error)}</div><button type="button" class="fr-btn" data-find-related>Retry search</button></section>`;
     const matches=state.items.length?state.items.map((x,i)=>`<div class="fr-reference-row"><div class="fr-reference-caption">${esc(x.source)} · ${esc(x.status)}${x.outdoorOnly?' · Outdoor-only context':''}</div><strong>${esc(x.title)}</strong><div class="fr-muted">${esc(x.description || 'No supporting description available.')}</div><div class="fr-reference-actions"><span class="fr-muted">Matched: ${esc(x.matches.slice(0,4).join(', '))}</span><a class="fr-source-link" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">Open original record ↗</a></div></div>`).join('') : '<div class="fr-muted">No convincing record matches. Leave the item unresolved or propose a new task for PM review.</div>';
     const warn=state.warnings.length?`<p class="fr-muted">Partial search: ${esc(state.warnings.join('; '))}.</p>`:'';
-    return `<section class="fr-related">${head}${matches}${warn}<div class="fr-reference-footer"><span class="fr-muted">References are read-only. Verify details and project scope before any approval.</span><button type="button" class="fr-btn" data-find-related>Recheck</button></div></section>`;
+    return `<section class="fr-related"><details class="fr-related-details"><summary>Matching project records: ${state.items.length} found</summary>${head}${matches}${warn}<div class="fr-reference-footer"><span class="fr-muted">Suggestions are read-only. Verify project scope before approval.</span><button type="button" class="fr-btn" data-find-related>Recheck</button></div></details></section>`;
   }
   function onRelatedClick(e) {
     const b=e.target.closest('[data-find-related]');if(!b || !reviewer())return;
     const box=b.closest('[data-report]'),r=records.find(x=>x.id===box?.dataset.report);
     if(r)void findRelated(r,true);
   }
-  function autoFindPendingReferences() {
-    if(!reviewer() || tab!=='review' || errorText)return;
-    for(const r of records.filter(x=>x.status==='Pending PM Review').slice(0,4)) {
-      if(!relatedStates.has(r.id))void findRelated(r);
-    }
+  function autoFindPendingReferences(){
+    if(!reviewer()||tab!=='review'||errorText||activeReviewId==='__closed__')return;
+    const report=records.find(x=>x.id===activeReviewId);
+    if(!report||!report.original?.trim()||report.status==='Uploading Audio')return;
+    if(!relatedStates.has(report.id))void findRelated(report);
   }
   function status(message, type = '') {
     const el = $('fr-status'); if (!el) return;
@@ -592,14 +623,14 @@
             <div class="fr-record-copy"><strong id="fr-record-label">Tap to record</strong><div class="fr-muted" id="fr-record-note">Allow microphone access if prompted. Tap again to stop.</div></div>
             <audio id="fr-play" controls hidden></audio><button type="button" class="fr-btn" id="fr-clear-audio" hidden>Remove recording</button></div>
           <div class="fr-text-wrap"><label for="fr-text">Or type your update</label><textarea id="fr-text" maxlength="12000" placeholder="What was completed? Any delays? What's next?"></textarea>
-            <div class="fr-muted">Report naturally. No task numbers, percentages, or categories required. Audio transcription is coming later.</div></div>
+            <div class="fr-muted">Report naturally. Transcription is not yet connected: add typed notes for automatic findings. Recordings remain available to the PM.</div></div>
         </div>
         <div class="fr-main-actions"><span class="fr-muted">Reports and optional recordings save to AHT SharePoint; tasks do not change.</span><button type="button" class="fr-btn fr-btn-primary" id="fr-submit">Submit report</button></div>
         <div id="fr-status" role="status" class="fr-status" hidden></div>
       </div>
       <div id="fr-pane-mine" hidden><div class="fr-inline fr-toolbar"><span class="fr-muted">Your submitted reports</span><button type="button" class="fr-btn" id="fr-refresh-mine">Refresh</button></div><div id="fr-mine-list" class="fr-queue"></div></div>
-      <div id="fr-pane-review" hidden><div class="fr-card fr-review-explainer"><h3>PM Review Queue</h3><div class="fr-muted">Open a report and follow its five review steps. Azure AI offers read-only suggestions in Step 2; only explicit PM approval updates SharePoint.</div><button type="button" class="fr-btn fr-refresh" id="fr-refresh-review">Refresh reports</button></div><div id="fr-review-list" class="fr-queue"></div></div>
-      <p class="fr-muted fr-bottom-note">SharePoint-backed field reporting. Original recordings are stored in the AHT Field Report Audio library. Task updates require a PM-selected record, preview, and confirmation. Optional Azure AI analysis is available in Step 2 when configured. Audio transcription, Teams alerts and automatic scheduling remain unconnected.</p>
+      <div id="fr-pane-review" hidden><div class="fr-card fr-review-explainer"><h3>PM Review Queue</h3><div class="fr-muted">Open a report and follow its five review steps. Report findings are prepared automatically when a PM opens a report with text. Only explicit PM approval updates SharePoint.</div><button type="button" class="fr-btn fr-refresh" id="fr-refresh-review">Refresh reports</button></div><div id="fr-review-list" class="fr-queue"></div></div>
+      <p class="fr-muted fr-bottom-note">SharePoint-backed field reporting. Original recordings are stored in the AHT Field Report Audio library. Task updates require a PM-selected record, preview, and confirmation. Read-only findings are available to authorized PMs. Audio transcription, Teams alerts and automatic scheduling remain unconnected.</p>
     </div>`;
     root.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => changeTab(b.dataset.tab)));
     $('fr-submit').addEventListener('click', submit);
@@ -615,6 +646,7 @@
     $('fr-review-list').addEventListener('click', browseProjectRecords);
     $('fr-review-list').addEventListener('click', onWorkflowClick);
     $('fr-review-list').addEventListener('click', onAIAnalyze);
+    $('fr-review-list').addEventListener('click', onUseFinding);
     $('fr-review-list').addEventListener('click', onDraftPreview);
     $('fr-review-list').addEventListener('click', onPlanAdd);
     $('fr-review-list').addEventListener('click', onPlanDecision);
@@ -657,6 +689,7 @@
     if (!permitted() || loading) return;
     const serial = ++loadSerial; loading = true;
     $('fr-mode').textContent = 'CONNECTING…';
+    $('fr-mode').classList.remove('fr-connected','fr-disconnected');
     try {
       const p = provider();
       // Missing list must fail closed, not silently fall back to browser demo storage.
@@ -665,12 +698,12 @@
       if (serial !== loadSerial) return;
       records = rows.map(readRecord).filter(r => projectIds().has(r.projectId));
       errorText = '';
-      $('fr-mode').textContent = 'SHAREPOINT CONNECTED';
+      $('fr-mode').textContent = 'SHAREPOINT CONNECTED';$('fr-mode').classList.add('fr-connected');$('fr-mode').classList.remove('fr-disconnected');
       $('fr-connection').hidden = true; $('fr-connection').textContent = '';
       if (tab === 'capture' && !submitting) status('Connected to AHT SharePoint. Reports you submit here are real records.', 'success');
     } catch (e) {
       errorText = e.message || String(e);
-      $('fr-mode').textContent = 'NOT CONNECTED';
+      $('fr-mode').textContent = 'NOT CONNECTED';$('fr-mode').classList.add('fr-disconnected');$('fr-mode').classList.remove('fr-connected');
       $('fr-connection').hidden = false; $('fr-connection').textContent = 'SharePoint reporting unavailable: ' + errorText;
       status('SharePoint reports are unavailable: ' + errorText + '. No report was submitted.', 'warning');
       records = [];
@@ -789,9 +822,9 @@
       <span class="fr-pill ${r.status === 'Acknowledged' ? 'is-done' : r.status === 'Clarification Needed' ? 'is-question' : ''}">${esc(statusLabel(r.status))}</span></div>`;
   }
   function originalHtml(r) {
-    return `<details><summary>View original report${r.audioFile ? ' and recording' : ''}</summary>
-      <div class="fr-original">${r.original ? esc(r.original) : 'Audio-only report — transcription not connected yet'}</div>
-      ${r.audioFile ? `<button class="fr-btn" type="button" data-audio="${esc(r.audioFile)}">Play original recording</button><audio controls hidden></audio>` : ''}</details>`;
+    return `<details><summary>Original report${r.audioFile ? ' · Listen to recording' : ''}${r.audioFile && !r.original ? ' · Transcript unavailable' : ''}</summary>
+      <div class="fr-original">${r.original ? esc(r.original) : 'Audio-only report — automatic transcription is not yet available. Use the original recording below.'}</div>
+      ${r.audioFile ? `<button class="fr-btn" type="button" data-audio="${esc(r.audioFile)}">▶ Play original recording</button><audio controls hidden></audio>` : ''}</details>`;
   }
   function renderMine() {
     const list = $('fr-mine-list'); if (!list) return;
@@ -801,52 +834,139 @@
       ${planFor(r)?.length?`<div class="fr-review-note"><strong>PM change review:</strong> ${planFor(r).filter(x=>x.state==='applied').length} applied · ${planFor(r).filter(x=>x.state==='clarification').length} needs clarification · ${planFor(r).filter(x=>x.state==='rejected').length} rejected · ${planFor(r).filter(x=>x.state==='proposed').length} pending</div>`:''}</article>`).join('')
       : '<div class="fr-empty">No submitted SharePoint reports found for this account and assigned projects.</div>';
   }
-  // v2.7: optional analysis is NEVER authoritative. The backend has no SharePoint write capability.
+  // v2.9: read-only findings; decisions and record changes remain explicitly PM-controlled.
+  const findingLabels={confirmed_decision:'Decision to verify',unapproved_option:'Not approved',reported_completed_work:'Reported completed',outstanding_dependency:'Blocked / waiting',issue_or_risk:'Potential risk',other:'Observation'};
+  const attentionCategories=new Set(['outstanding_dependency','issue_or_risk','unapproved_option','confirmed_decision']);
+  function findingTokens(f){return new Set(keywords(String(f.subject||'')+' '+String(f.evidence||'')));}
+  function conciseFindings(data){
+    const all=(Array.isArray(data?.findings)?data.findings:[]).map((item,index)=>({...item,index}));
+    const priority={outstanding_dependency:0,unapproved_option:1,confirmed_decision:2,issue_or_risk:3,reported_completed_work:4,other:5};
+    const sorted=all.slice().sort((a,b)=>(priority[a.category]??6)-(priority[b.category]??6));
+    const visible=[];
+    for(const item of sorted){
+      const tokens=findingTokens(item);
+      const overlap=visible.some(prev=>{
+        if(!(['outstanding_dependency','issue_or_risk'].includes(prev.category)&&['outstanding_dependency','issue_or_risk'].includes(item.category)))return false;
+        const other=findingTokens(prev),common=[...tokens].filter(k=>other.has(k)).length;
+        return common>=2 && common/Math.min(tokens.size||1,other.size||1)>=0.5;
+      });
+      if(!overlap)visible.push(item);
+    }
+    return visible;
+  }
   function showAI(box,report){
     const panel=box.querySelector('[data-fr-ai-panel]');if(!panel)return;
     const state=aiStates.get(report.id);
     let rows='';
     if(state?.state==='ready'){
-      const data=state.data;
-      const type={confirmed_decision:'Confirmed decision',unapproved_option:'Option / undecided',reported_completed_work:'Reported complete',outstanding_dependency:'Outstanding dependency',issue_or_risk:'Issue / risk',other:'Observation'};
-      rows=`<div class="fr-ai-result"><strong>AI analysis — read-only</strong><p>${esc(data.summary)}</p>
-        ${data.findings.map(item=>`<div class="fr-ai-finding"><span class="fr-ai-type">${esc(type[item.category]||'Observation')}</span><strong>${esc(item.subject)}</strong>
-          <p>${esc(item.evidence)}</p>${item.recommended_update?`<div class="fr-ai-suggestion"><b>Suggested PM review:</b> ${esc(item.recommended_update)}</div>`:''}
-          ${item.suggested_record_title?`<div class="fr-muted">Possible record title: ${esc(item.suggested_record_title)} (verify manually)</div>`:''}
-          ${item.uncertainty?`<div class="fr-muted">Check: ${esc(item.uncertainty)}</div>`:''}</div>`).join('')}
-        ${data.missing_information?.length?`<p class="fr-ai-gaps"><strong>Missing / to confirm:</strong> ${data.missing_information.map(esc).join(' · ')}</p>`:''}
-        <p class="fr-muted">AI did not edit any project data. To proceed, find the actual SharePoint record and prepare a proposal in Step 3. PM approval remains mandatory.</p></div>`;
-    } else if(state?.state==='loading'){rows='<div class="fr-muted" role="status">Analyzing report securely in Azure AI…</div>';}
-    else if(state?.state==='error'){rows=`<div class="fr-ai-error" role="alert">${esc(state.message)}</div>`;}
-    panel.innerHTML=`<div class="fr-ai-heading"><div><strong>Azure AI report analysis</strong><p class="fr-muted">Find confirmed decisions, unresolved options, reported work and dependencies. Suggestions are not approved SharePoint updates.</p></div>
-      <button type="button" class="fr-btn fr-btn-primary" data-fr-run-ai ${state?.state==='loading'||!report.original?.trim()?'disabled':''}>${state?.state==='ready'?'Analyze again':'Analyze with Azure AI'}</button></div>
-      ${!report.original?.trim()?'<div class="fr-muted">This report has no text. Audio transcription is not connected yet; AI analysis needs a written report.</div>':''}${rows}`;
+      const data=state.data,items=conciseFindings(data);
+      const attention=items.filter(x=>attentionCategories.has(x.category));
+      const completed=items.filter(x=>x.category==='reported_completed_work');
+      const other=items.filter(x=>!attentionCategories.has(x.category)&&x.category!=='reported_completed_work');
+      // Scan-first: separate category metadata from the actionable finding title.
+      const brief=item=>{
+        const needsReview=attentionCategories.has(item.category);
+        const kind=needsReview?'attention':item.category==='reported_completed_work'?'done':'other';
+        return `<article class="fr-highlight fr-highlight-${kind}"><div class="fr-highlight-copy">
+          <span class="fr-highlight-kind">${esc(findingLabels[item.category]||'Observation')}</span>
+          <strong class="fr-highlight-title">${esc(shortText(item.subject,140))}</strong>
+          ${item.recommended_update?`<p class="fr-highlight-next">${needsReview?'<b>Next:</b> ':''}${esc(shortText(item.recommended_update,200))}</p>`:''}</div>
+          ${needsReview?`<button type="button" class="fr-btn fr-prepare-finding" data-fr-use-finding="${item.index}">Prepare task</button>`:''}</article>`;
+      };
+      const detail=data.findings.map((f,i)=>`<div class="fr-ai-detail"><strong>${esc(findingLabels[f.category]||'Observation')} — ${esc(f.subject)}</strong><p><b>From report:</b> ${esc(f.evidence)}</p>${f.recommended_update?`<p><b>Suggested follow-up:</b> ${esc(f.recommended_update)}</p>`:''}${f.uncertainty?`<p><b>Verify:</b> ${esc(f.uncertainty)}</p>`:''}${f.suggested_record_title?`<p><b>Possible record:</b> ${esc(f.suggested_record_title)} — check manually</p>`:''}</div>`).join('');
+      rows=`<div class="fr-ai-result">
+        <div class="fr-summary-brief" aria-label="Report findings counts"><span class="fr-summary-attention"><strong>${attention.length}</strong> need${attention.length===1?'s':''} review</span><span class="fr-summary-completed"><strong>${completed.length}</strong> reported complete</span></div>
+        ${attention.length?`<section class="fr-findings-section fr-findings-attention"><h4>For PM review</h4><div class="fr-findings-grid">${attention.slice(0,4).map(brief).join('')}</div>${attention.length>4?`<p class="fr-muted">${attention.length-4} more findings in the details below.</p>`:''}</section>`:''}
+        ${completed.length?`<section class="fr-findings-section fr-findings-completed"><h4>Work reported complete</h4>${completed.slice(0,3).map(brief).join('')}</section>`:''}
+        ${other.length?`<section class="fr-findings-section fr-findings-other"><h4>Other notes</h4>${other.slice(0,2).map(brief).join('')}</section>`:''}
+        ${!items.length?'<p class="fr-muted">No distinct findings were identified. Review the original report.</p>':''}
+        <details class="fr-ai-expanded"><summary>Full analysis and supporting evidence</summary><p class="fr-ai-overall-summary"><b>Summary:</b> ${esc(data.summary||'No summary available.')}</p>${detail}${data.missing_information?.length?`<div class="fr-ai-detail"><strong>Information to confirm</strong><ul>${data.missing_information.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}</details>
+        <p class="fr-ai-disclaimer">Suggestions only. No project records changed. PM approval required.</p></div>`;
+    } else if(state?.state==='queued'||state?.state==='loading')rows='<div class="fr-ai-loading" role="status">Preparing your report findings…</div>';
+    else if(state?.state==='error')rows=`<div class="fr-ai-error" role="alert">${esc(state.message)} <span>Use “Retry findings” when ready.</span></div>`;
+    panel.innerHTML=`<div class="fr-ai-heading"><button type="button" class="fr-btn fr-ai-retry" data-fr-run-ai ${state?.state==='loading'||state?.state==='queued'||!report.original?.trim()?'disabled':''}>${state?.state==='ready'?'Refresh findings':state?.state==='error'?'Retry findings':'Run findings'}</button></div>
+      ${!report.original?.trim()?'<div class="fr-muted">No written report available. Play the original recording; automatic transcription is not yet connected.</div>':''}${rows}`;
+    // Keep the existing Run/Refresh/Retry action in the report heading.
+    // Recreate only this button on each refresh; event delegation still handles clicks.
+    const heading=panel.closest('[data-fr-panel="2"]')?.querySelector('.fr-step-heading');
+    const action=panel.querySelector('.fr-ai-heading [data-fr-run-ai]');
+    if(heading&&action){
+      heading.querySelector('[data-fr-run-ai]')?.remove();
+      heading.appendChild(action);
+      panel.querySelector('.fr-ai-heading')?.remove();
+    }
   }
-  async function onAIAnalyze(event){
-    const button=event.target.closest('[data-fr-run-ai]');if(!button||!reviewer())return;
-    const box=button.closest('[data-report]'),report=records.find(x=>x.id===box?.dataset.report);
-    if(!report||!projectIds().has(report.projectId)||!report.original?.trim()||aiStates.get(report.id)?.state==='loading')return;
-    aiStates.set(report.id,{state:'loading'});showAI(box,report);
+  async function analyzeReport(report,interactive=false){
+    if(!reviewer()||!projectIds().has(report.projectId)||!report.original?.trim())return;
+    aiStates.set(report.id,{state:'loading'});
+    const box=[...root.querySelectorAll('.fr-report[data-report]')].find(x=>x.dataset.report===report.id);
+    if(box)showAI(box,report);
     try{
-      // Request an API-specific Entra token using the already signed-in AHT account.
-      // This never uses the legacy Graph/Teams token shortcut or a separate SWA sign-in.
-      if(typeof window.getAhtAiAccessToken!=='function')throw Error('AHT Microsoft API sign-in is not available. Refresh and try again.');
-      const apiToken=await window.getAhtAiAccessToken({interactive:true});
-      if(!apiToken)throw Error('Microsoft did not issue an AI API access token.');
+      if(typeof window.getAhtAiAccessToken!=='function')throw Error('AHT AI sign-in is unavailable. Refresh your dashboard and retry.');
+      // Background analysis only attempts silent Microsoft authentication; user-triggered retry may show a sign-in prompt.
+      const apiToken=await window.getAhtAiAccessToken({interactive});
+      if(!apiToken)throw Error('Microsoft did not issue an API token. Select Retry findings to sign in.');
       const matches=relatedStates.get(report.id)?.items||[];
       const candidateRecords=matches.slice(0,12).map(v=>({title:v.title,kind:v.kind||v.source,status:v.status,description:v.description}));
       const response=await fetch('/api/analyze-report',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-AHT-Access-Token':`Bearer ${apiToken}`},body:JSON.stringify({projectName:report.project||projectName(report.projectId),reportText:report.original,candidateRecords})});
       const type=response.headers.get('content-type')||'';
-      if(!type.includes('json'))throw Error('Secure AI service returned an unexpected response. Please check the API deployment and sign-in.');
-      const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'AI analysis failed.');
+      if(!type.includes('json'))throw Error('The secure analysis service returned an unexpected response. Try refreshing your session.');
+      const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'Report analysis failed.');
       aiStates.set(report.id,{state:'ready',data});
     }catch(err){aiStates.set(report.id,{state:'error',message:String(err.message||err).slice(0,400)});}
     const current=[...root.querySelectorAll('.fr-report[data-report]')].find(x=>x.dataset.report===report.id);
-    if(current){
-      showAI(current,report);
-      const step=current.querySelector('[data-fr-step="2"]'),status=workflowStatus(report)[1];
-      if(step){step.dataset.state=status.state;const note=step.querySelector('small');if(note)note.textContent=status.note;}
-    }
+    if(current){showAI(current,report);const step=current.querySelector('[data-fr-step="2"]');const status=workflowStatus(report)[1];if(step){step.dataset.state=status.state;const note=step.querySelector('small');if(note)note.textContent=status.note;}}
+  }
+  function startAutomaticReview(report){
+    if(!reviewer()||tab!=='review'||errorText||report.id!==activeReviewId||!report.original?.trim()||report.status==='Uploading Audio')return;
+    if(aiStates.has(report.id))return; // one analysis per open browser session; explicit Refresh can rerun.
+    aiStates.set(report.id,{state:'queued'});
+    const box=[...root.querySelectorAll('.fr-report[data-report]')].find(x=>x.dataset.report===report.id);
+    if(box)showAI(box,report);
+    queueMicrotask(async()=>{
+      try{await findRelated(report);}catch(_){}
+      if(aiStates.get(report.id)?.state!=='queued')return;
+      await analyzeReport(report,false);
+    });
+  }
+  function onAIAnalyze(event){
+    const button=event.target.closest('[data-fr-run-ai]');if(!button||!reviewer())return;
+    const box=button.closest('[data-report]'),report=records.find(x=>x.id===box?.dataset.report);
+    if(!report||aiStates.get(report.id)?.state==='loading')return;
+    void analyzeReport(report,true);
+  }
+  function fillDraftFromFinding(box,report,finding){
+    const form=box.querySelector('.fr-add-action');if(!form||!finding)return;
+    const action=form.querySelector('[data-plan-action]');action.value='newTask';
+    syncDraftTarget(box,true);
+    const subject=shortText(finding.subject||'Review reported issue',120);
+    // An actionable title for the common framing/speaker dependency; otherwise preserve the finding's meaning.
+    const evidenceText=[subject,finding.evidence||''].join(' ');
+    const isFramingSpeakerBlock=finding.category==='outstanding_dependency'&&/\bspeakers?\b/i.test(evidenceText)&&/\bfram(?:e|ing)\b/i.test(evidenceText);
+    const inLivingRoom=/\bliving\s+room\b/i.test([evidenceText,report.original||''].join(' '));
+    const title=isFramingSpeakerBlock
+      ?`Confirm framing readiness for remaining ${inLivingRoom?'living room ':''}speakers`
+      :(/^(?:confirm|review|follow up|coordinate)\b/i.test(subject)?subject:'Follow up: '+subject);
+    form.querySelector('[data-plan-title]').value=shortText(title,180);
+    // Only use an obvious system label; leave unknown phase/workstream for PM to decide.
+    const context=[subject,finding.evidence].join(' ').toLowerCase();
+    const workstream=/speaker|audio|subwoofer/i.test(context)?'AV / Audio':/camera|security|access reader|cctv/i.test(context)?'Security':'',phase='';
+    form.querySelector('[data-plan-workstream]').value=workstream;
+    form.querySelector('[data-plan-phase]').value=phase;
+    form.querySelector('[data-plan-info-required]').value=shortText(finding.recommended_update||'Confirm required next steps with the responsible party.',1000);
+    form.querySelector('[data-plan-blocker]').value=finding.category==='outstanding_dependency'?shortText([finding.evidence,finding.uncertainty].filter(Boolean).join(' '),1000):'';
+    form.querySelector('[data-plan-note]').value=shortText('Prepared from report finding; PM must confirm scope, workstream, phase and exact wording.',250);
+    invalidateDraft(box);
+    const banner=box.querySelector('[data-fr-prefill-note]');if(banner)banner.textContent='Draft prepared from report finding. Verify or edit every field, select the project phase, then Preview before saving.';
+  }
+  function onUseFinding(event){
+    const btn=event.target.closest('[data-fr-use-finding]');if(!btn||!reviewer())return;
+    const box=btn.closest('[data-report]'),report=records.find(x=>x.id===box?.dataset.report);
+    const index=Number(btn.dataset.frUseFinding),finding=aiStates.get(report?.id)?.data?.findings?.[index];
+    if(!report||!finding||!projectIds().has(report.projectId))return;
+    workflowSteps.set(report.id,3);activateWorkflowStep(box,3);
+    fillDraftFromFinding(box,report,finding);draftAutoFilled.add(report.id);
+    box.querySelector('.fr-workflow')?.scrollIntoView({behavior:'smooth',block:'start'});
   }
   // v2.6: guided presentation only. The v2.5 ETag, preview, approval, Undo and audit routines remain authoritative.
   function workflowStatus(r){
@@ -855,10 +975,10 @@
     const attention=plan.some(a=>['applying','undoing'].includes(a.state));
     return [
       {title:'Report',note:'Submitted',state:'complete'},
-      {title:'Analyze / Find',note:aiStates.get(r.id)?.state==='ready'?'AI analyzed':state?.state==='ready'?'Records checked':state?.state==='error'?'Check failed':'Not checked',state:aiStates.get(r.id)?.state==='ready'||state?.state==='ready'?'complete':state?.state==='error'?'attention':'idle'},
+      {title:'Findings',note:aiStates.get(r.id)?.state==='ready'?'Ready':aiStates.get(r.id)?.state==='loading'||aiStates.get(r.id)?.state==='queued'?'Preparing':state?.state==='ready'?'Records checked':state?.state==='error'?'Check failed':'Not checked',state:aiStates.get(r.id)?.state==='ready'||state?.state==='ready'?'complete':state?.state==='error'?'attention':'idle'},
       {title:'Propose',note:plan.length?'Saved':'Not started',state:plan.length?'complete':'idle'},
       {title:'PM approval',note:attention?'Reconcile':anyPending?'Awaiting PM':anyApplied?'Reviewed':'Not started',state:attention?'attention':anyPending?'pending':anyApplied?'complete':'idle'},
-      {title:'History / Undo',note:anyApplied?'Available':'Not started',state:anyApplied?'complete':'idle'}
+      {title:'History',note:anyApplied?'Available':'Not started',state:anyApplied?'complete':'idle'}
     ];
   }
   function initialWorkflowStep(r){
@@ -871,12 +991,16 @@
     box.querySelectorAll('[data-fr-step]').forEach(b=>{const active=Number(b.dataset.frStep)===chosen;b.setAttribute('aria-current',active?'step':'false');});
     box.querySelectorAll('[data-fr-panel]').forEach(panel=>{panel.hidden=Number(panel.dataset.frPanel)!==chosen;});
     const current=box.querySelector('[data-fr-current-step]');if(current)current.textContent=`Step ${chosen} of 5 · ${workflowStatus(r)[chosen-1].title}`;
+    if(chosen===3&&!draftAutoFilled.has(r.id)&&!(planFor(r)||[]).length){
+      const finding=conciseFindings(aiStates.get(r.id)?.data).find(x=>attentionCategories.has(x.category));
+      if(finding){fillDraftFromFinding(box,r,finding);draftAutoFilled.add(r.id);}
+    }
   }
   function onWorkflowClick(e){
     const toggle=e.target.closest('[data-open-report]');
     if(toggle){const id=toggle.closest('[data-report]')?.dataset.report;activeReviewId=activeReviewId===id?'__closed__':id;renderReview();return;}
     const btn=e.target.closest('[data-fr-step],[data-fr-next]');if(!btn)return;
-    const box=btn.closest('[data-report]');if(box)activateWorkflowStep(box,btn.dataset.frStep||btn.dataset.frNext);
+    const box=btn.closest('[data-report]');if(box){activateWorkflowStep(box,btn.dataset.frStep||btn.dataset.frNext);box.querySelector('.fr-workflow')?.scrollIntoView({behavior:'smooth',block:'start'});}
   }
   function workflowPanel(n,title,description){
     const el=document.createElement('section');el.className='fr-step-panel';el.dataset.frPanel=String(n);
@@ -899,14 +1023,15 @@
     const p1=workflowPanel(1,'Field report','Original technician notes are preserved. Report acknowledgment does not approve project changes.');
     if(original){original.open=true;p1.appendChild(original);}
     if(acknowledgment){const details=document.createElement('details');details.className='fr-acknowledgment';details.innerHTML='<summary>Report acknowledgment (separate from change approval)</summary>';details.appendChild(acknowledgment);p1.appendChild(details);}
-    p1.appendChild(workflowNext(2,'Continue to records →'));
-    const p2=workflowPanel(2,'Analyze report & find project records','Azure AI can suggest decisions and follow-ups, but cannot apply changes. The record search remains SharePoint-backed and manually verified.');
+    p1.appendChild(workflowNext(2,'Review findings →'));
+    const p2=workflowPanel(2,'Report findings','');
     const aiBox=document.createElement('section');aiBox.className='fr-ai-panel';aiBox.setAttribute('data-fr-ai-panel','');p2.appendChild(aiBox);
     p2.appendChild(references);
-    const manual=document.createElement('div');manual.className='fr-manual-records';manual.innerHTML='<strong>Need a different record?</strong><p class="fr-muted">If a valid deliverable or task is missing from suggestions, browse all eligible records for this project. Every change still requires a current SharePoint preview.</p><button type="button" class="fr-btn" data-browse-records>Browse project records</button>';
+    if(original){const proof=original.cloneNode(true);proof.open=false;proof.classList.add('fr-source-evidence');p2.appendChild(proof);}
+    const manual=document.createElement('details');manual.className='fr-manual-records';manual.innerHTML='<summary>Need a different project record?</summary><p class="fr-muted">Browse records within this project. A PM must still select and approve every actual update.</p><button type="button" class="fr-btn" data-browse-records>Browse project records</button>';
     p2.appendChild(manual);p2.appendChild(workflowNext(3,'Continue to proposal →'));
-    const p3=workflowPanel(3,'Prepare a proposed change','Choose one action and its exact target. Preview it, then save the proposal to SharePoint; this does not update the project.');
-    if(draft){draft.open=true;draft.querySelector('summary').hidden=true;
+    const p3=workflowPanel(3,'Prepare proposal','Start from a report finding, verify the details and preview before saving. Saving a proposal does not change the Project Plan.');
+    if(draft){draft.open=true;draft.querySelector('summary').hidden=true;const prep=document.createElement('p');prep.className='fr-prefill-note';prep.setAttribute('data-fr-prefill-note','');prep.textContent='Choose a finding above or enter a proposal. Nothing is saved automatically.';p3.appendChild(prep);
       const targetWrap=draft.querySelector('[data-draft-target-wrap]');
       if(targetWrap){const search=document.createElement('input');search.type='text';search.placeholder='Filter available records by name…';search.setAttribute('data-record-search','');search.setAttribute('aria-label','Filter matching project records');search.className='fr-record-search';targetWrap.insertBefore(search,targetWrap.querySelector('[data-plan-target]'));}
       p3.appendChild(draft);
@@ -916,10 +1041,10 @@
     if(planFor(r)===null){const warning=document.createElement('div');warning.className='fr-plan-warning';warning.textContent='Saved PM plan cannot be read. No project changes are allowed until an administrator reconciles it.';p4.appendChild(warning);}
     const pending=entries.filter(x=>!['applied','undone'].includes(x.dataset.planState));
     if(pending.length)pending.forEach(x=>p4.appendChild(x));else{const message=document.createElement('p');message.className='fr-muted fr-step-empty';message.textContent='No pending proposals for this report. Add one in Step 3, or review completed actions in Step 5.';p4.appendChild(message);}
-    p4.appendChild(workflowNext(5,'Go to history / Undo →'));
-    const p5=workflowPanel(5,'Verification, history & Undo','Applied changes are recorded here. Undo verifies the current SharePoint version before restoring prior values.');
+    p4.appendChild(workflowNext(5,'View history →'));
+    const p5=workflowPanel(5,'History & reversals','Review prior changes below. Undo is a separate, protected action available only for eligible applied changes.');
     entries.filter(x=>['applied','undone'].includes(x.dataset.planState)).forEach(x=>p5.appendChild(x));
-    if(history){history.open=true;history.querySelector('summary').textContent='Approval and review history ('+historyEntries(r).length+')';p5.appendChild(history);}
+    if(history){history.open=false;history.querySelector('summary').textContent='View history ('+historyEntries(r).length+')';p5.appendChild(history);}
     const panes=document.createElement('div');panes.className='fr-workflow-panes';[p1,p2,p3,p4,p5].forEach(x=>panes.appendChild(x));workflow.appendChild(panes);
     source.remove();box.appendChild(workflow);
     showAI(box,r);
@@ -949,7 +1074,11 @@
           :`<div class="fr-queue-summary">${esc(summary)} · ${esc(shortText(r.original,105))}</div>`}
       </article>`;
     }).join('') : '<div class="fr-empty">No SharePoint field reports found for your assigned projects.</div>';
-    list.querySelectorAll('.fr-report-open[data-report]').forEach(box=>{setupWorkflow(box,records.find(x=>x.id===box.dataset.report));syncDraftTarget(box);});
+    list.querySelectorAll('.fr-report-open[data-report]').forEach(box=>{
+      const report=records.find(x=>x.id===box.dataset.report);
+      setupWorkflow(box,report);syncDraftTarget(box);
+      if(report){startAutomaticReview(report);if(!relatedStates.has(report.id)&&!report.original?.trim())refreshRelatedDisplay(report);}
+    });
   }
   function render() {
     if (!mounted) return; syncNav(); fillProjects(); $('fr-tab-review').hidden = !reviewer();
