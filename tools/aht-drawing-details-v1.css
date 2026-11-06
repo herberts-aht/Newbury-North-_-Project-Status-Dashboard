@@ -1,7 +1,7 @@
 /* AHT Shared Drawing Details — navy/blue */
-.aht-dd-panel{margin:10px 0;padding:11px;border:1px solid #b7d2e4;border-radius:8px;background:#f2f8fc;color:#163d5e;font:12px/1.4 inherit}
+.aht-dd-panel{margin:10px 0;padding:11px;border:1px solid #b7d2e4;border-radius:8px;background:#f2f8fc;color:#163d5e;font-size:11px;line-height:1.4}
 .aht-dd-panel[hidden]{display:none!important}
-.aht-dd-panel strong{display:block;margin-bottom:4px;font-size:13px}
+.aht-dd-panel strong{display:block;margin-bottom:4px;font-size:11px}
 .aht-dd-panel label{display:block;margin:8px 0 3px;font-weight:600}
 .aht-dd-panel input[type=text],.aht-dd-panel textarea{display:block;width:100%;box-sizing:border-box;margin-top:3px;border:1px solid #afc4d3;border-radius:5px;padding:7px;background:white;color:#152c3f;font:inherit}
 .aht-dd-panel .aht-dd-hint{margin:5px 0;color:#587187;font-size:11px;font-weight:400}
@@ -10,3 +10,83 @@
 .aht-dd-panel.aht-dd-annotation-only .aht-dd-maker{display:none}
 #ahtDdTooltip{position:fixed;z-index:2147483646;width:max-content;max-width:min(300px,calc(100vw - 24px));padding:9px 11px;background:#163d5e;color:#fff;border:1px solid #83b5d8;border-radius:7px;box-shadow:0 4px 16px #0004;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;font:12px/1.5 system-ui,sans-serif}
 #ahtDdTooltip[hidden]{display:none!important}
+
+/* Phase 1.1: prominent picking mode and sticky Details jump */
+.aht-dd-bulk-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:7px 0;padding:7px;border:1px solid #b7d2e4;border-radius:7px;background:#f1f8fc}
+.aht-dd-bulk-controls button{background:#194e75;color:white;border:1px solid #194e75;border-radius:6px;padding:8px 11px;font-weight:700;cursor:pointer;min-height:36px}
+.aht-dd-bulk-controls button[hidden]{display:none!important}
+.aht-dd-bulk-controls #ahtDdBulkClear{background:white;color:#194e75}
+.aht-dd-bulk-controls #ahtDdBulkCount{font-size:11px;color:#37576d;flex:1 1 145px}
+.aht-dd-bulk-controls.aht-dd-bulk-on{background:#dceefb;border-color:#397ab0}
+.aht-dd-bulk-controls.aht-dd-bulk-on #ahtDdBulkMode{background:#0a638d}
+.aht-dd-jump{cursor:pointer}
+
+/* Phase 1.2: inline Details workflow, no bulk controls in sticky drawing toolbar */
+#ahtDrawingDetailsSection{display:block;scroll-margin-top:calc(var(--aht-sticky-height,200px) + 12px);margin:12px 0 16px;padding:12px;border:1px solid #c6d9e8;border-radius:9px;background:#fff;color:#173b59;box-sizing:border-box}
+#ahtDrawingDetailsSection .aht-dd-section-title h2{font-size:11px;line-height:1.25;margin:0 0 5px;color:#164a74;text-transform:uppercase;letter-spacing:.05em}
+#ahtDrawingDetailsSection .aht-dd-section-title span{font-size:11px;color:#607b91}
+#ahtDrawingDetailsSection .aht-dd-intro{margin:10px 0 7px;font-size:11px;line-height:1.4;color:#37556d}
+#ahtDrawingDetailsSection .aht-dd-bulk-controls{display:grid;grid-template-columns:1fr auto;gap:7px;background:#f1f7fb;border:1px solid #cfdfeb;padding:10px;margin:8px 0}
+#ahtDrawingDetailsSection .aht-dd-bulk-controls #ahtDdBulkMode{width:100%;min-width:0;font-size:11px;white-space:normal}
+#ahtDrawingDetailsSection .aht-dd-bulk-controls #ahtDdBulkClear{font-size:11px;padding:7px 8px}
+#ahtDrawingDetailsSection .aht-dd-bulk-controls #ahtDdBulkCount{grid-column:1/-1;flex:none;font-size:11px;line-height:1.45}
+#ahtDrawingDetailsSection .aht-dd-panel{margin:10px 0 0}
+#ahtDrawingDetailsSection .aht-dd-panel[hidden]{display:none!important}
+#ahtDrawingDetailsSection .aht-dd-panel button{min-height:36px}
+#ahtDdJump{box-shadow:none}
+#ahtDdJump span{display:inline!important}
+
+/* Phase 1.3: match native editor typography and leave Details unhighlighted unless navigated. */
+#ahtDrawingDetailsSection .aht-dd-panel label{font-size:11px;line-height:1.3}
+#ahtDrawingDetailsSection .aht-dd-panel input[type=text],#ahtDrawingDetailsSection .aht-dd-panel textarea{font-size:11px;line-height:1.35}
+#ahtDrawingDetailsSection .aht-dd-panel button{font-size:11px}
+#ahtDdJump:not(.active):not([aria-current]){background:#fff;border-color:#bfd2e3;color:#1f486d}
+#ahtGuidedSteps #ahtDdJump:not([aria-current]){background:#f7fbff;border-color:#b8cddd;color:#254661}
+
+/* Phase 1.4: consistent slim-outline, colored-text action buttons. */
+#ahtDrawingDetailsSection .aht-dd-bulk-controls button,
+#ahtDrawingDetailsSection .aht-dd-panel button {
+  background:#fff;
+  color:#155b72;
+  border:1px solid #178269;
+  border-radius:5px;
+  box-shadow:none;
+  font-size:11px;
+  font-weight:700;
+  padding:7px 9px;
+  min-height:34px;
+  cursor:pointer;
+}
+#ahtDrawingDetailsSection .aht-dd-bulk-controls #ahtDdBulkClear {
+  background:#fff;
+  border-color:#a7bfd1;
+  color:#325b76;
+}
+#ahtDrawingDetailsSection .aht-dd-bulk-controls.aht-dd-bulk-on #ahtDdBulkMode,
+#ahtDrawingDetailsSection .aht-dd-bulk-controls #ahtDdBulkMode[aria-pressed="true"] {
+  background:#e8f5ef;
+  color:#096a4f;
+  border-color:#13966e;
+  box-shadow:inset 0 0 0 1px #13966e;
+}
+#ahtDrawingDetailsSection .aht-dd-bulk-controls button:hover,
+#ahtDrawingDetailsSection .aht-dd-panel button:hover {
+  background:#eef8f4;
+}
+#ahtDrawingDetailsSection .aht-dd-bulk-controls button:focus-visible,
+#ahtDrawingDetailsSection .aht-dd-panel button:focus-visible {
+  outline:2px solid #247ec1;
+  outline-offset:2px;
+}
+
+/* Phase 2.5: guided floating multi-selection, matched AHT outline actions. */
+#ahtDdGuide[hidden],#ahtDdGuidePicking[hidden],#ahtDdGuideActions[hidden]{display:none!important}
+#ahtDdGuide{position:fixed;z-index:2147483001;min-width:188px;max-width:min(280px,calc(100vw - 18px));padding:9px 10px;background:#fff;color:#21485f;border:1px solid #a9ccdc;border-radius:8px;box-shadow:0 5px 18px rgba(18,57,80,.22);font:11px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+#ahtDdGuide .aht-dd-guide-count{font-size:11px;font-weight:700;margin:0 0 7px;color:#174f70}
+#ahtDdGuidePicking{display:flex;gap:8px;align-items:center;justify-content:space-between}
+#ahtDdGuidePicking span{font-size:11px;color:#517187}
+#ahtDdGuideActions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+#ahtDdGuide button{background:#fff;color:#0c7559;border:1px solid #178269;border-radius:5px;padding:6px 7px;font:600 11px/1.3 system-ui,sans-serif;min-height:30px;cursor:pointer}
+#ahtDdGuide button:hover{background:#eaf7f0}
+#ahtDdGuide button:focus-visible{outline:2px solid #247ec1;outline-offset:2px}
+#ahtDdGuideMore{grid-column:1/-1;border-color:#aac5d5!important;color:#285978!important}

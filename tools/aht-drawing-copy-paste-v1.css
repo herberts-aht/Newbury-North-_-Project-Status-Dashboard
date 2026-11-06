@@ -1,0 +1,24 @@
+/* Copy/Paste controls inherit the compact AHT Equipment Details aesthetic. */
+#ahtCopyPaste{border-top:1px solid #d3e1eb;margin-top:14px;padding-top:11px;font-size:11px;color:#23465f}
+#ahtCopyPaste .aht-cp-heading{font-size:12px;font-weight:700;color:#153e5a;margin-bottom:5px}
+#ahtCopyPaste .aht-cp-hint{font-size:10.5px;line-height:1.45;color:#47697f;margin:5px 0 8px}
+#ahtCopyPaste .aht-cp-actions{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+#ahtCopyPaste .aht-cp-actions button{background:#fff;border:1px solid #178269;color:#155b72;border-radius:5px;font-size:11px;font-weight:700;padding:7px 9px;min-height:34px;cursor:pointer}
+#ahtCopyPaste .aht-cp-actions button:hover{background:#eef8f4}
+#ahtCopyPaste .aht-cp-actions button[aria-pressed="true"]{background:#e8f5ef;color:#096a4f;border-color:#13966e}
+#ahtCopyPaste .aht-cp-actions button:disabled{opacity:.43;cursor:not-allowed}
+#ahtCopyPaste .aht-cp-option{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:7px 0;font-size:11px}
+#ahtCopyPaste .aht-cp-option span{color:#58768a;font-size:10px}
+#ahtCopyPaste .aht-cp-actions button:focus-visible{outline:2px solid #247ec1;outline-offset:2px}
+#ahtCopyPaste .aht-cp-option input{accent-color:#168369}
+#ahtCopyPaste .aht-cp-hint[role="status"]{min-height:14px}
+#ahtCopyPaste .aht-cp-option{cursor:pointer}
+#ahtCopyPaste .aht-cp-actions{max-width:100%}
+#ahtCopyPaste .aht-cp-actions button{white-space:normal}
+.aht-cp-placing{cursor:crosshair!important}
+/* Phase 2.1: contextual right-click commands on PDF drawing only. */
+#ahtCpContextMenu[hidden]{display:none!important}
+#ahtCpContextMenu{position:fixed;z-index:2147483000;min-width:190px;max-width:240px;padding:5px;background:#fff;border:1px solid #bdcedd;border-radius:7px;box-shadow:0 7px 22px rgba(12,41,65,.2);font:11px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}
+#ahtCpContextMenu button{display:block;width:100%;padding:8px 10px;text-align:left;color:#155b72;background:transparent;border:0;border-radius:4px;cursor:pointer;font:inherit;font-weight:600}
+#ahtCpContextMenu button:hover:not(:disabled),#ahtCpContextMenu button:focus-visible{background:#eaf5f1;color:#09674d;outline:none}
+#ahtCpContextMenu button:disabled{opacity:.42;cursor:not-allowed}
