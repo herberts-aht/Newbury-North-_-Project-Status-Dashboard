@@ -25,6 +25,7 @@
   const reviewPreviews = new Map();
   const workflowSteps = new Map();
   const aiStates = new Map();
+  const transcriptDrafts = new Map(); // PM-only, browser-session drafts until explicitly saved.
   const draftAutoFilled = new Set();
   let activeReviewId = '';
   const actor = () => { try { return typeof currentUser === 'undefined' ? null : currentUser; } catch (_) { return null; } };
@@ -691,6 +692,7 @@
     $('fr-review-list').addEventListener('click', browseProjectRecords);
     $('fr-review-list').addEventListener('click', onWorkflowClick);
     $('fr-review-list').addEventListener('click', onAIAnalyze);
+    $('fr-review-list').addEventListener('click', onTranscriptAction);
     $('fr-review-list').addEventListener('click', onUseFinding);
     $('fr-review-list').addEventListener('click', onDraftPreview);
     $('fr-review-list').addEventListener('click', onPlanAdd);
@@ -866,10 +868,14 @@
       <div class="fr-muted">${esc(r.author)} · ${esc(dateText(r.created))}</div></div>
       <span class="fr-pill ${r.status === 'Acknowledged' ? 'is-done' : r.status === 'Clarification Needed' ? 'is-question' : ''}">${esc(statusLabel(r.status))}</span></div>`;
   }
-  function originalHtml(r) {
-    return `<details><summary>Original report${r.audioFile ? ' · Listen to recording' : ''}${r.audioFile && !r.original ? ' · Transcript unavailable' : ''}</summary>
-      <div class="fr-original">${r.original ? esc(r.original) : 'Audio-only report — automatic transcription is not yet available. Use the original recording below.'}</div>
-      ${r.audioFile ? `<button class="fr-btn" type="button" data-audio="${esc(r.audioFile)}">▶ Play original recording</button><audio controls hidden></audio>` : ''}</details>`;
+  function originalHtml(r, allowTranscript=false) {
+    const draft=transcriptDrafts.get(r.id);
+    const eligible=allowTranscript&&reviewer()&&r.audioFile&&!r.original.trim()&&r.status!=='Uploading Audio';
+    const preview=eligible&&draft?`<div class="fr-field"><label>Review transcription before saving</label><textarea data-transcript-text maxlength="12000" rows="6">${esc(draft)}</textarea><div class="fr-main-actions"><button class="fr-btn fr-btn-primary" type="button" data-save-transcript>Save transcript to report</button><button class="fr-btn" type="button" data-discard-transcript>Discard</button></div><p class="fr-muted">Original audio remains in SharePoint. AI findings still require PM approval before project changes.</p></div>`:'';
+    return `<details ${eligible?'open':''}><summary>Original report${r.audioFile ? ' · Listen to recording' : ''}${r.audioFile && !r.original ? ' · Transcript unavailable' : ''}</summary>
+      <div class="fr-original">${r.original ? esc(r.original) : 'Audio-only report — review the recording or transcribe it below.'}</div>
+      ${r.audioFile ? `<button class="fr-btn" type="button" data-audio="${esc(r.audioFile)}">▶ Play original recording</button><audio controls hidden></audio>` : ''}
+      ${eligible?`<div class="fr-main-actions"><button type="button" class="fr-btn" data-run-transcript>Transcribe recording</button></div>${preview}`:''}</details>`;
   }
   function renderMine() {
     const list = $('fr-mine-list'); if (!list) return;
@@ -1110,7 +1116,7 @@
       const summary=`${pending} proposed change${pending===1?'':'s'} · ${historyEntries(r).length} history entr${historyEntries(r).length===1?'y':'ies'}`;
       return `<article class="fr-report ${expanded?'fr-report-open':'fr-report-closed'}" data-report="${esc(r.id)}">
         <div class="fr-review-head">${reportHeader(r)}<button type="button" class="fr-btn fr-open-report" data-open-report aria-expanded="${expanded}">${expanded?'Close review':'Open review'} <span aria-hidden="true">${expanded?'−':'+'}</span></button></div>
-        ${expanded?`${originalHtml(r)}${proposalHtml(r)}${referenceHtml(r)}
+        ${expanded?`${originalHtml(r,true)}${proposalHtml(r)}${referenceHtml(r)}
           ${r.status==='Changes Applied' ? '<div class="fr-muted fr-review-complete">Approved project update recorded; verify the target and use Undo from Step 5 if needed.</div>' : `<div class="fr-proposal"><div class="fr-proposal-title">Report acknowledgment (separate from task approval)</div>
           ${r.status==='Uploading Audio' ? '<p class="fr-muted">Audio upload incomplete. Submitter must retry before this report can be reviewed.</p>' : ''}
           <div class="fr-field"><label for="fr-review-${esc(r.id)}">Decision</label><select id="fr-review-${esc(r.id)}" data-review-status>
@@ -1159,6 +1165,46 @@
       await refresh();
     } catch (err) {alert('Could not save PM review: '+ (err.message || err));}
     finally {b.disabled = false;}
+  }
+  async function onTranscriptAction(event) {
+    const button=event.target.closest('[data-run-transcript],[data-save-transcript],[data-discard-transcript]');
+    if(!button||!reviewer())return;
+    const box=button.closest('.fr-report[data-report]');const r=records.find(x=>x.id===box?.dataset.report);
+    if(!r||!projectIds().has(r.projectId)||!r.audioFile||r.original.trim()||r.status==='Uploading Audio')return;
+    if(button.hasAttribute('data-discard-transcript')){transcriptDrafts.delete(r.id);renderReview();return;}
+    button.disabled=true;
+    try{
+      if(button.hasAttribute('data-run-transcript')){
+        if(typeof window.getAhtAiAccessToken!=='function')throw Error('AHT AI sign-in is not available.');
+        const token=await window.getAhtAiAccessToken({interactive:true});
+        if(!token)throw Error('Microsoft AI access token was not issued.');
+        const p=provider(),driveId=await audioDrive();
+        if(!/^ahtfr-[a-z0-9-]+\.(webm|m4a|ogg|mp4)$/.test(r.audioFile))throw Error('Unexpected audio filename.');
+        const item=await p.graph(`/drives/${encodeURIComponent(driveId)}/root:/${encodeURIComponent(r.audioFile)}:`);
+        const url=item?.['@microsoft.graph.downloadUrl'];
+        if(!url||!/^https:\/\//i.test(url))throw Error('Microsoft did not provide the recording download.');
+        const downloaded=await fetch(url);if(!downloaded.ok)throw Error('Could not download the original recording.');
+        const blob=await downloaded.blob();if(blob.size>15*1024*1024)throw Error('Recording exceeds the transcription limit.');
+        const form=new FormData();form.append('file',blob,r.audioFile);
+        const response=await fetch('/api/transcribe-report',{method:'POST',credentials:'same-origin',headers:{'X-AHT-Access-Token':`Bearer ${token}`},body:form});
+        if(!(response.headers.get('content-type')||'').includes('json'))throw Error('Unexpected transcription service response.');
+        const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'Transcription failed.');
+        transcriptDrafts.set(r.id,String(data.transcript).slice(0,12000));renderReview();return;
+      }
+      if(button.hasAttribute('data-save-transcript')){
+        const transcript=String(box.querySelector('[data-transcript-text]')?.value||'').trim();
+        if(!transcript||transcript.length>12000)throw Error('Review a transcript of 12,000 characters or fewer.');
+        const p=provider(),site=await p.getSite(),listId=await p.getListId(REPORTS);
+        const latest=await p.graph(`/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(r.id)}?$expand=fields`);
+        const fresh=readRecord(latest);
+        if(fresh.projectId!==r.projectId||fresh.audioFile!==r.audioFile||fresh.original.trim()||fresh.status==='Uploading Audio')throw Error('Report changed. Refresh before saving the transcript.');
+        const history=readAudit(fresh.history);history.push({at:new Date().toISOString(),by:identity(),event:'transcript reviewed and saved',audioFile:r.audioFile});
+        if(JSON.stringify(history).length>60000)throw Error('Audit history is at capacity.');
+        await patchReport(r.id,{OriginalText:transcript,ReviewHistory:JSON.stringify(history)},latest.eTag||latest['@odata.etag']);
+        transcriptDrafts.delete(r.id);aiStates.delete(r.id);await refresh();return;
+      }
+    }catch(ex){alert('Transcription: '+String(ex?.message||ex));}
+    finally{button.disabled=false;}
   }
   async function playAudioClick(event) {
     const btn = event.target.closest('[data-audio]'); if (!btn) return;
