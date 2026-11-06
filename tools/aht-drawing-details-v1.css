@@ -1,0 +1,12 @@
+/* AHT Shared Drawing Details — navy/blue */
+.aht-dd-panel{margin:10px 0;padding:11px;border:1px solid #b7d2e4;border-radius:8px;background:#f2f8fc;color:#163d5e;font:12px/1.4 inherit}
+.aht-dd-panel[hidden]{display:none!important}
+.aht-dd-panel strong{display:block;margin-bottom:4px;font-size:13px}
+.aht-dd-panel label{display:block;margin:8px 0 3px;font-weight:600}
+.aht-dd-panel input[type=text],.aht-dd-panel textarea{display:block;width:100%;box-sizing:border-box;margin-top:3px;border:1px solid #afc4d3;border-radius:5px;padding:7px;background:white;color:#152c3f;font:inherit}
+.aht-dd-panel .aht-dd-hint{margin:5px 0;color:#587187;font-size:11px;font-weight:400}
+.aht-dd-panel .aht-dd-pick{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.aht-dd-panel .aht-dd-pick label{margin:0;font-size:11px}
+.aht-dd-panel button{width:100%;background:#194e75;color:white;border:0;border-radius:5px;padding:9px;font-weight:700;cursor:pointer}
+.aht-dd-panel.aht-dd-annotation-only .aht-dd-maker{display:none}
+#ahtDdTooltip{position:fixed;z-index:2147483646;width:max-content;max-width:min(300px,calc(100vw - 24px));padding:9px 11px;background:#163d5e;color:#fff;border:1px solid #83b5d8;border-radius:7px;box-shadow:0 4px 16px #0004;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;font:12px/1.5 system-ui,sans-serif}
+#ahtDdTooltip[hidden]{display:none!important}
