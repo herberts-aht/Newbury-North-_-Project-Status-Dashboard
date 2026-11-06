@@ -723,6 +723,14 @@
     if (next !== 'capture') refresh();
     if (next === 'review') autoFindPendingReferences();
   }
+  function reportArchived(history){
+    let archived=false;
+    try{for(const event of readAudit(history||'[]')){
+      if(event?.event==='report archived')archived=true;
+      else if(event?.event==='report restored')archived=false;
+    }}catch(_){ /* Keep malformed reports visible for administrator review. */ }
+    return archived;
+  }
   function readRecord(row) {
     const f = row.fields || {};
     return { id: String(row.id), clientId: String(f.ClientReportId || ''), projectId: String(f.ProjectId || ''),
@@ -730,7 +738,7 @@
       original: String(f.OriginalText || ''), audioFile: String(f.AudioFileName || ''),
       status: String(f.ReportStatus || 'Pending PM Review'), reviewNote: String(f.ReviewNote || ''),
       reviewedBy: String(f.ReviewedByName || ''), reviewedAt: String(f.ReviewedAt || ''),
-      created: row.createdDateTime || f.Created || '', history: String(f.ReviewHistory || ''), plan: String(f.ReviewPlan || ''), etag: row.eTag || row['@odata.etag'] || '' };
+      created: row.createdDateTime || f.Created || '', history: String(f.ReviewHistory || ''), archived: reportArchived(String(f.ReviewHistory||'')), plan: String(f.ReviewPlan || ''), etag: row.eTag || row['@odata.etag'] || '' };
   }
   async function refresh() {
     if (!permitted() || loading) return;
@@ -879,7 +887,7 @@
   }
   function renderMine() {
     const list = $('fr-mine-list'); if (!list) return;
-    const mine = records.filter(r => r.authorEmail && r.authorEmail === identity()).sort((a,b) => new Date(b.created) - new Date(a.created));
+    const mine = records.filter(r => !r.archived && r.authorEmail && r.authorEmail === identity()).sort((a,b) => new Date(b.created) - new Date(a.created));
     list.innerHTML = mine.length ? mine.map(r => `<article class="fr-report">${reportHeader(r)}${originalHtml(r)}
       ${r.reviewNote ? `<div class="fr-review-note"><strong>PM note:</strong> ${esc(r.reviewNote)}</div>` : ''}
       ${planFor(r)?.length?`<div class="fr-review-note"><strong>PM change review:</strong> ${planFor(r).filter(x=>x.state==='applied').length} applied · ${planFor(r).filter(x=>x.state==='clarification').length} needs clarification · ${planFor(r).filter(x=>x.state==='rejected').length} rejected · ${planFor(r).filter(x=>x.state==='proposed').length} pending</div>`:''}</article>`).join('')
@@ -1107,7 +1115,7 @@
   function renderReview() {
     const list = $('fr-review-list'); if (!list) return;
     if (!reviewer()) {list.textContent = 'PM or Administrator permission required.';return;}
-    const items = records.slice().sort((a,b) => new Date(b.created) - new Date(a.created));
+    const items = records.filter(r=>!r.archived).sort((a,b) => new Date(b.created) - new Date(a.created));
     if(items.length && !activeReviewId)activeReviewId=items[0].id;
     if(items.length && activeReviewId!=='__closed__' && !items.some(x=>x.id===activeReviewId))activeReviewId=items[0].id;
     list.innerHTML = items.length ? items.map(r => {
@@ -1136,7 +1144,7 @@
   }
   function render() {
     if (!mounted) return; syncNav(); fillProjects(); $('fr-tab-review').hidden = !reviewer();
-    $('fr-count').textContent = reviewer() ? '(' + records.filter(r => r.status === 'Pending PM Review').length + ')' : '';
+    $('fr-count').textContent = reviewer() ? '(' + records.filter(r => !r.archived && r.status === 'Pending PM Review').length + ')' : '';
     renderMine(); renderReview();
   }
   async function onReviewClick(e) {

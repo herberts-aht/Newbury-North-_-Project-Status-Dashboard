@@ -147,7 +147,7 @@
 <link rel="stylesheet" href="css/aht-status-ui.css?v=20261030-integrated1" />
 <link rel="stylesheet" href="css/aht-cancel-actions.css?v=20261019-cancel1" />
 <!-- AHT-FIELD-REPORTING-PILOT-V1: style -->
-<link rel="stylesheet" href="css/field-reporting.css?v=spv295-history" />
+<link rel="stylesheet" href="css/field-reporting.css?v=20261106-admin1" />
 <link rel="stylesheet" href="css/aht-mobile-field-update.css?v=20261105-mobile1" />
 </head>
 <body>
@@ -683,6 +683,12 @@
           </button>
 
 
+          <button type="button" class="admin-cover-card" data-admin-section="reports" id="ahtReportAdminCover">
+            <span class="admin-cover-card-head">Field Report Management</span>
+            <span class="admin-cover-card-text">Archive and restore reports; administrator-only test report deletion.</span>
+            <span class="admin-cover-card-open">Open Field Reports ›</span>
+          </button>
+
           <button
             type="button"
             class="admin-cover-card"
@@ -1217,6 +1223,21 @@
         </div>
       </div>
 
+
+      <div id="adminFieldReportsPanel" class="admin-panel admin-section-hidden">
+        <div class="admin-card">
+          <h4>Field Report Management</h4>
+          <p class="small">Archived reports are hidden from the normal Field Reporting queue. Existing approvals and audit records are retained. Permanent deletion is limited to eligible reports and authorized administrators.</p>
+          <div class="aht-fr-admin-filters">
+            <label>Project <select id="ahtFrAdminProject"><option value="">All assigned projects</option></select></label>
+            <label>Show <select id="ahtFrAdminStatus"><option value="active">Active reports</option><option value="archived">Archived reports</option></select></label>
+            <label>Find report <input id="ahtFrAdminSearch" type="search" placeholder="Technician or report text" /></label>
+            <button type="button" class="btn" id="ahtFrAdminRefresh">Refresh</button>
+          </div>
+          <div id="ahtFrAdminNotice" role="status" class="small"></div>
+          <div id="ahtFrAdminList"></div>
+        </div>
+      </div>
 
       <div
         id="adminHelpTicketsPanel"
@@ -1842,7 +1863,7 @@
   }
 </style>
 <script src="js/room-builder.js?v=20261030-integrated1"></script>
-  <script src="js/dashboard.js?v=20261030-integrated1"></script>
+  <script src="js/dashboard.js?v=20261106-admin1"></script>
 <script src="js/help-center.js?v=20261030-integrated1"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
@@ -2358,7 +2379,8 @@ function showView(id){
      currentUser?.canViewExternalUsers ||
      currentUser?.canManageExternalUsers ||
      currentUser?.canManageSystem ||
-     currentUser?.canManageBackups
+     currentUser?.canManageBackups ||
+     window.AHTFieldReportAdmin?.canAccess?.()
    );
 
  if(id==="admin"&&!canOpenAdministration){
@@ -4240,7 +4262,8 @@ initializeApplication();
 <script src="js/aht-ops-user-ui.js?v=20261030-integrated1"></script>
 <script src="js/aht-operations.js?v=20261030-integrated1"></script>
 <!-- AHT-FIELD-REPORTING-PILOT-V1: script -->
-<script src="js/field-reporting.js?v=20261105-audiofix1"></script>
+<script src="js/field-reporting.js?v=20261106-admin1"></script>
+<script src="js/aht-field-report-admin-v1.js?v=20261106-1"></script>
 <script src="js/aht-mobile-field-update.js?v=20261105-field2100"></script>
 <!-- AHT_VERSION_DISPLAY_20261102: version metadata and footer display only -->
 <script src="js/aht-build-info.js?v=20261104-pm29"></script>

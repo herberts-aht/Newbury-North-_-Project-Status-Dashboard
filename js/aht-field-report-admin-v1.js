@@ -1,0 +1,54 @@
+/* AHT Field Report Management. Delegated Microsoft Graph permissions are authoritative;
+   frontend role gates are usability safeguards only. */
+(()=>{'use strict';
+ const root=document.getElementById('adminFieldReportsPanel');if(!root)return;
+ const $=id=>document.getElementById(id), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const norm=v=>String(v||'').trim().toLowerCase();
+ const actor=()=>{try{return typeof currentUser==='undefined'?null:currentUser;}catch(_){return null;}};
+ const pm=()=>{const u=actor();return !!(u&&u.active!==false&&u.isInternal!==false&&u.accessProfileSyncError!==true&&norm(u.entraUserType)!=='guest'&&(u.canProjectAdmin===true||u.canAdmin===true||u.isSystemOwner===true||['admin','administrator','project admin'].includes(norm(u.role))));};
+ const admin=()=>{const u=actor();return pm()&&(u.canAdmin===true||u.isSystemOwner===true||['admin','administrator'].includes(norm(u.role)));};
+ const liveHost=()=>location.hostname==='newburynorth.ahtglobal.com';
+ const projectList=()=>{try{return typeof allowedProjects==='function'?allowedProjects().filter(x=>x&&!x.archived):[];}catch(_){return [];}};
+ const provider=()=>{if(typeof APP_CONFIG==='undefined'||APP_CONFIG.dataProvider!=='sharePoint'||typeof SharePointDataProvider==='undefined')throw Error('SharePoint is not connected.');return SharePointDataProvider;};
+ const parse=v=>{const x=JSON.parse(v||'[]');if(!Array.isArray(x))throw Error('Invalid review history. No changes made.');return x;};
+ function archived(events){let state=false;for(const a of events){if(a?.event==='report archived')state=true;else if(a?.event==='report restored')state=false;}return state;}
+ let all=[],busy=false,loaded=false;
+ const notice=t=>{$('ahtFrAdminNotice').textContent=t||'';};
+ async function load(){if(!pm()){root.hidden=true;return;}root.hidden=false;busy=true;notice('Loading SharePoint reports…');try{
+  const p=provider(),ids=new Set(projectList().map(x=>String(x.id)));
+  all=(await p.getListRows('AHT Field Reports')).filter(x=>ids.has(String(x.fields?.ProjectId||''))).map(x=>{
+    const f=x.fields||{},events=parse(String(f.ReviewHistory||''));return {id:String(x.id),etag:x.eTag||x['@odata.etag']||'',projectId:String(f.ProjectId||''),project:String(f.ProjectName||''),author:String(f.SubmittedByName||''),date:x.createdDateTime||f.Created||'',text:String(f.OriginalText||''),status:String(f.ReportStatus||''),audio:String(f.AudioFileName||''),plan:String(f.ReviewPlan||'[]'),events,archived:archived(events)};
+  });loaded=true;const s=$('ahtFrAdminProject'),old=s.value;s.innerHTML='<option value="">All assigned projects</option>'+projectList().map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');if([...s.options].some(o=>o.value===old))s.value=old;
+  notice(all.length+' report(s) found within assigned projects.'+(liveHost()?'':' Preview only: actions disabled on port 8000.'));render();
+ }catch(e){loaded=false;all=[];notice('Unable to load reports: '+(e.message||e));$('ahtFrAdminList').textContent='';}finally{busy=false;}}
+ function safeToDelete(r){if(r.status==='Changes Applied'||r.status==='Uploading Audio')return false;
+  let plan;try{plan=JSON.parse(r.plan||'[]');}catch(_){return false;}if(!Array.isArray(plan))return false;
+  if(plan.some(x=>['applied','undone'].includes(x?.state)||x?.snapshot))return false;
+  return !r.events.some(x=>['approved and applied','undone'].includes(x?.event));
+ }
+ function render(){const box=$('ahtFrAdminList');if(!pm()){box.textContent='Not authorized.';return;}
+  const filter=$('ahtFrAdminStatus').value==='archived',pid=$('ahtFrAdminProject').value,q=norm($('ahtFrAdminSearch').value);
+  const rows=all.filter(x=>x.archived===filter&&(!pid||pid===x.projectId)&&(!q||norm(x.project+' '+x.author+' '+x.text).includes(q))).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  box.innerHTML=rows.length?rows.map(r=>`<div class="aht-fr-admin-item" data-id="${esc(r.id)}"><div><strong>${esc(r.project)}</strong> · ${esc(r.author)} · ${esc(r.date?new Date(r.date).toLocaleString():'Unknown date')}<div class="small">${esc(r.status)} · ${esc(r.text.slice(0,180)||'[Audio-only report]')}</div></div><div class="aht-fr-admin-actions"><button type="button" class="btn" data-action="${r.archived?'restore':'archive'}">${r.archived?'Restore':'Archive'}</button>${admin()&&safeToDelete(r)?'<button type="button" class="btn" data-action="delete">Delete permanently</button>':''}</div></div>`).join(''):'<p class="small">No matching reports.</p>';
+ }
+ async function fetchFresh(r){const p=provider(),site=await p.getSite(),lid=await p.getListId('AHT Field Reports');const item=await p.graph(`/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(lid)}/items/${encodeURIComponent(r.id)}?$expand=fields`);const f=item.fields||{},events=parse(String(f.ReviewHistory||''));if(String(f.ProjectId||'')!==r.projectId||!projectList().some(x=>String(x.id)===r.projectId))throw Error('Project authorization/scope changed; stopped.');return {p,site,lid,item,f,events,etag:item.eTag||item['@odata.etag']||''};}
+ async function archiveAction(r,action){const f=await fetchFresh(r);if(archived(f.events)!==(action==='restore'))throw Error('Report archive state changed. Refresh before trying again.');
+  const event={at:new Date().toISOString(),by:norm(actor()?.email||actor()?.mail||''),event:action==='restore'?'report restored':'report archived'};
+  f.events.push(event);await f.p.graph(`/sites/${encodeURIComponent(f.site.id)}/lists/${encodeURIComponent(f.lid)}/items/${encodeURIComponent(r.id)}/fields`,{method:'PATCH',headers:{'If-Match':f.etag},body:JSON.stringify({ReviewHistory:JSON.stringify(f.events)})});
+ }
+ async function deleteAction(r){if(!admin())throw Error('Administrator permission required.');if(!safeToDelete(r))throw Error('Report has project change history and cannot be deleted. Archive instead.');
+  if(!confirm('Permanently delete this test report?\n\n'+r.project+' · '+r.author+'\n\nThis cannot be undone.'))return;
+  const typed=prompt('Type DELETE to permanently remove this report and its dedicated audio file (if any).');if(typed!=='DELETE')return;
+  const f=await fetchFresh(r);const fresh={...r,status:String(f.f.ReportStatus||''),plan:String(f.f.ReviewPlan||'[]'),events:f.events};if(!safeToDelete(fresh))throw Error('Report gained approval history. Delete blocked.');
+  const others=(await f.p.getListRows('AHT Field Reports')).filter(x=>String(x.id)!==r.id && f.f.AudioFileName && x.fields?.AudioFileName===f.f.AudioFileName);
+  if(others.length)throw Error('Audio is referenced by another report. Delete blocked.');
+  await f.p.graph(`/sites/${encodeURIComponent(f.site.id)}/lists/${encodeURIComponent(f.lid)}/items/${encodeURIComponent(r.id)}`,{method:'DELETE',headers:{'If-Match':f.etag}});
+  if(f.f.AudioFileName){try{const drives=await f.p.graph(`/sites/${encodeURIComponent(f.site.id)}/drives?$select=id,name&$top=200`);const drive=(drives.value||[]).find(x=>x.name==='AHT Field Report Audio');if(drive){const name=String(f.f.AudioFileName);if(!/^ahtfr-[a-z0-9-]+\.(webm|m4a|ogg)$/i.test(name))throw Error('Unexpected audio filename.');await f.p.graph(`/drives/${encodeURIComponent(drive.id)}/root:/${encodeURIComponent(name)}`,{method:'DELETE'});}else notice('Report removed. Audio library unavailable: check for orphan recording.');}catch(e){alert('Report deleted, but its audio could not be removed: '+(e.message||e)+'\nCheck the audio library manually.');}}
+ }
+ root.addEventListener('click',async e=>{const b=e.target.closest('button[data-action]');if(!b||busy)return; if(!liveHost()){notice('Preview only on port 8000: archive, restore, and delete are disabled to protect live SharePoint data.');return;}const r=all.find(x=>x.id===b.closest('[data-id]')?.dataset.id);if(!r||!pm())return;
+  busy=true;b.disabled=true;try{if(b.dataset.action==='delete')await deleteAction(r);else await archiveAction(r,b.dataset.action);await load();}catch(err){notice('Operation stopped: '+(err.message||err));}finally{busy=false;b.disabled=false;}});
+ ['ahtFrAdminProject','ahtFrAdminStatus','ahtFrAdminSearch'].forEach(id=>$(id).addEventListener(id.endsWith('Search')?'input':'change',render));$('ahtFrAdminRefresh').onclick=load;
+ const style=document.createElement('style');style.textContent='.aht-fr-admin-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:14px 0}.aht-fr-admin-filters label{display:flex;flex-direction:column;gap:3px;min-width:160px}.aht-fr-admin-item{box-sizing:border-box!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,210px)!important;column-gap:12px;align-items:center;width:100%;max-width:100%;min-width:0;overflow:hidden;border:1px solid #dce6ee;border-radius:8px;margin:8px 0;padding:10px;background:#fff}.aht-fr-admin-item>div:first-child{display:block!important;min-width:0!important;max-width:100%!important;width:auto!important;overflow-wrap:anywhere!important;white-space:normal!important}.aht-fr-admin-item>div:first-child strong{overflow-wrap:anywhere}.aht-fr-admin-item .small{font-size:12px;margin-top:5px;color:#52708a;display:block;min-width:0;max-width:100%;white-space:normal!important;overflow-wrap:anywhere!important}.aht-fr-admin-actions{box-sizing:border-box!important;min-width:0!important;max-width:100%!important;width:100%!important;display:flex!important;align-items:center;justify-content:flex-end!important;gap:6px;flex-wrap:nowrap!important;justify-self:end;overflow:hidden}.aht-fr-admin-actions .btn{box-sizing:border-box!important;appearance:none;min-width:0;flex:0 0 auto!important;box-shadow:none!important;background:transparent!important;border:1px solid currentColor!important;border-radius:6px;padding:6px 7px!important;font-size:12px!important;font-weight:600;white-space:nowrap!important;line-height:1.2;min-height:30px;max-width:100%;transition:background-color .15s ease}.aht-fr-admin-actions .btn[data-action=archive]{color:#ed7d31!important}.aht-fr-admin-actions .btn[data-action=archive]:hover{background:#fff5ec!important}.aht-fr-admin-actions .btn[data-action=delete]{color:#d3261b!important}.aht-fr-admin-actions .btn[data-action=delete]:hover{background:#fff1f0!important}.aht-fr-admin-actions .btn[data-action=restore]{color:#17639c!important}.aht-fr-admin-actions .btn[data-action=restore]:hover{background:#eef6fd!important}.aht-fr-admin-actions .btn:focus-visible{outline:2px solid currentColor;outline-offset:1px}@media(max-width:740px){.aht-fr-admin-item{grid-template-columns:minmax(0,1fr)!important;row-gap:8px}.aht-fr-admin-actions{justify-content:flex-start!important;flex-wrap:wrap!important}}';document.head.append(style);
+ window.AHTFieldReportAdmin={canAccess:pm,open:()=>{const b=$('ahtReportAdminCover');if(b)b.hidden=!pm();load();}};
+ const cover=$('ahtReportAdminCover');if(cover){cover.hidden=!pm();}
+})();

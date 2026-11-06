@@ -5940,6 +5940,11 @@ const ADMIN_SECTION_GROUPS = Object.freeze({
     ]
   },
 
+  reports:{
+    title:"Field Report Management",
+    ids:["adminFieldReportsPanel"]
+  },
+
   support:{
     title:"Support",
     ids:[
@@ -5970,6 +5975,13 @@ function showAdminCover(){
 
   cover?.classList.remove("hidden");
   toolbar?.classList.add("hidden");
+  // Project managers may access report housekeeping without gaining other admin sections.
+  const u=typeof currentUser==='undefined'?null:currentUser;
+  const adminPrivileges=!!(u&&(u.canManageProjects||u.canManageInternalUsers||u.canAssignProjectAccess||u.canViewExternalUsers||u.canManageExternalUsers||u.canManageSystem||u.canManageBackups));
+  cover?.querySelectorAll('[data-admin-section]').forEach(button=>{
+    if(button.dataset.adminSection!=='reports')button.hidden=!adminPrivileges;
+    else button.hidden=!window.AHTFieldReportAdmin?.canAccess?.();
+  });
 
   adminManagedPanelIds()
     .forEach(id=>{
@@ -5996,6 +6008,11 @@ function showAdminSection(section){
     return;
   }
 
+  if(section==='reports'&&!window.AHTFieldReportAdmin?.canAccess?.())return;
+  if(section!=='reports'){
+    const u=typeof currentUser==='undefined'?null:currentUser;
+    if(!u||!(u.canManageProjects||u.canManageInternalUsers||u.canAssignProjectAccess||u.canViewExternalUsers||u.canManageExternalUsers||u.canManageSystem||u.canManageBackups))return;
+  }
   const config=
     ADMIN_SECTION_GROUPS[section];
 
@@ -6034,6 +6051,8 @@ function showAdminSection(section){
           !config.ids.includes(id)
         );
     });
+
+  if(section==="reports")window.AHTFieldReportAdmin?.open?.();
 
   document
     .getElementById("admin")
