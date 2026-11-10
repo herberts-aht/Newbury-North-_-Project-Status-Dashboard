@@ -82,9 +82,15 @@
       const nameTokens = new Set(keywords(title));
       const detailTokens = new Set(keywords(description));
       const matches = tokens.filter(t => nameTokens.has(t) || detailTokens.has(t));
-      if (matches.length < 2) return null;
+      const titleMatches = matches.filter(t => nameTokens.has(t));
+      // Single specific device/work term can be useful for an otherwise brief voice note
+      // (e.g. "speakers installed"). Place/building words alone are not sufficient.
+      // These remain read-only candidates; no automatic project write is permitted.
+      const placeOnly = new Set(['guest','house','garage','main','primary','floor','level','room','building','north','south','east','west']);
+      const specificTitleHit = titleMatches.some(t => !placeOnly.has(t) && t.length >= 5);
+      if (matches.length < 2 && !specificTitleHit) return null;
       const outdoorOnly = wantsIndoor && /\boutdoor\b/i.test(title) && !/\bindoor\b/i.test(title+' '+description);
-      const titleHits = matches.filter(t=>nameTokens.has(t)).length;
+      const titleHits = titleMatches.length;
       const score = (titleHits * 4) + (matches.length - titleHits) + (source.kind === 'deliverable' ? 0.4 : 0) - (outdoorOnly ? 5 : 0);
       return {source:source.label,kind:source.kind,title,status,description:shortText(description),matches,score,outdoorOnly,url:row.webUrl || '',id:String(row.id)};
     }).filter(Boolean).sort((a,b)=>b.score-a.score);
@@ -138,9 +144,12 @@
       try{
         if(!String(report.original||'').trim())throw Error('Audio-only report: typed notes or a transcript are required to search report meaning.');
         const index=await loadProjectReferences(report.projectId);
-        const found=index.records.flatMap(group=>candidatesFor(report,group)).filter(x=>verifiedSourceUrl(x.url,index.siteUrl));
+        // An optional Graph listItem.webUrl must never decide whether a project record
+        // is a legitimate candidate. Exact item IDs are re-read and project-scoped
+        // again in verifiedChange() before a PM can preview or approve a write.
+        const found=index.records.flatMap(group=>candidatesFor(report,group));
         found.sort((x,y)=>y.score-x.score);
-        relatedStates.set(report.id,{state:'ready',items:found.slice(0,5).map(x=>({...x,url:verifiedSourceUrl(x.url,index.siteUrl)})),warnings:index.warnings,manual:false,allItems:[]});
+        relatedStates.set(report.id,{state:'ready',items:found.slice(0,8).map(x=>({...x,url:verifiedSourceUrl(x.url,index.siteUrl)})),warnings:index.warnings,manual:false,allItems:[]});
       }catch(e){relatedStates.set(report.id,{state:'error',error:String(e.message||e),items:[],warnings:[]});}
       refreshRelatedDisplay(report);
     })();
@@ -317,8 +326,17 @@
     if(/\bahtfr-[a-z0-9-]+\b/i.test(v))throw Error('Do not include internal Field Report IDs in project activity wording.');
     return v;
   }
+  // Completion can never be inferred solely from a technician's future plan.
+  // This is a backstop for manually prepared proposals; PM verification is still required.
+  function futureOnlyReport(text){
+    const words=String(text||'');
+    const future=/\b(?:tomorrow|next[- ]day|next\s+(?:week|month)|upcoming|plan(?:ned|ning)\s+(?:to|for)|scheduled\s+(?:to|for)|will|we['’]ll|going\s+to)\b/i.test(words);
+    const actual=words.replace(/\b(?:will|shall|may|might|going\s+to|planned\s+to|scheduled\s+to|to\s+be)\s+(?:\w+\s+){0,2}(?:completed?|finished|installed|terminated|tested|commissioned|done|pulled|landed)\b/gi,'');
+    return future && !/\b(?:completed?|finished|installed|terminated|tested|commissioned|done|pulled|landed)\b/i.test(actual);
+  }
   function checkDraft(r,d){
     if(!['none','record','complete','newTask','newMilestone'].includes(d.action))throw Error('Choose a supported action.');
+    if(d.action==='complete'&&futureOnlyReport(r.original))throw Error('This report only describes upcoming work, not verified completion. Obtain an explicit completed-work report before marking a task Complete.');
     const allowed=availableTargets(r).filter(x => d.action==='record'?x.kind==='deliverable':d.action==='complete'?['deliverable','work'].includes(x.kind):false);
     if(d.action==='record'||d.action==='complete'){
       if(!allowed.some(x=>x.kind+'|'+x.id===d.target))throw Error('Choose a verified '+(d.action==='record'?'Deliverable':'task or Deliverable')+' from this project.');
@@ -416,6 +434,7 @@
   async function verifiedChange(report,selection){
     if(!reviewer()||!projectIds().has(report.projectId))throw Error('PM permission or project access is unavailable.');
     if(!['complete','record'].includes(selection.action))throw Error('Choose a specific proposed action.');
+    if(selection.action==='complete'&&futureOnlyReport(report.original))throw Error('Upcoming work is not completion evidence. No Complete status will be saved from this report.');
     const match=availableTargets(report).find(x=>x.kind+'|'+x.id===selection.target);
     if(!match)throw Error('Select a valid matching record. Open references for uncertain reports.');
     if (selection.action==='record' && match.kind==='work') throw Error('For a work item, recording a decision would overwrite its Information Required field. Select a Deliverable for the decision, or leave this unresolved.');
@@ -591,7 +610,8 @@
   function projectSelectableItems(index){
     return index.records.filter(g=>g.kind==='work'||g.kind==='deliverable').flatMap(g=>g.records.map(row=>{
       const f=row.fields||{},url=verifiedSourceUrl(row.webUrl||'',index.siteUrl);
-      if(!url)return null;
+      // Manual browsing must include project-scoped rows even if Graph omitted webUrl.
+      // Never synthesize a SharePoint URL; the PM's preview verifies the exact item ID.
       return {source:g.label,kind:g.kind,title:String(f.Title||'(Untitled)'),status:String(f.WorkStatus||f.OperationalStatus||'Not specified'),description:shortText([f.CurrentActivity,f.InformationRequired,f.NextStep].filter(Boolean).join(' ')),matches:[],score:0,outdoorOnly:false,url,id:String(row.id)};
     }).filter(Boolean));
   }
@@ -624,7 +644,7 @@
     if(!state) return `<section class="fr-related">${head}<div class="fr-muted">Checking matching project records automatically when this report is opened.</div></section>`;
     if(state.state==='loading')return `<section class="fr-related">${head}<div class="fr-muted">Searching this project's existing records…</div></section>`;
     if(state.state==='error')return `<section class="fr-related">${head}<div class="fr-muted">${esc(state.error)}</div><button type="button" class="fr-btn" data-find-related>Retry search</button></section>`;
-    const matches=state.items.length?state.items.map((x,i)=>`<div class="fr-reference-row"><div class="fr-reference-caption">${esc(x.source)} · ${esc(x.status)}${x.outdoorOnly?' · Outdoor-only context':''}</div><strong>${esc(x.title)}</strong><div class="fr-muted">${esc(x.description || 'No supporting description available.')}</div><div class="fr-reference-actions"><span class="fr-muted">Matched: ${esc(x.matches.slice(0,4).join(', '))}</span><a class="fr-source-link" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">Open original record ↗</a></div></div>`).join('') : '<div class="fr-muted">No convincing record matches. Leave the item unresolved or propose a new task for PM review.</div>';
+    const matches=state.items.length?state.items.map((x,i)=>`<div class="fr-reference-row"><div class="fr-reference-caption">${esc(x.source)} · ${esc(x.status)}${x.outdoorOnly?' · Outdoor-only context':''}</div><strong>${esc(x.title)}</strong><div class="fr-muted">${esc(x.description || 'No supporting description available.')}</div><div class="fr-reference-actions"><span class="fr-muted">Matched: ${esc(x.matches.slice(0,4).join(', '))}</span>${x.url?`<a class="fr-source-link" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">Open original record ↗</a>`:'<span class="fr-muted">Direct link unavailable · verify in PM preview</span>'}</div></div>`).join('') : '<div class="fr-muted">No convincing record matches. Leave the item unresolved or propose a new task for PM review.</div>';
     const warn=state.warnings.length?`<p class="fr-muted">Partial search: ${esc(state.warnings.join('; '))}.</p>`:'';
     return `<section class="fr-related"><details class="fr-related-details"><summary>Matching project records: ${state.items.length} found</summary>${head}${matches}${warn}<div class="fr-reference-footer"><span class="fr-muted">Suggestions are read-only. Verify project scope before approval.</span><button type="button" class="fr-btn" data-find-related>Recheck</button></div></details></section>`;
   }
@@ -971,12 +991,12 @@
       : '<div class="fr-empty">No submitted SharePoint reports found for this account and assigned projects.</div>';
   }
   // v2.9: read-only findings; decisions and record changes remain explicitly PM-controlled.
-  const findingLabels={confirmed_decision:'Decision to verify',unapproved_option:'Not approved',reported_completed_work:'Reported completed',outstanding_dependency:'Blocked / waiting',issue_or_risk:'Potential risk',other:'Observation'};
+  const findingLabels={confirmed_decision:'Decision to verify',unapproved_option:'Not approved',reported_completed_work:'Reported completed',planned_work:'Planned / upcoming',outstanding_dependency:'Blocked / waiting',issue_or_risk:'Potential risk',other:'Observation'};
   const attentionCategories=new Set(['outstanding_dependency','issue_or_risk','unapproved_option','confirmed_decision']);
   function findingTokens(f){return new Set(keywords(String(f.subject||'')+' '+String(f.evidence||'')));}
   function conciseFindings(data){
     const all=(Array.isArray(data?.findings)?data.findings:[]).map((item,index)=>({...item,index}));
-    const priority={outstanding_dependency:0,unapproved_option:1,confirmed_decision:2,issue_or_risk:3,reported_completed_work:4,other:5};
+    const priority={outstanding_dependency:0,unapproved_option:1,confirmed_decision:2,issue_or_risk:3,planned_work:4,reported_completed_work:5,other:6};
     const sorted=all.slice().sort((a,b)=>(priority[a.category]??6)-(priority[b.category]??6));
     const visible=[];
     for(const item of sorted){
@@ -997,8 +1017,9 @@
     if(state?.state==='ready'){
       const data=state.data,items=conciseFindings(data);
       const attention=items.filter(x=>attentionCategories.has(x.category));
+      const upcoming=items.filter(x=>x.category==='planned_work');
       const completed=items.filter(x=>x.category==='reported_completed_work');
-      const other=items.filter(x=>!attentionCategories.has(x.category)&&x.category!=='reported_completed_work');
+      const other=items.filter(x=>!attentionCategories.has(x.category)&&x.category!=='reported_completed_work'&&x.category!=='planned_work');
       // Scan-first: separate category metadata from the actionable finding title.
       const brief=item=>{
         const needsReview=attentionCategories.has(item.category);
@@ -1006,13 +1027,14 @@
         return `<article class="fr-highlight fr-highlight-${kind}"><div class="fr-highlight-copy">
           <span class="fr-highlight-kind">${esc(findingLabels[item.category]||'Observation')}</span>
           <strong class="fr-highlight-title">${esc(shortText(item.subject,140))}</strong>
-          ${item.recommended_update?`<p class="fr-highlight-next">${needsReview?'<b>Next:</b> ':''}${esc(shortText(item.recommended_update,200))}</p>`:''}</div>
+          ${item.recommended_update?`<p class="fr-highlight-next">${needsReview||item.category==='planned_work'?'<b>Next:</b> ':''}${esc(shortText(item.recommended_update,200))}</p>`:''}</div>
           ${needsReview?`<button type="button" class="fr-btn fr-prepare-finding" data-fr-use-finding="${item.index}">Prepare task</button>`:''}</article>`;
       };
       const detail=data.findings.map((f,i)=>`<div class="fr-ai-detail"><strong>${esc(findingLabels[f.category]||'Observation')} — ${esc(f.subject)}</strong><p><b>From report:</b> ${esc(f.evidence)}</p>${f.recommended_update?`<p><b>Suggested follow-up:</b> ${esc(f.recommended_update)}</p>`:''}${f.uncertainty?`<p><b>Verify:</b> ${esc(f.uncertainty)}</p>`:''}${f.suggested_record_title?`<p><b>Possible record:</b> ${esc(f.suggested_record_title)} — check manually</p>`:''}</div>`).join('');
       rows=`<div class="fr-ai-result">
-        <div class="fr-summary-brief" aria-label="Report findings counts"><span class="fr-summary-attention"><strong>${attention.length}</strong> need${attention.length===1?'s':''} review</span><span class="fr-summary-completed"><strong>${completed.length}</strong> reported complete</span></div>
+        <div class="fr-summary-brief" aria-label="Report findings counts"><span class="fr-summary-attention"><strong>${attention.length}</strong> need${attention.length===1?'s':''} review</span><span class="fr-summary-completed"><strong>${completed.length}</strong> reported complete</span>${upcoming.length?`<span class="fr-muted"><strong>${upcoming.length}</strong> upcoming</span>`:''}</div>
         ${attention.length?`<section class="fr-findings-section fr-findings-attention"><h4>For PM review</h4><div class="fr-findings-grid">${attention.slice(0,4).map(brief).join('')}</div>${attention.length>4?`<p class="fr-muted">${attention.length-4} more findings in the details below.</p>`:''}</section>`:''}
+        ${upcoming.length?`<section class="fr-findings-section fr-findings-other"><h4>Planned / upcoming work</h4>${upcoming.slice(0,3).map(brief).join('')}</section>`:''}
         ${completed.length?`<section class="fr-findings-section fr-findings-completed"><h4>Work reported complete</h4>${completed.slice(0,3).map(brief).join('')}</section>`:''}
         ${other.length?`<section class="fr-findings-section fr-findings-other"><h4>Other notes</h4>${other.slice(0,2).map(brief).join('')}</section>`:''}
         ${!items.length?'<p class="fr-muted">No distinct findings were identified. Review the original report.</p>':''}
@@ -1043,7 +1065,7 @@
       const apiToken=await window.getAhtAiAccessToken({interactive});
       if(!apiToken)throw Error('Microsoft did not issue an API token. Select Retry findings to sign in.');
       const matches=relatedStates.get(report.id)?.items||[];
-      const candidateRecords=matches.slice(0,12).map(v=>({title:v.title,kind:v.kind||v.source,status:v.status,description:v.description}));
+      const candidateRecords=matches.slice(0,8).map(v=>({title:v.title,kind:v.kind||v.source,status:v.status,description:v.description}));
       const response=await fetch('/api/analyze-report',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-AHT-Access-Token':`Bearer ${apiToken}`},body:JSON.stringify({projectName:report.project||projectName(report.projectId),reportText:report.original,candidateRecords})});
       const type=response.headers.get('content-type')||'';
       if(!type.includes('json'))throw Error('The secure analysis service returned an unexpected response. Try refreshing your session.');
