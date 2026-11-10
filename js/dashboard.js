@@ -224,6 +224,12 @@ function executiveProjectPlanItems(){
     .getItems()
     .filter(item=>{
       if(item.archived)return false;
+      // UI read guard: external viewers must not see Internal plan rows.
+      // This is not a SharePoint/Graph authorization boundary.
+      if(currentUser?.isInternal!==true){
+        if(!currentProjectAccessCapability("canViewProjectPlan"))return false;
+        if(String(item.visibility||"")!=="Project")return false;
+      }
 
       return (
         String(item.projectId??"")===projectId ||
@@ -233,6 +239,78 @@ function executiveProjectPlanItems(){
         )
       );
     });
+}
+
+/*
+ * 2490-only construction summary. Work Item keys stay unchanged, so voice
+ * updates to the existing SharePoint rows continue to appear here.
+ * Do not apply these presentation preferences to other projects.
+ */
+function executive2490Focused(project){
+  return String(project?.id||"").toUpperCase()==="2490-GORDON";
+}
+
+function executive2490FieldItem(item){
+  const phase=String(item?.phase||"");
+  const type=String(item?.itemType||"");
+  const excluded=new Set([
+    "2490-preconstruction",
+    "2490-formal-client-approval",
+    "2490-engineering-design",
+    "2490-review-current-drawings",
+    "2490-day-designation",
+    "2490-roughin",
+    "2490-roughin-all-rooms",
+    "2490-ceiling-final-prep"
+  ]);
+  return !excluded.has(String(item?.id||"")) &&
+    ["Rough-In","Installation"].includes(phase) && type==="Task";
+}
+
+function executive2490SummarySources(project,plan,infoRecords){
+  if(!executive2490Focused(project)){
+    return {
+      active:plan.active,
+      waiting:plan.waiting,
+      upcoming:plan.upcoming,
+      info:infoRecords
+    };
+  }
+
+  // Avoid duplicate requests: Information Required is the authoritative
+  // source for external coordination, not the same waiting Project task.
+  const info=infoRecords.filter(item=>
+    String(item.visibility||"")==="Shared"
+  );
+
+  const priorityTitle=[
+    "2490 - Final coordinated AV/LV drawings",
+    "Guest Rack and LV Panel location",
+    "Guest House - Keypad locations and wall build-outs",
+    "Outdoor CCTV mounting clarification",
+    "2490 - Camera poles and site conduit schedule",
+    "2490 - AV/LV core drilling coordination",
+    "Ceiling architecture conflict with speaker locations",
+    "2490 - Cellular DEB-48 enclosure requirements"
+  ].map(s=>s.trim().toLowerCase());
+  const rank=item=>{
+    const title=String(item?.item||"").trim().toLowerCase();
+    const index=priorityTitle.indexOf(title);
+    return index<0?priorityTitle.length:index;
+  };
+  info.sort((a,b)=>rank(a)-rank(b) ||
+    String(a.item||"").localeCompare(String(b.item||"")));
+
+  return {
+    active:plan.active.filter(executive2490FieldItem),
+    waiting:[],
+    upcoming:plan.items.filter(item=>
+      executive2490FieldItem(item) &&
+      !executiveTaskComplete(item) &&
+      ["Planned","Not Started"].includes(String(item.status||""))
+    ).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0)),
+    info
+  };
 }
 
 function executiveTaskComplete(item){
@@ -1772,7 +1850,31 @@ function render(){
   };
 });
  const executivePlan=executiveProjectPlanSnapshot();
+ const executiveSources=executive2490SummarySources(p,executivePlan,infoRecords);
+ const focused2490=executive2490Focused(p);
  const executiveSite=executiveSiteScheduleSnapshot();
+
+ // The Deliverables counters are not useful while 2490 has no live
+ // Deliverables; the focused activity and dependency panels remain visible.
+ const executiveKpis=kpiTotal?.closest(".grid-kpi");
+ if(executiveKpis)executiveKpis.classList.toggle("hidden",focused2490 && !ds.length);
+ const upNextHeading=nextDeliverables?.closest(".panel")?.querySelector("h3");
+ if(upNextHeading)upNextHeading.textContent=focused2490?"UP NEXT":"NEXT DELIVERABLES";
+ const progressCard=summaryProgressInstallation?.closest(".executive-progress-card");
+ if(progressCard){
+   progressCard.querySelector(".aht-2490-progress-note")?.remove();
+   const fieldWorkRecorded=executivePlan.items.some(item=>
+     executive2490FieldItem(item) &&
+     ["In Progress","Complete"].includes(String(item.status||""))
+   );
+   if(focused2490 && executiveInstallation===0 && fieldWorkRecorded){
+     const note=document.createElement("div");
+     note.className="small aht-2490-progress-note";
+     note.textContent="AV/LV field work recorded; installation % awaiting review.";
+     note.style.marginTop="6px";
+     progressCard.appendChild(note);
+   }
+ }
 
  // ==========================================================
  // CURRENT WORK
@@ -1800,7 +1902,7 @@ function render(){
        `
      })),
 
-   ...executivePlan.active
+   ...executiveSources.active
      .map(item=>({
        date:
          item.targetDate ||
@@ -1813,10 +1915,10 @@ function render(){
            <div class="exec-summary-content">
              <div class="exec-summary-title-line">
                <strong>${esc(item.title)}</strong>
-               <span class="exec-source-tag">Project Plan</span>
+               <span class="exec-source-tag">${focused2490?"AV/LV Work":"Project Plan"}</span>
              </div>
              <div class="small">
-               ${esc(item.owner||"Unassigned")}
+               ${esc(focused2490?(item.informationRequired||item.owner||"In progress"):(item.owner||"Unassigned"))}
                ${
                  executiveTaskDate(item)
                    ? ` · ${fmtDate(executiveTaskDate(item))}`
@@ -1843,7 +1945,7 @@ function render(){
  // ==========================================================
 
  const requiredOtherRows=[
-   ...infoRecords
+   ...executiveSources.info
      .filter(x=>
        x.status!=="Received" &&
        x.status!=="No Longer Needed"
@@ -1874,7 +1976,7 @@ function render(){
        `
      })),
 
-   ...executivePlan.waiting
+   ...executiveSources.waiting
      .map(item=>({
        date:
          item.requiredBy ||
@@ -1907,7 +2009,10 @@ function render(){
          </div>
        `
      }))
- ].sort(executiveSortUrgentFirst);
+ ].sort(focused2490
+   ? (a,b)=>executiveSources.info.findIndex(x=>x.item===a.title) -
+      executiveSources.info.findIndex(x=>x.item===b.title)
+   : executiveSortUrgentFirst);
 
  requiredOthers.innerHTML=
    executivePanelHtml(
@@ -1947,8 +2052,8 @@ function render(){
        `
      })),
 
-   ...executivePlan.upcoming
-     .filter(item=>item.targetDate)
+   ...executiveSources.upcoming
+     .filter(item=>focused2490||item.targetDate)
      .map(item=>({
        date:item.targetDate,
        title:item.title||"",
@@ -1958,11 +2063,11 @@ function render(){
            <div class="exec-summary-content">
              <div class="exec-summary-title-line">
                <strong>${esc(item.title)}</strong>
-               <span class="exec-source-tag">Project Plan</span>
+               <span class="exec-source-tag">${focused2490?"AV/LV Work":"Project Plan"}</span>
              </div>
              <div class="small">
-               ${esc(executiveTaskPath(item))}
-               · ${fmtDate(item.targetDate)}
+               ${esc(focused2490?(item.informationRequired||executiveTaskPath(item)):executiveTaskPath(item))}
+               ${item.targetDate?` · ${fmtDate(item.targetDate)}`:" · Date to be confirmed"}
              </div>
            </div>
          </div>
@@ -1974,7 +2079,7 @@ function render(){
    executivePanelHtml(
      "nextDeliverables",
      nextDeliverableRows,
-     "No active deliverables or upcoming Tasks."
+     focused2490?"No upcoming AV/LV work currently listed.":"No active deliverables or upcoming Tasks."
    );
 
 
@@ -7260,6 +7365,8 @@ async function downloadCurrentProjectPDF(){
   const current=ds.filter(x=>x.status==="In Progress");
   const outstandingInfo=infoRecords.filter(x=>x.status!=="Received"&&x.status!=="No Longer Needed");
   const executivePlan=executiveProjectPlanSnapshot();
+  const executiveSources=executive2490SummarySources(p,executivePlan,infoRecords);
+  const focused2490=executive2490Focused(p);
   const risks=ds.filter(x=>x.risk);
   const progress=weightedProjectProgress(p);
   const planning=displayedPhaseProgress(p,"Planning");
@@ -7649,17 +7756,19 @@ async function downloadCurrentProjectPDF(){
       detail:x.current||"",
       date:x.date||""
     })),
-    ...executivePlan.active.map(item=>({
+    ...executiveSources.active.map(item=>({
       category:"Current Work",
       source:"Project Plan",
       title:item.title||"",
-      detail:item.owner||"Unassigned",
+      detail:focused2490?(item.informationRequired||"In progress"):(item.owner||"Unassigned"),
       date:executiveTaskDate(item)
     }))
   ].sort(executiveSortUrgentFirst);
 
   const pdfRequired=[
-    ...outstandingInfo.map(x=>({
+    ...(focused2490
+      ? executiveSources.info.filter(x=>x.status!=="Received"&&x.status!=="No Longer Needed")
+      : outstandingInfo).map(x=>({
       category:"Required From Others",
       source:"Info Required",
       title:x.item||"",
@@ -7667,7 +7776,7 @@ async function downloadCurrentProjectPDF(){
         `${x.from||"—"}${x.blocking?`; blocks ${x.blocking}`:""}`,
       date:x.neededBy||""
     })),
-    ...executivePlan.waiting.map(item=>({
+    ...executiveSources.waiting.map(item=>({
       category:"Required From Others",
       source:"Project Plan",
       title:item.informationRequired||item.title||"",
@@ -7687,13 +7796,13 @@ async function downloadCurrentProjectPDF(){
         detail:x.nextStep||"",
         date:x.date||""
       })),
-    ...executivePlan.upcoming
-      .filter(item=>item.targetDate)
+    ...executiveSources.upcoming
+      .filter(item=>focused2490||item.targetDate)
       .map(item=>({
-        category:"Next Deliverables",
+        category:focused2490?"Up Next":"Next Deliverables",
         source:"Project Plan",
         title:item.title||"",
-        detail:executiveTaskPath(item),
+        detail:focused2490?(item.informationRequired||executiveTaskPath(item)):executiveTaskPath(item),
         date:item.targetDate
       }))
   ].sort(executiveSortByDate);
@@ -7747,7 +7856,7 @@ async function downloadCurrentProjectPDF(){
   );
 
   summaryPanel(
-    "NEXT DELIVERABLES",
+    focused2490?"UP NEXT":"NEXT DELIVERABLES",
     pdfNext
       .slice(0,EXECUTIVE_SUMMARY_LIMIT)
       .map(x=>
