@@ -643,6 +643,82 @@
     const el = $('fr-status'); if (!el) return;
     el.textContent = message; el.className = 'fr-status ' + (type ? 'fr-' + type : ''); el.hidden = !message;
   }
+  // A reconnect uses the dashboard's existing Microsoft sign-in; it never
+  // signs the user out or bypasses project permissions. Preserve typed notes
+  // across a browser redirect, and require the user to reselect the project.
+  const reconnectDraftKey = 'aht.fieldUpdate.reconnectTextDraft';
+  function saveReconnectTextDraft() {
+    const text = String($('fr-text')?.value || '');
+    if (!text.trim()) return;
+    try {
+      sessionStorage.setItem(reconnectDraftKey, JSON.stringify({
+        at: Date.now(), text: text.slice(0, 12000)
+      }));
+    } catch (_) {
+      // Private browsing may reject storage. The user will see a warning.
+    }
+  }
+  function restoreReconnectTextDraft() {
+    try {
+      const raw = sessionStorage.getItem(reconnectDraftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      sessionStorage.removeItem(reconnectDraftKey);
+      if (Date.now() - Number(draft.at) > 15 * 60 * 1000) return;
+      const input = $('fr-text');
+      if (input && !input.value.trim() && typeof draft.text === 'string') {
+        input.value = draft.text;
+        status('Your unsent text was restored. Select the correct project before submitting.', 'success');
+      }
+    } catch (_) {
+      // Authentication must never fail because a draft could not be restored.
+    }
+  }
+  async function reconnectMicrosoft() {
+    const button = $('fr-reconnect');
+    if (!button || button.disabled) return;
+    if (recordedBlob && !window.confirm(
+      'Reconnecting may discard this unsent audio recording. Continue and record it again after sign-in?'
+    )) return;
+    if (typeof handleLogin !== 'function') {
+      status('Microsoft sign-in is unavailable. Open the dashboard and sign in.', 'warning');
+      return;
+    }
+    saveReconnectTextDraft();
+    button.disabled = true;
+    button.textContent = 'Connecting…';
+    try {
+      // A mobile browser uses the existing MSAL redirect login. In Teams this
+      // uses the existing NAA/Teams login. No dashboard logout is performed.
+      await handleLogin();
+      // Redirects leave the page; for Teams popup auth, refresh in-place.
+      if (!loading) await refresh();
+      if (!errorText) {
+        try { sessionStorage.removeItem(reconnectDraftKey); } catch (_) {}
+      }
+    } finally {
+      if (button.isConnected) {
+        button.disabled = false;
+        button.textContent = 'Reconnect Microsoft';
+      }
+    }
+  }
+  function showConnectionFailure(message) {
+    const connection = $('fr-connection');
+    if (!connection) return;
+    connection.replaceChildren(document.createTextNode(
+      'SharePoint reporting unavailable: ' + message + ' '
+    ));
+    // This is a user-initiated login, not an automatic popup or redirect.
+    const button = document.createElement('button');
+    button.id = 'fr-reconnect';
+    button.type = 'button';
+    button.className = 'fr-btn';
+    button.textContent = 'Reconnect Microsoft';
+    button.addEventListener('click', reconnectMicrosoft);
+    connection.appendChild(button);
+    connection.hidden = false;
+  }
   function setBusy(on) {
     submitting = on;
     const btn = $('fr-submit'); if (btn) { btn.disabled = on || !!errorText || projects().length === 0; btn.textContent = on ? 'Saving to SharePoint…' : 'Submit report'; }
@@ -702,6 +778,7 @@
     $('fr-review-list').addEventListener('click', onPlanUndo);
     root.addEventListener('click', playAudioClick);
     fillProjects();
+    restoreReconnectTextDraft();
   }
   function fillProjects() {
     const sel = $('fr-project'); if (!sel) return;
@@ -759,7 +836,7 @@
     } catch (e) {
       errorText = e.message || String(e);
       $('fr-mode').textContent = 'NOT CONNECTED';$('fr-mode').classList.add('fr-disconnected');$('fr-mode').classList.remove('fr-connected');
-      $('fr-connection').hidden = false; $('fr-connection').textContent = 'SharePoint reporting unavailable: ' + errorText;
+      showConnectionFailure(errorText);
       status('SharePoint reports are unavailable: ' + errorText + '. No report was submitted.', 'warning');
       records = [];
     } finally { loading = false; setBusy(submitting); render(); autoFindPendingReferences(); }

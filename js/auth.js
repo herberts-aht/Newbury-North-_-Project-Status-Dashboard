@@ -8,6 +8,28 @@ let msalInstance = null;
 let microsoftAccount = null;
 let teamsAccessToken = null;
 
+// Legacy Teams popup tokens are not refreshed by this page's MSAL cache.
+// Treat a missing/expired Graph token as a reconnect requirement instead of
+// returning the same stale bearer token for every subsequent SharePoint call.
+function legacyTeamsTokenIsCurrent(token) {
+  if (!token || typeof token !== "string") return false;
+  try {
+    const segment = token.split(".")[1];
+    if (!segment) return false;
+    const claims = JSON.parse(atob(segment.replace(/-/g, "+").replace(/_/g, "/")));
+    return Number.isFinite(Number(claims.exp)) &&
+      Number(claims.exp) * 1000 > Date.now() + 60 * 1000;
+  } catch (_) {
+    return false;
+  }
+}
+
+function isMobileMicrosoftBrowser() {
+  return window.navigator?.standalone === true ||
+    window.matchMedia?.("(display-mode: standalone)")?.matches === true ||
+    /iPhone|iPad|iPod|Android/i.test(window.navigator?.userAgent || "");
+}
+
 /*
  * Teams Nested App Authentication (NAA)
  *
@@ -898,10 +920,20 @@ async function getMicrosoftAccessToken(
     teamsNaaActive &&
     teamsNaaInstance
   ){
-    return await acquireTeamsNaaAccessToken(
-      scopes,
-      { interactive }
-    );
+    try {
+      // The Teams mobile host can reject popups launched during background
+      // SharePoint loading. The Reconnect button invokes interactive NAA from
+      // an explicit user action instead.
+      return await acquireTeamsNaaAccessToken(
+        scopes,
+        { interactive: interactive && !isMobileMicrosoftBrowser() }
+      );
+    } catch (error) {
+      if (interactive && isMobileMicrosoftBrowser()) {
+        throw new Error("Microsoft session needs renewal in Teams. Tap Reconnect Microsoft in Field Update.");
+      }
+      throw error;
+    }
   }
 
   if(!msalInstance){
@@ -925,6 +957,10 @@ async function getMicrosoftAccessToken(
    * Legacy Teams popup authentication fallback.
    */
   if(teamsAccessToken){
+    if (!legacyTeamsTokenIsCurrent(teamsAccessToken)) {
+      teamsAccessToken = null;
+      throw new Error("Teams Microsoft session expired. Tap Reconnect Microsoft in Field Update.");
+    }
     return teamsAccessToken;
   }
 
@@ -941,6 +977,13 @@ async function getMicrosoftAccessToken(
 
     if(!interactive){
       throw error;
+    }
+
+    // Safari/iPhone home-screen apps can block popups launched indirectly by
+    // background SharePoint requests. Never start a redirect automatically:
+    // it would discard a technician's unsent voice recording or note.
+    if (window.self === window.top && isMobileMicrosoftBrowser()) {
+      throw new Error("Microsoft session needs renewal on this device. Tap Reconnect Microsoft in Field Update.");
     }
 
     const result =
