@@ -1704,6 +1704,12 @@ function currentProjectAccessCapability(capability){
  return Boolean(user[capability]);
 }
 
+// Internal reporting details are visible only to the designated AHT account.
+function canViewInstallationReportDetails(){
+ return Boolean(currentUser?.canEdit &&
+  String(currentUser?.entraObjectId || "").toLowerCase()==="8feae494-8b0e-43a5-be9f-4bb6c5b36298");
+}
+
 function render(){
  document.querySelectorAll(".editor-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canEdit));
  document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!currentUser?.canAdmin));
@@ -1825,7 +1831,7 @@ function render(){
      !currentProjectAccessCapability("canViewSiteOperations")
    )
  );
- projectGrid.innerHTML=projects.map(pr=>{const waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length,active=Math.max(0,pr.deliverables.length-waiting-complete);const progress=weightedProjectProgress(pr),planning=displayedPhaseProgress(pr,"Planning"),engineering=displayedPhaseProgress(pr,"Engineering"),installation=displayedPhaseProgress(pr,"Installation"),health=displayedProjectHealth(pr);return `<div class="project-card" onclick="setProject('${pr.id}');showView('dashboard')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health">${AHTStatusUI.badge(health,esc)}</div><div class="small" style="margin-top:6px">Updated: ${esc(formatLastUpdated(pr))}</div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%${progressModeMark(pr.progressOverallMode||"auto")}</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong><span class="phase-progress-value">${planning}%</span>${progressModeMark(phaseProgressMode(pr,"Planning"))}</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong><span class="phase-progress-value">${engineering}%</span>${progressModeMark(phaseProgressMode(pr,"Engineering"))}</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong><span class="phase-progress-value">${installation}%</span>${progressModeMark(phaseProgressMode(pr,"Installation"))}</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
+ projectGrid.innerHTML=projects.map(pr=>{const waiting=pr.deliverables.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,complete=pr.deliverables.filter(x=>x.status==="Complete").length,active=Math.max(0,pr.deliverables.length-waiting-complete);const progress=weightedProjectProgress(pr),planning=displayedPhaseProgress(pr,"Planning"),engineering=displayedPhaseProgress(pr,"Engineering"),installation=displayedPhaseProgress(pr,"Installation"),health=displayedProjectHealth(pr);return `<div class="project-card" onclick="setProject('${pr.id}');showView('dashboard')"><h3>${esc(pr.name)}</h3><p>${esc(pr.subtitle)}</p><div class="health">${AHTStatusUI.badge(health,esc)}</div><div class="small" style="margin-top:6px">Updated: ${esc(formatLastUpdated(pr))}</div><div class="progress-wrap"><div class="small" style="display:flex;justify-content:space-between"><span>Overall Progress</span><strong>${progress}%${progressModeMark(pr.progressOverallMode||"auto")}</strong></div><div class="progress-bar"><span style="width:${progress}%"></span></div><div class="phase-progress"><div class="phase-progress-row"><span>Planning</span><div class="progress-bar"><span style="width:${planning}%"></span></div><strong><span class="phase-progress-value">${planning}%</span>${progressModeMark(phaseProgressMode(pr,"Planning"))}</strong></div><div class="phase-progress-row"><span>Engineering</span><div class="progress-bar"><span style="width:${engineering}%"></span></div><strong><span class="phase-progress-value">${engineering}%</span>${progressModeMark(phaseProgressMode(pr,"Engineering"))}</strong></div><div class="phase-progress-row"><span>Installation</span><div class="progress-bar"><span style="width:${installation}%"></span></div><strong><span class="phase-progress-value">${installation}%</span>${canViewInstallationReportDetails() ? progressModeMark(phaseProgressMode(pr,"Installation")) : ""}</strong></div></div></div><div class="stats"><div class="stat-mini"><strong>${active}</strong><span>ACTIVE</span></div><div class="stat-mini"><strong>${waiting}</strong><span>WAITING</span></div><div class="stat-mini"><strong>${complete}</strong><span>COMPLETE</span></div></div></div>`}).join("");
  const opts=projects.map(pr=>`<option value="${pr.id}" ${pr.id===p.id?"selected":""}>${esc(pr.name)}</option>`).join("");projectSelect.innerHTML=opts;document.querySelectorAll(".project-select-clone").forEach(s=>s.innerHTML=opts);
  const summaryWaiting=ds.filter(x=>x.status.includes("Waiting")||x.status==="Awaiting Review").length,summaryComplete=ds.filter(x=>x.status==="Complete").length,summaryActive=Math.max(0,ds.length-summaryWaiting-summaryComplete);kpiTotal.textContent=ds.length;kpiActive.textContent=summaryActive;kpiWaiting.textContent=summaryWaiting;kpiComplete.textContent=summaryComplete;
 
@@ -1863,16 +1869,27 @@ function render(){
  const progressCard=summaryProgressInstallation?.closest(".executive-progress-card");
  if(progressCard){
    progressCard.querySelector(".aht-2490-progress-note")?.remove();
-   const fieldWorkRecorded=executivePlan.items.some(item=>
-     executive2490FieldItem(item) &&
-     ["In Progress","Complete"].includes(String(item.status||""))
-   );
-   if(focused2490 && executiveInstallation===0 && fieldWorkRecorded){
+   const manual=String(p.progressInstallationMode).toLowerCase()==="manual";
+   if(p.siteInstallationTrackedItems > 0 && (!manual || canViewInstallationReportDetails())){
      const note=document.createElement("div");
      note.className="small aht-2490-progress-note";
-     note.textContent="AV/LV field work recorded; installation % awaiting review.";
+     note.textContent=manual
+       ? `Manual reported progress · Calculated ${p.siteInstallationProgress||0}%${p.progressInstallationOverrideReason ? ` · ${p.progressInstallationOverrideReason}` : ""}`
+       : "Provisional — scope and weights under review.";
      note.style.marginTop="6px";
      progressCard.appendChild(note);
+   }
+ }
+ const overallProgressCard=summaryProgressOverall?.closest(".executive-progress-card");
+ if(overallProgressCard){
+   overallProgressCard.querySelector(".aht-overall-provisional-note")?.remove();
+   if(p.siteInstallationScopeProvisional && p.siteInstallationTrackedItems > 0 &&
+      String(p.progressOverallMode).toLowerCase()==="auto"){
+     const note=document.createElement("div");
+     note.className="small aht-overall-provisional-note";
+     note.textContent="Provisional — installation scope under review.";
+     note.style.marginTop="6px";
+     overallProgressCard.appendChild(note);
    }
  }
 

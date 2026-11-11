@@ -1,5 +1,21 @@
 const SiteOperations = (() => {
 
+  // Reported installation percentage override is intentionally owner-only.
+  // SharePoint list permissions still govern direct out-of-dashboard edits.
+  const REPORTED_PROGRESS_OWNER_ENTRA_ID = "8feae494-8b0e-43a5-be9f-4bb6c5b36298";
+  const allowedReportedProgressOwner = () => Boolean(
+    currentUser?.canEdit &&
+    String(currentUser?.entraObjectId || "").toLowerCase() === REPORTED_PROGRESS_OWNER_ENTRA_ID
+  );
+  function reportedInstallationState(project, calculated) {
+    const manual = String(project?.progressInstallationMode || "auto").toLowerCase() === "manual";
+    return {
+      manual,
+      displayed: manual ? clampPercent(project?.progressInstallation) : clampPercent(calculated),
+      calculated: clampPercent(calculated)
+    };
+  }
+
   const collapsedOperationIds = new Set();
 
   function parseStructuredOperationIds(value) {
@@ -89,6 +105,32 @@ const SiteOperations = (() => {
     "Trim",
     "Final"
   ];
+
+  // Installation weighting is explicit, including phases with no work recorded yet.
+  // Rough-In 50%, Trim 30%, Final/Commissioning 20%.
+  const PHASE_WEIGHTS = Object.freeze({ "Rough-In": 0.5, Trim: 0.3, Final: 0.2 });
+  const PHASE_FIELDS = Object.freeze({
+    "Rough-In": "roughInPercent", Trim: "trimPercent", Final: "finalPercent"
+  });
+
+  function operationHasPhases(op) {
+    return SITE_PHASES.includes(op.sitePhase) ||
+      SITE_PHASES.some(phase => op.phaseProgress?.[PHASE_FIELDS[phase]] !== null &&
+        op.phaseProgress?.[PHASE_FIELDS[phase]] !== undefined);
+  }
+
+  function operationPhasePercent(op, phase) {
+    const stored = op.phaseProgress?.[PHASE_FIELDS[phase]];
+    if (stored !== null && stored !== undefined && stored !== "") return clampPercent(stored);
+    // Backward compatibility: existing task percentages belong to their existing phase.
+    return op.sitePhase === phase ? clampPercent(op.percentComplete) : 0;
+  }
+
+  function operationOverallPercent(op) {
+    if (!operationHasPhases(op)) return clampPercent(op.percentComplete);
+    return clampPercent(SITE_PHASES.reduce((sum, phase) =>
+      sum + operationPhasePercent(op, phase) * PHASE_WEIGHTS[phase], 0));
+  }
 
   const WORK_STAGES = [
     "Layout",
@@ -234,65 +276,60 @@ const SiteOperations = (() => {
 
   function trackedOperations(locationId, phase = "") {
     return operationsForLocation(locationId, true).filter(op =>
-      op.trackProgress &&
-      (!phase || op.sitePhase === phase)
+      op.trackProgress && (!phase || operationHasPhases(op))
     );
   }
 
-  function weightedProgress(records) {
-    const usable = records.filter(record =>
-      Number.isFinite(Number(record.percentComplete))
-    );
-
-    if (!usable.length) return 0;
-
+  function weightedProgress(records, phase = "") {
+    if (!records.length) return 0;
     let weightedTotal = 0;
     let totalWeight = 0;
-
-    for (const record of usable) {
-      const weight =
-        Number.isFinite(Number(record.progressWeight)) &&
-        Number(record.progressWeight) > 0
-          ? Number(record.progressWeight)
-          : 1;
-
-      weightedTotal += clampPercent(record.percentComplete) * weight;
+    for (const record of records) {
+      const weight = Number(record.progressWeight) > 0 ? Number(record.progressWeight) : 1;
+      const percent = phase ? operationPhasePercent(record, phase)
+        : operationHasPhases(record) ? operationOverallPercent(record)
+        : clampPercent(record.percentComplete);
+      weightedTotal += percent * weight;
       totalWeight += weight;
     }
-
-    return totalWeight
-      ? clampPercent(weightedTotal / totalWeight)
-      : 0;
+    return totalWeight ? clampPercent(weightedTotal / totalWeight) : 0;
   }
 
   function calculatedLocationProgress(locationId, phase = "") {
+    const allTracked = operationsForLocation(locationId, true).filter(op => op.trackProgress);
+    const phaseTracked = allTracked.some(operationHasPhases);
+    // Legacy locations with no phase-tagged activities retain their previous rollup.
+    // For phase-aware locations, the overall must ALWAYS include the unstarted phases.
+    if (!phase && phaseTracked) {
+      return clampPercent(SITE_PHASES.reduce((sum, currentPhase) =>
+        sum + displayedLocationProgress(locationById(locationId), currentPhase) * PHASE_WEIGHTS[currentPhase], 0));
+    }
+
     const directRecords = operationsForLocation(locationId, false).filter(op =>
-      op.trackProgress && (!phase || op.sitePhase === phase)
+      op.trackProgress && (!phase || operationHasPhases(op))
     );
-    const directProgress = directRecords.length ? weightedProgress(directRecords) : null;
+    const directProgress = directRecords.length ? weightedProgress(directRecords, phase) : null;
     const childLocations = childrenOf(locationId);
     const components = [];
 
-    // Activity Progress Weight determines the direct progress for this location first.
-    // Direct work at a location then counts as one component alongside child locations.
-    if (directProgress !== null) {
-      components.push({ percent: directProgress, weight: 1 });
-    }
+    // Task weights determine each room's progress; Location Rollup Weights
+    // determine how rooms combine into a building, without double-counting rows.
+    if (directProgress !== null) components.push({ percent: directProgress, weight: 1 });
 
     for (const child of childLocations) {
-      const childRecords = operationsForLocation(child.id, true).filter(op =>
-        op.trackProgress && (!phase || op.sitePhase === phase)
+      const childTracked = operationsForLocation(child.id, true).filter(op =>
+        op.trackProgress && (!phase || operationHasPhases(op))
       );
-      if (!childRecords.length && !progressIsManual(child, phase)) continue;
+      if (!childTracked.length && !progressIsManual(child, phase)) continue;
       components.push({
         percent: displayedLocationProgress(child, phase),
-        weight: Number(child.progressWeight || 1) > 0 ? Number(child.progressWeight) : 1
+        weight: Number(child.progressWeight) > 0 ? Number(child.progressWeight) : 1
       });
     }
 
     if (!components.length) return 0;
-    const weightedTotal = components.reduce((sum, component) => sum + component.percent * component.weight, 0);
-    const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
+    const weightedTotal = components.reduce((sum, c) => sum + c.percent * c.weight, 0);
+    const totalWeight = components.reduce((sum, c) => sum + c.weight, 0);
     return totalWeight ? clampPercent(weightedTotal / totalWeight) : 0;
   }
 
@@ -502,9 +539,13 @@ const SiteOperations = (() => {
 
     const types = Array.from(new Set(safeItems.map(x => String(x.locationType || "").trim()).filter(Boolean))).sort();
     const levels = Array.from(new Set(safeItems.map(x => String(x.planLevel || "").trim()).filter(Boolean))).sort();
+    // When there are no secondary filters, keep the lone picker right-aligned.
+    const lonePickerStyle = levels.length <= 1 && types.length <= 1
+      ? ' style="display:flex;flex:0 1 250px;width:250px;min-width:0;max-width:100%;margin-left:auto;align-items:center;justify-content:flex-end;"'
+      : "";
 
     return `
-      <div class="so-location-nav-controls" data-so-filter-scope="${escapeHtml(scopeId)}" data-search-value="">
+      <div class="so-location-nav-controls"${lonePickerStyle} data-so-filter-scope="${escapeHtml(scopeId)}" data-search-value="">
         ${locationPickerMarkup({ id, items:safeItems, placeholder, scopeId })}
         ${levels.length > 1 ? `
           <select class="so-location-filter" data-so-filter="level" onchange="SiteOperations.locationFilterChanged('${escapeHtml(scopeId)}')" aria-label="Filter locations by level">
@@ -529,7 +570,7 @@ const SiteOperations = (() => {
   function operationCard(op) {
     const progress = op.trackProgress
       ? `<div class="so-operation-progress">
-          ${progressBar("Progress", op.percentComplete)}
+          ${progressBar("Overall Task", operationOverallPercent(op))}
         </div>`
       : "";
 
@@ -731,7 +772,7 @@ const SiteOperations = (() => {
     hasChildren = false,
     expanded = true
   ) {
-    const pct = op.trackProgress ? clampPercent(op.percentComplete) : null;
+    const pct = op.trackProgress ? operationOverallPercent(op) : null;
     const phase = op.sitePhase || op.system || op.entryType || "Site Item";
     const activityDate = op.activityDate ? displayDate(op.activityDate) : "—";
     const target = op.targetDate ? displayDate(op.targetDate) : "—";
@@ -804,6 +845,16 @@ const SiteOperations = (() => {
     const canEdit = Boolean(currentUser?.canAdmin);
 
     root.innerHTML = `
+      <style>
+        .so-item-detail .so-item-detail-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+        .so-item-detail .so-item-detail-actions .so-status { font-size:11px; border-radius:999px; padding:3px 8px; }
+        .so-item-detail .so-item-detail-actions .btn { font-size:12px; min-height:30px; padding:5px 11px; border-radius:6px; line-height:1.2; }
+        .so-item-phase-progress { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:12px; }
+        .so-item-phase-progress > div { min-width:0; }
+        .so-item-phase-progress strong { display:block; margin:3px 0 5px; }
+        .so-item-phase-progress .so-mini-progress { display:block; width:100%; }
+        @media(max-width:540px) { .so-item-phase-progress { grid-template-columns:1fr; } }
+      </style>
       <div class="so-item-detail">
         <div class="so-item-detail-heading">
           <div>
@@ -812,7 +863,7 @@ const SiteOperations = (() => {
             <div class="small">${escapeHtml(location?.name || "Site Operations")}</div>
           </div>
           <div class="so-item-detail-actions">
-            <span class="so-status">${escapeHtml(op.status || "Planned")}</span>
+            <span class="so-status so-status-${operationStatusClass(op.status || "Planned")}">${escapeHtml(op.status || "Planned")}</span>
             ${canEdit ? `<button class="btn" type="button" onclick="SiteOperations.editOperation(${Number(op.id)})">Edit</button>` : ""}
             ${canEdit ? `<button class="btn danger" type="button" onclick="SiteOperations.deleteOperation(${Number(op.id)})">Delete</button>` : ""}
           </div>
@@ -820,7 +871,11 @@ const SiteOperations = (() => {
 
         ${op.trackProgress ? `
           <div class="so-item-progress-panel">
-            ${progressBar("Progress", op.percentComplete)}
+            ${progressBar("Overall Task", operationOverallPercent(op))}
+            ${operationHasPhases(op) ? `<div class="so-item-phase-progress">${SITE_PHASES.map(phase => {
+              const value = operationPhasePercent(op, phase);
+              return `<div><span class="small">${escapeHtml(phase)}</span><strong>${value}%</strong><span class="so-mini-progress"><span style="width:${value}%"></span></span></div>`;
+            }).join("")}</div>` : ""}
           </div>
         ` : ""}
 
@@ -1051,11 +1106,69 @@ const SiteOperations = (() => {
     }
   }
 
+  // Provisional whole-property rollup. Includes planned 0%-complete tasks and
+  // unpopulated leaf rooms, rather than treating the Guest House as the whole job.
+  function projectInstallationOverview() {
+    const projectRollup = SharePointDataProvider.calculateSiteInstallationRollup(
+      state.locations, state.operations, state.projectId
+    );
+    const phaseCard = phase => {
+      const value = projectRollup.phases[phase] || 0;
+      return `
+        <div style="border:1px solid #e1e8ef;border-radius:6px;padding:10px 12px;min-width:0;">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">
+            <span style="font-size:12px;font-weight:700;color:#5b6b79;">${escapeHtml(phase)}</span>
+            <strong style="font-size:16px;color:#174d78;">${value}%</strong>
+          </div>
+          <div role="progressbar" aria-label="${escapeHtml(phase)} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"
+               style="height:7px;background:#e8eef4;border-radius:10px;overflow:hidden;margin-top:10px;">
+            <div style="height:100%;width:${value}%;background:#2d86bb;border-radius:10px;"></div>
+          </div>
+        </div>`;
+    };
+    const project = typeof currentProject === "function" ? currentProject() : null;
+    const reported = reportedInstallationState(project, projectRollup.overall || 0);
+    const overall = reported.displayed;
+    const canSeePrivateReportDetails = allowedReportedProgressOwner();
+    const note = canSeePrivateReportDetails && reported.manual
+      ? `Manual override · Calculated: ${reported.calculated}%`
+      : (reported.manual ? "" : "Provisional · Scope under review");
+    return `
+      <section class="so-installation-overview" aria-label="Project installation overview"
+               style="border:1px solid #d7e1ea;background:#fff;border-radius:8px;padding:14px 16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h3 style="margin:0;color:#174d78;font-size:16px;">Overall Installation Progress</h3>
+            <p style="margin:4px 0 0;font-size:12px;color:#5b6b79;">Whole-property installation · Rough-In 50% · Trim 30% · Final 20%</p>
+          </div>
+          <div style="text-align:right;">
+            <strong style="display:block;color:#174d78;font-size:25px;line-height:1.1;">${overall}%</strong>
+            ${note ? `<span style="display:block;font-size:11px;font-weight:700;color:#617588;">${escapeHtml(note)}</span>` : ""}
+            ${canSeePrivateReportDetails && reported.manual && project?.progressInstallationOverrideReason ? `<span style="display:block;font-size:11px;color:#617588;max-width:300px;">${escapeHtml(project.progressInstallationOverrideReason)}</span>` : ""}
+            ${canSeePrivateReportDetails ? `<button class="btn" type="button" style="margin-top:7px;" onclick="SiteOperations.openReportedInstallationEditor()">${reported.manual ? "Adjust / Restore Auto" : "Adjust Reported Progress"}</button>` : ""}
+          </div>
+        </div>
+        <div role="progressbar" aria-label="Overall installation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${overall}"
+             style="height:9px;background:#e8eef4;border-radius:10px;overflow:hidden;margin-top:12px;">
+          <div style="height:100%;width:${overall}%;background:#2d86bb;border-radius:10px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px;">
+          ${SITE_PHASES.map(phaseCard).join("")}
+        </div>
+        <p style="font-size:11px;color:#596b7b;margin:10px 0 0;">
+          ${projectRollup.trackedTasks} tracked tasks · ${projectRollup.emptyLocations} locations without entered tasks count as 0%.
+          Task and room weights are included. Scope and relative effort weights remain subject to verification.
+          ${projectRollup.unassignedTasks ? `${projectRollup.unassignedTasks} unassigned task(s) included for review.` : ""}
+        </p>
+      </section>`;
+  }
+
   function renderOverview(root) {
     const roots = childrenOf(null);
     const records = state.operations;
 
     root.innerHTML = `
+      ${projectInstallationOverview()}
       ${summaryStrip(records)}
 
       <div class="so-section-heading so-locations-heading">
@@ -1139,6 +1252,7 @@ const SiteOperations = (() => {
           <h3>${escapeHtml(locationDisplayName(location))} Progress & Activity</h3>
           <p>Activities assigned directly to ${escapeHtml(locationDisplayName(location))}.</p>
         </div>
+        ${currentUser?.canAdmin ? `<button class="btn" type="button" onclick="SiteOperations.openOperationEditor()">+ Add Activity</button>` : ""}
       </div>
 
       <div class="so-operation-list so-operation-list-compact so-activity-scroll">
@@ -1158,7 +1272,7 @@ const SiteOperations = (() => {
           : `<div class="so-empty">
               <strong>No direct Site Operations items here yet.</strong>
               <span>${currentUser?.canAdmin
-                ? "Add a progress or activity item when work begins in this location."
+                ? "Use Add Activity above to record an update directly against this location."
                 : "No detailed items have been published for this location."}</span>
             </div>`}
       </div>
@@ -1284,6 +1398,11 @@ const SiteOperations = (() => {
             workStage: fields.WorkStage || "",
             status: fields.Status || "Planned",
             percentComplete: clampPercent(fields.PercentComplete || 0),
+            phaseProgress: {
+              roughInPercent: String(fields.PhaseProgressVersion || "") === "1" ? nullableNumber(fields.RoughInPercent) : null,
+              trimPercent: String(fields.PhaseProgressVersion || "") === "1" ? nullableNumber(fields.TrimPercent) : null,
+              finalPercent: String(fields.PhaseProgressVersion || "") === "1" ? nullableNumber(fields.FinalPercent) : null
+            },
             progressWeight:
               Number(fields.ProgressWeight || 0) > 0
                 ? Number(fields.ProgressWeight)
@@ -1879,10 +1998,18 @@ const SiteOperations = (() => {
         select("status", STATUSES, record?.status || "Planned")
       )}
 
-      ${field(
-        "Percent Complete",
-        textInput("percentComplete", record?.percentComplete ?? 0, "number", "min='0' max='100' required")
-      )}
+      <div class="field full so-form-divider so-phase-intro">
+        <label>Task progress by phase</label>
+        <div class="small">One task, three persistent phases. Finishing Rough-In carries its 100% forward when the task moves to Trim; the overall task uses 50% / 30% / 20%. Existing progress is retained.</div>
+      </div>
+      ${SITE_PHASES.map(phase => field(
+        `${phase} %`,
+        textInput(PHASE_FIELDS[phase], record ? operationPhasePercent(record, phase) : 0, "number", "min='0' max='100' step='1' required")
+      )).join("")}
+      <div class="field so-legacy-percent-field">
+        <label>Percent Complete (unphased item)</label>
+        ${textInput("percentComplete", record?.percentComplete ?? 0, "number", "min='0' max='100' step='1' required")}
+      </div>
 
       ${field(
         "Progress Weight",
@@ -2075,16 +2202,45 @@ const SiteOperations = (() => {
       );
     }
 
+    const phaseProgress = Object.fromEntries(SITE_PHASES.map(phase => [
+      phase, clampPercent(data.get(PHASE_FIELDS[phase]))
+    ]));
+    let activePhase = String(data.get("sitePhase") || "");
+    const phaseAware = SITE_PHASES.includes(activePhase);
+    const requestedStatus = String(data.get("status") || "Planned");
+
+    if (phaseAware) await requireOperationPhaseSchema();
+
+    if (phaseAware && requestedStatus === "Complete" &&
+        SITE_PHASES.some(phase => phaseProgress[phase] < 100)) {
+      throw new Error("A phase-aware task cannot be Complete until Rough-In, Trim, and Final are all 100%.");
+    }
+    // Advance the active stage without deleting progress earned in previous phases.
+    if (phaseAware && activePhase === "Rough-In" && phaseProgress["Rough-In"] === 100 && phaseProgress.Trim < 100) {
+      activePhase = "Trim";
+    }
+    if (phaseAware && activePhase === "Trim" && phaseProgress.Trim === 100 && phaseProgress.Final < 100) {
+      activePhase = "Final";
+    }
+    const currentPercent = phaseAware
+      ? phaseProgress[activePhase] : clampPercent(data.get("percentComplete"));
+
     const fields = {
       Title: String(data.get("title") || "").trim(),
       ProjectLookupId: String(project.sharePointId),
       LocationLookupId: String(Number(data.get("locationId") || 0)),
       EntryType: String(data.get("entryType") || "Work Activity"),
       System: String(data.get("system") || ""),
-      SitePhase: String(data.get("sitePhase") || ""),
+      SitePhase: activePhase,
       WorkStage: String(data.get("workStage") || ""),
-      Status: String(data.get("status") || "Planned"),
-      PercentComplete: clampPercent(data.get("percentComplete")),
+      Status: requestedStatus,
+      PercentComplete: currentPercent,
+      ...(phaseAware ? {
+        RoughInPercent: phaseProgress["Rough-In"],
+        TrimPercent: phaseProgress.Trim,
+        FinalPercent: phaseProgress.Final,
+        PhaseProgressVersion: "1"
+      } : {}),
       ProgressWeight: Math.max(0.01, Number(data.get("progressWeight") || 1)),
       TrackProgress: data.get("trackProgress") === "on",
       ActivityDate: data.get("activityDate")
@@ -2124,6 +2280,101 @@ const SiteOperations = (() => {
       );
     }
   }
+
+
+// This is a report-only adjustment; task percentages, phase credit and weights
+// stay untouched. Saving partial project fields avoids overwriting other edits.
+async function verifyReportedProgressIdentity() {
+  if (!allowedReportedProgressOwner() || APP_CONFIG.authProvider !== "microsoft") {
+    throw new Error("This report control is limited to the designated AHT account.");
+  }
+  if (typeof window.getMicrosoftAccessToken !== "function") {
+    throw new Error("Microsoft identity is not available. Sign in again.");
+  }
+  const token = await window.getMicrosoftAccessToken(["User.Read"]);
+  const response = await fetch("https://graph.microsoft.com/v1.0/me?$select=id", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!response.ok) throw new Error("Could not verify Microsoft account identity.");
+  const me = await response.json();
+  if (String(me?.id || "").toLowerCase() !== REPORTED_PROGRESS_OWNER_ENTRA_ID) {
+    throw new Error("This account is not authorized to adjust reported installation progress.");
+  }
+}
+
+function reportedProgressModeChanged(mode) {
+  const form = document.getElementById("siteOperationsModalForm");
+  if (!form) return;
+  const manual = mode === "manual";
+  for (const name of ["reportedPercent", "reportedReason"]) {
+    const input = form.querySelector(`[name="${name}"]`);
+    if (input) input.disabled = !manual;
+  }
+}
+
+function openReportedInstallationEditor() {
+  if (!allowedReportedProgressOwner()) return;
+  const project = typeof currentProject === "function" ? currentProject() : null;
+  if (!project?.sharePointId) return;
+  const rolled = SharePointDataProvider.calculateSiteInstallationRollup(
+    state.locations, state.operations, state.projectId
+  );
+  const reported = reportedInstallationState(project, rolled.overall);
+  const fields = `
+    <div class="field" style="grid-column:1/-1;">
+      <label>Reported installation mode</label>
+      <select name="reportedMode" onchange="SiteOperations.reportedProgressModeChanged(this.value)">
+        <option value="auto" ${!reported.manual ? "selected" : ""}>Automatic — use calculated ${reported.calculated}%</option>
+        <option value="manual" ${reported.manual ? "selected" : ""}>Manual override — report a different percentage</option>
+      </select>
+    </div>
+    <div class="field" style="grid-column:1/-1;">
+      <label>Reported installation (%)</label>
+      <input name="reportedPercent" type="number" min="0" max="100" step="1"
+             value="${reported.manual ? reported.displayed : reported.calculated}" ${reported.manual ? "" : "disabled"} required>
+      <div class="small">Calculated progress continues updating in the background. This does not change any task, room, Rough-In, Trim, or Final values.</div>
+    </div>
+    <div class="field" style="grid-column:1/-1;">
+      <label>Reason / report note (optional)</label>
+      <textarea name="reportedReason" maxlength="255" rows="2" ${reported.manual ? "" : "disabled"}>${escapeHtml(project.progressInstallationOverrideReason || "")}</textarea>
+    </div>`;
+  const form = modalShell("Reported Installation Progress", fields, "Save Reported Progress");
+  form.onsubmit = async event => {
+    event.preventDefault();
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      // Never write based on a spoofed currentUser object or role-preview identity.
+      await verifyReportedProgressIdentity();
+      const data = new FormData(form);
+      const mode = String(data.get("reportedMode") || "auto") === "manual" ? "manual" : "auto";
+      const raw = Number(data.get("reportedPercent"));
+      if (mode === "manual" && (!Number.isInteger(raw) || raw < 0 || raw > 100)) {
+        throw new Error("Enter a whole percentage between 0 and 100.");
+      }
+      const reason = mode === "manual" ? String(data.get("reportedReason") || "").trim().slice(0, 255) : "";
+      const fields = {
+        ProgressInstallationMode: mode,
+        ProgressInstallationOverrideExpl: mode === "manual",
+        ProgressInstallationOverrideReas: reason
+      };
+      if (mode === "manual") fields.ProgressInstallation = raw;
+      await SharePointDataProvider.updateItem(APP_CONFIG.sharePoint.lists.projects, project.sharePointId, fields);
+      project.progressInstallationMode = mode;
+      project.progressInstallationOverrideExplicit = mode === "manual";
+      project.progressInstallationOverrideReason = reason;
+      if (mode === "manual") project.progressInstallation = raw;
+      closeModal();
+      if (typeof window.render === "function") window.render();
+      render();
+    } catch (error) {
+      console.error("Reported installation save failed", error);
+      alert(`Reported installation progress could not be saved: ${error.message}`);
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  };
+}
 
   function openLocationEditor(record = null) {
     if (!currentUser?.canAdmin) return;
@@ -2503,7 +2754,17 @@ const SiteOperations = (() => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
     addSitePdfHeader(doc, project.name || "Project", project.subtitle || "", "SITE OPERATIONS REPORT");
-    let y = addSitePdfSummary(doc,state.operations,92)+18;
+    const calculatedSite = SharePointDataProvider.calculateSiteInstallationRollup(
+      state.locations, state.operations, state.projectId
+    );
+    const reportedSite = reportedInstallationState(project, calculatedSite.overall);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...SITE_PDF.navy);
+    // Export only the selected reported percentage. Override details and
+    // automatic comparison are private dashboard controls, not report content.
+    doc.text(`Project Installation: ${reportedSite.displayed}%`,28,93);
+    let y = addSitePdfSummary(doc,state.operations,109)+18;
     y = sitePdfSectionTitle(doc,"Project Locations",y);
     const roots = childrenOf(null);
     doc.autoTable({
@@ -2523,7 +2784,7 @@ const SiteOperations = (() => {
       doc.autoTable({
         startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
         head:[["Location","Activity","Details","Progress","Status","Activity Date","Target"]],
-        body:state.operations.slice().sort((a,b)=>String(a.targetDate||"9999-12-31").localeCompare(String(b.targetDate||"9999-12-31"))).map(op=>{const loc=locationById(op.locationId);return [safePdfText(loc ? locationDisplayName(loc) : "—"),safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${clampPercent(op.percentComplete)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))];}),
+        body:state.operations.slice().sort((a,b)=>String(a.targetDate||"9999-12-31").localeCompare(String(b.targetDate||"9999-12-31"))).map(op=>{const loc=locationById(op.locationId);return [safePdfText(loc ? locationDisplayName(loc) : "—"),safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${operationOverallPercent(op)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))];}),
         styles:{font:"helvetica",fontSize:7,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],overflow:"linebreak",valign:"top"},
         headStyles:{fillColor:SITE_PDF.lightBlue,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
         columnStyles:{2:{cellWidth:190}},
@@ -2552,7 +2813,7 @@ const SiteOperations = (() => {
     doc.autoTable({
       startY:y,margin:{left:28,right:28,bottom:32},theme:"grid",
       head:[["Activity","Details","Progress","Status","Activity Date","Target"]],
-      body:directOperations.length?directOperations.map(op=>[safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${clampPercent(op.percentComplete)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))]):[["No direct Site Operations items.","—","—","—","—","—"]],
+      body:directOperations.length?directOperations.map(op=>[safePdfText(op.title),safePdfText(op.details||"—"),op.trackProgress?`${operationOverallPercent(op)}%`:"—",safePdfText(op.status||"Planned"),safePdfText(displayDate(op.activityDate)),safePdfText(displayDate(op.targetDate))]):[["No direct Site Operations items.","—","—","—","—","—"]],
       styles:{font:"helvetica",fontSize:7.5,cellPadding:4,lineColor:SITE_PDF.line,lineWidth:.4,textColor:[31,55,78],overflow:"linebreak",valign:"top"},
       headStyles:{fillColor:SITE_PDF.lightBlue,textColor:SITE_PDF.navy,fontStyle:"bold",fontSize:6.5},
       columnStyles:{1:{cellWidth:240}},
@@ -2613,6 +2874,8 @@ const SiteOperations = (() => {
     openOperationDetail,
     openLocationEditor,
     openOperationEditor,
+    openReportedInstallationEditor,
+    reportedProgressModeChanged,
     editLocation,
     editOperation,
     deleteLocation,

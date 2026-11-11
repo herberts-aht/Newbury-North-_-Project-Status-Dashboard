@@ -1340,6 +1340,181 @@ const SharePointDataProvider = {
     return fields;
   },
 
+  // Shared project-wide installation rollup for the Executive Summary and Site Operations.
+  // All in-scope tracked tasks, including those at 0%, remain in the denominator.
+  // A room/area without entered tasks provisionally contributes one 0%-complete unit;
+  // root/level/building containers are not double-counted as empty rooms.
+  calculateSiteInstallationRollup(locationRows = [], operationRows = [], projectSharePointId = 0) {
+    const projectId = Number(projectSharePointId);
+    const phases = ["Rough-In", "Trim", "Final"];
+    const phaseWeights = { "Rough-In": 0.5, Trim: 0.3, Final: 0.2 };
+    const phaseKeys = { "Rough-In": "RoughInPercent", Trim: "TrimPercent", Final: "FinalPercent" };
+    const internalKeys = { "Rough-In": "roughInPercent", Trim: "trimPercent", Final: "finalPercent" };
+    const clamp = value => Math.max(0, Math.min(100, Number(value) || 0));
+    const positiveWeight = value => Number(value) > 0 ? Number(value) : 1;
+    const fieldsOf = row => row?.fields || row || {};
+    const rowId = row => Number(row?.id || row?.sharePointId || 0);
+    const lookup = (f, field, fallback) => Number(
+      f[`${field}LookupId`] ?? f[`${field}Id`] ?? f[fallback] ?? 0
+    ) || 0;
+    const projectOf = f => lookup(f, "Project", "projectSharePointId");
+    const emptyTotals = () => ({
+      weight: 0,
+      weighted: { "Rough-In": 0, Trim: 0, Final: 0 },
+      taskCount: 0,
+      emptyLocations: 0,
+      unassignedTasks: 0
+    });
+    const addTotals = (into, from) => {
+      into.weight += from.weight;
+      phases.forEach(phase => { into.weighted[phase] += from.weighted[phase]; });
+      into.taskCount += from.taskCount;
+      into.emptyLocations += from.emptyLocations;
+      into.unassignedTasks += from.unassignedTasks;
+    };
+
+    const locations = new Map();
+    const childrenByParent = new Map();
+    for (const row of locationRows || []) {
+      const f = fieldsOf(row);
+      if (projectOf(f) !== projectId || f.Active === false || f.active === false) continue;
+      const id = rowId(row);
+      if (!id) continue;
+      locations.set(id, {
+        id,
+        parentId: lookup(f, "ParentLocation", "parentLocationId"),
+        type: String(f.LocationType || f.locationType || ""),
+        weight: positiveWeight(f.LocationProgressWeight ?? f.progressWeight),
+        fields: f
+      });
+    }
+    for (const loc of locations.values()) {
+      if (loc.parentId && locations.has(loc.parentId)) {
+        const list = childrenByParent.get(loc.parentId) || [];
+        list.push(loc.id);
+        childrenByParent.set(loc.parentId, list);
+      }
+    }
+
+    const directTasks = new Map();
+    const orphans = [];
+    const trackedRows = (operationRows || []).filter(row => {
+      const f = fieldsOf(row);
+      return projectOf(f) === projectId && (f.TrackProgress === true || f.trackProgress === true);
+    });
+    // A tracked parent task with tracked subtasks is a grouping row, not extra work.
+    const parentWithTrackedChild = new Set(trackedRows.map(row => {
+      const f = fieldsOf(row);
+      return Number(f.ParentOperationId ?? f.parentOperationId ?? 0);
+    }).filter(Boolean));
+    for (const row of trackedRows) {
+      const f = fieldsOf(row);
+      if (parentWithTrackedChild.has(rowId(row))) continue;
+      const sitePhase = String(f.SitePhase || f.sitePhase || "");
+      const versioned = String(f.PhaseProgressVersion || f.phaseProgressVersion || "") === "1" ||
+        phases.some(phase => f.phaseProgress?.[internalKeys[phase]] !== null &&
+          f.phaseProgress?.[internalKeys[phase]] !== undefined);
+      const legacy = clamp(f.PercentComplete ?? f.percentComplete);
+      const phaseProgress = {};
+      for (const phase of phases) {
+        const stored = f[phaseKeys[phase]] ?? f.phaseProgress?.[internalKeys[phase]];
+        phaseProgress[phase] = versioned && stored !== undefined && stored !== null && stored !== ""
+          ? clamp(stored)
+          : sitePhase === phase ? legacy : 0;
+      }
+      const task = {
+        weight: positiveWeight(f.ProgressWeight ?? f.progressWeight),
+        phaseProgress
+      };
+      const locationId = lookup(f, "Location", "locationId");
+      if (!locationId || !locations.has(locationId)) {
+        orphans.push(task);
+      } else {
+        const list = directTasks.get(locationId) || [];
+        list.push(task);
+        directTasks.set(locationId, list);
+      }
+    }
+
+    function manualPhaseOverride(loc, phase) {
+      const f = loc.fields;
+      const prefix = phase === "Rough-In" ? "RoughIn" : phase;
+      const raw = f[`${prefix}ProgressOverride`] ?? f[`${prefix[0].toLowerCase()}${prefix.slice(1)}ProgressOverride`];
+      if (raw === null || raw === undefined || raw === "") return null;
+      const reason = String(f[`${prefix}OverrideReason`] ??
+        f[`${prefix[0].toLowerCase()}${prefix.slice(1)}OverrideReason`] ?? "").trim();
+      if (Number(raw) === 0 && !reason) return null; // Legacy blank Number = 0.
+      return clamp(raw);
+    }
+
+    const seen = new Set();
+    const walk = (locationId, inheritedWeight, ancestry) => {
+      if (ancestry.has(locationId)) return emptyTotals(); // Protect against malformed loops.
+      const loc = locations.get(locationId);
+      if (!loc) return emptyTotals();
+      seen.add(locationId);
+      const currentWeight = inheritedWeight * loc.weight;
+      const totals = emptyTotals();
+      const tasks = directTasks.get(locationId) || [];
+      for (const task of tasks) {
+        const weight = currentWeight * task.weight;
+        totals.weight += weight;
+        totals.taskCount += 1;
+        phases.forEach(phase => { totals.weighted[phase] += weight * task.phaseProgress[phase]; });
+      }
+      const children = childrenByParent.get(locationId) || [];
+      const nextAncestry = new Set(ancestry);
+      nextAncestry.add(locationId);
+      for (const childId of children) addTotals(totals, walk(childId, currentWeight, nextAncestry));
+      // An unentered leaf room/area is unfinished scope, not zero weight.
+      // Containers (Level / Building / Wing) never add a second placeholder.
+      if (!tasks.length && !children.length &&
+          !["Level", "Building", "Wing"].includes(loc.type)) {
+        totals.weight += currentWeight;
+        totals.emptyLocations += 1;
+      }
+      // Explicit phase overrides apply to the same descendant scope weight.
+      if (totals.weight > 0) phases.forEach(phase => {
+        const override = manualPhaseOverride(loc, phase);
+        if (override !== null) totals.weighted[phase] = totals.weight * override;
+      });
+      return totals;
+    };
+
+    const totals = emptyTotals();
+    for (const loc of locations.values()) {
+      if (!locations.has(loc.parentId)) addTotals(totals, walk(loc.id, 1, new Set()));
+    }
+    // Disconnected/cyclic location records remain in the provisional baseline.
+    for (const loc of locations.values()) {
+      if (!seen.has(loc.id)) addTotals(totals, walk(loc.id, 1, new Set()));
+    }
+    // Never silently remove a tracked task because its location reference is missing.
+    for (const task of orphans) {
+      totals.weight += task.weight;
+      totals.taskCount += 1;
+      totals.unassignedTasks += 1;
+      phases.forEach(phase => {
+        totals.weighted[phase] += task.weight * task.phaseProgress[phase];
+      });
+    }
+    const percentages = Object.fromEntries(phases.map(phase => [phase,
+      totals.weight > 0 ? Math.round(totals.weighted[phase] / totals.weight) : 0
+    ]));
+    const exact = phase => totals.weight > 0 ? totals.weighted[phase] / totals.weight : 0;
+    const overall = Math.round(phases.reduce((sum, phase) => sum + exact(phase) * phaseWeights[phase], 0));
+    return {
+      phases: percentages,
+      overall,
+      trackedTasks: totals.taskCount,
+      emptyLocations: totals.emptyLocations,
+      unassignedTasks: totals.unassignedTasks,
+      scopeWeight: totals.weight,
+      provisional: true, // No verified complete contract-scope baseline in SharePoint yet.
+      phaseWeights: { ...phaseWeights }
+    };
+  },
+
   async loadState() {
     const [projectItems, deliverableItems, informationItems] = await Promise.all([
       this.getProjectRows(),
@@ -1422,153 +1597,16 @@ const SharePointDataProvider = {
       );
     }
 
-    // Hierarchical Installation rollup:
-    // activity Progress Weight -> location progress -> parent location using Location Rollup Weight
-    // -> top-level project Installation progress using each top-level Location Rollup Weight.
-    // This prevents a building with more task rows from automatically dominating another building.
-    const lookupNumber = (fields, baseName) => {
-      const candidates = [
-        fields?.[`${baseName}LookupId`],
-        fields?.[`${baseName}Id`],
-        fields?.[baseName]
-      ];
-      for (const value of candidates) {
-        if (value && typeof value === "object") {
-          const nested = Number(value.LookupId ?? value.lookupId ?? value.Id ?? value.id ?? 0);
-          if (Number.isFinite(nested) && nested > 0) return nested;
-        }
-        const numeric = Number(value);
-        if (Number.isFinite(numeric) && numeric > 0) return numeric;
-      }
-      return 0;
-    };
-
-    const locationsById = new Map();
-    const childrenByParent = new Map();
-    const rootsByProject = new Map();
-
-    for (const item of projectLocationItems || []) {
-      const fields = item.fields || {};
-      if (fields.Active === false) continue;
-      const id = Number(item.id);
-      const projectSharePointId = this.projectLookupId(fields);
-      if (!id || !projectSharePointId) continue;
-      const parentId = lookupNumber(fields, "ParentLocation");
-      const progressWeight = Number(fields.LocationProgressWeight || 0) > 0
-        ? Number(fields.LocationProgressWeight)
-        : 1;
-      const location = { id, projectSharePointId, parentId, progressWeight };
-      locationsById.set(id, location);
-      if (parentId) {
-        const children = childrenByParent.get(parentId) || [];
-        children.push(location);
-        childrenByParent.set(parentId, children);
-      } else {
-        const roots = rootsByProject.get(projectSharePointId) || [];
-        roots.push(location);
-        rootsByProject.set(projectSharePointId, roots);
-      }
-    }
-
-    const directTrackedByLocation = new Map();
-    const flatFallbackByProject = new Map();
-    for (const item of siteOperationItems || []) {
-      const fields = item.fields || {};
-      const projectSharePointId = this.projectLookupId(fields);
-      if (!projectSharePointId || !Boolean(fields.TrackProgress)) continue;
-
-      const percent = Math.max(0, Math.min(100, Number(fields.PercentComplete || 0)));
-      const progressWeight = Number(fields.ProgressWeight || 0) > 0
-        ? Number(fields.ProgressWeight)
-        : 1;
-      const locationId = lookupNumber(fields, "Location");
-      const operation = { percent, progressWeight };
-
-      if (locationId) {
-        const list = directTrackedByLocation.get(locationId) || [];
-        list.push(operation);
-        directTrackedByLocation.set(locationId, list);
-      }
-
-      const fallback = flatFallbackByProject.get(projectSharePointId) || { weightedTotal: 0, totalWeight: 0, count: 0 };
-      fallback.weightedTotal += percent * progressWeight;
-      fallback.totalWeight += progressWeight;
-      fallback.count += 1;
-      flatFallbackByProject.set(projectSharePointId, fallback);
-    }
-
-    const weightedOps = records => {
-      let weightedTotal = 0;
-      let totalWeight = 0;
-      for (const record of records || []) {
-        weightedTotal += record.percent * record.progressWeight;
-        totalWeight += record.progressWeight;
-      }
-      return totalWeight ? weightedTotal / totalWeight : null;
-    };
-
-    const locationProgressMemo = new Map();
-    const calculateLocationProgress = locationId => {
-      if (locationProgressMemo.has(locationId)) return locationProgressMemo.get(locationId);
-      const directProgress = weightedOps(directTrackedByLocation.get(locationId) || []);
-      const children = childrenByParent.get(locationId) || [];
-      const components = [];
-
-      // Direct work at a non-leaf location is one progress component. Individual activity
-      // weights first determine that direct-work percentage.
-      if (directProgress !== null) components.push({ percent: directProgress, weight: 1 });
-
-      for (const child of children) {
-        const childProgress = calculateLocationProgress(child.id);
-        if (childProgress !== null) {
-          components.push({ percent: childProgress, weight: child.progressWeight });
-        }
-      }
-
-      if (!components.length) {
-        locationProgressMemo.set(locationId, null);
-        return null;
-      }
-
-      let weightedTotal = 0;
-      let totalWeight = 0;
-      for (const component of components) {
-        weightedTotal += component.percent * component.weight;
-        totalWeight += component.weight;
-      }
-      const result = totalWeight ? weightedTotal / totalWeight : null;
-      locationProgressMemo.set(locationId, result);
-      return result;
-    };
-
+    // Use the same complete-scope rollup as the Site Operations overview.
+    // Unlike the prior hierarchical calculation, 0%-complete tasks AND
+    // unpopulated leaf rooms remain in the denominator.
     const siteProgressByProject = new Map();
-    for (const { item } of projectItems.map(item => ({ item }))) {
+    for (const item of projectItems) {
       const projectId = Number(item.id);
-      const roots = rootsByProject.get(projectId) || [];
-      const components = [];
-      for (const root of roots) {
-        const percent = calculateLocationProgress(root.id);
-        if (percent !== null) components.push({ percent, weight: root.progressWeight });
-      }
-
-      const fallback = flatFallbackByProject.get(projectId) || { weightedTotal: 0, totalWeight: 0, count: 0 };
-      if (components.length) {
-        let weightedTotal = 0;
-        let totalWeight = 0;
-        for (const component of components) {
-          weightedTotal += component.percent * component.weight;
-          totalWeight += component.weight;
-        }
-        siteProgressByProject.set(projectId, {
-          weightedTotal,
-          totalWeight,
-          count: fallback.count,
-          hierarchical: true
-        });
-      } else if (fallback.totalWeight) {
-        // Backward-compatible fallback if locations are unavailable/not yet configured.
-        siteProgressByProject.set(projectId, { ...fallback, hierarchical: false });
-      }
+      const rollup = this.calculateSiteInstallationRollup(
+        projectLocationItems, siteOperationItems, projectId
+      );
+      siteProgressByProject.set(projectId, rollup);
     }
 
     const projects = projectItems
@@ -1657,25 +1695,26 @@ const SharePointDataProvider = {
           progressEngineering: Number(fields.ProgressEngineering || 0),
           progressEngineeringMode: fields.ProgressEngineeringMode || "manual",
           progressInstallation: Number(fields.ProgressInstallation || 0),
+          // A saved explicit override makes manual 0% distinguishable from the old
+          // seeded Manual/0 project defaults.
+          progressInstallationOverrideExplicit: fields.ProgressInstallationOverrideExpl === true,
+          progressInstallationOverrideReason: String(fields.ProgressInstallationOverrideReas || ""),
           // Existing projects were originally seeded with Installation = Manual/0 before
           // Site Operations existed. Once tracked Site items exist, treat that untouched
           // zero as Auto so field progress appears immediately. A non-zero manual value
           // remains an explicit override.
           progressInstallationMode: (() => {
-            const tracked = siteProgressByProject.get(sharePointId)?.count || 0;
+            const tracked = siteProgressByProject.get(sharePointId)?.trackedTasks || 0;
             const storedMode = fields.ProgressInstallationMode || "manual";
             const storedManual = Number(fields.ProgressInstallation || 0);
-            return tracked > 0 && storedMode === "manual" && storedManual === 0
+            return tracked > 0 && storedMode === "manual" && storedManual === 0 &&
+              fields.ProgressInstallationOverrideExpl !== true
               ? "auto"
               : storedMode;
           })(),
-          siteInstallationProgress: (() => {
-            const site = siteProgressByProject.get(sharePointId);
-            return site?.totalWeight
-              ? Math.max(0, Math.min(100, Math.round(site.weightedTotal / site.totalWeight)))
-              : 0;
-          })(),
-          siteInstallationTrackedItems: siteProgressByProject.get(sharePointId)?.count || 0,
+          siteInstallationProgress: siteProgressByProject.get(sharePointId)?.overall || 0,
+          siteInstallationTrackedItems: siteProgressByProject.get(sharePointId)?.trackedTasks || 0,
+          siteInstallationScopeProvisional: siteProgressByProject.get(sharePointId)?.provisional ?? true,
           progressOverallMode: fields.ProgressOverallMode || "auto",
           progressOverallOverride: Number(fields.ProgressOverallOverride || 0),
           healthMode: fields.HealthMode || "auto",
@@ -1806,6 +1845,8 @@ const SharePointDataProvider = {
       ProgressEngineeringMode: project.progressEngineeringMode || "manual",
       ProgressInstallation: Number(project.progressInstallation || 0),
       ProgressInstallationMode: project.progressInstallationMode || "manual",
+      ProgressInstallationOverrideExpl: project.progressInstallationOverrideExplicit === true,
+      ProgressInstallationOverrideReas: String(project.progressInstallationOverrideReason || "").slice(0, 255),
       ProgressOverallMode: project.progressOverallMode || "auto",
       ProgressOverallOverride: Number(project.progressOverallOverride || 0),
       HealthMode: project.healthMode || "auto",
