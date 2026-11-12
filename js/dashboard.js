@@ -3316,6 +3316,52 @@ function ganttJsString(value){
    .replaceAll("'","\\'");
 }
 
+// Compact unscheduled display only. Does not change Gantt task/date/bar calculations.
+function renderGanttUnscheduledSummary(records){
+ if(!records.length)return "";
+ const projects=records.filter(record=>record.scheduleKind!=="site");
+ const sites=records.filter(record=>record.scheduleKind==="site");
+ const taskMarkup=(record,kind)=>{
+   const title=esc(String(record.deliverable||"Untitled activity"));
+   const id=Number(record.id);
+   return Number.isSafeInteger(id)&&id>0
+     ? `<button type="button" class="linkbtn" style="text-align:left;display:inline-block;padding:3px 0;font-size:12px;max-width:100%;white-space:normal;" onclick="openScheduleSource('${kind}',${id})" title="Open activity">${title}</button>`
+     : `<span>${title}</span>`;
+ };
+ const sectionMarkup=(name,items,kind)=>{
+   if(!items.length)return "";
+   const groups=new Map();
+   items.forEach(record=>{
+     const location=String(record.discipline||"Other").trim()||"Other";
+     if(!groups.has(location))groups.set(location,[]);
+     groups.get(location).push(record);
+   });
+   const groupMarkup=[...groups].map(([location,entries])=>`
+     <details style="margin:5px 0 0 12px;border-top:1px solid #e4e9ee;padding:5px 0;">
+       <summary style="cursor:pointer;font-size:12px;color:#27435e;">
+         <strong>${esc(location)}</strong> <span style="opacity:.7;">(${entries.length})</span>
+       </summary>
+       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:2px 16px;padding:7px 8px 6px 14px;">
+         ${entries.map(record=>`<div style="min-width:0;">${taskMarkup(record,kind)}</div>`).join("")}
+       </div>
+     </details>`).join("");
+   return `<details style="margin-top:7px;border:1px solid #dbe4ed;border-radius:6px;padding:7px 10px;background:#fff;">
+     <summary style="cursor:pointer;font-size:12px;"><strong>${esc(name)}</strong> <span style="opacity:.7;">(${items.length})</span></summary>
+     <div>${groupMarkup}</div>
+   </details>`;
+ };
+ return `<details class="gantt-unscheduled" style="margin-top:12px;">
+   <summary style="cursor:pointer;display:list-item;font-size:12px;font-weight:700;color:#25445f;padding:5px 0;">
+     Unscheduled activities <span style="font-weight:400;opacity:.8;">(${records.length}) — expand to review</span>
+   </summary>
+   <div style="padding:4px 0 8px;">
+     <div style="font-size:11px;opacity:.75;">No target date assigned; not automatically late or blocked. Open an activity to manage its dates.</div>
+     ${sectionMarkup("Project Plan",projects,"project")}
+     ${sectionMarkup("Site Operations",sites,"site")}
+   </div>
+ </details>`;
+}
+
 function renderGantt(records){
  const scheduled=records
    .map(record=>({record,start:ganttStartFor(record),end:ganttDate(record.date)}))
@@ -3971,7 +4017,7 @@ function renderGantt(records){
        <div class="gantt-bottom-scroll-thumb"></div>
      </div>
    </div>
-   ${unscheduled.length?`<div class="gantt-unscheduled"><strong>Unscheduled:</strong> ${unscheduled.map(record=>esc(record.deliverable)).join(", ")}</div>`:""}
+   ${renderGanttUnscheduledSummary(unscheduled)}
  </div>`;
 }
 
