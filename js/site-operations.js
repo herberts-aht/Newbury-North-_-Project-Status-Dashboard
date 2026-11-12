@@ -590,7 +590,7 @@ const SiteOperations = (() => {
           <span class="so-status so-status-${operationStatusClass(op.status || "Planned")}">${escapeHtml(op.status || "Planned")}</span>
         </div>
 
-        ${op.details ? `<div class="so-operation-details">${escapeHtml(op.details)}</div>` : ""}
+        ${op.details ? `<div class="so-operation-details">${escapeHtml(displayOperationDetails(op.details))}</div>` : ""}
         ${progress}
 
         <div class="so-operation-meta">
@@ -815,8 +815,8 @@ const SiteOperations = (() => {
 
           <span>${escapeHtml(phase)}</span>
         </span>
-        <span class="so-operation-row-details" title="${escapeHtml(op.details || "")}">
-          ${op.details ? escapeHtml(op.details) : '<span class="so-detail-empty">—</span>'}
+        <span class="so-operation-row-details" title="${escapeHtml(displayOperationDetails(op.details || ""))}">
+          ${op.details ? escapeHtml(displayOperationDetails(op.details)) : '<span class="so-detail-empty">—</span>'}
         </span>
         <span class="so-operation-row-progress">
           ${pct === null
@@ -831,6 +831,15 @@ const SiteOperations = (() => {
         ${canDrill ? '<span class="so-operation-row-arrow" aria-hidden="true">›</span>' : '<span class="so-operation-row-arrow so-operation-row-arrow-hidden" aria-hidden="true"></span>'}
       </${tag}>
     `;
+  }
+
+
+  // AHT_SITE_ACTIVITY_VISUAL_ALIGNMENT_20261112
+  // Hide import/reconciliation tags only in the UI; original SharePoint notes stay intact.
+  function displayOperationDetails(value) {
+    return String(value || "")
+      .replace(/(^|\n)[ \t]*(?:GH-AP-LOCATIONS-\d{8}:|\[(?:2490|2200|2340)-[A-Z0-9_-]+\])[ \t]*/g, "$1")
+      .trim();
   }
 
   function renderOperationDetail(root) {
@@ -854,30 +863,168 @@ const SiteOperations = (() => {
         .so-item-phase-progress strong { display:block; margin:3px 0 5px; }
         .so-item-phase-progress .so-mini-progress { display:block; width:100%; }
         @media(max-width:540px) { .so-item-phase-progress { grid-template-columns:1fr; } }
-      </style>
+
+        /* AHT_SITE_ACTIVITY_VISUAL_ALIGNMENT_20261112: match location progress rows */
+        .so-item-detail .so-item-progress-panel.so-item-progress-consistent { max-width:none; padding:12px 0 16px; }
+        .so-item-detail .so-item-overall-progress { margin:0 0 12px; }
+        .so-item-detail .so-item-overall-progress strong { font-size:26px; }
+        .so-item-detail .so-item-progress-phase-rows { border:0; border-radius:0; padding:0; margin:0; background:transparent; }
+        .so-item-detail .so-item-progress-phase-rows .so-progress-row { grid-template-columns:80px minmax(100px,1fr) 60px; }
+
+        /* AHT_SITE_ACTIVITY_HEADER_COHESION_20261112: Room/Activity visual parity only */
+        .so-item-detail .so-item-detail-heading-aligned { align-items:center; gap:18px; }
+        .so-item-detail .so-item-detail-heading-main { min-width:0; }
+        .so-item-detail .so-item-detail-title-line { display:flex; align-items:baseline; flex-wrap:wrap; gap:7px; min-width:0; }
+        .so-item-detail .so-item-detail-title-line .eyebrow { margin:0; color:var(--blue); font-weight:800; }
+        .so-item-detail .so-item-detail-title-line h3 { margin:0; color:var(--navy); font-size:22px; font-weight:800; line-height:1.2; }
+        .so-item-detail .so-item-detail-context { display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-top:5px; }
+        .so-item-detail .so-item-detail-context .so-status { font-size:10px; padding:3px 8px; }
+        .so-item-detail .so-item-detail-header-actions { align-items:center; gap:12px; flex-shrink:0; }
+        .so-item-detail .so-item-detail-header-overall strong { font-size:32px; }
+        .so-item-detail .so-item-detail-header-actions .btn { font-size:12px; }
+        .so-item-detail .so-item-progress-consistent { padding-top:14px; }
+        @media (max-width:760px) {
+          .so-item-detail .so-item-detail-heading-aligned { flex-direction:column; align-items:stretch; }
+          .so-item-detail .so-item-detail-header-actions { flex-direction:row; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+          .so-item-detail .so-item-detail-header-overall { margin-right:auto; align-items:flex-start; }
+        }
+
+        /* AHT_SITE_ACTIVITY_ROOM_STYLE_PARITY_20261112
+           Work Activity visual treatment follows the existing Room detail header.
+           These rules are scoped to the Work Activity detail card ONLY. */
+
+        /* Same dark, readable title as Room; blue remains for the type label. */
+        .so-item-detail .so-item-detail-title-line h3 {
+          color: var(--ink, #26353e);
+          font-size: 22px;
+          font-weight: 700;
+          line-height: 1.2;
+          letter-spacing: normal;
+        }
+        .so-item-detail .so-item-detail-title-line .eyebrow {
+          color: var(--blue, #0088c7);
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .07em;
+          text-transform: uppercase;
+        }
+        .so-item-detail .so-item-detail-title-line .so-location-title-separator {
+          color: var(--muted, #66747d);
+          font-weight: 700;
+        }
+
+        /* Match the Room secondary description; status badge stays a badge. */
+        .so-item-detail .so-item-detail-context {
+          margin-top: 4px;
+          color: var(--muted, #66747d);
+          font-size: 11px;
+          font-weight: 400;
+          line-height: 1.35;
+        }
+        .so-item-detail .so-item-detail-context > span:first-child {
+          color: inherit;
+        }
+
+        /* Use the Room's KPI size and regular full-size Edit button treatment. */
+        .so-item-detail .so-item-detail-header-overall strong {
+          color: var(--navy, #004e84);
+          font-size: 29px;
+          font-weight: 700;
+          line-height: 1;
+        }
+        .so-item-detail .so-item-detail-header-overall span {
+          color: var(--muted, #66747d);
+          font-size: 11px;
+          font-weight: 400;
+          margin-top: 5px;
+        }
+        .so-item-detail .so-item-detail-header-actions .btn {
+          font-size: 13px;
+          font-weight: 600;
+          line-height: normal;
+          padding: 9px 12px;
+          border-radius: 7px;
+          white-space: nowrap;
+        }
+
+        /* Room-style neutral metadata; blue is reserved for actions/labels/KPIs. */
+        .so-item-detail .so-item-detail-grid > div > span {
+          color: var(--muted, #66747d);
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+        }
+        .so-item-detail .so-item-detail-grid > div > strong {
+          color: var(--ink, #26353e);
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .so-item-detail .so-item-detail-section h4 {
+          color: var(--ink, #26353e);
+          font-weight: 700;
+        }
+        .so-item-detail .so-item-detail-section:not(.so-item-detail-blocker) > div {
+          color: var(--ink, #26353e);
+        }
+        /* Preserve red warning state for an actual blocker and Delete action. */
+        .so-item-detail .so-item-detail-blocker h4,
+        .so-item-detail .so-item-detail-blocker > div {
+          color: var(--red, #c00000);
+        }
+
+        /* AHT_SITE_ACTIVITY_BUTTON_PARITY_20261112
+           Use the same standard .btn sizing as the Room's Edit Location button.
+           Both actions share sizing; .btn.danger retains its red warning colors. */
+        #siteOperations .so-item-detail .so-item-detail-heading-aligned
+          .so-item-detail-header-actions button.btn {
+          font-family: inherit;
+          font-size: 1rem;
+          font-weight: 600;
+          line-height: normal;
+          padding: 9px 12px;
+          border-radius: 7px;
+          height: auto;
+          min-height: 0;
+          width: auto;
+          white-space: nowrap;
+        }
+</style>
       <div class="so-item-detail">
-        <div class="so-item-detail-heading">
-          <div>
-            <div class="eyebrow">${escapeHtml(op.entryType || "Site Item")}</div>
-            <h3>${escapeHtml(op.title)}</h3>
-            <div class="small">${escapeHtml(location?.name || "Site Operations")}</div>
+        <div class="so-item-detail-heading so-item-detail-heading-aligned">
+          <div class="so-item-detail-heading-main">
+            <div class="so-detail-title-line so-item-detail-title-line">
+              <span class="eyebrow so-location-type">${escapeHtml(op.entryType || "Work Activity")}</span>
+              <span class="so-location-title-separator" aria-hidden="true">·</span>
+              <h3>${escapeHtml(op.title)}</h3>
+            </div>
+            <div class="so-item-detail-context small">
+              <span>${location ? escapeHtml(locationDisplayName(location)) : "Site Operations"}${op.sitePhase ? ` · ${escapeHtml(op.sitePhase)}` : ""}</span>
+              <span class="so-status so-status-${operationStatusClass(op.status || "Planned")}">${escapeHtml(op.status || "Planned")}</span>
+            </div>
           </div>
-          <div class="so-item-detail-actions">
-            <span class="so-status so-status-${operationStatusClass(op.status || "Planned")}">${escapeHtml(op.status || "Planned")}</span>
-            ${canEdit ? `<button class="btn" type="button" onclick="SiteOperations.editOperation(${Number(op.id)})">Edit</button>` : ""}
+          <div class="so-detail-header-actions so-item-detail-header-actions">
+            ${op.trackProgress ? `
+              <div class="so-detail-overall so-item-detail-header-overall">
+                <strong>${operationOverallPercent(op)}%</strong>
+                <span>Overall Progress</span>
+              </div>
+            ` : ""}
+            ${canEdit ? `<button class="btn" type="button" onclick="SiteOperations.editOperation(${Number(op.id)})">Edit Activity</button>` : ""}
             ${canEdit ? `<button class="btn danger" type="button" onclick="SiteOperations.deleteOperation(${Number(op.id)})">Delete</button>` : ""}
           </div>
         </div>
 
         ${op.trackProgress ? `
-          <div class="so-item-progress-panel">
-            ${progressBar("Overall Task", operationOverallPercent(op))}
-            ${operationHasPhases(op) ? `<div class="so-item-phase-progress">${SITE_PHASES.map(phase => {
-              const value = operationPhasePercent(op, phase);
-              return `<div><span class="small">${escapeHtml(phase)}</span><strong>${value}%</strong><span class="so-mini-progress"><span style="width:${value}%"></span></span></div>`;
-            }).join("")}</div>` : ""}
+          <div class="so-item-progress-panel so-item-progress-consistent">
+            ${operationHasPhases(op) ? `
+              <div class="so-detail-progress so-item-progress-phase-rows">
+                ${SITE_PHASES.map(phase => progressBar(phase, operationPhasePercent(op, phase))).join("")}
+              </div>
+            ` : progressBar("Overall Task", operationOverallPercent(op))}
           </div>
         ` : ""}
+
 
         <div class="so-item-detail-grid">
           <div><span>System</span><strong>${escapeHtml(op.system || "—")}</strong></div>
@@ -893,7 +1040,7 @@ const SiteOperations = (() => {
         ${op.details ? `
           <div class="so-item-detail-section">
             <h4>Details</h4>
-            <div>${escapeHtml(op.details)}</div>
+            <div>${escapeHtml(displayOperationDetails(op.details))}</div>
           </div>
         ` : ""}
 

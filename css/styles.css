@@ -260,7 +260,21 @@ label.organization-wide-user-control input{
 }
 
 
-#archiveUserBtn{margin-top:12px;width:100%}
+/* AHT-ADMIN-USER-ACTION-PRIORITY-20261112: smaller secondary destructive action. */
+#dashboardProfilePanel #archiveUserBtn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:auto;
+  max-width:100%;
+  min-width:0;
+  min-height:30px;
+  margin-top:12px;
+  padding:6px 11px;
+  border-radius:7px;
+  font-size:11px;
+  font-weight:600;
+}
 #archiveUserBtn:disabled{opacity:.45;cursor:not-allowed;transform:none}
 
 .startup-status{position:fixed;inset:0;z-index:100;background:rgba(244,246,249,.96);display:grid;place-items:center;padding:20px}
@@ -3752,8 +3766,14 @@ main.container{
   height:auto;
 }
 
+/* Save User is the primary, easier-to-hit action. */
 #dashboardProfilePanel #saveAccessBtn{
-  min-width:110px;
+  min-width:170px;
+  min-height:44px;
+  padding:11px 20px;
+  border-radius:8px;
+  font-size:14px;
+  font-weight:700;
 }
 
 @media (max-width:900px){

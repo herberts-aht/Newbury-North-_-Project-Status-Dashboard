@@ -167,10 +167,18 @@
   }
   refresh();
  }
- function projectPct(project){const mode=norm(project.progressInstallationMode),value=project.progressInstallation;if(!validPct(value))return null;
-  // A default untouched 0% is not evidence that field activity has started.
-  if(Number(value)===0&&mode!=='manual')return null;
-  if(Number(value)===0&&mode==='manual'&&!project.lastActivityDate&&!project.lastActivity)return null;
+ function projectPct(project){
+  const mode=norm(project.progressInstallationMode);
+  // AHT-OPS-AUTO-PROGRESS-V1: Auto uses the same calculated Site Operations
+  // progress as the dashboard, never the retained manual ProgressInstallation.
+  if(mode!=='manual'){
+   const tracked=Number(project.siteInstallationTrackedItems||0);
+   const calculated=project.siteInstallationProgress;
+   return tracked>0&&validPct(calculated)?clamp(calculated):null;
+  }
+  const value=project.progressInstallation;
+  if(!validPct(value))return null;
+  if(Number(value)===0&&!project.lastActivityDate&&!project.lastActivity)return null;
   return clamp(value);
  }
  function renderProgress(projects){
