@@ -99,23 +99,82 @@
  // Site Operations location roll-up mirrors its existing rules: direct tracked activity
  // is one component; child locations are individually weighted components.
  function rollupSite(data){
-  const locations=data.locations.filter(l=>l&&!l.archived&&l.active!==false),ops=data.operations.filter(o=>o&&!o.archived);
-  const byId=new Map(locations.map(l=>[String(l.id),l])),kids=new Map(),direct=new Map();
+  // AHT-OPS-PHASE-PARITY-V2
+  // Match Site Operations location rollups; Site Phase is NOT a display filter.
+  // Read-only: neither edits phase assignments nor writes to SharePoint.
+  const PHASES=['Rough-In','Trim','Final'];
+  const PHASE_WEIGHTS={'Rough-In':0.5,Trim:0.3,Final:0.2};
+  const PHASE_FIELDS={'Rough-In':'roughInPercent',Trim:'trimPercent',Final:'finalPercent'};
+  const locations=data.locations.filter(l=>l&&!l.archived&&l.active!==false);
+  const ops=data.operations.filter(o=>o&&!o.archived);
+  const byId=new Map(locations.map(l=>[String(l.id),l]));
+  const kids=new Map(),direct=new Map();
   for(const l of locations){const key=String(l.parentLocationId||'');if(!kids.has(key))kids.set(key,[]);kids.get(key).push(l);}
   for(const o of ops){const key=String(o.locationId||'');if(!direct.has(key))direct.set(key,[]);direct.get(key).push(o);}
-  const roots=locations.filter(l=>!l.parentLocationId||!byId.has(String(l.parentLocationId))).sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
-  function manual(loc,phase){const base=phase==='Rough-In'?'roughIn':phase==='Trim'?'trim':phase==='Final'?'final':'overall';const value=loc[base+'ProgressOverride'],reason=String(loc[base+'OverrideReason']||'').trim();return validPct(value)&&!(Number(value)===0&&!reason)?clamp(value):null;}
-  function weighted(arr){let total=0,sum=0;for(const a of arr){const w=Number(a.weight)>0?Number(a.weight):1;sum+=a.pct*w;total+=w;}return total?clamp(sum/total):null;}
-  function calc(l,phase='',seen=new Set()){const key=String(l.id);if(seen.has(key))return null;const seenNext=new Set([...seen,key]);const override=manual(l,phase);if(override!==null)return override;
-   const own=(direct.get(key)||[]).filter(o=>o.trackProgress===true&&validPct(o.percentComplete)&&(!phase||o.sitePhase===phase));
-   const comps=[];if(own.length){const directPct=weighted(own.map(o=>({pct:clamp(o.percentComplete),weight:o.progressWeight})));if(directPct!==null)comps.push({pct:directPct,weight:1});}
-   for(const child of kids.get(key)||[]){const pct=calc(child,phase,seenNext);if(pct!==null)comps.push({pct,weight:child.progressWeight});}
-   return weighted(comps);
+  const roots=locations.filter(l=>!l.parentLocationId||!byId.has(String(l.parentLocationId)))
+    .sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));
+  function manual(loc,phase){
+   const base=phase==='Rough-In'?'roughIn':phase==='Trim'?'trim':phase==='Final'?'final':'overall';
+   const value=loc?.[base+'ProgressOverride'],reason=String(loc?.[base+'OverrideReason']||'').trim();
+   return validPct(value)&&!(Number(value)===0&&!reason)?clamp(value):null;
   }
-  function phases(l){const found=new Set();(direct.get(String(l.id))||[]).filter(o=>o.trackProgress===true).forEach(o=>{if(o.sitePhase)found.add(String(o.sitePhase));});for(const p of ['Rough-In','Trim','Final'])if(manual(l,p)!==null)found.add(p);return [...found].sort((a,b)=>['Rough-In','Trim','Final'].indexOf(a)-['Rough-In','Trim','Final'].indexOf(b));}
-  return {roots,kids,calc,phases};
- }
- function bar(pct){return pct===null?'<span class="ops-progress-unreported">Not reported</span>':`<div class="ops-progress-pair"><div class="ops-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div><b>${pct}%</b></div>`;}
+  function weighted(items){
+   let total=0,sum=0;
+   for(const item of items){const w=Number(item.weight)>0?Number(item.weight):1;total+=w;sum+=item.pct*w;}
+   return total?clamp(sum/total):null;
+  }
+  function hasPhases(op){
+   return PHASES.includes(op.sitePhase)||PHASES.some(phase=>validPct(op.phaseProgress?.[PHASE_FIELDS[phase]]));
+  }
+  function phasePct(op,phase){
+   const stored=op.phaseProgress?.[PHASE_FIELDS[phase]];
+   if(validPct(stored))return clamp(stored);
+   // Legacy activities without PhaseProgressVersion 1 keep their existing phase percentage.
+   return op.sitePhase===phase?clamp(op.percentComplete):0;
+  }
+  function weightedOps(records,phase){
+   return weighted(records.map(op=>({pct:phase?phasePct(op,phase):
+    hasPhases(op)?clamp(PHASES.reduce((sum,p)=>sum+phasePct(op,p)*PHASE_WEIGHTS[p],0)):
+    clamp(op.percentComplete),weight:op.progressWeight})));
+  }
+  function trackedBelow(loc,phase='',seen=new Set()){
+   const key=String(loc.id);if(seen.has(key))return false;
+   const next=new Set([...seen,key]);
+   if((direct.get(key)||[]).some(op=>op.trackProgress===true&&(!phase||hasPhases(op))))return true;
+   return (kids.get(key)||[]).some(child=>trackedBelow(child,phase,next));
+  }
+  function calc(loc,phase='',seen=new Set()){
+   const key=String(loc.id);if(seen.has(key))return 0;
+   const next=new Set([...seen,key]);
+   const override=manual(loc,phase);
+   if(override!==null)return override;
+   // All three phases count, including an unstarted phase, in a phase-aware location.
+   if(!phase&&trackedBelow(loc,'phased')){
+    return clamp(PHASES.reduce((sum,p)=>sum+calc(loc,p,new Set())*PHASE_WEIGHTS[p],0));
+   }
+   const own=(direct.get(key)||[]).filter(op=>op.trackProgress===true&&(!phase||hasPhases(op)));
+   const components=[];
+   if(own.length)components.push({pct:weightedOps(own,phase),weight:1});
+   for(const child of kids.get(key)||[]){
+    if(!trackedBelow(child,phase)&&manual(child,phase)===null)continue;
+    components.push({pct:calc(child,phase,next),weight:child.progressWeight});
+   }
+   return weighted(components)??0;
+  }
+  // Shared project rollup includes planned empty rooms and unassigned tasks.
+  // Do not replace the project's existing Auto/Manual overall calculation.
+  function projectPhases(projectId){
+   const provider=spProvider();
+   if(typeof provider?.calculateSiteInstallationRollup!=='function')return null;
+   try{
+    const report=provider.calculateSiteInstallationRollup(locations,ops,projectId);
+    if(!report?.phases||!PHASES.every(p=>validPct(report.phases[p])))return null;
+    return Object.fromEntries(PHASES.map(p=>[p,clamp(report.phases[p])]));
+   }catch(e){console.warn('Operations project phase summary unavailable',e);return null;}
+  }
+  function phases(){return PHASES;}
+  return {roots,kids,calc,phases,projectPhases};
+ } function bar(pct){return pct===null?'<span class="ops-progress-unreported">Not reported</span>':`<div class="ops-progress-pair"><div class="ops-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div><b>${pct}%</b></div>`;}
  function locationRow(loc,calc,level=0,seen=new Set()){
   const key=String(loc.id);if(seen.has(key))return '';const next=new Set([...seen,key]);const opened=local.expanded.has('loc:'+String(local.currentTreeProject)+':'+key);const children=(calc.kids.get(key)||[]).slice().sort((a,b)=>Number(a.sortOrder||0)-Number(b.sortOrder||0));const progress=calc.calc(loc);
   const phaseList=calc.phases(loc);const hasChildren=children.length||phaseList.length;let html=`<div class="ops-progress-node"><div class="ops-progress-line ${hasChildren?'ops-clickable':''}" style="--indent:${Math.min(level,7)}" ${hasChildren?`data-expand="loc:${esc(String(local.currentTreeProject))}:${esc(key)}" tabindex="0" aria-expanded="${opened}"`: ''}><button type="button" class="ops-tree-toggle" ${!hasChildren?'disabled':''} data-expand="loc:${esc(String(local.currentTreeProject))}:${esc(key)}" aria-expanded="${opened}">${hasChildren?(opened?'▾':'▸'):'·'}</button><div class="ops-progress-name"><strong>${esc(loc.locationNumber?loc.locationNumber+' · '+loc.name:loc.name||'Unnamed area')}</strong><small>${esc(loc.locationType||loc.planLevel||'')}</small></div>${bar(progress)}</div>`;
@@ -133,8 +192,25 @@
  }
  function projectLookup(fields){return typeof spProvider()?.projectLookupId==='function'?
    Number(spProvider().projectLookupId(fields)||0):lookupId(fields,'Project');}
- function locationFromRow(row){const f=row.fields||{};return {id:Number(row.id),name:String(f.Title||f.LocationName||''),locationNumber:String(f.LocationNumber||''),parentLocationId:lookupId(f,'ParentLocation'),locationType:String(f.LocationType||''),planLevel:String(f.PlanLevel||''),progressWeight:Number(f.LocationProgressWeight)>0?Number(f.LocationProgressWeight):1,sortOrder:Number(f.SortOrder||0),active:f.Active!==false,overallProgressOverride:f.OverallProgressOverride,overallOverrideReason:f.OverallOverrideReason,roughInProgressOverride:f.RoughInProgressOverride,roughInOverrideReason:f.RoughInOverrideReason,trimProgressOverride:f.TrimProgressOverride,trimOverrideReason:f.TrimOverrideReason,finalProgressOverride:f.FinalProgressOverride,finalOverrideReason:f.FinalOverrideReason};}
- function operationFromRow(row){const f=row.fields||{};return {id:Number(row.id),locationId:lookupId(f,'Location'),sitePhase:String(f.SitePhase||f.DeliveryPhase||''),trackProgress:f.TrackProgress===true,percentComplete:f.PercentComplete,progressWeight:Number(f.ProgressWeight)>0?Number(f.ProgressWeight):1,archived:f.Archived===true};}
+ function locationFromRow(row){const f=row.fields||{};return {id:Number(row.id),sharePointId:Number(row.id),projectSharePointId:projectLookup(f),name:String(f.Title||f.LocationName||''),locationNumber:String(f.LocationNumber||''),parentLocationId:lookupId(f,'ParentLocation'),locationType:String(f.LocationType||''),planLevel:String(f.PlanLevel||''),progressWeight:Number(f.LocationProgressWeight)>0?Number(f.LocationProgressWeight):1,sortOrder:Number(f.SortOrder||0),active:f.Active!==false,overallProgressOverride:f.OverallProgressOverride,overallOverrideReason:f.OverallOverrideReason,roughInProgressOverride:f.RoughInProgressOverride,roughInOverrideReason:f.RoughInOverrideReason,trimProgressOverride:f.TrimProgressOverride,trimOverrideReason:f.TrimOverrideReason,finalProgressOverride:f.FinalProgressOverride,finalOverrideReason:f.FinalOverrideReason};}
+ function operationFromRow(row){
+  const f=row.fields||{};
+  const phased=String(f.PhaseProgressVersion||'')==='1';
+  return {
+   id:Number(row.id),sharePointId:Number(row.id),projectSharePointId:projectLookup(f),
+   locationId:lookupId(f,'Location'),title:String(f.Title||'Untitled Site Item'),
+   entryType:String(f.EntryType||'Work Activity'),itemType:String(f.ItemType||'Task'),
+   status:String(f.Status||'Planned'),
+   sitePhase:String(f.SitePhase||f.DeliveryPhase||''),trackProgress:f.TrackProgress===true,
+   percentComplete:f.PercentComplete,progressWeight:Number(f.ProgressWeight)>0?Number(f.ProgressWeight):1,
+   archived:f.Archived===true,
+   phaseProgress:{
+    roughInPercent:phased&&validPct(f.RoughInPercent)?Number(f.RoughInPercent):null,
+    trimPercent:phased&&validPct(f.TrimPercent)?Number(f.TrimPercent):null,
+    finalPercent:phased&&validPct(f.FinalPercent)?Number(f.FinalPercent):null
+   }
+  };
+ }
  function siteScopeSignature(projects){return projects.map(p=>String(p.sharePointId||'')+':'+String(p.id)).sort().join('|');}
  async function loadOfficeSite(projects){
   const signature=siteScopeSignature(projects);
@@ -192,7 +268,12 @@
    const key='proj:'+String(p.id),expanded=local.expanded.has(key);let pct=projectPct(p),detail='';
    const site=officeData.byProject.get(Number(p.sharePointId||0));
    if(site){const calc=rollupSite(site);if(pct===null&&calc.roots.length){const vals=calc.roots.map(l=>({pct:calc.calc(l),weight:l.progressWeight})).filter(v=>v.pct!==null);let tot=0,sum=0;for(const v of vals){const w=Number(v.weight)>0?Number(v.weight):1;tot+=w;sum+=w*v.pct;}pct=tot?clamp(sum/tot):null;}
-    if(expanded){local.currentTreeProject=p.id;detail=calc.roots.length?`<div class="ops-progress-tree">${calc.roots.map(l=>locationRow(l,calc)).join('')}</div>`:'<p class="ops-progress-message">No Site Operations areas have been configured for this project yet.</p>';}
+    if(expanded){
+     local.currentTreeProject=p.id;
+     const projectPhases=calc.projectPhases(Number(p.sharePointId||0));
+     const phaseRows=`<div class="ops-phase-stack" style="--indent:1">${['Rough-In','Trim','Final'].map(ph=>`<div class="ops-phase-line"><span>${esc(ph)}</span>${bar(projectPhases?projectPhases[ph]:null)}</div>`).join('')}</div>`;
+     detail=phaseRows+(calc.roots.length?`<div class="ops-progress-tree">${calc.roots.map(l=>locationRow(l,calc)).join('')}</div>`:'<p class="ops-progress-message">No Site Operations areas have been configured for this project yet.</p>');
+    }
    }else if(expanded&&officeData.loading)detail='<p class="ops-progress-message">Loading site progress for this office…</p>';
    else if(expanded&&officeData.error)detail=`<p class="ops-progress-message">${esc(officeData.error)}</p>`;
    else if(expanded)detail='<p class="ops-progress-message">No reported building or room information is available.</p>';
@@ -402,7 +483,15 @@
    if(active)active.focus({preventScroll:true});
    return;
   }
-  const t=e.target.closest('[data-ops-tab]');if(t){local.tab=t.dataset.opsTab;$('#ops-main').scrollTop=0;refresh();return;}
+  const t=e.target.closest('[data-ops-tab]');if(t){
+   const previousTab=local.tab;
+   local.tab=t.dataset.opsTab;
+   // Recheck SharePoint when returning to Site Progress after field edits.
+   if(local.tab==='progress'&&previousTab!=='progress'&&!local.siteOffice.loading){
+    local.siteOffice.loaded=false;
+   }
+   $('#ops-main').scrollTop=0;refresh();return;
+  }
   const display=e.target.closest('[data-ops-display]');if(display){local.display=display.dataset.opsDisplay;$('#ops-main').scrollTop=0;refresh();return;}
   const alert=e.target.closest('[data-alert]');if(alert){e.preventDefault();openQuestion(alert.dataset.alert);return;}
   if(e.target.closest('a,button,input,select,textarea,[role=link]')&&!e.target.closest('[data-expand]'))return;
@@ -419,6 +508,12 @@
  nav.addEventListener('click',()=>{if(canAccess())refresh();});
  const roleNode=document.getElementById('roleLabel');if(roleNode)new MutationObserver(updateNav).observe(roleNode,{childList:true,characterData:true,subtree:true});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateNav();});
- window.AHTOperations={canAccess,visibleProjects,refreshAccess:updateNav,onView:refresh,getRecords,rollupSite,siteScopeSignature,locationFromRow,operationFromRow};
+ window.AHTOperations={canAccess,visibleProjects,refreshAccess:updateNav,
+  onView:()=>{
+    // Refresh site progress when returning from edits in Site Operations.
+    if(local.tab==='progress'&&!local.siteOffice.loading)local.siteOffice.loaded=false;
+    refresh();
+  },
+  getRecords,rollupSite,siteScopeSignature,locationFromRow,operationFromRow};
  updateNav();
 })();

@@ -191,6 +191,47 @@ const SiteOperations = (() => {
     return graphDate(value);
   }
 
+  // Verify the phase-progress SharePoint columns before writing phased task data.
+  // A missing schema check previously caused ReferenceError during every phased save.
+  async function requireOperationPhaseSchema() {
+    const expected = [
+      "RoughInPercent",
+      "TrimPercent",
+      "FinalPercent",
+      "PhaseProgressVersion"
+    ];
+
+    const site = await SharePointDataProvider.getSite();
+    const listId = await SharePointDataProvider.getListId(
+      APP_CONFIG.sharePoint.lists.siteOperations
+    );
+    let url = `/sites/${encodeURIComponent(site.id)}/lists/${encodeURIComponent(listId)}/columns?$select=name`;
+    const available = new Set();
+    let pageCount = 0;
+
+    while (url) {
+      if (++pageCount > 20) {
+        throw new Error("Could not finish checking the Site Operations SharePoint columns; save cancelled.");
+      }
+      const result = await SharePointDataProvider.graph(url);
+      if (!result || !Array.isArray(result.value)) {
+        throw new Error("Site Operations SharePoint column check returned no usable result; save cancelled.");
+      }
+      result.value.forEach(column => {
+        if (column && typeof column.name === "string") available.add(column.name);
+      });
+      url = result["@odata.nextLink"] || "";
+    }
+
+    const missing = expected.filter(name => !available.has(name));
+    if (missing.length) {
+      throw new Error(
+        `Site Operations phase-progress columns are missing: ${missing.join(", ")}. ` +
+        "A SharePoint administrator must apply the phase-progress schema setup before saving phased activities."
+      );
+    }
+  }
+
   async function ensureLocationSchema() {
     if (state.locationSchemaChecked) return;
     state.locationSchemaChecked = true;
@@ -1737,26 +1778,139 @@ const SiteOperations = (() => {
     `;
   }
 
-  function locationParentOptions(selectedId = null, excludeId = null) {
-    const excludedIds = excludeId
-      ? descendantIds(excludeId)
-      : new Set();
+  /* AHT-SITE-LOCATION-MOVE-V1 */
+  function locationMovePath(location) {
+    const names = [];
+    const seen = new Set();
+    let current = location;
+    for (let depth = 0; current && depth < 16; depth++) {
+      const id = Number(current.id);
+      if (seen.has(id)) break;
+      seen.add(id);
+      names.unshift(locationDisplayName(current));
+      current = current.parentLocationId ? locationById(current.parentLocationId) : null;
+    }
+    return `${String(location.locationType || "Location")} · ${names.join(" / ")}`;
+  }
 
-    const sorted = state.locations
-      .filter(location => !excludedIds.has(Number(location.id)))
-      .slice()
-      .sort((a, b) =>
-        String(a.name || "").localeCompare(String(b.name || ""))
+  /* AHT-SITE-PARENT-PICKER-V3 */
+  // A compact, collapsible tree: top-level locations and all nested branches
+  // start collapsed. Searching reveals only matching paths and their ancestors.
+  // The hidden parentLocationId field remains the authoritative form value.
+  function locationParentTree(selectedId = null, excludeId = null, search = "") {
+    const excludedIds = excludeId ? descendantIds(excludeId) : new Set();
+    const available = state.locations.filter(loc => !excludedIds.has(Number(loc.id)));
+    const byId = new Map(available.map(loc => [Number(loc.id), loc]));
+    const children = new Map();
+    const roots = [];
+    const needle = String(search || "").trim().toLocaleLowerCase();
+    const selected = Number(selectedId || 0);
+    const order = loc => {
+      const type = String(loc.locationType || "").toLowerCase();
+      return type === "building" ? 0 : ["wing", "area", "exterior", "site zone"].includes(type) ? 1 : type === "room" ? 2 : 3;
+    };
+    const sort = (a,b) => order(a) - order(b) || Number(a.sortOrder || 0) - Number(b.sortOrder || 0) ||
+      String(a.locationNumber || a.name || "").localeCompare(String(b.locationNumber || b.name || ""), undefined, {numeric:true});
+    for (const loc of available) {
+      const parent = Number(loc.parentLocationId || 0);
+      if (parent && byId.has(parent) && parent !== Number(loc.id)) {
+        if (!children.has(parent)) children.set(parent, []);
+        children.get(parent).push(loc);
+      } else roots.push(loc);
+    }
+    for (const list of children.values()) list.sort(sort);
+    roots.sort(sort);
+    const selfMatch = loc => {
+      if (!needle) return true;
+      const label = `${loc.locationType || "Location"} · ${locationDisplayName(loc)}`;
+      const candidate = needle.includes("/") ? locationMovePath(loc) : label;
+      return candidate.toLocaleLowerCase().includes(needle);
+    };
+    // Exclude cycles from traversals; retain orphaned records as fallback roots.
+    const rendered = new Set();
+    function makeNode(loc, depth = 0, ancestry = new Set(), ancestorMatched = false) {
+      const id = Number(loc.id);
+      if (ancestry.has(id) || rendered.has(id)) return {html:"", visible:false};
+      const path = new Set([...ancestry, id]);
+      const thisMatches = selfMatch(loc);
+      const allChildNodes = (children.get(id) || []).map(child =>
+        makeNode(child, depth + 1, path, ancestorMatched || thisMatches)
       );
+      const visibleChildren = allChildNodes.filter(child => child.visible);
+      const visible = !needle || thisMatches || ancestorMatched || visibleChildren.length > 0;
+      if (!visible) return {html:"", visible:false};
+      rendered.add(id);
+      const label = `${loc.locationType || "Location"} · ${locationDisplayName(loc)}`;
+      const hasChildren = visibleChildren.length > 0;
+      // Expand matching ancestor paths automatically; otherwise keep branches shut.
+      const expanded = Boolean(needle && visibleChildren.some(child => child.hasMatch));
+      const row = `<div class="so-parent-node-row" style="--so-parent-depth:${Math.min(depth,12)}">
+        ${hasChildren ? `<button class="so-parent-branch" type="button" aria-expanded="${expanded}" aria-label="${expanded?'Collapse':'Expand'} ${escapeHtml(label)}" onclick="SiteOperations.toggleParentBranch(this)">${expanded?'▾':'▸'}</button>` : '<span class="so-parent-branch-placeholder" aria-hidden="true"></span>'}
+        <button type="button" class="so-parent-choice${selected===id?' is-selected':''}" data-parent-id="${id}" title="${escapeHtml(locationMovePath(loc))}" onclick="SiteOperations.chooseParentLocation(this)">${escapeHtml(label)}${selected===id?' ✓':''}</button>
+      </div>`;
+      const childMarkup = hasChildren ? `<div class="so-parent-children" ${expanded?'':'hidden'}>${visibleChildren.map(x=>x.html).join('')}</div>` : '';
+      return {html:`<div class="so-parent-node${depth===0?' so-parent-root':''}">${row}${childMarkup}</div>`,visible:true,hasMatch: thisMatches || visibleChildren.some(x=>x.hasMatch)};
+    }
+    let html = `<button type="button" class="so-parent-top-choice${!selected?' is-selected':''}" data-parent-id="" onclick="SiteOperations.chooseParentLocation(this)">Top Level — no parent${!selected?' ✓':''}</button>`;
+    const made = [];
+    for (const root of roots) made.push(makeNode(root));
+    // Legacy inconsistent parent chains remain discoverable, without loops.
+    for (const loc of available.filter(loc=>!rendered.has(Number(loc.id)))) made.push(makeNode(loc));
+    const matched = made.filter(x=>x.visible);
+    html += matched.map(x=>x.html).join('');
+    if (needle && !matched.length) html += '<div class="so-parent-no-results">No matching locations</div>';
+    return html;
+  }
 
-    return `
-      <option value="">Top Level</option>
-      ${sorted.map(location =>
-        `<option value="${Number(location.id)}" ${Number(selectedId) === Number(location.id) ? "selected" : ""}>
-          ${escapeHtml(locationDisplayName(location))}
-        </option>`
-      ).join("")}
-    `;
+  function toggleParentPicker(button) {
+    const picker = button?.closest('.so-parent-picker');
+    const list = picker?.querySelector('.so-parent-tree');
+    if (!list) return;
+    list.hidden = !list.hidden;
+    button.setAttribute('aria-expanded', String(!list.hidden));
+  }
+
+  function toggleParentBranch(button) {
+    const node = button?.closest('.so-parent-node');
+    const children = node?.querySelector(':scope > .so-parent-children');
+    if (!children) return;
+    children.hidden = !children.hidden;
+    button.textContent = children.hidden ? '▸' : '▾';
+    button.setAttribute('aria-expanded', String(!children.hidden));
+    const name = node.querySelector(':scope > .so-parent-node-row > .so-parent-choice')?.textContent || 'location';
+    button.setAttribute('aria-label', `${children.hidden ? 'Expand' : 'Collapse'} ${name}`);
+  }
+
+  function chooseParentLocation(button) {
+    const picker = button?.closest('.so-parent-picker');
+    if (!picker) return;
+    const input = picker.querySelector('input[name="parentLocationId"]');
+    const selectedName = picker.querySelector('.so-parent-current-label');
+    const toggle = picker.querySelector('.so-parent-picker-open');
+    const list = picker.querySelector('.so-parent-tree');
+    const search = picker.querySelector('.so-parent-search');
+    const selectedId = Number(button.dataset.parentId || 0);
+    const loc = selectedId ? locationById(selectedId) : null;
+    if (selectedId && !loc) return;
+    input.value = selectedId ? String(selectedId) : '';
+    if (selectedName) selectedName.textContent = loc ? locationMovePath(loc) : 'Top Level — no parent';
+    if (search) search.value = '';
+    if (list) {
+      list.innerHTML = locationParentTree(selectedId, Number(input.dataset.excludeId || 0));
+      list.hidden = true;
+    }
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function filterParentOptions(input) {
+    const picker = input?.closest('.so-parent-picker');
+    const field = picker?.querySelector('input[name="parentLocationId"]');
+    const list = picker?.querySelector('.so-parent-tree');
+    const toggle = picker?.querySelector('.so-parent-picker-open');
+    if (!field || !list) return;
+    list.innerHTML = locationParentTree(Number(field.value || 0), Number(field.dataset.excludeId || 0), input.value);
+    list.hidden = false;
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
   }
 
   function operationLocationOptions(selectedId = null) {
@@ -1807,14 +1961,15 @@ const SiteOperations = (() => {
 
       ${field(
         "Parent Location",
-        locationPickerMarkup({
-          id:"soParentLocationPicker",
-          items:state.locations.filter(location => !(record?.id && descendantIds(record.id).has(Number(location.id)))),
-          placeholder:"Choose parent location…",
-          selectedId:defaultParent,
-          fieldName:"parentLocationId",
-          allowTopLevel:true
-        })
+        `<div class="so-parent-picker">
+          <input type="hidden" name="parentLocationId" value="${Number(defaultParent || 0) || ''}" data-exclude-id="${Number(record?.id || 0)}">
+          <input class="so-parent-search" type="search" aria-label="Search parent locations" placeholder="Search building, floor, room or number…" autocomplete="off" oninput="SiteOperations.filterParentOptions(this)">
+          <button type="button" class="so-parent-picker-open" aria-expanded="false" onclick="SiteOperations.toggleParentPicker(this)">
+            <span class="so-parent-current-label">${escapeHtml(defaultParent && locationById(defaultParent) ? locationMovePath(locationById(defaultParent)) : 'Top Level — no parent')}</span><span aria-hidden="true">▾</span>
+          </button>
+          <div class="so-parent-tree" hidden>${locationParentTree(defaultParent, record?.id)}</div>
+          <div class="small so-parent-filter-note">Expand a building or floor to choose its rooms. Changing the parent retains all attached activities.</div>
+        </div>`
       )}
 
       ${field(
@@ -2281,6 +2436,12 @@ const SiteOperations = (() => {
     }
 
     const parentId = Number(data.get("parentLocationId") || 0);
+    if (parentId && !locationById(parentId)) {
+      throw new Error("The selected parent location is not in this project. Refresh and try again.");
+    }
+    if (record?.id && parentId && descendantIds(record.id).has(parentId)) {
+      throw new Error("A location cannot be placed inside itself or one of its descendants.");
+    }
 
     if (parentId) {
       fields.ParentLocationLookupId = String(parentId);
@@ -3035,6 +3196,10 @@ function openReportedInstallationEditor() {
     locationFilterChanged,
     locationPickerInput,
     locationPickerCommit,
+    filterParentOptions,
+    toggleParentPicker,
+    toggleParentBranch,
+    chooseParentLocation,
     downloadSitePDF,
     downloadLocationPDF,
     closeModal,

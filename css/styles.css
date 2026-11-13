@@ -7819,3 +7819,137 @@ body.project-control-detail-open
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
 }
+
+/* AHT-SITE-EDIT-PHASE-ALIGN-V1
+   Visual-only: keep progress percentages in one column, like Location overrides.
+   No JavaScript, data, or form-submission changes.
+*/
+.so-modal .form-grid > .field:has(> input[name="roughInPercent"]),
+.so-modal .form-grid > .field:has(> input[name="trimPercent"]),
+.so-modal .form-grid > .field:has(> input[name="finalPercent"]),
+.so-modal .form-grid > .so-legacy-percent-field {
+  grid-column: 1;
+  min-width: 0;
+}
+.so-modal .form-grid > .field:has(> input[name="roughInPercent"]) input,
+.so-modal .form-grid > .field:has(> input[name="trimPercent"]) input,
+.so-modal .form-grid > .field:has(> input[name="finalPercent"]) input {
+  background: #f6f8fb;
+  border-color: #d9e2ed;
+  color: #40536a;
+  min-height: 39px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.so-modal .form-grid > .field:has(> input[name="roughInPercent"]) label,
+.so-modal .form-grid > .field:has(> input[name="trimPercent"]) label,
+.so-modal .form-grid > .field:has(> input[name="finalPercent"]) label {
+  color: #566779;
+}
+@media (max-width: 680px) {
+  .so-modal .form-grid > .field:has(> input[name="roughInPercent"]),
+  .so-modal .form-grid > .field:has(> input[name="trimPercent"]),
+  .so-modal .form-grid > .field:has(> input[name="finalPercent"]),
+  .so-modal .form-grid > .so-legacy-percent-field { grid-column: 1 / -1; }
+}
+/* END AHT-SITE-EDIT-PHASE-ALIGN-V1 */
+
+/* AHT-SITE-PARENT-PICKER-V3-CSS
+   Compact tree, collapsed building/floor branches and extra space above search.
+   Display-only: the saved ParentLocationLookupId remains unchanged.
+*/
+.so-modal .so-parent-picker {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+}
+.so-modal .so-parent-picker .so-parent-search {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 38px;
+}
+.so-modal .so-parent-picker-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid #d9e2ed;
+  border-radius: 6px;
+  background: #fff;
+  color: #30435b;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.so-modal .so-parent-picker-open .so-parent-current-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.so-modal .so-parent-tree {
+  overflow-y: auto;
+  max-height: 320px;
+  border: 1px solid #d9e2ed;
+  border-radius: 7px;
+  background: #fff;
+  padding: 5px;
+  box-sizing: border-box;
+}
+.so-modal .so-parent-tree[hidden],
+.so-modal .so-parent-children[hidden] { display: none !important; }
+.so-modal .so-parent-node-row {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding-left: calc(var(--so-parent-depth, 0) * 11px);
+  gap: 3px;
+}
+.so-modal .so-parent-branch,
+.so-modal .so-parent-branch-placeholder {
+  flex: 0 0 23px;
+  width: 23px;
+  height: 29px;
+  border: 0;
+  padding: 0;
+  text-align: center;
+  background: transparent;
+  color: #48647d;
+  font-size: 15px;
+  cursor: pointer;
+}
+.so-modal .so-parent-choice,
+.so-modal .so-parent-top-choice {
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #30435b;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 7px;
+  min-width: 0;
+}
+.so-modal .so-parent-choice {
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.so-modal .so-parent-top-choice { display: block; width: 100%; }
+.so-modal .so-parent-root > .so-parent-node-row > .so-parent-choice { font-weight: 650; }
+.so-modal .so-parent-choice:hover,
+.so-modal .so-parent-top-choice:hover { background: #f1f6fb; }
+.so-modal .so-parent-choice.is-selected,
+.so-modal .so-parent-top-choice.is-selected { background: #eaf3fb; color: #145a8e; font-weight: 700; }
+.so-modal .so-parent-no-results { color: #66788a; padding: 10px; font-size: 13px; }
+.so-modal .so-parent-filter-note { line-height: 1.35; }
+/* END AHT-SITE-PARENT-PICKER-V3-CSS */
