@@ -209,3 +209,176 @@
  #operations .ops-stat-select.is-active{padding:11px}
  #operations .ops-stat-select strong{font-size:25px}
 }
+
+/* AHT-OPS-SITE-PROGRESS-CLARITY-V4-START
+   Editorial hierarchy: fewer nested boxes, clearer grouping and deliberate AHT-blue accents.
+   CSS only. No changes to progress, SharePoint, expansion, or accessibility semantics.
+*/
+
+/* Keep one project card, rather than a collection of similarly tinted cards. */
+#operations #ops-main .ops-progress-project {
+  margin: 0 0 15px;
+  border: 1px solid #d1dee8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(19, 49, 73, .06);
+}
+#operations #ops-main .ops-progress-project > .ops-project-line {
+  background: #edf4f9;
+  box-shadow: inset 4px 0 0 #164c75;
+  border-bottom: 1px solid #d5e2eb;
+  padding: 14px 15px;
+}
+#operations #ops-main .ops-project-line .ops-progress-name strong {
+  color: #183f60;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -.005em;
+}
+#operations #ops-main .ops-project-line .ops-progress-name small {
+  color: #5f788c;
+}
+
+/* Nesting itself creates the indent; a continuous hairline traces each branch. */
+#operations #ops-main .ops-progress-line {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9eff3;
+  box-shadow: none;
+  background: #fff;
+  min-height: 36px;
+}
+#operations #ops-main .ops-progress-tree {
+  padding: 4px 10px 9px;
+  background: #fff;
+}
+#operations #ops-main .ops-progress-tree > .ops-progress-node {
+  margin: 10px 0 15px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+#operations #ops-main .ops-progress-tree .ops-progress-node > .ops-progress-node {
+  margin-left: 25px;
+  border-left: 1px solid #cbdce8;
+  background: #fff;
+}
+
+/* A building is the one location level with a highlighted section header. */
+#operations #ops-main .ops-progress-tree > .ops-progress-node > .ops-progress-line {
+  background: #f1f6fa;
+  border: 1px solid #d8e5ee;
+  border-left: 3px solid #357aa6;
+  border-radius: 5px;
+  padding: 11px 12px;
+}
+#operations #ops-main .ops-progress-tree > .ops-progress-node > .ops-progress-line .ops-progress-name strong {
+  color: #174a71;
+  font-weight: 725;
+  font-size: 13px;
+}
+
+/* Floors and areas are structured row headings, not another colored card. */
+#operations #ops-main .ops-progress-tree > .ops-progress-node > .ops-progress-node > .ops-progress-line {
+  background: #fafcfd;
+  border-bottom: 1px solid #dbe6ee;
+  border-radius: 0;
+}
+#operations #ops-main .ops-progress-tree > .ops-progress-node > .ops-progress-node > .ops-progress-line .ops-progress-name strong {
+  color: #2a4b66;
+  font-size: 12.8px;
+  font-weight: 675;
+}
+
+/* Rooms stay simple: white, thin divider, readable rather than bold. */
+#operations #ops-main .ops-progress-tree > .ops-progress-node > .ops-progress-node > .ops-progress-node > .ops-progress-line,
+#operations #ops-main .ops-progress-tree .ops-progress-node .ops-progress-node .ops-progress-node .ops-progress-node > .ops-progress-line {
+  background: #fff;
+  border-bottom: 1px solid #edf1f4;
+  border-radius: 0;
+}
+#operations #ops-main .ops-progress-tree .ops-progress-node .ops-progress-node .ops-progress-node > .ops-progress-line .ops-progress-name strong {
+  color: #344d60;
+  font-size: 12.5px;
+  font-weight: 580;
+}
+#operations #ops-main .ops-progress-name small {
+  color: #728699;
+  font-size: 10.5px;
+  font-weight: 450;
+}
+
+/* Phases are a small indented detail rail, not a boxed sub-card. */
+#operations #ops-main .ops-phase-stack {
+  margin: 5px 12px 10px 16px;
+  padding: 3px 9px 3px 14px;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid #bdd4e4;
+  border-radius: 0;
+}
+#operations #ops-main .ops-phase-line {
+  padding: 6px 0;
+  border-bottom: 1px solid #edf1f4;
+  font-size: 11.5px;
+  color: #526d82;
+}
+#operations #ops-main .ops-phase-line:last-child { border-bottom: 0; }
+#operations #ops-main .ops-phase-line > span:first-child {
+  color: #49687f;
+  font-weight: 560;
+}
+
+/* Use blue to show actual work. Empty progress should not dominate every row. */
+#operations #ops-main .ops-tree-toggle {
+  background: #fff;
+  border: 1px solid #d2e2ed;
+  border-radius: 4px;
+  color: #235f8a;
+}
+#operations #ops-main .ops-tree-toggle:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: #a5b1bc;
+}
+#operations #ops-main .ops-progress-track {
+  height: 8px;
+  background: #e4ecf2;
+  box-shadow: none;
+}
+#operations #ops-main .ops-progress-track > span { background: #277db2; }
+#operations #ops-main .ops-project-line .ops-progress-track > span { background: #175987; }
+#operations #ops-main .ops-progress-track[aria-valuenow="0"] {
+  height: 3px;
+  background: #edf1f4;
+  max-width: 180px;
+  margin-left: auto;
+}
+#operations #ops-main .ops-progress-pair > b {
+  color: #1b567e;
+  font-weight: 700;
+  font-size: 12px;
+}
+#operations #ops-main .ops-progress-pair:has(.ops-progress-track[aria-valuenow="0"]) > b {
+  color: #738797;
+  font-weight: 500;
+}
+#operations #ops-main .ops-progress-unreported { color: #7a8995; }
+
+#operations #ops-main .ops-progress-line.ops-clickable:hover {
+  filter: none;
+  background: #f4f9fc;
+}
+#operations #ops-main .ops-progress-line.ops-clickable:focus-visible {
+  outline: 2px solid #2b7eb3;
+  outline-offset: -2px;
+}
+@media (max-width: 760px) {
+  #operations #ops-main .ops-progress-tree { padding: 3px 5px 8px; }
+  #operations #ops-main .ops-progress-tree .ops-progress-node > .ops-progress-node { margin-left: 16px; }
+  #operations #ops-main .ops-progress-line { padding: 9px 7px; }
+  #operations #ops-main .ops-progress-project > .ops-project-line { padding: 12px 9px; }
+  #operations #ops-main .ops-phase-stack { margin: 4px 5px 9px 9px; padding-left: 10px; }
+  #operations #ops-main .ops-progress-track[aria-valuenow="0"] { max-width: 100px; }
+}
+/* AHT-OPS-SITE-PROGRESS-CLARITY-V4-END */
