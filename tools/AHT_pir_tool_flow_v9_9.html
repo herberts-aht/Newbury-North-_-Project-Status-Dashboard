@@ -51,6 +51,13 @@
   #zoomctl { position:absolute; right:14px; bottom:14px; display:flex; flex-direction:column; gap:6px; }
   #zoomctl button { width:34px; height:34px; font-size:16px; padding:0; }
   #banner { position:absolute; left:50%; transform:translateX(-50%); top:10px; background:rgba(26,26,24,.82); color:#fff; font-size:12px; padding:6px 12px; border-radius:14px; display:none; pointer-events:none; }
+/* AHT-XY-ALIGN-V1: editor-only position help; never printed on exported plans. */
+#ahtXYBadge { position:absolute; z-index:8; display:none; pointer-events:none; white-space:nowrap; padding:5px 9px; border:1px solid #7da8c5; border-radius:7px; background:rgba(255,255,255,.97); box-shadow:0 2px 10px #153f5b24; color:#1d4c69; font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; }
+#ahtXYPosition { border:1px solid #d6e3ec; border-radius:7px; background:#f8fbfd; margin:8px 0; padding:8px; }
+#ahtXYPosition .aht-xy-fields { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+#ahtXYPosition .aht-xy-fields label { margin:0; }
+#ahtXYPosition .aht-xy-fields input { margin-top:4px; min-width:0; }
+#ahtXYPosition .aht-xy-hint { font-size:10px; line-height:1.4; color:#627787; margin-top:6px; }
   .tbl { width:100%; border-collapse:collapse; font-size:12px; }
   .tbl td { padding:2px 0; }
   .tbl td:last-child { text-align:right; font-weight:600; }
@@ -425,11 +432,20 @@
     </section>
 
     <details class="fold advanced" id="selectionSettings">
-      <summary>Selected Item / Advanced Controls <span>Size · Preview · Color · Notes</span></summary>
+      <summary>Selected Item / Advanced Controls <span>Position · Size · Preview · Color · Notes</span></summary>
     <h3>Selected Markup</h3>
     <button id="editDetailsBtn" type="button" style="width:100%;margin-bottom:6px">Edit selected room / change details</button>
     <div class="panel" id="selPanel"><div class="muted">Nothing selected.</div></div>
     <div id="selTools" style="display:none">
+      <div id="ahtXYPosition" style="display:none">
+        <strong style="font-size:12px;color:#204c69">Position on drawing</strong>
+        <div class="aht-xy-fields" style="margin-top:7px">
+          <label class="lbl" for="ahtPosX">X · left to right <input id="ahtPosX" type="number" min="0" max="100" step="0.1" inputmode="decimal" aria-label="Horizontal drawing position from 0 to 100"></label>
+          <label class="lbl" for="ahtPosY">Y · top to bottom <input id="ahtPosY" type="number" min="0" max="100" step="0.1" inputmode="decimal" aria-label="Vertical drawing position from 0 to 100"></label>
+        </div>
+        <label class="chk" style="font-size:11px;margin:7px 0 0"><input id="ahtXYSnap" type="checkbox" checked> Align to nearby devices while dragging</label>
+        <div class="aht-xy-hint">Relative position (0–100), not feet. Drag to see live coordinates; enter a number for exact alignment.</div>
+      </div>
       <div id="devRow">
       <label class="lbl">Room / area (required for changes)</label>
       <input type="text" id="noteInput" list="noteList" placeholder="e.g. Primary Bedroom">
@@ -562,6 +578,7 @@
 
   <div id="main">
     <div id="viewport"><div id="stage"><canvas id="cv"></canvas><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div></div>
+    <div id="ahtXYBadge" role="status" aria-live="off"></div>
     <div id="empty">Choose a plan PDF to begin.<br>The sheet scale is read from the drawing when possible.</div>
     <div id="banner"></div>
     <div id="zoomctl"><button id="zIn">+</button><button id="zOut">−</button><button id="zFit" title="Fit">⤢</button></div>
@@ -1183,6 +1200,55 @@ $('zOut').onclick = () => { const r = $('viewport').getBoundingClientRect(); zoo
 $('viewport').addEventListener('wheel', e => { e.preventDefault(); const r = $('viewport').getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
 function toView(e) { const r = $('viewport').getBoundingClientRect(); return [(e.clientX - r.left - tx) / zoom, (e.clientY - r.top - ty) / zoom]; }
 
+// AHT-XY-ALIGN-V1 — the UI uses relative drawing coordinates; markers keep their original PDF-point positions.
+const xyPercent=(value,span)=>span>0?(100*value/span):0;
+const xyText=value=>Number(value).toFixed(1);
+let xyGuides=[];
+function moveMarkerBy(m,dx,dy){
+ if(!m||(!dx&&!dy))return;
+ for(const [x,y] of [['x','y'],['x2','y2'],['lx','ly'],['cx','cy']]){
+  if(Number.isFinite(m[x])&&Number.isFinite(m[y])){m[x]+=dx;m[y]+=dy;}
+ }
+ if(Array.isArray(m.pts))m.pts=m.pts.map(([x,y])=>[x+dx,y+dy]);
+ if(Array.isArray(m.extraTips))m.extraTips=m.extraTips.map(([x,y])=>[x+dx,y+dy]);
+}
+function xyAlignable(m){
+ return !!m&&Number.isFinite(m.x)&&Number.isFinite(m.y)&&!isAnnotation(m)&&!['omnitrax','relocate'].includes(m.type);
+}
+function xySnappedPosition(m,rawX,rawY){
+ xyGuides=[];
+ if(!$('ahtXYSnap').checked||!xyAlignable(m)||sel.size!==1)return [rawX,rawY];
+ const tol=8/Math.max(zoom,.01),others=pageMarkers().filter(other=>other.id!==m.id&&ahtLayerShown(other)&&xyAlignable(other));
+ let x=rawX,y=rawY,bestX=tol,bestY=tol,matchX=null,matchY=null;
+ for(const other of others){
+  const dx=Math.abs(other.x-rawX),dy=Math.abs(other.y-rawY);
+  if(dx<bestX){bestX=dx;x=other.x;matchX=other;}
+  if(dy<bestY){bestY=dy;y=other.y;matchY=other;}
+ }
+ if(matchX)xyGuides.push({axis:'x',v:x,a:Math.min(y,matchX.y),b:Math.max(y,matchX.y)});
+ if(matchY)xyGuides.push({axis:'y',v:y,a:Math.min(x,matchY.x),b:Math.max(x,matchY.x)});
+ return [x,y];
+}
+function drawXYGuides(scene){
+ if(!xyGuides.length)return;
+ const g=el('g',{style:'pointer-events:none'},scene),pad=12/Math.max(zoom,.01);
+ xyGuides.forEach(line=>{
+  const attrs=line.axis==='x'?{x1:line.v,y1:line.a-pad,x2:line.v,y2:line.b+pad}:{x1:line.a-pad,y1:line.v,x2:line.b+pad,y2:line.v};
+  el('line',{...attrs,stroke:'#177da3','stroke-width':1.4,'stroke-opacity':.8,'stroke-dasharray':'5 4','vector-effect':'non-scaling-stroke'},g);
+ });
+}
+function showXYBadge(m){
+ const badge=$('ahtXYBadge');if(!vp||!m){badge.style.display='none';return;}
+ badge.textContent='X '+xyText(xyPercent(m.x,vp.width))+'  ·  Y '+xyText(xyPercent(m.y,vp.height));
+ badge.style.display='block';
+ const box=$('viewport').getBoundingClientRect(),x=tx+m.x*zoom,y=ty+m.y*zoom;
+ const w=badge.offsetWidth,h=badge.offsetHeight;
+ const left=x+18+w>box.width?x-w-18:x+18;
+ badge.style.left=Math.max(6,Math.min(box.width-w-6,left))+'px';
+ badge.style.top=Math.max(6,Math.min(box.height-h-6,y-h-16))+'px';
+}
+function hideXYBadge(){ $('ahtXYBadge').style.display='none';xyGuides=[]; }
+
 // ---------- rendering overlay ----------
 function nearestHit(x, y) { // used for click selection of lines
   return null;
@@ -1279,6 +1345,7 @@ function refresh() {
   });
   el('g', { id: 'rubber', style: 'pointer-events:none' }, scene);
   el('g', { id: 'marq', style: 'pointer-events:none' }, scene);
+  drawXYGuides(scene);
   updatePanels();
 }
 function drawRubber(pt) {
@@ -1362,6 +1429,13 @@ function updatePanels() {
   // selection
   const ids = [...sel]; const sp = $('selPanel');
   $('arrowNoteRow').style.display='none';
+  const xyItem=ids.length===1?markers.find(m=>m.id===ids[0]):null;
+  const xyPanel=$('ahtXYPosition');
+  xyPanel.style.display=xyItem&&vp&&Number.isFinite(xyItem.x)&&Number.isFinite(xyItem.y)?'block':'none';
+  if(xyPanel.style.display==='block'){
+    if(document.activeElement!==$('ahtPosX'))$('ahtPosX').value=xyText(xyPercent(xyItem.x,vp.width));
+    if(document.activeElement!==$('ahtPosY'))$('ahtPosY').value=xyText(xyPercent(xyItem.y,vp.height));
+  }
   const selectedMove = ids.length===1 ? markers.find(m=>m.id===ids[0]&&m.type==='relocate') : null;
   $('moveArrowColorWrap').style.display=selectedMove?'block':'none';
   if(selectedMove && document.activeElement!==$('moveArrowColor')) $('moveArrowColor').value=/^#[0-9a-fA-F]{6}$/.test(selectedMove.arrowColor||'')?selectedMove.arrowColor:DEV.relocate.color;
@@ -1441,6 +1515,21 @@ $('sensorIdentityReset').onclick=()=>{
   const dev=DEV[m.type];if(!isSensorDev(dev))return;
   pushUndo();delete m.make;delete m.model;refresh();
 };
+$('ahtPosX').addEventListener('change',e=>changeXYPosition('x',e.target.value));
+$('ahtPosY').addEventListener('change',e=>changeXYPosition('y',e.target.value));
+function changeXYPosition(axis,text){
+ const m=markers.find(x=>x.id===[...sel][0]);
+ if(sel.size!==1||!m||!vp)return;
+ const value=Number(text);if(String(text).trim()===''||!Number.isFinite(value)||value<0||value>100){
+  $(axis==='x'?'ahtPosX':'ahtPosY').value=xyText(xyPercent(m[axis],axis==='x'?vp.width:vp.height));
+  status('Enter an X/Y position between 0 and 100.');return;
+ }
+ const raw=(value/100)*(axis==='x'?vp.width:vp.height);
+ const dx=axis==='x'?raw-m.x:0,dy=axis==='y'?raw-m.y:0;
+ if(Math.abs(dx)+Math.abs(dy)<.001){refresh();return;}
+ pushUndo();moveMarkerBy(m,dx,dy);refresh();
+ status('Position updated. Save work JSON to keep the new placement.');
+}
 $('editDetailsBtn').onclick=()=>{const id=[...sel][0];if(id!=null)openChangeDetails(id);};
 $('noteInput').onchange = e => { pushUndo(); sel.forEach(id => { const m = markers.find(x => x.id === id); if (m) m.note = e.target.value.trim(); }); refresh(); };
 $('rotRange').onpointerdown = () => pushUndo();
@@ -1572,8 +1661,16 @@ $('viewport').addEventListener('pointermove', e => {
     const dx = pt[0] - drag.start[0], dy = pt[1] - drag.start[1];
     if (!drag.moved && Math.hypot(dx, dy) * zoom < 3) return;
     if (!drag.moved) { pushUndo(); drag.moved = true; }
-    markers.forEach(m => { const o = drag.m0[m.id]; if (!o) return; m.x = o.x + dx; m.y = o.y + dy; if (o.x2 !== undefined) { m.x2 = o.x2 + dx; m.y2 = o.y2 + dy; } if (o.lx !== undefined) { m.lx = o.lx + dx; m.ly = o.ly + dy; } if(Array.isArray(o.extraTips))m.extraTips=o.extraTips.map(([x,y])=>[x+dx,y+dy]); if(m.type==='relocate'){const cx=o.cx??(o.x+o.x2)/2, cy=o.cy??((o.y+o.y2)/2-Math.min(35,Math.abs(o.x2-o.x)*.2));m.cx=cx+dx;m.cy=cy+dy;} });
+    let moveDx=dx,moveDy=dy;
+    const active=sel.size===1?markers.find(m=>m.id===drag.id):null;
+    const original=active&&drag.m0[active.id];
+    if(active&&original){
+      const snapped=xySnappedPosition(active,original.x+dx,original.y+dy);
+      moveDx=snapped[0]-original.x;moveDy=snapped[1]-original.y;
+    }else xyGuides=[];
+    markers.forEach(m => { const o = drag.m0[m.id]; if (!o) return; m.x = o.x + moveDx; m.y = o.y + moveDy; if (o.x2 !== undefined) { m.x2 = o.x2 + moveDx; m.y2 = o.y2 + moveDy; } if (o.lx !== undefined) { m.lx = o.lx + moveDx; m.ly = o.ly + moveDy; } if (Array.isArray(m.pts) && Array.isArray(o.pts)) m.pts = o.pts.map(([x,y])=>[x+moveDx,y+moveDy]); if (Array.isArray(o.extraTips)) m.extraTips=o.extraTips.map(([x,y])=>[x+moveDx,y+moveDy]); if(m.type==='relocate'){const cx=o.cx??(o.x+o.x2)/2, cy=o.cy??((o.y+o.y2)/2-Math.min(35,Math.abs(o.x2-o.x)*.2));m.cx=cx+moveDx;m.cy=cy+moveDy;} });
     refresh();
+    if(active)showXYBadge(active);
   } else if (drag.mode === 'handle') {
     if (!drag.moved) { pushUndo(); drag.moved = true; }
     const m = markers.find(x => x.id === drag.id), h = drag.handle;
@@ -1625,6 +1722,14 @@ $('viewport').addEventListener('pointerup', e => {
     sel = new Set(pageMarkers().filter(m => { const inside = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1; return inside(m.x, m.y) || (m.x2 !== undefined && inside(m.x2, m.y2)); }).map(m => m.id)); refresh();
   }
   drag = null;
+  const hadGuides=xyGuides.length>0;
+  hideXYBadge();
+  if(hadGuides)refresh();
+});
+$('viewport').addEventListener('pointercancel',()=>{
+  drag=null;
+  const hadGuides=xyGuides.length>0;
+  hideXYBadge();if(hadGuides)refresh();
 });
 
 // ---------- save / load ----------
