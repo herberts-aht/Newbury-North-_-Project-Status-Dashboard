@@ -349,6 +349,44 @@ button, input, select, textarea { outline-offset:2px; }
 .aht-jump b {font-size:10px;line-height:1.2;}
 .aht-jump:hover {background:#eaf3fb;border-color:#8eafcd;}
 .aht-jump.active {background:#e8f2fb;border:2px solid #206da7;color:#104b7b;padding:5px 2px;box-shadow:inset 0 -2px 0 #99c4e6;}
+/* AHT_CCTV_STEP_HELP_V2: intentional, delayed help to the LEFT of the workflow;
+   document-level positioning prevents clipping by the scrolling sidebar. */
+#ahtWorkflowNav {position:relative;}
+.aht-flow-help {
+  position:fixed;z-index:3000;box-sizing:border-box;
+  width:266px;max-width:calc(100vw - 24px);
+  padding:12px 14px 12px 15px;
+  border:1px solid #9dbad1;border-left:3px solid #2776aa;border-radius:9px;
+  background:#fff;color:#29425a;box-shadow:0 10px 26px rgba(19,50,77,.24);
+  font-size:11px;line-height:1.48;font-weight:400;pointer-events:none;
+  opacity:0;visibility:hidden;transform:translateY(6px) scale(.985);
+  transition:opacity .2s ease,transform .2s ease,visibility 0s linear .2s;
+}
+.aht-flow-help.is-visible {
+  opacity:1;visibility:visible;transform:translateY(0) scale(1);
+  transition-delay:0s;
+}
+.aht-flow-help::after {
+  content:'';position:absolute;right:-7px;top:var(--aht-flow-arrow-y, 26px);
+  width:11px;height:11px;background:#fff;
+  border-right:1px solid #9dbad1;border-top:1px solid #9dbad1;
+  transform:translateY(-50%) rotate(45deg);
+}
+.aht-flow-help[data-side="below"]::after {
+  top:-7px;right:auto;left:24px;
+  border:1px solid #9dbad1;border-right:0;border-bottom:0;
+  transform:rotate(45deg);
+}
+.aht-flow-help .aht-flow-kicker {
+  display:block;margin-bottom:4px;color:#2776aa;font-size:9px;
+  font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+}
+.aht-flow-help strong {display:block;font-size:12px;color:#144b75;margin-bottom:7px;}
+.aht-flow-help ul {margin:0;padding-left:16px;}
+.aht-flow-help li+li {margin-top:4px;}
+@media (prefers-reduced-motion:reduce) {
+  .aht-flow-help {transition:none;transform:none;}
+}
 .aht-workflow-helper {font-size:10.5px;color:#45647e;line-height:1.3;margin-top:7px;}
 #ahtStickyControls #modeDock {
  position:relative;top:auto;z-index:auto;margin:7px 0 0;padding:0;
@@ -381,6 +419,30 @@ button, input, select, textarea { outline-offset:2px; }
   font-weight:700; font-size:12px; line-height:1.3;
 }
 #planSection #ahtOpenProjectPdf:hover { background:#e4f1f8; border-color:#7cabc7; }
+</style>
+<style id="ahtCctvConceptRangesV1">
+/* AHT-CCTV-BULK-ROW-LAYOUT-V2 — compact, no-overlap controls for narrow sidebars */
+.cctv-bulk-compact{display:grid;grid-template-columns:minmax(0,1fr);gap:5px;margin-top:8px}
+.cctv-bulk-item{display:grid;grid-template-columns:minmax(0,1fr) 52px 79px;gap:5px;align-items:center;min-width:0;border:1px solid #d5e0e9;border-radius:6px;padding:5px 6px;background:#fff;box-sizing:border-box}
+.cctv-bulk-item .lbl{font-size:10.5px;min-width:0;min-height:0;margin:0;line-height:1.25;white-space:normal}
+.cctv-bulk-item .row{display:contents}
+.cctv-bulk-item input[type=number]{width:100%;min-width:0;box-sizing:border-box;padding:5px 1px;height:30px;text-align:center;font-size:11px}
+.cctv-bulk-item button{width:100%;min-width:0;box-sizing:border-box;font-size:10px;padding:5px 2px;min-height:30px;white-space:nowrap}
+.cctv-info{font-size:11px;color:#417a9c;cursor:help;font-weight:600}
+.cctv-mini-note{font-size:10px;line-height:1.35;color:#61758a;margin-top:7px}
+.cctv-extra-fold{margin:9px 0;border:1px solid #d5e0e9;border-radius:6px;background:#fff}
+.cctv-extra-fold>summary{padding:7px 8px;color:#194b73;font-size:11px;font-weight:700;cursor:pointer}
+.cctv-extra-fold>summary span{font-weight:400;color:#63788b}
+.cctv-extra-panel{border-top:1px solid #e1e8ee;padding:9px 8px 10px}
+.cctv-extra-panel .lbl{font-size:10.5px;margin:6px 0 3px}
+.cctv-extra-panel input[type=number],.cctv-extra-panel select{width:100%;box-sizing:border-box;min-width:0}
+.cctv-extra-panel .chk{font-size:11px;line-height:1.4}
+.cctv-extra-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end;margin-top:6px}
+.cctv-extra-two>*{min-width:0}
+.cctv-color-label{font-size:10.5px;color:#395571;display:flex;align-items:center;gap:6px}
+.cctv-color-label input[type=color]{height:30px;min-width:35px;width:42px;padding:2px}
+.cctv-extra-apply{width:100%;margin-top:10px;font-size:11px}
+@media(max-width:290px){.cctv-bulk-compact{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -508,8 +570,8 @@ button, input, select, textarea { outline-offset:2px; }
       <div id="viewRow" class="pir-preview-controls" style="display:none"><div class="minor-label">Selected Camera / Field of View</div>
         <label class="chk" style="font-weight:700"><input type="checkbox" id="pirRangeChk"><span>Show camera viewing area</span></label>
         <div class="muted" id="pirRangeState" role="status">Range hidden. Turn on to preview.</div>
-        <label class="lbl">Illustrative reach / size: <span id="rngVal">2.0</span></label>
-        <input type="range" id="rngRange" min="1.2" max="16" step="0.1" value="4.2" style="width:100%">
+        <label class="lbl">Viewing-area length (0–100): <span id="rngVal">10</span></label>
+        <input type="range" id="rngRange" min="0" max="100" step="1" value="10" style="width:100%">
         <div id="wallPIRControls" style="display:none">
           <label class="lbl">Camera direction: <span id="wallDirVal">0</span>°</label>
           <input id="wallDirRange" type="range" min="0" max="359" step="1" value="0" style="width:100%">
@@ -527,9 +589,24 @@ button, input, select, textarea { outline-offset:2px; }
         <div class="legacy-camera-color"><input type="color" id="vcolor" value="#00cbd4"><button id="vcNew">Reset legacy color</button></div>
         <div class="grid2" style="gap:8px;margin:8px 0">
           <div><label class="lbl">Viewing-area color</label><input type="color" id="cameraViewColor" value="#00cbd4" style="height:33px;width:100%"></div>
-          <div><label class="lbl">Viewing-area transparency: <span id="cameraViewOpacityVal">18</span>% visible</label><input id="cameraViewOpacity" type="range" min="0" max="90" step="1" value="18" style="width:100%"></div>
+          <div><label class="lbl">Viewing-area transparency: <span id="cameraViewOpacityVal">18</span>% visible</label><input id="cameraViewOpacity" type="range" min="0" max="100" step="1" value="18" style="width:100%"></div>
         </div>
-        <div class="muted">Controls change only the viewing coverage—not the icon. Illustrative only; export inclusion is selectable below.</div>
+        <details id="cameraExtraDetails" class="cctv-extra-fold" style="margin-top:8px">
+          <summary>Extended / reduced-detail viewing zone</summary>
+          <div class="cctv-extra-panel">
+            <label class="chk"><input id="cameraExtraOn" type="checkbox"> Show extended zone on drawing</label>
+            <label class="lbl" for="cameraExtraPct">Additional visual reach: <span id="cameraExtraPctVal">45</span> / 100</label>
+            <input id="cameraExtraPct" type="range" min="0" max="100" step="1" value="45" style="width:100%">
+            <label class="lbl" for="cameraExtraOpacity">Extended fill: <span id="cameraExtraOpacityVal">6</span>% visible</label>
+            <input id="cameraExtraOpacity" type="range" min="0" max="100" step="1" value="6" style="width:100%" title="Opacity of extended area only; 0 = invisible fill, 100 = solid fill">
+            <div class="cctv-extra-two">
+              <div><label class="lbl" for="cameraExtraColorMode">Extended color</label><select id="cameraExtraColorMode"><option value="same">Same as primary</option><option value="different">Different</option></select></div>
+              <label class="cctv-color-label">Color <input id="cameraExtraColor" type="color" value="#7298b6"></label>
+            </div>
+            <label class="chk"><input id="cameraExtraDash" type="checkbox" checked> Dotted outer boundary (when outlines shown)</label>
+            <div class="cctv-mini-note">Visual planning aid only. This does not represent verified detail or detection performance.</div>
+          </div>
+        </details>
       </div>
       <div id="securityControls" class="panel" style="display:none;margin-top:8px">
         <div id="poleControls" style="display:none">
@@ -544,8 +621,8 @@ button, input, select, textarea { outline-offset:2px; }
             <div id="poleLidarOptions" style="display:none">
               <label class="lbl">LiDAR direction relative to pole: <span id="poleLidarAngleVal">0</span>°</label>
               <input id="poleLidarAngleRange" type="range" min="0" max="359" step="1" value="0">
-              <label class="lbl">LiDAR arrow length: <span id="poleLidarLenVal">18</span></label>
-              <input id="poleLidarLenRange" type="range" min="4" max="80" step="1" value="18">
+              <label class="lbl">LiDAR arrow size: <span id="poleLidarLenVal">18</span> / 100</label>
+              <input id="poleLidarLenRange" type="range" min="0" max="100" step="1" value="18">
               <div class="grid2" style="margin-top:7px"><div><label class="lbl">Arrow color</label><input type="color" id="poleLidarColor" value="#6b21a8"></div><div><label class="lbl">Arrow width: <span id="poleLidarWidthVal">3</span></label><input type="range" id="poleLidarWidth" min="1" max="16" step="0.5" value="3"></div></div>
               <div class="muted">Rotates with the pole. This is an illustrative direction marker, not a validated LiDAR detection envelope.</div>
             </div>
@@ -555,16 +632,16 @@ button, input, select, textarea { outline-offset:2px; }
           <strong style="font-size:13px">LiDAR</strong>
           <div class="muted" style="margin:4px 0 8px">Adjust the arrow line direction and reach.</div>
           <label class="lbl">Direction: <span id="lidarDirVal">0</span>°</label><input id="lidarDirRange" type="range" min="0" max="359" step="1" value="0">
-          <label class="lbl">Arrow length: <span id="lidarLenVal">18</span></label><input id="lidarLenRange" type="range" min="4" max="80" step="1" value="18">
+          <label class="lbl">Arrow size: <span id="lidarLenVal">18</span> / 100</label><input id="lidarLenRange" type="range" min="0" max="100" step="1" value="18">
           <div class="grid2" style="margin-top:7px"><div><label class="lbl">Arrow color</label><input type="color" id="lidarArrowColor" value="#6b21a8"></div><div><label class="lbl">Arrow width: <span id="lidarArrowWidthVal">3</span></label><input type="range" id="lidarArrowWidth" min="1" max="16" step="0.5" value="3"></div></div>
         </div>
         <div id="lidar360Controls" style="display:none">
           <strong style="font-size:13px">LiDAR 360° Coverage</strong>
           <div class="muted" style="margin:5px 0 9px">Illustrative circular detection area. Use the radius as a reference number only, not a dimensional measurement. Confirm actual coverage and mounting with the selected LiDAR manufacturer.</div>
-          <label class="lbl" for="lidar360Radius">Circle radius: <span id="lidar360RadiusVal">0.5</span> (reference only)</label>
-          <input id="lidar360Radius" type="range" min="0.05" max="30" step="0.05" value="0.5" style="width:100%">
-          <label class="lbl" for="lidar360RadiusNumber">Or enter exact radius value (0.05–500)</label>
-          <input id="lidar360RadiusNumber" type="number" min="0.05" max="500" step="0.05" value="0.5">
+          <label class="lbl" for="lidar360Radius">Circle size: <span id="lidar360RadiusVal">25</span> / 100 (illustrative)</label>
+          <input id="lidar360Radius" type="range" min="0" max="100" step="1" value="25" style="width:100%">
+          <label class="lbl" for="lidar360RadiusNumber">Or enter 0–100</label>
+          <input id="lidar360RadiusNumber" type="number" min="0" max="100" step="1" value="25">
           <label class="lbl" for="lidar360Color">Circle outline / fill color</label>
           <input id="lidar360Color" type="color" value="#7c3aed" style="width:92px;height:34px">
           <label class="chk" style="margin-top:8px"><input id="lidar360OutlineEnabled" type="checkbox" checked><span>Show dotted outline for this LiDAR</span></label>
@@ -668,19 +745,51 @@ button, input, select, textarea { outline-offset:2px; }
         <div class="panel" style="background:#f6f9fd;border:1px solid #b5cde1;margin-top:8px">
           <strong style="font-size:13px">Set once · Apply to All</strong>
           <div class="muted" style="margin:5px 0 10px">These actions update existing matching items on every page, including camera and LiDAR heads attached to poles. Nothing changes until you press Apply. Use Undo to reverse an action. Hidden layers are included.</div>
-          <label class="lbl" for="bulkLidarLength">All directional LiDAR arrow lengths (4–80)</label>
-          <div class="row"><input type="number" id="bulkLidarLength" min="4" max="80" step="1" value="18" aria-label="LiDAR arrow length"><button type="button" id="bulkLidarLengthApply">Apply to All</button></div>
-          <label class="lbl" for="bulkLidar360Radius">All LiDAR 360° circle radii (0.05–500)</label>
-          <div class="row"><input type="number" id="bulkLidar360Radius" min="0.05" max="500" step="0.05" value="0.5" aria-label="LiDAR 360 circle radius"><button type="button" id="bulkLidar360RadiusApply">Apply to All</button></div>
-          <label class="lbl" for="bulkCameraReach">All camera viewing-area lengths (1.2–16)</label>
-          <div class="row"><input type="number" id="bulkCameraReach" min="1.2" max="16" step="0.1" value="4.2" aria-label="Camera viewing reach"><button type="button" id="bulkCameraReachApply">Apply to All</button></div>
-          <div class="muted" style="margin-top:6px">Camera reach includes fixed, PTZ, fisheye, and camera heads on poles. Each item's direction, angle, visibility and placement are preserved. Measurements here are illustrative reference values, not verified feet.</div>
+          <!-- AHT_CCTV_CONCEPT_RANGES_V1: compact bulk sizes, standardized display only -->
+          <div class="cctv-bulk-compact" role="group" aria-label="All-page illustration controls">
+            <div class="cctv-bulk-item">
+              <label class="lbl" for="bulkLidarLength">LiDAR arrows <span class="cctv-info" title="Relative illustration size, 0–100. Existing drawing lengths are preserved internally.">ⓘ</span></label>
+              <div class="row"><input type="number" id="bulkLidarLength" min="0" max="100" step="1" value="18"><button type="button" id="bulkLidarLengthApply">Apply to All</button></div>
+            </div>
+            <div class="cctv-bulk-item">
+              <label class="lbl" for="bulkLidar360Radius">LiDAR circles <span class="cctv-info" title="Relative illustration size, 0–100, mapped internally to the existing circle-radius scale.">ⓘ</span></label>
+              <div class="row"><input type="number" id="bulkLidar360Radius" min="0" max="100" step="1" value="25"><button type="button" id="bulkLidar360RadiusApply">Apply to All</button></div>
+            </div>
+            <div class="cctv-bulk-item">
+              <label class="lbl" for="bulkCameraReach">Camera length <span class="cctv-info" title="Relative illustration size, 0–100. The maximum drawable reach has been increased. Not a real-world distance.">ⓘ</span></label>
+              <div class="row"><input type="number" id="bulkCameraReach" min="0" max="100" step="1" value="10"><button type="button" id="bulkCameraReachApply">Apply to All</button></div>
+            </div>
+            <div class="cctv-bulk-item">
+              <label class="lbl" for="bulkCameraOpacity">Camera fill % <span class="cctv-info" title="Visible fill percentage; camera icons and outlines are unchanged.">ⓘ</span></label>
+              <div class="row"><input type="number" id="bulkCameraOpacity" min="0" max="100" step="1" value="18"><button type="button" id="bulkCameraOpacityApply">Apply to All</button></div>
+            </div>
+          </div>
+          <div class="cctv-mini-note" title="Concept presentation only. The numbers are relative visual controls, not measured or manufacturer-verified coverage.">Visual reference only · 0–100 controls scale the drawing, not actual camera or LiDAR distance.</div>
+          <details class="cctv-extra-fold" id="bulkCameraExtraPanel">
+            <summary>Extended camera viewing zone <span>Optional · all cameras</span></summary>
+            <div class="cctv-extra-panel">
+              <label class="chk"><input type="checkbox" id="bulkCameraExtraOn"> Show extended / reduced-detail zone</label>
+              <div class="cctv-extra-two">
+                <div><label class="lbl" for="bulkCameraExtraPct">Extra reach (0–100)</label><input type="number" id="bulkCameraExtraPct" min="0" max="100" step="1" value="45"></div>
+                <div><label class="lbl" for="bulkCameraExtraColorMode">Zone color</label><select id="bulkCameraExtraColorMode"><option value="same">Same color</option><option value="different">Different color</option></select></div>
+              </div>
+              <label class="lbl" for="bulkCameraExtraOpacity">Extended fill: <span id="bulkCameraExtraOpacityVal">6</span>% visible <span class="cctv-info" title="Separate from the primary camera fill. 0 = invisible fill; 100 = solid fill. Applies to all camera types and pole heads.">ⓘ</span></label>
+              <input id="bulkCameraExtraOpacity" type="range" min="0" max="100" step="1" value="6" style="width:100%">
+              <div class="cctv-extra-two">
+                <label class="chk"><input type="checkbox" id="bulkCameraExtraDash" checked> Dotted outer outline</label>
+                <label class="cctv-color-label" title="Used when Different color is selected">Different color <input type="color" id="bulkCameraExtraColor" value="#7298b6"></label>
+              </div>
+              <button type="button" id="bulkCameraExtraApply" class="cctv-extra-apply">Apply extension settings to All</button>
+              <div class="cctv-mini-note">Outer zone is an illustrative, less-detailed area—not a verified equipment performance boundary.</div>
+            </div>
+          </details>
           <div style="border-top:1px solid #c7d9e9;padding-top:9px;margin-top:12px">
             <strong style="font-size:13px">Change Color by Type</strong>
             <label class="lbl" for="bulkColorType">Which items to recolor</label>
             <select id="bulkColorType">
               <optgroup label="Viewing areas (not camera icons)">
                 <option value="cam">Fixed cameras — coverage color (including pole heads)</option>
+                <option value="videointercom">Video doorbell / intercom — coverage color</option>
                 <option value="ptz">PTZ cameras — coverage color (including pole heads)</option>
                 <option value="fish">360° fisheye cameras — coverage color</option>
               </optgroup>
@@ -880,11 +989,76 @@ button, input, select, textarea { outline-offset:2px; }
   }
   document.documentElement.style.setProperty('--aht-sticky-height',Math.ceil(sticky.getBoundingClientRect().height)+'px');
   sidebar.scrollTop=0;
+  // AHT_CCTV_STEP_HELP_V1: guidance appears after a deliberate hover, without moving navigation.
+  const guide={
+    plan:['Open a Plan PDF','Choose a PDF from your computer or SharePoint','Select a page, set orientation and fit the drawing','Use existing work JSON if resuming a layout'],
+    place:['Place Devices & Markups','Choose Initial Layout or Proposed Change','Place cameras, video doorbells/intercoms, poles, LiDAR or perimeter runs','Add relocation and annotation markups; press Enter to finish routes'],
+    adjust:['Adjust Selected Items','Select a symbol to change size, direction, field of view or notes','Adjust camera viewing-area color and fill opacity','Use Bulk Adjustments for all-page reach, fill % and colors'],
+    layers:['Drawing Layers & Appearance','Show or hide device types without deleting them','Show or hide camera viewing areas, outlines and LiDAR coverage','Set global camera fill strength and review visibility before PDF export'],
+    review:['Review Changes','Check device counts and initial vs proposed items','Identify the room or area and reason for each change','Jump to items needing information before export'],
+    export:['Save / Export','Save an editable JSON work file to resume later','Export the marked-up multipage PDF','Choose viewing-area and legend inclusion for the review PDF']
+  };
+  // AHT_CCTV_STEP_HELP_V2: no permanent label and no overlay on the jump buttons.
+  // Append to the document, not the scrollable sidebar, to avoid clipping.
+  const guideBox=document.createElement('div');guideBox.className='aht-flow-help';guideBox.id='ahtFlowHelp';
+  guideBox.setAttribute('role','tooltip');guideBox.setAttribute('aria-hidden','true');document.body.appendChild(guideBox);
+  let guideTimer=null;
+  const closeGuide=()=>{
+    if(guideTimer!==null)clearTimeout(guideTimer);
+    guideTimer=null;guideBox.classList.remove('is-visible');guideBox.setAttribute('aria-hidden','true');
+    jump.querySelectorAll('[aria-describedby="ahtFlowHelp"]').forEach(btn=>btn.removeAttribute('aria-describedby'));
+  };
+  const placeGuide=btn=>{
+    const nav=jump.getBoundingClientRect(),trigger=btn.getBoundingClientRect();
+    const bounds=guideBox.getBoundingClientRect(),width=bounds.width,height=bounds.height;
+    const pad=12,gap=16,screenW=window.innerWidth,screenH=window.innerHeight;
+    const centerY=trigger.top+trigger.height/2;
+    if(nav.left-width-gap>=pad){
+      // Wide layout: help sits outside the sidebar, to the LEFT of steps 1/4/7.
+      const top=Math.max(pad,Math.min(screenH-height-pad,centerY-Math.min(72,height/2)));
+      guideBox.dataset.side='left';
+      guideBox.style.left=Math.round(nav.left-width-gap)+'px';
+      guideBox.style.top=Math.round(top)+'px';
+      guideBox.style.setProperty('--aht-flow-arrow-y',Math.round(Math.max(19,Math.min(height-19,centerY-top)))+'px');
+    }else{
+      // Narrow screens: show below the nav, never over its step buttons.
+      guideBox.dataset.side='below';
+      guideBox.style.left=Math.round(Math.max(pad,Math.min(nav.left,screenW-width-pad)))+'px';
+      guideBox.style.top=Math.round(Math.max(pad,Math.min(nav.bottom+12,screenH-height-pad)))+'px';
+    }
+  };
+  const openGuide=btn=>{
+    const info=guide[btn.dataset.ahtJump];if(!info)return;
+    guideBox.replaceChildren();
+    const kicker=document.createElement('span');kicker.className='aht-flow-kicker';kicker.textContent='Workflow step guide';
+    const heading=document.createElement('strong');heading.textContent=info[0];
+    const items=document.createElement('ul');
+    info.slice(1).forEach(line=>{const item=document.createElement('li');item.textContent=line;items.appendChild(item);});
+    guideBox.append(kicker,heading,items);
+    // Measure the hidden (but laid out) floating panel before revealing it.
+    placeGuide(btn);btn.setAttribute('aria-describedby','ahtFlowHelp');
+    guideBox.setAttribute('aria-hidden','false');guideBox.classList.add('is-visible');
+  };
+  jump.querySelectorAll('[data-aht-jump]').forEach(btn=>{
+    btn.addEventListener('mouseenter',()=>{
+      closeGuide();guideTimer=setTimeout(()=>{guideTimer=null;openGuide(btn);},1800);
+    });
+    btn.addEventListener('mouseleave',closeGuide);
+    btn.addEventListener('focus',()=>{
+      // Mouse clicks should not make a tooltip appear permanently; keyboard focus can.
+      if(btn.matches(':focus-visible')){closeGuide();openGuide(btn);}
+    });
+    btn.addEventListener('blur',closeGuide);
+    btn.addEventListener('click',closeGuide);
+  });
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')closeGuide();});
+  sidebar.addEventListener('scroll',closeGuide,{passive:true});
+  window.addEventListener('resize',closeGuide,{passive:true});
 })();
 </script>
 
 <script>
-const CFG = {"title":"AHT CCTV Camera Markup Tool","fileTag":"CCTV","iconScale":1.5,"devices":[{"key":"cam","label":"Fixed Camera","style":"tile","color":"#ff00ff","fill":"#ff00ff","textColor":"#ffffff","glyph":"CC\nTV","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"ptz","label":"PTZ Camera","style":"ptz","color":"#2752b8","fill":"#ffffff","textColor":"#2752b8","glyph":"PTZ","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"pole3","label":"Camera Pole (multi-head)","style":"pole3","color":"#343a40","fill":"#ffffff","textColor":"#1f2937","rotatable":true,"kind":"pole","vcolor":"#00cbd4"},{"key":"lidar","label":"LiDAR","style":"lidar","color":"#6b21a8","fill":"#ffffff","textColor":"#6b21a8","rotatable":true,"kind":"lidar","vcolor":"#00cbd4"},{"key":"lidar360","label":"LiDAR 360° Coverage","style":"lidar","color":"#7c3aed","fill":"#ffffff","textColor":"#7c3aed","kind":"lidar360","vcolor":"#00cbd4"},{"key":"omnitrax","label":"Senstar Omnitrax Perimeter","style":"omni","color":"#2563eb","secondaryColor":"#ef4444","kind":"route"},{"key":"fish","label":"360° Fisheye Camera","style":"tile","color":"#b85c5c","fill":"#addef7","textColor":"#000000","glyph":"CC\nTV","preview":"circle","vcolor":"#00cbd4","kind":"point"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","overlay":true,"kind":"point"},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","overlay":true,"kind":"point"}],"preview":{"title":"Illustrative Camera View","defaultPreset":1,"presets":[{"name":"Narrow","r":20,"angle":45},{"name":"Standard","r":12,"angle":80},{"name":"Wide","r":9,"angle":110}],"disclaimer":"Illustrative viewing areas are not validated camera coverage. Visible areas can be included in review PDFs."}};
+const CFG = {"title":"AHT CCTV Camera Markup Tool","fileTag":"CCTV","iconScale":1.5,"devices":[{"key":"cam","label":"Fixed Camera","style":"tile","color":"#ff00ff","fill":"#ff00ff","textColor":"#ffffff","glyph":"CC\nTV","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"videointercom","label":"Video Doorbell / Intercom","style":"tile","color":"#7963c4","fill":"#ffffff","textColor":"#7963c4","glyph":"VI","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"ptz","label":"PTZ Camera","style":"ptz","color":"#2752b8","fill":"#ffffff","textColor":"#2752b8","glyph":"PTZ","rotatable":true,"preview":"cone","vcolor":"#00cbd4","kind":"point"},{"key":"pole3","label":"Camera Pole (multi-head)","style":"pole3","color":"#343a40","fill":"#ffffff","textColor":"#1f2937","rotatable":true,"kind":"pole","vcolor":"#00cbd4"},{"key":"lidar","label":"LiDAR","style":"lidar","color":"#6b21a8","fill":"#ffffff","textColor":"#6b21a8","rotatable":true,"kind":"lidar","vcolor":"#00cbd4"},{"key":"lidar360","label":"LiDAR 360° Coverage","style":"lidar","color":"#7c3aed","fill":"#ffffff","textColor":"#7c3aed","kind":"lidar360","vcolor":"#00cbd4"},{"key":"omnitrax","label":"Senstar Omnitrax Perimeter","style":"omni","color":"#2563eb","secondaryColor":"#ef4444","kind":"route"},{"key":"fish","label":"360° Fisheye Camera","style":"tile","color":"#b85c5c","fill":"#addef7","textColor":"#000000","glyph":"CC\nTV","preview":"circle","vcolor":"#00cbd4","kind":"point"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","overlay":true,"kind":"point"},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","overlay":true,"kind":"point"}],"preview":{"title":"Illustrative Camera View","defaultPreset":1,"presets":[{"name":"Narrow","r":20,"angle":45},{"name":"Standard","r":12,"angle":80},{"name":"Wide","r":9,"angle":110}],"disclaimer":"Illustrative viewing areas are not validated camera coverage. Visible areas can be included in review PDFs."}};
 const NS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
 // Keep annotations in a separate screen-space SVG for crisp zoomed symbols.
@@ -963,6 +1137,7 @@ const isAnnotation = m => isArea(m) || isArrowNote(m);
 // Separate type visibility from cone/coverage visibility and from individual note visibility.
 const DRAWING_LAYERS = [
  {id:'fixed',label:'Fixed cameras'},
+ {id:'videoentry',label:'Video doorbells / entry intercoms'},
  {id:'ptz',label:'PTZ cameras (standalone)'},
  {id:'fisheye',label:'360° fisheye cameras'},
  {id:'poles',label:'Camera poles (including mounted heads)'},
@@ -978,7 +1153,7 @@ const DRAWING_LAYERS = [
 const layerVisibility=Object.fromEntries(DRAWING_LAYERS.map(layer=>[layer.id,true]));
 function drawingLayer(m){
  if(!m)return null;
- const byType={cam:'fixed',cam_ex:'fixed',ptz:'ptz',fish:'fisheye',fish_ex:'fisheye',pole3:'poles',lidar:'lidar',lidar360:'lidar360',omnitrax:'senstar',relocate:'move',arrow_note:'notes',area:'callouts',addmark:'added',rmmark:'removed',remove:'removed'};
+ const byType={cam:'fixed',cam_ex:'fixed',videointercom:'videoentry',ptz:'ptz',fish:'fisheye',fish_ex:'fisheye',pole3:'poles',lidar:'lidar',lidar360:'lidar360',omnitrax:'senstar',relocate:'move',arrow_note:'notes',area:'callouts',addmark:'added',rmmark:'removed',remove:'removed'};
  return byType[m.type]||null;
 }
 function visibleMarker(m){
@@ -1047,7 +1222,7 @@ function bulkCameraTargets(kind=null){
 function bulkAll(type){
  if(type==='lidar')return bulkLidarTargets();
  if(type==='lidar360')return markers.filter(isLidar360);
- if(type==='cam'||type==='ptz'||type==='fish')return bulkCameraTargets(type);
+ if(type==='cam'||type==='ptz'||type==='fish'||type==='videointercom')return bulkCameraTargets(type);
  if(type==='omnitraxA'||type==='omnitraxB')return markers.filter(isOmnitrax);
  if(type==='relocate')return markers.filter(m=>m.type==='relocate');
  if(type==='arrow_note')return markers.filter(isArrowNote);
@@ -1072,26 +1247,44 @@ function bulkCommit(name,targets,edit){
  $('bulkAdjustStatus').textContent=msg;status(msg);
 }
 $('bulkLidarLengthApply').addEventListener('click',()=>{
- const v=bulkInput('bulkLidarLength',4,80);if(v===null)return;
- bulkCommit('Directional LiDAR arrow length',bulkLidarTargets(),m=>m.length=v);
+ const u=bulkInput('bulkLidarLength',0,100);if(u===null)return;
+ bulkCommit('Directional LiDAR arrow size',bulkLidarTargets(),m=>m.length=lidarArrowUiToRef(u));
 });
 $('bulkLidar360RadiusApply').addEventListener('click',()=>{
- const v=bulkInput('bulkLidar360Radius',.05,500);if(v===null)return;
- bulkCommit('LiDAR 360 circle radius',markers.filter(isLidar360),m=>{ensureLidar360(m);m.radiusRef=v;});
+ const u=bulkInput('bulkLidar360Radius',0,100);if(u===null)return;
+ bulkCommit('LiDAR 360 circle size',markers.filter(isLidar360),m=>{ensureLidar360(m);m.radiusRef=lidarUiToRef(u);});
 });
 $('bulkCameraReachApply').addEventListener('click',()=>{
- const v=bulkInput('bulkCameraReach',1.2,16);if(v===null)return;
- bulkCommit('Camera viewing-area reach',bulkCameraTargets(),t=>{if(t.head)t.item.reach=v;else t.item.coverageSize=v;});
+ const u=bulkInput('bulkCameraReach',0,100);if(u===null)return;
+ const v=cameraUiToRef(u);
+ bulkCommit('Camera viewing-area size',bulkCameraTargets(),t=>{if(t.head)t.item.reach=v;else t.item.coverageSize=v;});
 });
-const bulkColorDefaults={cam:'#00cbd4',ptz:'#00cbd4',fish:'#00cbd4',lidar:'#6b21a8',lidar360:'#7c3aed',omnitraxA:'#2563eb',omnitraxB:'#ef4444',relocate:'#fff200',arrow_note:'#c52b2b',area:'#e0262e'};
+$('bulkCameraExtraApply').addEventListener('click',()=>{
+ const pct=bulkInput('bulkCameraExtraPct',0,100);if(pct===null)return;
+ const enabled=$('bulkCameraExtraOn').checked,mode=$('bulkCameraExtraColorMode').value==='different'?'different':'same';
+ const color=$('bulkCameraExtraColor').value,dashed=$('bulkCameraExtraDash').checked;
+ const extraFill=bulkInput('bulkCameraExtraOpacity',0,100);if(extraFill===null)return;
+ bulkCommit('Optional extended camera viewing zone',bulkCameraTargets(),t=>{
+  const m=t.item;m.extraOn=enabled;m.extraPct=pct;m.extraOpacity=extraFill;
+  m.extraColorMode=mode;m.extraColor=color;m.extraDash=dashed;
+ });
+});
+$('bulkCameraExtraOpacity').addEventListener('input',e=>{$('bulkCameraExtraOpacityVal').textContent=e.target.value;});
+$('bulkCameraOpacityApply').addEventListener('click',()=>{
+ const v=bulkInput('bulkCameraOpacity',0,100);if(v===null)return;
+ bulkCommit('Camera viewing-area fill opacity ('+v+'%)',bulkCameraTargets(),t=>{
+  if(t.head)t.item.viewOpacity=v;else t.item.coverageOpacity=v;
+ });
+});
+const bulkColorDefaults={cam:'#00cbd4',videointercom:'#00cbd4',ptz:'#00cbd4',fish:'#00cbd4',lidar:'#6b21a8',lidar360:'#7c3aed',omnitraxA:'#2563eb',omnitraxB:'#ef4444',relocate:'#fff200',arrow_note:'#c52b2b',area:'#e0262e'};
 $('bulkColorType').addEventListener('change',()=>{$('bulkColorValue').value=bulkColorDefaults[$('bulkColorType').value]||'#00cbd4';});
 $('bulkColorApply').addEventListener('click',()=>{
  const type=$('bulkColorType').value,color=$('bulkColorValue').value;
  if(!/^#[0-9a-fA-F]{6}$/.test(color)){status('Choose a valid color first.');return;}
  const targets=bulkAll(type);
- const labels={cam:'Fixed-camera viewing-area color',ptz:'PTZ viewing-area color',fish:'Fisheye viewing-area color',lidar:'Directional LiDAR arrow color',lidar360:'LiDAR 360 circle color',omnitraxA:'Senstar run A color',omnitraxB:'Senstar run B color',relocate:'Move arrow color',arrow_note:'Text note arrow color',area:'Callout border color'};
+ const labels={cam:'Fixed-camera viewing-area color',videointercom:'Video doorbell / intercom viewing-area color',ptz:'PTZ viewing-area color',fish:'Fisheye viewing-area color',lidar:'Directional LiDAR arrow color',lidar360:'LiDAR 360 circle color',omnitraxA:'Senstar run A color',omnitraxB:'Senstar run B color',relocate:'Move arrow color',arrow_note:'Text note arrow color',area:'Callout border color'};
  bulkCommit(labels[type]||'Color',targets,t=>{
-  if(type==='cam'||type==='ptz'||type==='fish'){
+  if(type==='cam'||type==='ptz'||type==='fish'||type==='videointercom'){
    if(t.head)t.item.viewColor=color;else t.item.coverageColor=color;
   }else if(type==='lidar'||type==='relocate')t.arrowColor=color;
   else if(type==='lidar360'){ensureLidar360(t);t.circleColor=color;}
@@ -1174,8 +1367,34 @@ function cameraFillFactor(){return Math.max(0,Math.min(1,Number($('cameraFillStr
 function cameraAreaPaint(style){return {...style,fillOpacity:style.fillOpacity*cameraFillFactor(),strokeOpacity:cameraOutlinesOn()?style.strokeOpacity:0};}
 $('cameraOutlineChk').addEventListener('change',()=>refresh());
 $('cameraFillStrength').addEventListener('input',e=>{$('cameraFillStrengthVal').textContent=e.target.value;refresh();});
+// AHT_CCTV_CONCEPT_RANGES_V1: only the controls are normalized. Saved marker scale retains legacy values.
+const CCTV_REACH_MIN=1.2, CCTV_REACH_MAX=32;
+const pctClamp=v=>Math.max(0,Math.min(100,Number(v)||0));
+const cameraUiToRef=v=>CCTV_REACH_MIN+(pctClamp(v)/100)*(CCTV_REACH_MAX-CCTV_REACH_MIN);
+const cameraRefToUi=v=>Math.round(pctClamp((Math.max(CCTV_REACH_MIN,Math.min(CCTV_REACH_MAX,Number(v)||4.2))-CCTV_REACH_MIN)/(CCTV_REACH_MAX-CCTV_REACH_MIN)*100));
+// Four-order-of-magnitude LiDAR references are logarithmic for usable 0–100 adjustment.
+const lidarUiToRef=v=>Number((.05*Math.pow(10000,pctClamp(v)/100)).toPrecision(8));
+const lidarRefToUi=v=>Math.round(pctClamp(Math.log10(Math.max(.05,Math.min(500,Number(v)||.5))/.05)/4*100));
+const lidarArrowUiToRef=v=>4+pctClamp(v)*.76;
+const lidarArrowRefToUi=v=>Math.round(pctClamp((Number(v)-4)/.76));
+function cameraExtensionFactor(m){return 1.10+1.70*pctClamp(m?.extraPct??45)/100;}
+function cameraExtensionStyle(m,paint){
+ const color=m?.extraColorMode==='different'&&/^#[0-9a-fA-F]{6}$/.test(m.extraColor||'')?m.extraColor:paint.fill;
+ // Existing drawings without extraOpacity retain the previously calculated light extension fill.
+ // New edits set opacity explicitly and independently of the primary camera view fill.
+ const fillOpacity=m?.extraOpacity==null
+   ? Math.min(.10,paint.fillOpacity*.30)
+   : pctClamp(m.extraOpacity)/100*cameraFillFactor();
+ return {color,fillOpacity,strokeOpacity:Math.min(.8,Math.max(.3,paint.strokeOpacity*.85)),dash:m?.extraDash!==false};
+}
+function extraPreviewSpec(spec,m){return {...spec,rpt:spec.rpt*cameraExtensionFactor(m)};}
+function drawCameraExtraSvg(m,origin,spec,paint,parent){
+ if(m?.extraOn!==true)return;
+ const extra=cameraExtensionStyle(m,paint);
+ el('polygon',{points:ptsStr(previewPoly(origin,extraPreviewSpec(spec,m))),fill:extra.color,'fill-opacity':extra.fillOpacity,stroke:cameraOutlinesOn()?extra.color:'none','stroke-opacity':cameraOutlinesOn()?extra.strokeOpacity:0,'stroke-width':1.5,'stroke-dasharray':extra.dash?'2 5':'none','vector-effect':'non-scaling-stroke',style:'pointer-events:none'},parent);
+}
 function cameraStage(m) { return m?.layoutStage === 'proposed' ? 'proposed' : m?.layoutStage === 'initial' ? 'initial' : (m?.type === 'cam_ex'||m?.type === 'fish_ex' ? 'proposed':'initial'); }
-function isCamera(m) { return m && (m.type==='cam'||m.type==='fish'||m.type==='ptz'||m.type==='cam_ex'||m.type==='fish_ex'); }
+function isCamera(m) { return m && (m.type==='cam'||m.type==='fish'||m.type==='ptz'||m.type==='videointercom'||m.type==='cam_ex'||m.type==='fish_ex'); }
 function setLayoutMode(mode) {
   layoutMode = mode==='proposed' ? 'proposed' : 'initial';
   document.querySelectorAll('input[name="cameraLayoutMode"]').forEach(r=>{r.checked=r.value===layoutMode;});
@@ -1188,7 +1407,7 @@ let relocationStart = null;
 let pendingDetailId = null;
 let lastRoomName='', lastRoomNumber='';
 function roomForChange(){ return ''; } // Details are entered in the sidebar, never over the plan.
-const STAGED_TYPES = new Set(['cam','fish','ptz','pole3','lidar','lidar360','omnitrax']);
+const STAGED_TYPES = new Set(['cam','fish','ptz','videointercom','pole3','lidar','lidar360','omnitrax']);
 function isStaged(m){ return !!m && STAGED_TYPES.has(m.type); }
 function isPole(m){ return !!m && m.type === 'pole3'; }
 function isLidar(m){ return !!m && m.type === 'lidar'; }
@@ -1213,9 +1432,9 @@ function lidar360Width(m){ensureLidar360(m);return Math.max(1,Math.min(16,Number
 function lidar360FillAlpha(m){ensureLidar360(m);return m.fillEnabled?Math.max(0,Math.min(100,Number(m.fillOpacity)||0))/100:0;}
 function lidar360Poly(m,view=vp){const r=lidar360RadiusPts(m,view),out=[];for(let i=0;i<144;i++){const a=2*Math.PI*i/144;out.push([m.x+Math.cos(a)*r,m.y+Math.sin(a)*r]);}return out;}
 function updateLidar360Panel(m){
- $('lidar360Radius').value=Math.min(30,lidar360RadiusRef(m));
- $('lidar360RadiusNumber').value=Number(lidar360RadiusRef(m).toFixed(2));
- $('lidar360RadiusVal').textContent=Number(lidar360RadiusRef(m).toFixed(2));
+ $('lidar360Radius').value=lidarRefToUi(lidar360RadiusRef(m));
+ $('lidar360RadiusNumber').value=$('lidar360Radius').value;
+ $('lidar360RadiusVal').textContent=$('lidar360Radius').value;
  $('lidar360OutlineEnabled').checked=m.showOutline!==false;
  $('lidar360Color').value=m.circleColor;
  $('lidar360LineWidth').value=lidar360Width(m);
@@ -1227,7 +1446,7 @@ function updateLidar360Panel(m){
 
 function isOmnitrax(m){ return !!m && m.type === 'omnitrax'; }
 function newPoleHead(rel=0,fov=80,tier=1,kind='cam'){
-  return {kind,rel,aimOffset:0,fov,tier,reach:4.2,viewColor:null,viewOpacity:18,showRange:true,length:18,arrowWidth:3,arrowColor:null};
+  return {kind,rel,aimOffset:0,fov,tier,reach:4.2,viewColor:null,viewOpacity:18,showRange:true,extraOn:false,extraPct:45,extraOpacity:null,extraColorMode:'same',extraColor:'#7298b6',extraDash:true,length:18,arrowWidth:3,arrowColor:null};
 }
 function makePoleHeads(){return [newPoleHead(270,80,1),newPoleHead(90,80,1),newPoleHead(180,180,1)];}
 function ensurePole(m){
@@ -1239,10 +1458,15 @@ function ensurePole(m){
       aimOffset:Number.isFinite(aim)?angleSigned(aim):0,
       fov:Number.isFinite(field)?Math.max(10,Math.min(360,field)):d.fov,
       tier:Number.isFinite(tier)?Math.max(1,Math.min(30,Math.round(tier))):1,
-      reach:Number.isFinite(reach)?Math.max(1.2,Math.min(16,reach)):d.reach,
+      reach:Number.isFinite(reach)?Math.max(CCTV_REACH_MIN,Math.min(CCTV_REACH_MAX,reach)):d.reach,
       viewColor:/^#[0-9a-fA-F]{6}$/.test(h?.viewColor||'')?h.viewColor:null,
-      viewOpacity:Number.isFinite(opacity)?Math.max(0,Math.min(90,opacity)):18,
-      showRange:h?.showRange!==false, length:Number.isFinite(length)?Math.max(4,Math.min(80,length)):18, arrowWidth:Number.isFinite(arrowWidth)?Math.max(1,Math.min(16,arrowWidth)):3, arrowColor:/^#[0-9a-fA-F]{6}$/.test(h?.arrowColor||'')?h.arrowColor:null};
+      viewOpacity:Number.isFinite(opacity)?Math.max(0,Math.min(100,opacity)):18,
+      showRange:h?.showRange!==false,
+      extraOn:h?.extraOn===true,extraPct:pctClamp(h?.extraPct??45),
+      extraOpacity:h?.extraOpacity==null?null:pctClamp(h.extraOpacity),
+      extraColorMode:h?.extraColorMode==='different'?'different':'same',
+      extraColor:/^#[0-9a-fA-F]{6}$/.test(h?.extraColor||'')?h.extraColor:'#7298b6',extraDash:h?.extraDash!==false,
+      length:Number.isFinite(length)?Math.max(4,Math.min(80,length)):18, arrowWidth:Number.isFinite(arrowWidth)?Math.max(1,Math.min(16,arrowWidth)):3, arrowColor:/^#[0-9a-fA-F]{6}$/.test(h?.arrowColor||'')?h.arrowColor:null};
   });
   if(!Number.isFinite(m.rot))m.rot=0;
   return m.heads;
@@ -1262,7 +1486,7 @@ function poleHeadPosition(m,h,dm){
 function headPreviewSpec(m,h,dm){return {kind:'cone',angle:h.fov||80,rpt:dm*Math.max(.63,(h.reach||4.2)*.5)};}
 function headPreviewStyle(m,h){
  const base=pStyle(DEV[h.kind==='ptz'?'ptz':'cam'],{layoutStage:m.layoutStage});
- const c=h.viewColor||base.fill;const opacity=Math.max(0,Math.min(90,Number(h.viewOpacity??18)))/100;
+ const c=h.viewColor||base.fill;const opacity=Math.max(0,Math.min(100,Number(h.viewOpacity??18)))/100;
  return {...base,fill:c,stroke:c,fillOpacity:opacity,strokeOpacity:Math.min(1,Math.max(.3,opacity*3))};
 }
 function poleHeadAngle(m,h){ return angle360((Number(m.rot)||0) + (Number(h.rel)||0)); }
@@ -1381,7 +1605,7 @@ function drawPoleScreen(m,dm,g,gDev,gPrev,gTxt,isSel){
      drawLidarHeadScreen(m,h,pos,headSize,dm,g,gTxt,gDev,isSel,i);
    }else{
      const spec=headPreviewSpec(m,h,dm),style=headPreviewStyle(m,h);
-     if(showCameraCones()&&h.showRange!==false){const paint=cameraAreaPaint(style);el('polygon',{points:ptsStr(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec)),fill:paint.fill,'fill-opacity':paint.fillOpacity,stroke:cameraOutlinesOn()?paint.stroke:'none','stroke-opacity':paint.strokeOpacity,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);}
+     if(showCameraCones()&&h.showRange!==false){const paint=cameraAreaPaint(style);drawCameraExtraSvg(h,{x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec,paint,gPrev);el('polygon',{points:ptsStr(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},spec)),fill:paint.fill,'fill-opacity':paint.fillOpacity,stroke:cameraOutlinesOn()?paint.stroke:'none','stroke-opacity':paint.strokeOpacity,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',style:'pointer-events:none'},gPrev);}
      el('circle',{cx:pos.x,cy:pos.y,r:headSize*.52,fill:'#fff',stroke:'#303942','stroke-width':Math.max(1,dm*.065)},g);
      drawIcon(headDev,pos.x,pos.y,headSize,g,gTxt);
    }
@@ -1527,7 +1751,7 @@ function dirVec(rotDeg) { const a = rotDeg * Math.PI / 180; return [Math.sin(a),
 function defaultPreviewSize(dev) { return dev?.preview === 'cone' ? 4.2 : 3.5; }
 function getPreviewSize(dev, m) {
   // New dimensionless value; legacy m.range in feet is intentionally not reused.
-  return Math.max(1.2, Math.min(16, Number(m?.coverageSize ?? defaultPreviewSize(dev)) || defaultPreviewSize(dev)));
+  return Math.max(CCTV_REACH_MIN, Math.min(CCTV_REACH_MAX, Number(m?.coverageSize ?? defaultPreviewSize(dev)) || defaultPreviewSize(dev)));
 }
 function previewSpec(dev, m) {
   if (!CFG.preview || !dev.preview) return null;
@@ -1545,7 +1769,7 @@ function pStyle(dev, m) {
   const c = (m && m.layoutStage) ? VIEW_COLORS[cameraStage(m)] : ((m && m.vcolor) || VIEW_COLORS[cameraStage(m)] || dev.vcolor || dev.color);
   const col=/^#[0-9a-fA-F]{6}$/.test(m?.coverageColor||'')?m.coverageColor:c;
   const alpha=Number(m?.coverageOpacity);
-  const opacity=Number.isFinite(alpha)?Math.max(0,Math.min(.90,alpha/100)):(base.fillOpacity??0.14);
+  const opacity=Number.isFinite(alpha)?Math.max(0,Math.min(1,alpha/100)):(base.fillOpacity??0.14);
   return col ? Object.assign({}, base, { fill: col, stroke: col, fillOpacity:opacity }) : Object.assign({},base,{fillOpacity:opacity});
 }
 function previewPoly(m, spec) {
@@ -1903,6 +2127,7 @@ function refresh() {
     if (!sp) return;
     const ps = pStyle(dev, m);
     const paint=cameraAreaPaint(ps);
+    drawCameraExtraSvg(m,m,sp,paint,gPrev);
     el('polygon', { points: ptsStr(previewPoly(m, sp)), fill: paint.fill, 'fill-opacity': paint.fillOpacity, stroke:cameraOutlinesOn()?paint.stroke:'none', 'stroke-opacity': paint.strokeOpacity, 'stroke-width': paint.strokeWidth, 'vector-effect': 'non-scaling-stroke', style: 'pointer-events:none' }, gPrev);
   });
   const showNotes = $('notesChk').checked, showLen = $('lenChk').checked;
@@ -2137,8 +2362,19 @@ function updatePanels() {
       $('vcolor').value = pStyle(dev, m).fill;
       $('cameraViewColor').value=pStyle(dev,m).fill; $('cameraViewOpacity').value=Math.round((pStyle(dev,m).fillOpacity||0)*100); $('cameraViewOpacityVal').textContent=$('cameraViewOpacity').value;
       $('selectedCameraStage').value = cameraStage(m);
-      $('rngRange').value = vsp.size;
-      $('rngVal').textContent = vsp.size.toFixed(1);
+      $('cameraExtraOn').checked=m.extraOn===true;
+      $('cameraExtraPct').value=pctClamp(m.extraPct??45);
+      $('cameraExtraPctVal').textContent=$('cameraExtraPct').value;
+      const extendedFill=m.extraOpacity==null
+        ? Math.round(Math.min(.10,pStyle(dev,m).fillOpacity*cameraFillFactor()*.30)*100)
+        : pctClamp(m.extraOpacity);
+      $('cameraExtraOpacity').value=extendedFill;
+      $('cameraExtraOpacityVal').textContent=extendedFill;
+      $('cameraExtraColorMode').value=m.extraColorMode==='different'?'different':'same';
+      $('cameraExtraColor').value=/^#[0-9a-fA-F]{6}$/.test(m.extraColor||'')?m.extraColor:'#7298b6';
+      $('cameraExtraDash').checked=m.extraDash!==false;
+      $('rngRange').value = cameraRefToUi(vsp.size);
+      $('rngVal').textContent = $('rngRange').value;
       $('pirRangeChk').checked = m.showRange === true;
       $('pirRangeState').textContent = m.showRange === true ? 'Preview visible on this drawing only.' : 'Range hidden. Turn on to preview.';
       $('wallPIRControls').style.display = DEV[m.type]?.preview === 'cone' ? 'block' : 'none';
@@ -2151,8 +2387,8 @@ function updatePanels() {
     } else { $('wallPIRControls').style.display='none'; }
     if (dev.rotatable) { $('rotRange').value = m.rot || 0; $('rotVal').textContent = Math.round(m.rot || 0); }
     const sec=$('securityControls'); const poleBox=$('poleControls'), lidarBox=$('lidarControls'), omniBox=$('omniControls'), lidar360Box=$('lidar360Controls'); sec.style.display='none'; poleBox.style.display='none'; lidarBox.style.display='none'; omniBox.style.display='none'; lidar360Box.style.display='none';
-    if (isPole(m)) { ensurePole(m); sec.style.display='block'; poleBox.style.display='block'; $('poleRotRange').value = (m.rot||0); $('poleRotVal').textContent=Math.round(m.rot||0); const pl=poleLidar(m); $('poleLidarEnabled').checked=!!pl.enabled; $('poleLidarOptions').style.display=pl.enabled?'block':'none'; $('poleLidarAngleRange').value=pl.rel||0; $('poleLidarAngleVal').textContent=Math.round(pl.rel||0); $('poleLidarLenRange').value=pl.length||18; $('poleLidarLenVal').textContent=Math.round(pl.length||18); $('poleLidarColor').value=pl.arrowColor||DEV.lidar.color; $('poleLidarWidth').value=pl.arrowWidth||3; $('poleLidarWidthVal').textContent=pl.arrowWidth||3; renderPoleHeads(m); }
-    else if (isLidar(m)) { sec.style.display='block'; lidarBox.style.display='block'; $('lidarDirRange').value=(m.rot||0); $('lidarDirVal').textContent=Math.round(m.rot||0); $('lidarLenRange').value=lidarLength(m); $('lidarLenVal').textContent=lidarLength(m); $('lidarArrowColor').value=m.arrowColor||DEV.lidar.color; $('lidarArrowWidth').value=m.arrowWidth||3; $('lidarArrowWidthVal').textContent=m.arrowWidth||3; }
+    if (isPole(m)) { ensurePole(m); sec.style.display='block'; poleBox.style.display='block'; $('poleRotRange').value = (m.rot||0); $('poleRotVal').textContent=Math.round(m.rot||0); const pl=poleLidar(m); $('poleLidarEnabled').checked=!!pl.enabled; $('poleLidarOptions').style.display=pl.enabled?'block':'none'; $('poleLidarAngleRange').value=pl.rel||0; $('poleLidarAngleVal').textContent=Math.round(pl.rel||0); $('poleLidarLenRange').value=lidarArrowRefToUi(pl.length||18); $('poleLidarLenVal').textContent=$('poleLidarLenRange').value; $('poleLidarColor').value=pl.arrowColor||DEV.lidar.color; $('poleLidarWidth').value=pl.arrowWidth||3; $('poleLidarWidthVal').textContent=pl.arrowWidth||3; renderPoleHeads(m); }
+    else if (isLidar(m)) { sec.style.display='block'; lidarBox.style.display='block'; $('lidarDirRange').value=(m.rot||0); $('lidarDirVal').textContent=Math.round(m.rot||0); $('lidarLenRange').value=lidarArrowRefToUi(lidarLength(m)); $('lidarLenVal').textContent=$('lidarLenRange').value; $('lidarArrowColor').value=m.arrowColor||DEV.lidar.color; $('lidarArrowWidth').value=m.arrowWidth||3; $('lidarArrowWidthVal').textContent=m.arrowWidth||3; }
     else if (isLidar360(m)){ensureLidar360(m);sec.style.display='block';lidar360Box.style.display='block';updateLidar360Panel(m);}
     else if (isOmnitrax(m)) { ensureOmni(m); sec.style.display='block'; omniBox.style.display='block'; $('omniShowEstLengths').checked=$('lenChk').checked; $('omniGapRange').value=Number(m.gap)||10; $('omniGapVal').textContent=Math.round(Number(m.gap)||10); $('omniColor1').value=m.color1||DEV.omnitrax.color; $('omniColor2').value=m.color2||DEV.omnitrax.secondaryColor; const segSel=$('omniSegSelect'); segSel.innerHTML=''; for(let i=0;i<m.pts.length-1;i++){ const o=document.createElement('option'); o.value=i; o.textContent='Segment '+(i+1)+' · '+(m.segmentStyles[i]||'solid'); segSel.appendChild(o);} segSel.value=String(Math.min(m.omniSegIdx||0, Math.max(0,m.pts.length-2))); const idx=m.omniVertexIdx; $('omniVertexState').textContent=Number.isInteger(idx)?('Selected corner: '+(idx+1)+' of '+m.pts.length):'Select a yellow corner on the drawing.'; $('omniRemoveCorner').disabled=!Number.isInteger(idx)||m.pts.length<=2; }
     else { $('securityControls').style.display='none'; }
@@ -2165,6 +2401,17 @@ $('rotRange').onpointerdown = () => pushUndo();
 $('rotRange').oninput = e => { const m = markers.find(x => x.id === [...sel][0]); if (!m) return; m.rot = parseFloat(e.target.value); $('rotVal').textContent = Math.round(m.rot); refresh(); };
 $('pirRangeChk').onchange = e => { const id=[...sel][0],m=markers.find(x=>x.id===id); if(!m)return; pushUndo();m.showRange=e.target.checked;refresh(); };
 $('rngRange').onpointerdown = () => pushUndo();
+$('cameraExtraPct').addEventListener('pointerdown',()=>pushUndo());
+$('cameraExtraOpacity').addEventListener('pointerdown',()=>pushUndo());
+$('cameraExtraOpacity').addEventListener('input',e=>{
+ const m=markers.find(x=>x.id===[...sel][0]);if(!isCamera(m))return;
+ m.extraOpacity=pctClamp(e.target.value);$('cameraExtraOpacityVal').textContent=m.extraOpacity;refresh();
+});
+$('cameraExtraOn').addEventListener('change',e=>setSel(m=>{if(isCamera(m))m.extraOn=e.target.checked;},'Extended viewing zone updated.'));
+$('cameraExtraPct').addEventListener('input',e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isCamera(m))return;m.extraPct=pctClamp(e.target.value);refresh();});
+$('cameraExtraColorMode').addEventListener('change',e=>setSel(m=>{if(isCamera(m))m.extraColorMode=e.target.value==='different'?'different':'same';}));
+$('cameraExtraColor').addEventListener('change',e=>setSel(m=>{if(isCamera(m))m.extraColor=e.target.value;}));
+$('cameraExtraDash').addEventListener('change',e=>setSel(m=>{if(isCamera(m))m.extraDash=e.target.checked;}));
 const setSel = (fn, msg) => { if (!sel.size) return; pushUndo(); sel.forEach(id => { const m = markers.find(x => x.id === id); if (m) fn(m); }); refresh(); if (msg) status(msg); };
 $('selectedCameraStage').onchange = e => setSel(m => { if(isStaged(m)){m.layoutStage=e.target.value==='proposed'?'proposed':'initial'; delete m.vcolor;} },'Designation updated.');
 $('vcolor').oninput = e => setSel(m => { m.vcolor = e.target.value; });
@@ -2172,7 +2419,7 @@ $('cameraViewColor').onchange=e=>setSel(m=>{if(isCamera(m))m.coverageColor=e.tar
 $('cameraViewOpacity').onpointerdown=()=>pushUndo();
 $('cameraViewOpacity').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isCamera(m))return;m.coverageOpacity=+e.target.value;refresh();};
 $('vcNew').onclick = () => setSel(m => { delete m.vcolor; });
-$('rngRange').oninput = e => { const v = parseFloat(e.target.value); sel.forEach(id => { const m = markers.find(x => x.id === id); if (m && DEV[m.type]?.preview) { m.coverageSize = v; m.showRange = true; } }); $('rngVal').textContent = v.toFixed(1); refresh(); };
+$('rngRange').oninput = e => { const pct = Number(e.target.value),v=cameraUiToRef(pct); sel.forEach(id => { const m = markers.find(x => x.id === id); if (m && DEV[m.type]?.preview) { m.coverageSize = v; m.showRange = true; } }); $('rngVal').textContent = String(pct); refresh(); };
 // Camera directional coverage controls (screen preview only).
 $('wallDirRange').onpointerdown = $('wallAngleRange').onpointerdown = () => pushUndo();
 $('wallDirRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(DEV[m?.type]?.preview!=='cone')return; m.rot=+e.target.value; m.showRange=true;refresh(); };
@@ -2195,11 +2442,18 @@ function renderPoleHeads(m){
       `<div class="grid2" style="gap:8px"><div><label class="lbl">Attached device</label><select data-field="kind" style="width:100%"><option value="cam">Fixed camera</option><option value="ptz">PTZ camera</option><option value="lidar">LiDAR</option></select></div>`+
       `<div><label class="lbl">Arm Length (visual)</label><input data-field="tier" type="number" min="1" max="30" step="1" value="${h.tier}" style="width:100%"></div></div>`+
       `<div class="grid2" style="gap:8px">`+control('Mounting arm angle (relative to pole)','rel',h.rel,0,359,1)+control(lidar?'LiDAR direction (relative to pole)':'Camera aim (relative to pole)','aim',poleHeadAimRel(h),0,359,1)+
-      (lidar?control('Arrow length','length',h.length,4,80,1)+control('Arrow width','arrowWidth',h.arrowWidth,1,16,.5):
-       control('Viewing angle (FOV)','fov',h.fov,10,360,5)+control('Illustrative reach','reach',h.reach,1.2,16,.1)+control('Viewing-area opacity (% visible)','viewOpacity',h.viewOpacity,0,90,1))+`</div>`+
+      (lidar?control('Arrow size (0–100)','length',lidarArrowRefToUi(h.length),0,100,1)+control('Arrow width','arrowWidth',h.arrowWidth,1,16,.5):
+       control('Viewing angle (FOV)','fov',h.fov,10,360,5)+control('View length (0–100)','reach',cameraRefToUi(h.reach),0,100,1)+control('Viewing-area opacity (% visible)','viewOpacity',h.viewOpacity,0,100,1))+`</div>`+
       `<div class="muted" data-head-direction style="margin-top:5px">Arm ${poleHeadAngle(m,h)}° · ${lidar?'LiDAR':'Camera'} aim ${poleHeadAimAngle(m,h)}° on drawing</div>`+
       (lidar?`<div style="margin-top:7px"><label class="lbl">LiDAR arrow color</label><input data-field="arrowColor" type="color" value="${h.arrowColor||DEV.lidar.color}" style="width:75px;height:30px"></div>`:
-      `<div class="row" style="margin-top:6px"><label style="flex:1">Coverage color <input data-field="viewColor" type="color" value="${h.viewColor||VIEW_COLORS[cameraStage(m)]}" style="width:56px;height:29px"></label><label style="flex:1"><input data-field="showRange" type="checkbox" ${h.showRange!==false?'checked':''}> Show coverage</label></div>`);
+      `<div class="row" style="margin-top:6px"><label style="flex:1">Coverage color <input data-field="viewColor" type="color" value="${h.viewColor||VIEW_COLORS[cameraStage(m)]}" style="width:56px;height:29px"></label><label style="flex:1"><input data-field="showRange" type="checkbox" ${h.showRange!==false?'checked':''}> Show coverage</label></div>`+
+      `<details class="cctv-extra-fold" style="margin-top:6px"><summary>Extended viewing zone</summary><div class="cctv-extra-panel">
+        <label class="chk"><input data-field="extraOn" type="checkbox" ${h.extraOn===true?'checked':''}> Show reduced-detail zone</label>
+        ${control('Extra reach (0–100)','extraPct',pctClamp(h.extraPct??45),0,100,1)}
+        ${control('Extended fill (% visible)','extraOpacity',h.extraOpacity==null?Math.round(Math.min(10,pctClamp(h.viewOpacity??18)*cameraFillFactor()*.30)):pctClamp(h.extraOpacity),0,100,1)}
+        <div class="cctv-extra-two"><label class="lbl">Color mode<select data-field="extraColorMode"><option value="same" ${h.extraColorMode!=='different'?'selected':''}>Same color</option><option value="different" ${h.extraColorMode==='different'?'selected':''}>Different</option></select></label><label class="cctv-color-label">Color<input data-field="extraColor" type="color" value="${h.extraColor||'#7298b6'}"></label></div>
+        <label class="chk"><input data-field="extraDash" type="checkbox" ${h.extraDash!==false?'checked':''}> Dotted outer outline</label>
+       </div></details>`);
      list.appendChild(row);
    });
    list.querySelectorAll('[data-field]').forEach(input=>{
@@ -2207,8 +2461,10 @@ function renderPoleHeads(m){
        const m=markers.find(x=>x.id===[...sel][0]);if(!isPole(m))return;
        const row=e.target.closest('[data-head]'),h=ensurePole(m)[Number(row.dataset.head)],key=e.target.dataset.field;
        if(!h)return;
-       const v=key==='showRange'?e.target.checked:(key==='kind'||key==='viewColor'||key==='arrowColor')?e.target.value:Number(e.target.value);
+       const v=['showRange','extraOn','extraDash'].includes(key)?e.target.checked:(['kind','viewColor','arrowColor','extraColorMode','extraColor'].includes(key))?e.target.value:Number(e.target.value);
        if(key==='aim') h.aimOffset=angleSigned(v-h.rel);
+       else if(key==='reach')h.reach=cameraUiToRef(v);
+       else if(key==='length')h.length=lidarArrowUiToRef(v);
        else h[key]=v;
        if(key==='kind')list.dataset.signature='';
        const label=row.querySelector(`[data-value="${key}"]`);if(label)label.textContent=String(v);
@@ -2227,9 +2483,9 @@ function renderPoleHeads(m){
    const h=heads[i];if(!h)return;
    row.querySelectorAll('[data-field]').forEach(input=>{
      const key=input.dataset.field;if(document.activeElement===input)return;
-     if(key==='showRange')input.checked=h.showRange!==false;
-     else input.value=key==='aim'?poleHeadAimRel(h):(key==='viewColor'?(h.viewColor||VIEW_COLORS[cameraStage(m)]):key==='arrowColor'?(h.arrowColor||DEV.lidar.color):h[key]);
-     const label=row.querySelector(`[data-value="${key}"]`);if(label)label.textContent=String(key==='aim'?poleHeadAimRel(h):h[key]);
+     if(['showRange','extraOn','extraDash'].includes(key))input.checked=key==='showRange'?h.showRange!==false:key==='extraDash'?h.extraDash!==false:h.extraOn===true;
+     else input.value=key==='aim'?poleHeadAimRel(h):key==='reach'?cameraRefToUi(h.reach):key==='length'?lidarArrowRefToUi(h.length):key==='extraPct'?pctClamp(h.extraPct??45):key==='extraOpacity'?(h.extraOpacity==null?Math.round(Math.min(10,pctClamp(h.viewOpacity??18)*cameraFillFactor()*.30)):pctClamp(h.extraOpacity)):(key==='viewColor'?(h.viewColor||VIEW_COLORS[cameraStage(m)]):key==='arrowColor'?(h.arrowColor||DEV.lidar.color):h[key]);
+     const label=row.querySelector(`[data-value="${key}"]`);if(label)label.textContent=String(key==='aim'?poleHeadAimRel(h):key==='reach'?cameraRefToUi(h.reach):key==='length'?lidarArrowRefToUi(h.length):key==='extraOpacity'?(h.extraOpacity==null?Math.round(Math.min(10,pctClamp(h.viewOpacity??18)*cameraFillFactor()*.30)):pctClamp(h.extraOpacity)):h[key]);
    });
    const directions=row.querySelector('[data-head-direction]');
    if(directions) directions.textContent='Arm '+Math.round(poleHeadAngle(m,h))+'° · '+(h.kind==='lidar'?'LiDAR direction ':'Camera aim ')+Math.round(poleHeadAimAngle(m,h))+'° on drawing';
@@ -2243,15 +2499,15 @@ function addPoleHead(kind){withSelected(m=>{
 $('poleAddHead').onclick=()=>addPoleHead($('poleNewKind').value);
 
 $('lidarDirRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isLidar(m)) return; m.rot=+e.target.value; $('lidarDirVal').textContent=Math.round(m.rot); refresh(); };
-$('lidarLenRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isLidar(m)) return; m.length=+e.target.value; $('lidarLenVal').textContent=Math.round(m.length); refresh(); };
+$('lidarLenRange').oninput = e => { const m=markers.find(x=>x.id===[...sel][0]); if(!isLidar(m)) return; m.length=lidarArrowUiToRef(e.target.value); $('lidarLenVal').textContent=e.target.value; refresh(); };
 $('lidarArrowColor').onchange=e=>withSelected(m=>{if(isLidar(m))m.arrowColor=e.target.value;});
 $('lidarArrowWidth').onpointerdown=()=>pushUndo();
 $('lidarArrowWidth').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isLidar(m))return;m.arrowWidth=+e.target.value;refresh();};
 const selectedLidar360=()=>markers.find(x=>x.id===[...sel][0]);
 function setLidar360Field(key,value){const m=selectedLidar360();if(!isLidar360(m))return;ensureLidar360(m);m[key]=value;refresh();}
 $('lidar360Radius').addEventListener('pointerdown',()=>pushUndo());
-$('lidar360Radius').addEventListener('input',e=>setLidar360Field('radiusRef',Number(e.target.value)));
-$('lidar360RadiusNumber').addEventListener('change',e=>{const v=Math.max(0.05,Math.min(500,Number(e.target.value)||0.5));pushUndo();setLidar360Field('radiusRef',v);});
+$('lidar360Radius').addEventListener('input',e=>setLidar360Field('radiusRef',lidarUiToRef(e.target.value)));
+$('lidar360RadiusNumber').addEventListener('change',e=>{const v=pctClamp(e.target.value);pushUndo();setLidar360Field('radiusRef',lidarUiToRef(v));});
 $('lidar360OutlineEnabled').addEventListener('change',e=>{pushUndo();setLidar360Field('showOutline',e.target.checked);});
 $('lidar360Color').addEventListener('change',e=>{pushUndo();setLidar360Field('circleColor',e.target.value);});
 $('lidar360LineWidth').addEventListener('pointerdown',()=>pushUndo());
@@ -2267,7 +2523,7 @@ function setOmniSegStyle(style){ const m=markers.find(x=>x.id===[...sel][0]); if
 $('poleLidarEnabled').onchange=e=>withSelected(m=>{if(isPole(m))poleLidar(m).enabled=e.target.checked;});
 $('poleLidarAngleRange').onpointerdown=$('poleLidarLenRange').onpointerdown=()=>pushUndo();
 $('poleLidarAngleRange').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isPole(m))return;poleLidar(m).rel=+e.target.value;refresh();};
-$('poleLidarLenRange').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isPole(m))return;poleLidar(m).length=+e.target.value;refresh();};
+$('poleLidarLenRange').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isPole(m))return;poleLidar(m).length=lidarArrowUiToRef(e.target.value);refresh();};
 $('poleLidarColor').onchange=e=>withSelected(m=>{if(isPole(m))poleLidar(m).arrowColor=e.target.value;});
 $('poleLidarWidth').onpointerdown=()=>pushUndo();
 $('poleLidarWidth').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(!isPole(m))return;poleLidar(m).arrowWidth=+e.target.value;refresh();};
@@ -2626,6 +2882,7 @@ $('pdfBtn').onclick = async () => {
       if(!m.showRange||!dev?.preview)return;
       const spec=previewSpec(dev,m), paint=pStyle(dev,m);
       const styled=cameraAreaPaint(paint);
+      if(m.extraOn===true){const ex=cameraExtensionStyle(m,styled);polygon(previewPoly(m,extraPreviewSpec(spec,m)),hexRgb(ex.color,PDFLib),ex.fillOpacity,cameraOutlinesOn()?hexRgb(ex.color,PDFLib):null,cameraOutlinesOn()?ex.strokeOpacity:0,1.5,ex.dash?[2,5]:undefined);}
       polygon(previewPoly(m,spec),hexRgb(styled.fill,PDFLib),styled.fillOpacity,cameraOutlinesOn()?hexRgb(styled.stroke,PDFLib):null,styled.strokeOpacity,Math.max(1.2,iconBase()*0.08));
     });
     const white = rgb(1, 1, 1), black = rgb(0.1, 0.1, 0.1);
@@ -2688,6 +2945,7 @@ $('pdfBtn').onclick = async () => {
           if(showCameraCones() && $('pdfViewChk').checked&&h.showRange!==false){
             const sp=headPreviewSpec(m,h,dm),st=headPreviewStyle(m,h);
             const styled=cameraAreaPaint(st);
+            if(h.extraOn===true){const ex=cameraExtensionStyle(h,styled),origin={x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)};polygon(previewPoly(origin,extraPreviewSpec(sp,h)),hexRgb(ex.color,PDFLib),ex.fillOpacity,cameraOutlinesOn()?hexRgb(ex.color,PDFLib):null,cameraOutlinesOn()?ex.strokeOpacity:0,1.5,ex.dash?[2,5]:undefined);}
             polygon(previewPoly({x:pos.x,y:pos.y,rot:poleHeadAimAngle(m,h)},sp),hexRgb(styled.fill,PDFLib),styled.fillOpacity,cameraOutlinesOn()?hexRgb(styled.stroke,PDFLib):null,styled.strokeOpacity,1.3);
           }
           polygon(previewPoly({x:pos.x,y:pos.y},{kind:'circle',angle:360,rpt:headSize*.52}),rgb(1,1,1),1,rgb(.2,.24,.28),1,Math.max(1,dm*.065));
