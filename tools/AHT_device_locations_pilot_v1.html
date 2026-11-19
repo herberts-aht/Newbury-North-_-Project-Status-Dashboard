@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT Device Locations — Pilot v1.3</title>
+<title>AHT Device Locations — Pilot v1.3.1</title>
 <style>
   :root { --border:#d8d5cc; --border2:#b7b3a6; --text:#1a1a18; --text2:#5f5e5a; --muted:#8a877d; --bg:#f4f2ec; --card:#fff; --accent:#185fa5; --danger:#a32d2d; }
   * { box-sizing:border-box; }
@@ -272,16 +272,17 @@
 }
 #ahtGuided .aht-quick-actions {
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:5px;
   margin-top:6px;
 }
-#ahtGuided #selectBtn { width:100%; height:31px; min-height:31px; font-size:10px; padding:4px 3px; }
+#ahtGuided #selectBtn { grid-column:1/-1; width:100%; height:35px; min-height:35px; font-size:12px; padding:5px 8px; }
 #ahtGuided .edit-history-bar { display:contents; }
 #ahtGuided .edit-history-bar button { height:31px; min-height:31px; margin:0; font-size:11px; }
-#ahtGuided .aht-align-actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:5px; }
-#ahtGuided .aht-align-actions button { min-height:29px; background:#eef5fc; color:#204b70; font-weight:650; }
-#ahtGuided .aht-align-actions button:disabled { opacity:.42; }
+.aht-align-actions { border-color:#a9cbe2; }
+.aht-align-actions .grid2 { margin-top:7px; }
+.aht-align-actions button { min-height:33px; background:#eef5fc; color:#204b70; font-weight:650; }
+.aht-align-actions button:disabled { opacity:.42; }
 .tv-type-color-row { display:grid; grid-template-columns:minmax(0,1fr) 45px; align-items:center; gap:8px; margin:7px 0; font-size:12px; }
 .tv-type-color-row input[type=color] { width:44px; height:30px; padding:2px; border:1px solid #b9cbd7; border-radius:5px; }
 .tv-color-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:7px; }
@@ -420,6 +421,11 @@
     <section class="workflow-step" id="detailsSection">
       <div class="step-heading"><span class="step-number">3</span><h2>Identify the Change</h2></div>
       <div class="muted">After placing a change, this section opens automatically. Room number is optional.</div>
+      <div id="ahtDeviceAlign" class="speaker-place-controls aht-align-actions" style="display:none" aria-label="Align selected devices">
+        <div class="minor-label">Selected Devices — Align X / Y</div>
+        <div class="muted" id="ahtAlignSelectionInfo">Select two or more devices on the drawing to align them.</div>
+        <div class="grid2"><button type="button" id="alignXBtn" title="Align centers to the same X coordinate (vertical)">Align X</button><button type="button" id="alignYBtn" title="Align centers to the same Y coordinate (horizontal)">Align Y</button></div>
+      </div>
     <div id="changeDetails" class="panel" style="display:none">
       <strong style="font-size:14px">Change Details</strong>
       <div class="muted" id="detailState" style="margin:5px 0">New markup</div>
@@ -453,6 +459,9 @@
           <div class="minor-label">TV Type / Label</div>
           <label class="lbl" for="tvStatus">TV installation status</label>
           <select id="tvStatus"><option value="confirmed">Confirmed TV</option><option value="future">Future TV</option><option value="prewire">Prewire only</option></select>
+          <label class="lbl" for="tvLabelText">TV label text (editable)</label>
+          <input type="text" id="tvLabelText" value="TV" maxlength="18" placeholder="TV">
+          <div class="muted">Future TVs show “FUTURE” beneath the label; prewire-only TVs show “ROUGH-IN ONLY.” Confirmed TVs show the label alone.</div>
           <label class="chk"><input type="checkbox" id="tvLabelVisible" checked><span>Show movable TV label and leader line</span></label>
           <button type="button" id="tvResetLabelPosition" class="full">Reset label position</button>
           <div class="muted">Drag the TV label independently on the plan. The connecting line follows; the sized TV footprint does not move.</div>
@@ -722,6 +731,8 @@ let tvTypeColors = {...TV_DEFAULT_COLORS};
 const validTvColor = value => /^#[0-9a-f]{6}$/i.test(String(value||''));
 function tvStatusOf(m){return TV_STATUS_LABELS[m?.tvStatus] ? m.tvStatus : 'confirmed';}
 function tvColorOf(m){return validTvColor(m?.tvColorOverride) ? m.tvColorOverride : tvTypeColors[tvStatusOf(m)];}
+function tvLabelMain(m){return String(m?.tvLabelText||'TV').replace(/\s+/g,' ').trim().slice(0,18)||'TV';}
+function tvLabelSub(m){const status=tvStatusOf(m);return status==='future'?'FUTURE':status==='prewire'?'ROUGH-IN ONLY':'';}
 function normalizedTvColors(c){const result={...TV_DEFAULT_COLORS};Object.keys(result).forEach(k=>{if(validTvColor(c?.[k]))result[k]=c[k];});return result;}
 const isAccessPoint = d => !!d && ['apind','apout'].includes(d.key);
 const isAVDevice = d => !!d && ['tv','apind','apout','projector','screenfixed','screenmotor'].includes(d.key);
@@ -849,7 +860,7 @@ function previewSpec(dev, m) {
 function actualDev(dev, m) {
   if(isAVDevice(dev)) {
     const appearance={direction:m?.rot||0,deviceWidth:m?.deviceWidth??(dev.key==='tv'?3.2:dev.key==='projector'?1.55:4.5),deviceHeight:m?.deviceHeight??(dev.key==='tv'?1.5:dev.key==='projector'?1.0:.35),mount:mountOf(m)};
-    if(dev.key==='tv' && m){Object.assign(appearance,{color:tvColorOf(m),tvLabelVisible:m.tvLabelVisible!==false,tvLabelDx:Number(m.tvLabelDx)||0,tvLabelDy:Number(m.tvLabelDy)||0,markerId:m.id});}
+    if(dev.key==='tv' && m){Object.assign(appearance,{color:tvColorOf(m),tvLabelText:tvLabelMain(m),tvLabelSub:tvLabelSub(m),tvLabelVisible:m.tvLabelVisible!==false,tvLabelDx:Number(m.tvLabelDx)||0,tvLabelDy:Number(m.tvLabelDy)||0,markerId:m.id});}
     return Object.assign({},dev,appearance);
   }
   if (!isSpeaker(dev)) return dev;
@@ -905,7 +916,9 @@ function roundRectPoly(cx, cy, w, h, r) {
 function tvLabelGeometry(dev,cx,cy,d){
   const angle=(Number(dev.direction)||0)*Math.PI/180,ca=Math.cos(angle),sa=Math.sin(angle);
   const w=d*Math.max(1,Number(dev.deviceWidth)||3),h=d*Math.max(.2,Number(dev.deviceHeight)||1);
-  const fs=Math.max(d*.92,7.5),labelW=fs*1.95,labelH=fs*1.52;
+  const fs=Math.max(d*.92,7.5),title=String(dev.tvLabelText||'TV'),subtitle=String(dev.tvLabelSub||'');
+  const labelW=Math.max(fs*1.95,wScreen(title,fs)+fs*.9,subtitle?wScreen(subtitle,fs*.48)+fs*.8:0);
+  const labelH=fs*(subtitle?1.95:1.52);
   const base=w*.5+fs*.98;
   const lx=cx+base*ca+(Number(dev.tvLabelDx)||0),ly=cy+base*sa+(Number(dev.tvLabelDy)||0);
   const dx=lx-cx,dy=ly-cy;
@@ -950,7 +963,9 @@ function iconParts(dev, cx, cy, d) {
             P.polys.push({pts:[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]],fill:dev.color,stroke:null,sw:0,noHit:true});
           }
           P.polys.push({pts:[[-L.labelW/2,-L.labelH/2],[L.labelW/2,-L.labelH/2],[L.labelW/2,L.labelH/2],[-L.labelW/2,L.labelH/2]].map(([x,y])=>[L.lx+x,L.ly+y]),fill:'#ffffff',stroke:dev.color,sw:Math.max(.6,d*.055),handle:'tv-label'});
-          P.texts.push({s:'TV',x:L.lx,y:L.ly+L.fs*.34,size:L.fs,color:dev.color});
+          const title=String(dev.tvLabelText||'TV'),subtitle=String(dev.tvLabelSub||'');
+          P.texts.push({s:title,x:L.lx,y:L.ly+(subtitle?-L.fs*.12:L.fs*.34),size:L.fs,color:dev.color});
+          if(subtitle)P.texts.push({s:subtitle,x:L.lx,y:L.ly+L.fs*.67,size:L.fs*.48,color:dev.color});
         }
       } else if(st==='avScreen'){
         P.polys.push({pts:rectangle(w*.96,Math.max(h*.3,d*.14)),fill:'#e3e9eb',stroke:dev.color,sw:d*.035});
@@ -1445,6 +1460,8 @@ function refreshTvPaletteUi(){
   const canAlign=selectedPointDevices().length>=2;
   if($('alignXBtn'))$('alignXBtn').disabled=!canAlign;
   if($('alignYBtn'))$('alignYBtn').disabled=!canAlign;
+  if($('ahtDeviceAlign'))$('ahtDeviceAlign').style.display=canAlign?'block':'none';
+  if(canAlign && $('ahtAlignSelectionInfo'))$('ahtAlignSelectionInfo').textContent=selectedPointDevices().length+' devices selected. Align their centers to the first selected device.';
 }
 function updatePanels() {
   refreshTvPaletteUi();
@@ -1941,6 +1958,7 @@ function showAVPanel(m){
  const tv=d.key==='tv';$('avTvControls').style.display=tv?'block':'none';
  if(tv){
   $('tvStatus').value=tvStatusOf(m);
+  if(document.activeElement!==$('tvLabelText'))$('tvLabelText').value=tvLabelMain(m);
   $('tvLabelVisible').checked=m.tvLabelVisible!==false;
   if(document.activeElement!==$('tvIndividualColor'))$('tvIndividualColor').value=tvColorOf(m);
   $('tvColorState').textContent=validTvColor(m.tvColorOverride)?'Individual color override active.':'Using the '+TV_STATUS_LABELS[tvStatusOf(m)]+' type color.';
@@ -1956,6 +1974,11 @@ function selectedAV(){const m=markers.find(x=>x.id===[...sel][0]);return m&&isAV
 function updateAV(fn){const m=selectedAV();if(!m)return;pushUndo();fn(m);refresh();}
 function updateTV(fn){const m=selectedAV();if(m?.type==='tv')updateAV(fn);}
 $('tvStatus').onchange=e=>updateTV(m=>{m.tvStatus=e.target.value;});
+$('tvLabelText').onchange=e=>{
+ const text=e.target.value.replace(/\s+/g,' ').trim().slice(0,18)||'TV';e.target.value=text;
+ const current=selectedAV();if(current?.type!=='tv'||tvLabelMain(current)===text)return;
+ updateTV(m=>{if(text==='TV')delete m.tvLabelText;else m.tvLabelText=text;});
+};
 $('tvLabelVisible').onchange=e=>updateTV(m=>{m.tvLabelVisible=e.target.checked;});
 $('tvResetLabelPosition').onclick=()=>updateTV(m=>{delete m.tvLabelDx;delete m.tvLabelDy;});
 $('tvIndividualColor').onchange=e=>updateTV(m=>{if(validTvColor(e.target.value))m.tvColorOverride=e.target.value;});
@@ -2144,20 +2167,14 @@ refresh();
 
   head.after(nav);
 
-  // Keep the workflow, selection, history and alignment controls together.
-  // The original sidebar scrolls independently of the drawing viewport.
+  // Keep workflow navigation, selection and undo/redo pinned while the
+  // drawing scrolls. Alignment is contextual, inside Selected Devices below.
   const quick=document.createElement('div');quick.className='aht-quick-actions';
   quick.setAttribute('aria-label','Sticky editing actions');
   quick.append($('selectBtn'),document.querySelector('.edit-history-bar'));
   nav.append(quick);
-  const align=document.createElement('div');align.className='aht-align-actions';
-  for(const [axis,label,title] of [['x','Align X','Line selected device centers up vertically'],['y','Align Y','Line selected device centers up horizontally']]){
-    const button=document.createElement('button');button.type='button';button.id=axis==='x'?'alignXBtn':'alignYBtn';
-    button.textContent=label;button.title=title;button.disabled=true;
-    button.onclick=()=>alignSelectedDevices(axis);
-    align.append(button);
-  }
-  nav.append(align);
+  $('alignXBtn').onclick=()=>alignSelectedDevices('x');
+  $('alignYBtn').onclick=()=>alignSelectedDevices('y');
 
   const buttons = [];
 
