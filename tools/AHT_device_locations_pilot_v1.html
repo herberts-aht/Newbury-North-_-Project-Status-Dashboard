@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT Device Locations — Pilot v1.3.2</title>
+<title>AHT Device Locations — Pilot v1.3.3</title>
 <style>
   :root { --border:#d8d5cc; --border2:#b7b3a6; --text:#1a1a18; --text2:#5f5e5a; --muted:#8a877d; --bg:#f4f2ec; --card:#fff; --accent:#185fa5; --danger:#a32d2d; }
   * { box-sizing:border-box; }
@@ -469,6 +469,10 @@
           <label class="lbl" for="tvLabelText">TV label text (editable)</label>
           <input type="text" id="tvLabelText" value="TV" maxlength="18" placeholder="TV">
           <div class="muted">Future TVs show “FUTURE” beneath the label; prewire-only TVs show “ROUGH-IN ONLY.” Confirmed TVs show the label alone.</div>
+          <label class="lbl" for="tvLabelScale">TV text & label size: <strong id="tvLabelScaleValue">100%</strong></label>
+          <input type="range" id="tvLabelScale" min="0.4" max="1.6" step="0.05" value="1" style="width:100%">
+          <div class="row" style="margin-top:5px"><button type="button" id="tvResetLabelSize">Reset to 100%</button><button type="button" id="tvApplyLabelSizeAll">Apply size to all TVs</button></div>
+          <div class="muted">Changes the label text and its box, not the sized TV footprint. Apply to all includes TVs on other drawing pages.</div>
           <label class="chk"><input type="checkbox" id="tvLabelVisible" checked><span>Show movable TV label and leader line</span></label>
           <button type="button" id="tvResetLabelPosition" class="full">Reset label position</button>
           <div class="muted">Drag the TV label independently on the plan. The connecting line follows; the sized TV footprint does not move.</div>
@@ -750,6 +754,7 @@ function tvStatusOf(m){return TV_STATUS_LABELS[m?.tvStatus] ? m.tvStatus : 'conf
 function tvColorOf(m){return validTvColor(m?.tvColorOverride) ? m.tvColorOverride : tvTypeColors[tvStatusOf(m)];}
 function tvLabelMain(m){return String(m?.tvLabelText||'TV').replace(/\s+/g,' ').trim().slice(0,18)||'TV';}
 function tvLabelSub(m){const status=tvStatusOf(m);return status==='future'?'FUTURE':status==='prewire'?'ROUGH-IN ONLY':'';}
+function tvLabelScaleOf(m){const n=Number(m?.tvLabelScale);return Number.isFinite(n)&&n>0?Math.max(.4,Math.min(1.6,n)):1;}
 function normalizedTvColors(c){const result={...TV_DEFAULT_COLORS};Object.keys(result).forEach(k=>{if(validTvColor(c?.[k]))result[k]=c[k];});return result;}
 const isAccessPoint = d => !!d && ['apind','apout'].includes(d.key);
 const isAVDevice = d => !!d && ['tv','apind','apout','projector','screenfixed','screenmotor'].includes(d.key);
@@ -877,7 +882,7 @@ function previewSpec(dev, m) {
 function actualDev(dev, m) {
   if(isAVDevice(dev)) {
     const appearance={direction:m?.rot||0,deviceWidth:m?.deviceWidth??(dev.key==='tv'?3.2:dev.key==='projector'?1.55:4.5),deviceHeight:m?.deviceHeight??(dev.key==='tv'?1.5:dev.key==='projector'?1.0:.35),mount:mountOf(m)};
-    if(dev.key==='tv' && m){Object.assign(appearance,{color:tvColorOf(m),tvLabelText:tvLabelMain(m),tvLabelSub:tvLabelSub(m),tvLabelVisible:m.tvLabelVisible!==false,tvLabelDx:Number(m.tvLabelDx)||0,tvLabelDy:Number(m.tvLabelDy)||0,markerId:m.id});}
+    if(dev.key==='tv' && m){Object.assign(appearance,{color:tvColorOf(m),tvLabelText:tvLabelMain(m),tvLabelSub:tvLabelSub(m),tvLabelScale:tvLabelScaleOf(m),tvLabelVisible:m.tvLabelVisible!==false,tvLabelDx:Number(m.tvLabelDx)||0,tvLabelDy:Number(m.tvLabelDy)||0,markerId:m.id});}
     return Object.assign({},dev,appearance);
   }
   if (!isSpeaker(dev)) return dev;
@@ -933,10 +938,12 @@ function roundRectPoly(cx, cy, w, h, r) {
 function tvLabelGeometry(dev,cx,cy,d){
   const angle=(Number(dev.direction)||0)*Math.PI/180,ca=Math.cos(angle),sa=Math.sin(angle);
   const w=d*Math.max(1,Number(dev.deviceWidth)||3),h=d*Math.max(.2,Number(dev.deviceHeight)||1);
-  const fs=Math.max(d*.92,7.5),title=String(dev.tvLabelText||'TV'),subtitle=String(dev.tvLabelSub||'');
+  const fsBase=Math.max(d*.92,7.5),fs=fsBase*tvLabelScaleOf(dev);
+  const title=String(dev.tvLabelText||'TV'),subtitle=String(dev.tvLabelSub||'');
   const labelW=Math.max(fs*1.95,wScreen(title,fs)+fs*.9,subtitle?wScreen(subtitle,fs*.48)+fs*.8:0);
   const labelH=fs*(subtitle?1.95:1.52);
-  const base=w*.5+fs*.98;
+  // Keep the label's center anchored when resizing text already positioned on a plan.
+  const base=w*.5+fsBase*.98;
   const lx=cx+base*ca+(Number(dev.tvLabelDx)||0),ly=cy+base*sa+(Number(dev.tvLabelDy)||0);
   const dx=lx-cx,dy=ly-cy;
   const localX=dx*ca+dy*sa,localY=-dx*sa+dy*ca;
@@ -979,7 +986,7 @@ function iconParts(dev, cx, cy, d) {
             const half=Math.max(.35,d*.045)/2,nx=-(b[1]-a[1])/dist*half,ny=(b[0]-a[0])/dist*half;
             P.polys.push({pts:[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]],fill:dev.color,stroke:null,sw:0,noHit:true});
           }
-          P.polys.push({pts:[[-L.labelW/2,-L.labelH/2],[L.labelW/2,-L.labelH/2],[L.labelW/2,L.labelH/2],[-L.labelW/2,L.labelH/2]].map(([x,y])=>[L.lx+x,L.ly+y]),fill:'#ffffff',stroke:dev.color,sw:Math.max(.6,d*.055),handle:'tv-label'});
+          P.polys.push({pts:[[-L.labelW/2,-L.labelH/2],[L.labelW/2,-L.labelH/2],[L.labelW/2,L.labelH/2],[-L.labelW/2,L.labelH/2]].map(([x,y])=>[L.lx+x,L.ly+y]),fill:'#ffffff',stroke:dev.color,sw:Math.max(.45,d*.055*tvLabelScaleOf(dev)),handle:'tv-label'});
           const title=String(dev.tvLabelText||'TV'),subtitle=String(dev.tvLabelSub||'');
           P.texts.push({s:title,x:L.lx,y:L.ly+(subtitle?-L.fs*.12:L.fs*.34),size:L.fs,color:dev.color});
           if(subtitle)P.texts.push({s:subtitle,x:L.lx,y:L.ly+L.fs*.67,size:L.fs*.48,color:dev.color});
@@ -2066,6 +2073,9 @@ function showAVPanel(m){
  if(tv){
   $('tvStatus').value=tvStatusOf(m);
   if(document.activeElement!==$('tvLabelText'))$('tvLabelText').value=tvLabelMain(m);
+  const scale=tvLabelScaleOf(m);
+  if(document.activeElement!==$('tvLabelScale'))$('tvLabelScale').value=scale;
+  $('tvLabelScaleValue').textContent=Math.round(scale*100)+'%';
   $('tvLabelVisible').checked=m.tvLabelVisible!==false;
   if(document.activeElement!==$('tvIndividualColor'))$('tvIndividualColor').value=tvColorOf(m);
   $('tvColorState').textContent=validTvColor(m.tvColorOverride)?'Individual color override active.':'Using the '+TV_STATUS_LABELS[tvStatusOf(m)]+' type color.';
@@ -2085,6 +2095,24 @@ $('tvLabelText').onchange=e=>{
  const text=e.target.value.replace(/\s+/g,' ').trim().slice(0,18)||'TV';e.target.value=text;
  const current=selectedAV();if(current?.type!=='tv'||tvLabelMain(current)===text)return;
  updateTV(m=>{if(text==='TV')delete m.tvLabelText;else m.tvLabelText=text;});
+};
+$('tvLabelScale').onpointerdown=()=>{if(selectedAV()?.type==='tv')pushUndo();};
+$('tvLabelScale').onkeydown=e=>{if(selectedAV()?.type==='tv'&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key))pushUndo();};
+$('tvLabelScale').oninput=e=>{
+  const m=selectedAV();if(m?.type!=='tv')return;
+  m.tvLabelScale=+e.target.value;
+  refresh();
+};
+$('tvResetLabelSize').onclick=()=>{
+  const m=selectedAV();if(m?.type!=='tv'||tvLabelScaleOf(m)===1)return;
+  updateTV(tv=>{delete tv.tvLabelScale;});
+};
+$('tvApplyLabelSizeAll').onclick=()=>{
+  const selected=selectedAV();if(selected?.type!=='tv')return;
+  const scale=tvLabelScaleOf(selected),tvs=markers.filter(m=>m.type==='tv');
+  if(tvs.every(m=>tvLabelScaleOf(m)===scale))return;
+  pushUndo();tvs.forEach(m=>{if(scale===1)delete m.tvLabelScale;else m.tvLabelScale=scale;});
+  refresh();status('Applied '+Math.round(scale*100)+'% TV label size to '+tvs.length+' TVs on all pages.');
 };
 $('tvLabelVisible').onchange=e=>updateTV(m=>{m.tvLabelVisible=e.target.checked;});
 $('tvResetLabelPosition').onclick=()=>updateTV(m=>{delete m.tvLabelDx;delete m.tvLabelDy;});
