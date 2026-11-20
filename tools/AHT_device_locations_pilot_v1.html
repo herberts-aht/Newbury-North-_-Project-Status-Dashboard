@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT Device Locations — Pilot v1.2</title>
+<title>AHT Device Locations — Pilot v1.3.3</title>
 <style>
   :root { --border:#d8d5cc; --border2:#b7b3a6; --text:#1a1a18; --text2:#5f5e5a; --muted:#8a877d; --bg:#f4f2ec; --card:#fff; --accent:#185fa5; --danger:#a32d2d; }
   * { box-sizing:border-box; }
@@ -45,6 +45,13 @@
   #zoomctl { position:absolute; right:14px; bottom:14px; display:flex; flex-direction:column; gap:6px; }
   #zoomctl button { width:34px; height:34px; font-size:16px; padding:0; }
   #banner { position:absolute; left:50%; transform:translateX(-50%); top:10px; background:rgba(26,26,24,.82); color:#fff; font-size:12px; padding:6px 12px; border-radius:14px; display:none; pointer-events:none; }
+  /* Match CCTV, Access, Shades and Speakers: temporary editor-only X/Y guides. */
+  #ahtXYBadge { position:absolute; z-index:8; display:none; pointer-events:none; white-space:nowrap; padding:5px 9px; border:1px solid #7da8c5; border-radius:7px; background:rgba(255,255,255,.97); box-shadow:0 2px 10px #153f5b24; color:#1d4c69; font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; }
+  #ahtXYPosition { border:1px solid #d6e3ec; border-radius:7px; background:#f8fbfd; margin:8px 0; padding:8px; }
+  #ahtXYPosition .aht-xy-fields { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  #ahtXYPosition .aht-xy-fields label { margin:0; }
+  #ahtXYPosition .aht-xy-fields input { margin-top:4px; min-width:0; }
+  #ahtXYPosition .aht-xy-hint { font-size:10px; line-height:1.4; color:#627787; margin-top:6px; }
   .tbl { width:100%; border-collapse:collapse; font-size:12px; }
   .tbl td { padding:2px 0; }
   .tbl td:last-child { text-align:right; font-weight:600; }
@@ -108,7 +115,7 @@
 #selectedBarSettings input[type=range], #placeBarSettings input[type=range] {width:100%}
 
 /* Same dimensions as the Choose Plan PDF button; distinct teal color retained. */
-#modeDock { margin:0 13px; padding:10px 0 8px; }
+#modeDock { position:relative; top:auto; margin:0 13px; padding:8px 0; box-shadow:none; }
 #selectBtn { height:36px; padding:7px 9px; font-size:13px; font-weight:800; border-width:1px; border-radius:6px; }
 #chooseBtn { height:36px; padding:7px 9px; font-size:13px; }
 #pirRangeState { margin-top:3px; }
@@ -232,11 +239,17 @@
 
 <style id="aht-guided-v13">
 #ahtGuided {
-  padding:10px;
-  margin:10px 0;
+  position:sticky;
+  top:0;
+  z-index:40;
+  padding:8px 13px;
+  margin:0 -13px 10px;
   border:1px solid #9fcbe5;
-  border-radius:9px;
-  background:#f3f8fc;
+  border-left:0;
+  border-right:0;
+  border-radius:0 0 9px 9px;
+  background:rgba(247,251,255,.98);
+  box-shadow:0 3px 9px rgba(13,45,75,.12);
 }
 #ahtGuided .grid {
   display:grid;
@@ -244,16 +257,16 @@
   gap:5px;
 }
 #ahtGuided button {
-  min-height:43px;
-  padding:6px 2px;
-  font-size:11px;
+  min-height:35px;
+  padding:4px 2px;
+  font-size:10px;
   background:white;
   color:#275b7a;
   border:1px solid #bbd2e3;
 }
 #ahtGuided button strong {
   display:block;
-  font-size:13px;
+  font-size:11px;
 }
 #ahtGuided button[aria-current="step"] {
   background:#dcefff;
@@ -262,10 +275,36 @@
 #ahtGuidedNote {
   font-size:11px;
   color:#40617b;
-  margin-top:7px;
+  margin-top:4px;
+}
+#ahtGuided .aht-quick-actions {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px;
+  margin-top:6px;
+}
+#ahtGuided #selectBtn { grid-column:1/-1; width:100%; height:35px; min-height:35px; font-size:12px; padding:5px 8px; }
+#ahtGuided .edit-history-bar { display:contents; }
+#ahtGuided .edit-history-bar button { height:31px; min-height:31px; margin:0; font-size:11px; }
+.aht-align-actions { border-color:#a9cbe2; }
+.aht-align-actions .grid2 { margin-top:7px; }
+.aht-align-actions button { min-height:33px; background:#eef5fc; color:#204b70; font-weight:650; }
+.aht-align-actions button:disabled { opacity:.42; }
+.tv-type-color-row { display:grid; grid-template-columns:minmax(0,1fr) 45px; align-items:center; gap:8px; margin:7px 0; font-size:12px; }
+.tv-type-color-row input[type=color] { width:44px; height:30px; padding:2px; border:1px solid #b9cbd7; border-radius:5px; }
+.tv-color-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:7px; }
+.tv-color-actions button { font-size:11px; }
+.tv-selected-tools { border-top:1px solid #cfe0eb; margin-top:10px; padding-top:9px; }
+.tv-selected-tools input[type=color] { width:48px; height:30px; padding:2px; }
+.tv-selected-tools .tv-inline { display:flex; align-items:center; gap:8px; }
+.tv-selected-tools .tv-inline button { flex:1; }
+@media(max-height:650px) {
+  #ahtGuided { padding-top:5px; padding-bottom:5px; }
+  #ahtGuided button { min-height:29px; }
+  #ahtGuidedNote { display:none; }
 }
 .workflow-step {
-  scroll-margin-top:140px;
+  scroll-margin-top:215px;
 }
 #detailsSection {
   border-color:#9fcbe5;
@@ -345,6 +384,19 @@
         </div>
       </div>
       <div id="palette" class="grid2"></div>
+      <details class="fold" id="tvTypeSettings">
+        <summary>TV types & colors <span>Confirmed · Future · Prewire</span></summary>
+        <div class="muted">Choose the default color for each TV type. Existing TVs stay Confirmed unless you change them. Individual TV color overrides remain optional.</div>
+        <label class="tv-type-color-row" for="tvColorConfirmed"><span>Confirmed TV</span><input type="color" id="tvColorConfirmed" value="#304f94"></label>
+        <label class="tv-type-color-row" for="tvColorFuture"><span>Future TV</span><input type="color" id="tvColorFuture" value="#8963b5"></label>
+        <label class="tv-type-color-row" for="tvColorPrewire"><span>Prewire only</span><input type="color" id="tvColorPrewire" value="#8995a4"></label>
+        <button type="button" id="tvResetColors" class="full">Reset default TV colors</button>
+        <div class="minor-label">TV labels on all pages</div>
+        <div class="tv-color-actions"><button type="button" id="tvShowAllLabels">Show All Labels</button><button type="button" id="tvHideAllLabels">Hide All Labels</button></div>
+        <div class="minor-label">Change selected TV(s)</div>
+        <div class="row"><select id="tvBulkStatus" aria-label="TV type for selected TVs"><option value="confirmed">Confirmed TV</option><option value="future">Future TV</option><option value="prewire">Prewire only</option></select><button type="button" id="tvApplySelectedStatus">Apply</button></div>
+        <div class="muted">Shift-click or Shift-drag to select several TVs before using Apply. Colors, labels, and types are saved with your JSON.</div>
+      </details>
       <div id="previewBox" class="pir-preview-controls" style="display:none">
         <label class="chk" style="font-weight:700"><input type="checkbox" id="previewChk"><span id="previewLbl">Show illustrative speaker coverage</span></label>
         <div class="muted">Optional visual guide for preliminary discussions. Not verified acoustic coverage and not included in the PDF.</div>
@@ -376,6 +428,11 @@
     <section class="workflow-step" id="detailsSection">
       <div class="step-heading"><span class="step-number">3</span><h2>Identify the Change</h2></div>
       <div class="muted">After placing a change, this section opens automatically. Room number is optional.</div>
+      <div id="ahtDeviceAlign" class="speaker-place-controls aht-align-actions" style="display:none" aria-label="Align selected devices">
+        <div class="minor-label">Selected Devices — Align X / Y</div>
+        <div class="muted" id="ahtAlignSelectionInfo">Select two or more devices on the drawing to align them.</div>
+        <div class="grid2"><button type="button" id="alignXBtn" title="Align centers to the same X coordinate (vertical)">Align X</button><button type="button" id="alignYBtn" title="Align centers to the same Y coordinate (horizontal)">Align Y</button></div>
+      </div>
     <div id="changeDetails" class="panel" style="display:none">
       <strong style="font-size:14px">Change Details</strong>
       <div class="muted" id="detailState" style="margin:5px 0">New markup</div>
@@ -404,6 +461,24 @@
           <label class="lbl" for="avHeight">Symbol depth: <strong id="avHeightValue">1.0×</strong></label>
           <input type="range" id="avHeight" min="0.2" max="3.0" step="0.05" value="1" style="width:100%">
           <div class="muted">Relative symbol proportions. Use Size Setup to scale the whole symbol to match the PDF.</div>
+        </div>
+        <div id="avTvControls" class="tv-selected-tools" style="display:none">
+          <div class="minor-label">TV Type / Label</div>
+          <label class="lbl" for="tvStatus">TV installation status</label>
+          <select id="tvStatus"><option value="confirmed">Confirmed TV</option><option value="future">Future TV</option><option value="prewire">Prewire only</option></select>
+          <label class="lbl" for="tvLabelText">TV label text (editable)</label>
+          <input type="text" id="tvLabelText" value="TV" maxlength="18" placeholder="TV">
+          <div class="muted">Future TVs show “FUTURE” beneath the label; prewire-only TVs show “ROUGH-IN ONLY.” Confirmed TVs show the label alone.</div>
+          <label class="lbl" for="tvLabelScale">TV text & label size: <strong id="tvLabelScaleValue">100%</strong></label>
+          <input type="range" id="tvLabelScale" min="0.4" max="1.6" step="0.05" value="1" style="width:100%">
+          <div class="row" style="margin-top:5px"><button type="button" id="tvResetLabelSize">Reset to 100%</button><button type="button" id="tvApplyLabelSizeAll">Apply size to all TVs</button></div>
+          <div class="muted">Changes the label text and its box, not the sized TV footprint. Apply to all includes TVs on other drawing pages.</div>
+          <label class="chk"><input type="checkbox" id="tvLabelVisible" checked><span>Show movable TV label and leader line</span></label>
+          <button type="button" id="tvResetLabelPosition" class="full">Reset label position</button>
+          <div class="muted">Drag the TV label independently on the plan. The connecting line follows; the sized TV footprint does not move.</div>
+          <label class="lbl" for="tvIndividualColor">Individual TV color override</label>
+          <div class="tv-inline"><input type="color" id="tvIndividualColor" value="#304f94"><button type="button" id="tvUseTypeColor">Use type's default color</button></div>
+          <div class="muted" id="tvColorState">Using type color.</div>
         </div>
         <div id="avWifi" style="display:none">
           <label class="chk" style="font-weight:700"><input type="checkbox" id="avWifiOn">Show this AP's three coverage rings</label>
@@ -465,6 +540,15 @@
     <button id="editDetailsBtn" type="button" style="width:100%;margin-bottom:6px">Edit selected room / change details</button>
     <div class="panel" id="selPanel"><div class="muted">Nothing selected.</div></div>
     <div id="selTools" style="display:none">
+      <div id="ahtXYPosition" style="display:none">
+        <strong style="font-size:12px;color:#204c69">Position on drawing</strong>
+        <div class="aht-xy-fields" style="margin-top:7px">
+          <label class="lbl" for="ahtPosX">X · left to right <input id="ahtPosX" type="number" min="0" max="100" step="0.1" inputmode="decimal" aria-label="Horizontal drawing position from 0 to 100"></label>
+          <label class="lbl" for="ahtPosY">Y · top to bottom <input id="ahtPosY" type="number" min="0" max="100" step="0.1" inputmode="decimal" aria-label="Vertical drawing position from 0 to 100"></label>
+        </div>
+        <label class="chk" style="font-size:11px;margin:7px 0 0"><input id="ahtXYSnap" type="checkbox" checked> Align to nearby devices while dragging</label>
+        <div class="aht-xy-hint">Relative position (0–100), not feet. Drag to see live X/Y coordinates; enter a number for exact alignment.</div>
+      </div>
       <div id="devRow">
       <label class="lbl">Room / area (required for changes)</label>
       <input type="text" id="noteInput" list="noteList" placeholder="e.g. Primary Bedroom">
@@ -565,6 +649,7 @@
 
   <div id="main">
     <div id="viewport"><div id="stage"><canvas id="cv"></canvas><svg id="ov" xmlns="http://www.w3.org/2000/svg"></svg></div></div>
+    <div id="ahtXYBadge" role="status" aria-live="off"></div>
     <div id="empty">Choose a plan PDF to begin.<br>The sheet scale is read from the drawing when possible.</div>
     <div id="banner"></div>
     <div id="zoomctl"><button id="zIn">+</button><button id="zOut">−</button><button id="zFit" title="Fit">⤢</button></div>
@@ -661,6 +746,16 @@ CFG.devices.splice(CFG.devices.length-2,0,
   {key:'screenmotor',label:'Motorized Projection Screen',style:'avScreen',color:'#ae6a38',fill:'#fff8ed',glyph:'MTR',kind:'point',rotatable:true}
 );
 const DEV = {}; CFG.devices.forEach(d => DEV[d.key] = d);
+const TV_DEFAULT_COLORS = Object.freeze({confirmed:'#304f94',future:'#8963b5',prewire:'#8995a4'});
+const TV_STATUS_LABELS = Object.freeze({confirmed:'Confirmed TV',future:'Future TV',prewire:'Prewire only'});
+let tvTypeColors = {...TV_DEFAULT_COLORS};
+const validTvColor = value => /^#[0-9a-f]{6}$/i.test(String(value||''));
+function tvStatusOf(m){return TV_STATUS_LABELS[m?.tvStatus] ? m.tvStatus : 'confirmed';}
+function tvColorOf(m){return validTvColor(m?.tvColorOverride) ? m.tvColorOverride : tvTypeColors[tvStatusOf(m)];}
+function tvLabelMain(m){return String(m?.tvLabelText||'TV').replace(/\s+/g,' ').trim().slice(0,18)||'TV';}
+function tvLabelSub(m){const status=tvStatusOf(m);return status==='future'?'FUTURE':status==='prewire'?'ROUGH-IN ONLY':'';}
+function tvLabelScaleOf(m){const n=Number(m?.tvLabelScale);return Number.isFinite(n)&&n>0?Math.max(.4,Math.min(1.6,n)):1;}
+function normalizedTvColors(c){const result={...TV_DEFAULT_COLORS};Object.keys(result).forEach(k=>{if(validTvColor(c?.[k]))result[k]=c[k];});return result;}
 const isAccessPoint = d => !!d && ['apind','apout'].includes(d.key);
 const isAVDevice = d => !!d && ['tv','apind','apout','projector','screenfixed','screenmotor'].includes(d.key);
 const isWideDevice = d => !!d && ['tv','projector','screenfixed','screenmotor'].includes(d.key);
@@ -721,9 +816,9 @@ const iconBase = () => (CFG.iconScale || 1) * Math.max(8, Math.min(26, 0.85 * pt
 // ---------- helpers ----------
 function status(t) { $('status').textContent = t || ''; }
 function banner(t) { const b = $('banner'); if (!t) { b.style.display = 'none'; return; } b.textContent = t; b.style.display = 'block'; }
-function snap() { return JSON.stringify({ m: markers, n: nextId }); }
+function snap() { return JSON.stringify({ m: markers, n: nextId, tvColors: tvTypeColors }); }
 function pushUndo() { undoStack.push(snap()); if (undoStack.length > 120) undoStack.shift(); redoStack = []; }
-function restore(s) { const o = JSON.parse(s); markers = o.m; nextId = o.n; sel.clear(); refresh(); }
+function restore(s) { const o = JSON.parse(s); markers = o.m; nextId = o.n; tvTypeColors=normalizedTvColors(o.tvColors); sel.clear(); refresh(); }
 function el(name, attrs, parent) { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
 
 function polyFor(shape, cx, cy, d, rotDeg) {
@@ -763,7 +858,8 @@ function isWallSpeaker(m) { return isDirectionalSpeaker(m); } // existing direct
 function escText(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function mountLabel(m) { return ({'ceiling':'In-ceiling','wall':'In-wall / on-wall','in-ground':'In-ground','on-ground':'On-ground','pole':'Pole / post','table':'Table / shelf'})[mountOf(m)] || mountOf(m); }
 function speakerLabel(m) {
-  const dev=DEV[m.type]; if(isAVDevice(dev)) return dev.label + ' — ' + mountLabel(m);
+  const dev=DEV[m.type]; if(m.type==='tv') return 'TV / Display — '+TV_STATUS_LABELS[tvStatusOf(m)]+' — '+mountLabel(m);
+  if(isAVDevice(dev)) return dev.label + ' — ' + mountLabel(m);
   if (!isSpeaker(dev)) return dev?.label || m.type;
   if(isSoundbar(dev)) return 'Soundbar (wall, adjustable rectangular symbol)';
   if(isLandscape(dev)) return dev.label + ' — ' + mountLabel(m) + ' (' + shapeOf(m) + ')';
@@ -784,7 +880,11 @@ function previewSpec(dev, m) {
   return {kind, rpt: iconD * Math.max(.63, size*.5), size, angle};
 }
 function actualDev(dev, m) {
-  if(isAVDevice(dev)) return Object.assign({},dev,{ direction:m?.rot||0, deviceWidth:m?.deviceWidth??(dev.key==='tv'?3.2:dev.key==='projector'?1.55:4.5),deviceHeight:m?.deviceHeight??(dev.key==='tv'?1.5:dev.key==='projector'?1.0:.35),mount:mountOf(m)});
+  if(isAVDevice(dev)) {
+    const appearance={direction:m?.rot||0,deviceWidth:m?.deviceWidth??(dev.key==='tv'?3.2:dev.key==='projector'?1.55:4.5),deviceHeight:m?.deviceHeight??(dev.key==='tv'?1.5:dev.key==='projector'?1.0:.35),mount:mountOf(m)};
+    if(dev.key==='tv' && m){Object.assign(appearance,{color:tvColorOf(m),tvLabelText:tvLabelMain(m),tvLabelSub:tvLabelSub(m),tvLabelScale:tvLabelScaleOf(m),tvLabelVisible:m.tvLabelVisible!==false,tvLabelDx:Number(m.tvLabelDx)||0,tvLabelDy:Number(m.tvLabelDy)||0,markerId:m.id});}
+    return Object.assign({},dev,appearance);
+  }
   if (!isSpeaker(dev)) return dev;
   if (isSoundbar(dev)) return Object.assign({}, dev, {style:'soundbarSymbol', barLength:m?.barLength??3, barThickness:m?.barThickness??0.46, direction:m?.rot||0});
   return Object.assign({}, dev, {style:'speakerSymbol', symbolShape:mountOf(m)==='wall'?'wall':shapeOf(m)});
@@ -833,6 +933,27 @@ function roundRectPoly(cx, cy, w, h, r) {
   });
   return pts;
 }
+// TV labels use page-coordinate offsets so dragging, zooming, saving and PDF
+// export all agree. The label can move without altering the scaled footprint.
+function tvLabelGeometry(dev,cx,cy,d){
+  const angle=(Number(dev.direction)||0)*Math.PI/180,ca=Math.cos(angle),sa=Math.sin(angle);
+  const w=d*Math.max(1,Number(dev.deviceWidth)||3),h=d*Math.max(.2,Number(dev.deviceHeight)||1);
+  const fsBase=Math.max(d*.92,7.5),fs=fsBase*tvLabelScaleOf(dev);
+  const title=String(dev.tvLabelText||'TV'),subtitle=String(dev.tvLabelSub||'');
+  const labelW=Math.max(fs*1.95,wScreen(title,fs)+fs*.9,subtitle?wScreen(subtitle,fs*.48)+fs*.8:0);
+  const labelH=fs*(subtitle?1.95:1.52);
+  // Keep the label's center anchored when resizing text already positioned on a plan.
+  const base=w*.5+fsBase*.98;
+  const lx=cx+base*ca+(Number(dev.tvLabelDx)||0),ly=cy+base*sa+(Number(dev.tvLabelDy)||0);
+  const dx=lx-cx,dy=ly-cy;
+  const localX=dx*ca+dy*sa,localY=-dx*sa+dy*ca;
+  const edge=Math.max(Math.abs(localX)/(w/2),Math.abs(localY)/(h/2));
+  const start=edge>1?[cx+dx/edge,cy+dy/edge]:[cx,cy];
+  const toX=start[0]-lx,toY=start[1]-ly;
+  const side=Math.max(Math.abs(toX)/(labelW/2),Math.abs(toY)/(labelH/2));
+  const end=side>1?[lx+toX/side,ly+toY/side]:[lx,ly];
+  return {lx,ly,fs,labelW,labelH,start,end};
+}
 // returns { polys:[{pts,fill,stroke,sw,open}], texts:[{s,x,y,size,color}] }  (y = baseline)
 function iconParts(dev, cx, cy, d) {
   const P = { polys: [], texts: [] }, sw = Math.max(0.5, d * 0.085);
@@ -859,12 +980,17 @@ function iconParts(dev, cx, cy, d) {
       P.polys.push({pts:rectangle(w,h),fill:dev.fill||'#fff',stroke:dev.color,sw:Math.max(sw,d*.075)});
       if(st==='avRectangle'){
         P.polys.push({pts:rectangle(w*.93,h*.77),fill:'#d8e8fc',stroke:dev.color,sw:d*.035});
-        // External contrast-backed TV label: remains readable with a tiny
-        // display symbol, without increasing the rectangle itself.
-        const labelSize=Math.max(d*.92,7.5), bx=w*.5+labelSize*.98;
-        const [labelX,labelY]=rotate(bx,0), labelW=labelSize*1.95,labelH=labelSize*1.52;
-        P.polys.push({pts:[[-labelW/2,-labelH/2],[labelW/2,-labelH/2],[labelW/2,labelH/2],[-labelW/2,labelH/2]].map(([x,y])=>[labelX+x,labelY+y]),fill:'#ffffff',stroke:dev.color,sw:Math.max(.6,d*.055)});
-        P.texts.push({s:'TV',x:labelX,y:labelY+labelSize*.34,size:labelSize,color:dev.color});
+        if(dev.tvLabelVisible!==false){
+          const L=tvLabelGeometry(dev,cx,cy,d),[a,b]=[L.start,L.end],dist=Math.hypot(b[0]-a[0],b[1]-a[1]);
+          if(dist>Math.max(d*.18,.5)){
+            const half=Math.max(.35,d*.045)/2,nx=-(b[1]-a[1])/dist*half,ny=(b[0]-a[0])/dist*half;
+            P.polys.push({pts:[[a[0]+nx,a[1]+ny],[b[0]+nx,b[1]+ny],[b[0]-nx,b[1]-ny],[a[0]-nx,a[1]-ny]],fill:dev.color,stroke:null,sw:0,noHit:true});
+          }
+          P.polys.push({pts:[[-L.labelW/2,-L.labelH/2],[L.labelW/2,-L.labelH/2],[L.labelW/2,L.labelH/2],[-L.labelW/2,L.labelH/2]].map(([x,y])=>[L.lx+x,L.ly+y]),fill:'#ffffff',stroke:dev.color,sw:Math.max(.45,d*.055*tvLabelScaleOf(dev)),handle:'tv-label'});
+          const title=String(dev.tvLabelText||'TV'),subtitle=String(dev.tvLabelSub||'');
+          P.texts.push({s:title,x:L.lx,y:L.ly+(subtitle?-L.fs*.12:L.fs*.34),size:L.fs,color:dev.color});
+          if(subtitle)P.texts.push({s:subtitle,x:L.lx,y:L.ly+L.fs*.67,size:L.fs*.48,color:dev.color});
+        }
       } else if(st==='avScreen'){
         P.polys.push({pts:rectangle(w*.96,Math.max(h*.3,d*.14)),fill:'#e3e9eb',stroke:dev.color,sw:d*.035});
         if(dev.key==='screenmotor') P.polys.push({pts:[rotate(-w*.5,-h*.74),rotate(w*.5,-h*.74),rotate(w*.5,-h*.52),rotate(-w*.5,-h*.52)],fill:dev.color,stroke:null,sw:0});
@@ -949,7 +1075,12 @@ function iconParts(dev, cx, cy, d) {
 }
 function drawIcon(dev, cx, cy, d, parent, textParent) {
   const P = iconParts(dev, cx, cy, d);
-  P.polys.forEach(p => el('polygon', { points: ptsStr(p.pts), fill: p.fill || 'none', stroke: p.stroke || 'none', 'stroke-width': p.sw }, parent));
+  P.polys.forEach(p => {
+    const attrs={points:ptsStr(p.pts),fill:p.fill||'none',stroke:p.stroke||'none','stroke-width':p.sw};
+    if(p.noHit)attrs.style='pointer-events:none';
+    if(p.handle && dev.markerId!=null){attrs['data-handle']=p.handle;attrs['data-id']=dev.markerId;attrs.style='cursor:move';}
+    el('polygon',attrs,parent);
+  });
   P.texts.forEach(t => { const e = el('text', { x: t.x, y: t.y, 'text-anchor': 'middle', 'font-size': t.size, 'font-weight': 800, fill: t.color, 'font-family': 'Helvetica,Arial,sans-serif' }, textParent || parent); e.textContent = t.s; });
 }
 
@@ -1097,6 +1228,7 @@ async function openPage(first) {
   if (first) {
     if (pendingLoad) {
       markers = pendingLoad.markers; nextId = Math.max(0, ...markers.map(m => m.id)) + 1;
+      tvTypeColors=normalizedTvColors(pendingLoad.tvTypeColors);
       if (pendingLoad.calPtsPerFt) { calibratedPtsPerFt = pendingLoad.calPtsPerFt; } else { calibratedPtsPerFt = null; inchesPerFt = pendingLoad.inchesPerFt || inchesPerFt; }
       buildScaleSel(null); $('scaleNote').textContent = 'Scale restored from saved work.';
       pendingLoad = null;
@@ -1217,6 +1349,56 @@ $('zOut').onclick = () => { const r = $('viewport').getBoundingClientRect(); zoo
 $('viewport').addEventListener('wheel', e => { e.preventDefault(); const r = $('viewport').getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
 function toView(e) { const r = $('viewport').getBoundingClientRect(); return [(e.clientX - r.left - tx) / zoom, (e.clientY - r.top - ty) / zoom]; }
 
+// CCTV-style X/Y alignment: UI-only snap guides, live coordinate badge and
+// editable relative positions. Marker locations remain stored in PDF points.
+const xyPercent=(value,span)=>span>0?100*value/span:0;
+const xyText=value=>Number(value).toFixed(1);
+let xyGuides=[];
+function moveMarkerBy(m,dx,dy){
+  if(!m||(!dx&&!dy))return;
+  for(const [x,y] of [['x','y'],['x2','y2'],['lx','ly'],['cx','cy']]){
+    if(Number.isFinite(m[x])&&Number.isFinite(m[y])){m[x]+=dx;m[y]+=dy;}
+  }
+  if(Array.isArray(m.pts))m.pts=m.pts.map(([x,y])=>[x+dx,y+dy]);
+  if(Array.isArray(m.extraTips))m.extraTips=m.extraTips.map(([x,y])=>[x+dx,y+dy]);
+}
+function xyAlignable(m){
+  return !!m&&Number.isFinite(m.x)&&Number.isFinite(m.y)&&DEV[m.type]?.kind==='point'&&m.type!=='relocate';
+}
+function xySnappedPosition(m,rawX,rawY){
+  xyGuides=[];
+  if(!$('ahtXYSnap').checked||!xyAlignable(m)||sel.size!==1)return [rawX,rawY];
+  const tol=8/Math.max(zoom,.01),others=pageMarkers().filter(other=>other.id!==m.id&&xyAlignable(other));
+  let x=rawX,y=rawY,bestX=tol,bestY=tol,matchX=null,matchY=null;
+  for(const other of others){
+    const dx=Math.abs(other.x-rawX),dy=Math.abs(other.y-rawY);
+    if(dx<bestX){bestX=dx;x=other.x;matchX=other;}
+    if(dy<bestY){bestY=dy;y=other.y;matchY=other;}
+  }
+  if(matchX)xyGuides.push({axis:'x',v:x,a:Math.min(y,matchX.y),b:Math.max(y,matchX.y)});
+  if(matchY)xyGuides.push({axis:'y',v:y,a:Math.min(x,matchY.x),b:Math.max(x,matchY.x)});
+  return [x,y];
+}
+function drawXYGuides(scene){
+  if(!xyGuides.length)return;
+  const g=el('g',{style:'pointer-events:none'},scene),pad=12/Math.max(zoom,.01);
+  xyGuides.forEach(line=>{
+    const attrs=line.axis==='x'?{x1:line.v,y1:line.a-pad,x2:line.v,y2:line.b+pad}:{x1:line.a-pad,y1:line.v,x2:line.b+pad,y2:line.v};
+    el('line',{...attrs,stroke:'#177da3','stroke-width':1.4,'stroke-opacity':.8,'stroke-dasharray':'5 4','vector-effect':'non-scaling-stroke'},g);
+  });
+}
+function showXYBadge(m){
+  const badge=$('ahtXYBadge');if(!vp||!m){badge.style.display='none';return;}
+  badge.textContent='X '+xyText(xyPercent(m.x,vp.width))+'  ·  Y '+xyText(xyPercent(m.y,vp.height));
+  badge.style.display='block';
+  const box=$('viewport').getBoundingClientRect(),x=tx+m.x*zoom,y=ty+m.y*zoom;
+  const w=badge.offsetWidth,h=badge.offsetHeight;
+  const left=x+18+w>box.width?x-w-18:x+18;
+  badge.style.left=Math.max(6,Math.min(box.width-w-6,left))+'px';
+  badge.style.top=Math.max(6,Math.min(box.height-h-6,y-h-16))+'px';
+}
+function hideXYBadge(){ $('ahtXYBadge').style.display='none';xyGuides=[]; }
+
 // ---------- rendering overlay ----------
 function nearestHit(x, y) { // used for click selection of lines
   return null;
@@ -1320,6 +1502,7 @@ function refresh() {
   });
   el('g', { id: 'rubber', style: 'pointer-events:none' }, scene);
   el('g', { id: 'marq', style: 'pointer-events:none' }, scene);
+  drawXYGuides(scene);
   updatePanels();
 }
 function drawRubber(pt) {
@@ -1337,7 +1520,26 @@ async function focusReviewMarker(id){
   openChangeDetails(id);
 }
 // ---------- panels ----------
+function selectedPointDevices(){return [...sel].map(id=>markers.find(m=>m.id===id)).filter(m=>m && onPage(m) && DEV[m.type]?.kind==='point' && m.type!=='relocate');}
+function alignSelectedDevices(axis){
+  const chosen=selectedPointDevices();if(chosen.length<2)return;
+  const anchor=chosen[0][axis];
+  if(chosen.every(m=>Math.abs(m[axis]-anchor)<.0001))return;
+  pushUndo();chosen.forEach(m=>{m[axis]=anchor;});refresh();
+  status('Aligned '+chosen.length+' selected devices on '+(axis==='x'?'X (vertical)':'Y (horizontal)')+' using the first selected device.');
+}
+function refreshTvPaletteUi(){
+  for(const [key,id] of [['confirmed','tvColorConfirmed'],['future','tvColorFuture'],['prewire','tvColorPrewire']]){
+    const field=$(id);if(field && document.activeElement!==field)field.value=tvTypeColors[key];
+  }
+  const canAlign=selectedPointDevices().length>=2;
+  if($('alignXBtn'))$('alignXBtn').disabled=!canAlign;
+  if($('alignYBtn'))$('alignYBtn').disabled=!canAlign;
+  if($('ahtDeviceAlign'))$('ahtDeviceAlign').style.display=canAlign?'block':'none';
+  if(canAlign && $('ahtAlignSelectionInfo'))$('ahtAlignSelectionInfo').textContent=selectedPointDevices().length+' devices selected. Align their centers to the first selected device.';
+}
 function updatePanels() {
+  refreshTvPaletteUi();
   // counts: mounting and ceiling shape remain separate, useful to engineering.
   const c={},tot={},byNote={};
   const keyOf=m=>speakerLabel(m);
@@ -1377,6 +1579,13 @@ function updatePanels() {
   // selection
   const ids = [...sel]; const sp = $('selPanel');
   $('arrowNoteRow').style.display='none';
+  const xyItem=ids.length===1?markers.find(m=>m.id===ids[0]):null;
+  const xyPanel=$('ahtXYPosition');
+  xyPanel.style.display=xyItem&&vp&&xyAlignable(xyItem)?'block':'none';
+  if(xyPanel.style.display==='block'){
+    if(document.activeElement!==$('ahtPosX'))$('ahtPosX').value=xyText(xyPercent(xyItem.x,vp.width));
+    if(document.activeElement!==$('ahtPosY'))$('ahtPosY').value=xyText(xyPercent(xyItem.y,vp.height));
+  }
   if (!ids.length) { $('deviceLocationPanel').style.display='none'; $('viewRow').style.display = 'none'; $('areaRow').style.display = 'none'; sp.innerHTML = '<div class="muted">Nothing selected.</div>'; $('selTools').style.display = 'none'; return; }
   $('selTools').style.display = 'block';
   if (ids.length === 1) {
@@ -1425,6 +1634,22 @@ function updatePanels() {
     } else { $('wallPIRControls').style.display='none'; }
     if (dev.rotatable) { $('rotRange').value = m.rot || 0; $('rotVal').textContent = Math.round(m.rot || 0); }
   } else { $('deviceLocationPanel').style.display='none'; $('viewRow').style.display = 'none'; $('devRow').style.display = 'block'; $('areaRow').style.display = 'none'; sp.innerHTML = '<div><b>' + ids.length + ' devices selected</b></div><div class="muted">Drag to move together. Delete removes all.</div>'; $('noteInput').value = ''; $('rotRow').style.display = 'none'; }
+}
+$('ahtPosX').addEventListener('change',e=>changeXYPosition('x',e.target.value));
+$('ahtPosY').addEventListener('change',e=>changeXYPosition('y',e.target.value));
+function changeXYPosition(axis,text){
+  const m=markers.find(x=>x.id===[...sel][0]);
+  if(sel.size!==1||!xyAlignable(m)||!vp)return;
+  const value=Number(text);
+  if(String(text).trim()===''||!Number.isFinite(value)||value<0||value>100){
+    $(axis==='x'?'ahtPosX':'ahtPosY').value=xyText(xyPercent(m[axis],axis==='x'?vp.width:vp.height));
+    status('Enter an X/Y position between 0 and 100.');return;
+  }
+  const raw=value/100*(axis==='x'?vp.width:vp.height);
+  const dx=axis==='x'?raw-m.x:0,dy=axis==='y'?raw-m.y:0;
+  if(Math.abs(dx)+Math.abs(dy)<.001){refresh();return;}
+  pushUndo();moveMarkerBy(m,dx,dy);refresh();
+  status('Position updated. Save work JSON to keep the new placement.');
 }
 $('arrowNoteText').onfocus=()=>pushUndo();$('arrowNoteText').oninput=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(isArrowNote(m)){m.text=e.target.value;refresh();}};
 $('arrowNoteColor').onchange=e=>{const m=markers.find(x=>x.id===[...sel][0]);if(isArrowNote(m)){pushUndo();m.color=e.target.value;refresh();}};
@@ -1545,7 +1770,7 @@ $('viewport').addEventListener('pointerdown', e => {
   if (hitId !== null) {
     if (e.shiftKey) { sel.has(hitId) ? sel.delete(hitId) : sel.add(hitId); refresh(); return; }
     if (!sel.has(hitId)) { sel = new Set([hitId]); refresh(); }
-    const m0 = {}; markers.forEach(m => { if (sel.has(m.id)) m0[m.id] = { x: m.x, y: m.y, x2: m.x2, y2: m.y2, lx: m.lx, ly: m.ly, cx:m.cx,cy:m.cy,extraTips:Array.isArray(m.extraTips)?m.extraTips.map(p=>p.slice()):undefined }; });
+    const m0 = {}; markers.forEach(m => { if (sel.has(m.id)) m0[m.id] = { x: m.x, y: m.y, x2: m.x2, y2: m.y2, lx: m.lx, ly: m.ly, cx:m.cx,cy:m.cy,tvLabelDx:m.tvLabelDx,tvLabelDy:m.tvLabelDy,extraTips:Array.isArray(m.extraTips)?m.extraTips.map(p=>p.slice()):undefined }; });
     drag = { mode: handle ? 'handle' : 'move', start: pt, m0, handle, id: hitId, tipIndex:handle==='note-extra-tip'?Number(e.target.getAttribute('data-tip-index')):-1, moved: false };
     return;
   }
@@ -1563,12 +1788,24 @@ $('viewport').addEventListener('pointermove', e => {
     const dx = pt[0] - drag.start[0], dy = pt[1] - drag.start[1];
     if (!drag.moved && Math.hypot(dx, dy) * zoom < 3) return;
     if (!drag.moved) { pushUndo(); drag.moved = true; }
-    markers.forEach(m => { const o = drag.m0[m.id]; if (!o) return; m.x = o.x + dx; m.y = o.y + dy; if (o.x2 !== undefined) { m.x2 = o.x2 + dx; m.y2 = o.y2 + dy; } if (o.lx !== undefined) { m.lx = o.lx + dx; m.ly = o.ly + dy; } if(Array.isArray(o.extraTips))m.extraTips=o.extraTips.map(([x,y])=>[x+dx,y+dy]); if(m.type==='relocate'){const cx=o.cx??(o.x+o.x2)/2, cy=o.cy??((o.y+o.y2)/2-Math.min(35,Math.abs(o.x2-o.x)*.2));m.cx=cx+dx;m.cy=cy+dy;} });
+    let moveDx=dx,moveDy=dy;
+    const active=sel.size===1?markers.find(m=>m.id===drag.id):null;
+    const original=active&&drag.m0[active.id];
+    if(active&&original&&xyAlignable(active)){
+      const snapped=xySnappedPosition(active,original.x+dx,original.y+dy);
+      moveDx=snapped[0]-original.x;moveDy=snapped[1]-original.y;
+    }else xyGuides=[];
+    markers.forEach(m => { const o = drag.m0[m.id]; if (!o) return; m.x = o.x + moveDx; m.y = o.y + moveDy; if (o.x2 !== undefined) { m.x2 = o.x2 + moveDx; m.y2 = o.y2 + moveDy; } if (o.lx !== undefined) { m.lx = o.lx + moveDx; m.ly = o.ly + moveDy; } if(Array.isArray(o.extraTips))m.extraTips=o.extraTips.map(([x,y])=>[x+moveDx,y+moveDy]); if(m.type==='relocate'){const cx=o.cx??(o.x+o.x2)/2, cy=o.cy??((o.y+o.y2)/2-Math.min(35,Math.abs(o.x2-o.x)*.2));m.cx=cx+moveDx;m.cy=cy+moveDy;} });
     refresh();
+    if(active&&xyAlignable(active))showXYBadge(active);
   } else if (drag.mode === 'handle') {
     if (!drag.moved) { pushUndo(); drag.moved = true; }
     const m = markers.find(x => x.id === drag.id), h = drag.handle;
-    if(isArrowNote(m)){
+    if(m?.type==='tv' && h==='tv-label'){
+      const o=drag.m0[m.id];
+      m.tvLabelDx=(Number(o.tvLabelDx)||0)+(pt[0]-drag.start[0]);
+      m.tvLabelDy=(Number(o.tvLabelDy)||0)+(pt[1]-drag.start[1]);
+    } else if(isArrowNote(m)){
       if(h==='note-tip'){m.x=pt[0];m.y=pt[1];}
       else if(h==='note-extra-tip' && Number.isInteger(drag.tipIndex)&&Array.isArray(m.extraTips)&&m.extraTips[drag.tipIndex])m.extraTips[drag.tipIndex]=[pt[0],pt[1]];
       else if(h==='note-label'){m.x2=pt[0];m.y2=pt[1];}
@@ -1608,12 +1845,20 @@ $('viewport').addEventListener('pointerup', e => {
     sel = new Set(pageMarkers().filter(m => { const inside = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1; return inside(m.x, m.y) || (m.x2 !== undefined && inside(m.x2, m.y2)); }).map(m => m.id)); refresh();
   }
   drag = null;
+  const hadGuides=xyGuides.length>0;
+  hideXYBadge();
+  if(hadGuides)refresh();
+});
+$('viewport').addEventListener('pointercancel',()=>{
+  drag=null;
+  const hadGuides=xyGuides.length>0;
+  hideXYBadge();if(hadGuides)refresh();
 });
 
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, tvTypeColors, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
@@ -1621,8 +1866,8 @@ $('loadInput').onchange = e => {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
     if (o.tool && o.tool !== CFG.fileTag && !(CFG.fileTag === 'Device Locations' && o.tool === 'Speakers')) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || m.type === 'area'||m.type==='arrow_note'; const bad = o.markers.filter(m => !okM(m)).length; const ms = o.markers.filter(okM);
-    if (pdfDoc) { pushUndo(); markers = ms; nextId = Math.max(0, ...ms.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); refresh(); status('Loaded ' + ms.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
-    else { pendingLoad = { markers: ms, page: o.page, inchesPerFt: o.inchesPerFt, calPtsPerFt: o.calPtsPerFt }; status('Work loaded (' + ms.length + ' devices). Now choose the plan PDF' + (o.pdfName ? ': ' + o.pdfName : '') + '.'); }
+    if (pdfDoc) { pushUndo(); markers = ms; tvTypeColors=normalizedTvColors(o.tvTypeColors); nextId = Math.max(0, ...ms.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); refresh(); status('Loaded ' + ms.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
+    else { pendingLoad = { markers: ms, page: o.page, inchesPerFt: o.inchesPerFt, calPtsPerFt: o.calPtsPerFt, tvTypeColors:o.tvTypeColors }; status('Work loaded (' + ms.length + ' devices). Now choose the plan PDF' + (o.pdfName ? ': ' + o.pdfName : '') + '.'); }
     if (bad) status($('status').textContent + ' ' + bad + ' unknown devices skipped.');
   } catch (err) { status('Could not read that work file: ' + err.message); } };
   r.readAsText(f); e.target.value = '';
@@ -1713,12 +1958,21 @@ function hexRgb(h, PDFLib) { const n = parseInt(h.slice(1), 16); return PDFLib.r
 $('pdfBtn').onclick = async () => {
   if (!pdfBytes || !vp) { status('Choose a plan first.'); return; }
   const missing=markers.filter(m=>m.type!=='area'&&!m.note); if(missing.length&&!confirm(missing.length+' markups have no room/area. Export anyway?'))return;
-  status('Building PDF…'); const PM = pageMarkers();
+  status('Building PDF for all marked pages…');
+  const originalPageNum=pageNum,originalView=vp,exportButton=$('pdfBtn');
+  exportButton.disabled=true;
   try {
     const { PDFDocument, StandardFonts, rgb, degrees } = PDFLib;
     const doc = await PDFDocument.load(pdfBytes.slice(0));
-    const page = doc.getPages()[pageNum - 1];
     const font = await doc.embedFont(StandardFonts.HelveticaBold);
+    // The JSON stores device locations on every page; export all of them, not
+    // just the page that happened to be visible when Export was pressed.
+    for(let p=1;p<=doc.getPageCount();p++){
+      if(!markers.some(m=>(m.page||1)===p))continue;
+      pageNum=p;
+      vp=(await pdfDoc.getPage(p)).getViewport({scale:1});
+      const PM=pageMarkers();
+      const page=doc.getPages()[p-1];
     const conv = (x, y) => vp.convertToPdfPoint(x, y);
     const o = conv(0, 0), px = conv(1, 0), py = conv(0, 1);
     const ang = Math.atan2(px[1] - o[1], px[0] - o[0]);
@@ -1794,10 +2048,12 @@ $('pdfBtn').onclick = async () => {
       rgb(1, 1, 1), .94, ink, .9, .8);
     text(stampTitle, bx + fs * .7, by + fs * 1.35, titleSize, ink, false);
     text(stampSub, bx + fs * .7, by + fs * 2.42, subSize, black, false);
+    }
     const out = await doc.save();
     download(baseName() + ' - Device Locations (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
-    status('Exported marked-up PDF (this page only). Original file is untouched.');
+    status('Exported marked-up PDF with changes on every marked page. Original file is untouched.');
   } catch (err) { console.error(err); status('Export failed: ' + err.message); }
+  finally {pageNum=originalPageNum;vp=originalView;exportButton.disabled=false;}
 };
 function drawIconPdf(dev, cx, cy, d, polygon, text, hexRgb, PDFLib) {
   const P = iconParts(dev, cx, cy, d);
@@ -1813,6 +2069,17 @@ function showAVPanel(m){
  $('avDirection').value=m.rot||0;$('avDirectionValue').textContent=(m.rot||0)+'°';
  const wide=isWideDevice(d);$('avDimensions').style.display=wide?'block':'none';
  if(wide){ $('avWidth').value=m.deviceWidth??(d.key==='tv'?3.2:d.key==='projector'?1.55:4.5);$('avHeight').value=m.deviceHeight??(d.key==='tv'?1.5:d.key==='projector'?1:.35);$('avWidthValue').textContent=(+$('avWidth').value).toFixed(1)+'×';$('avHeightValue').textContent=(+$('avHeight').value).toFixed(2)+'×'; }
+ const tv=d.key==='tv';$('avTvControls').style.display=tv?'block':'none';
+ if(tv){
+  $('tvStatus').value=tvStatusOf(m);
+  if(document.activeElement!==$('tvLabelText'))$('tvLabelText').value=tvLabelMain(m);
+  const scale=tvLabelScaleOf(m);
+  if(document.activeElement!==$('tvLabelScale'))$('tvLabelScale').value=scale;
+  $('tvLabelScaleValue').textContent=Math.round(scale*100)+'%';
+  $('tvLabelVisible').checked=m.tvLabelVisible!==false;
+  if(document.activeElement!==$('tvIndividualColor'))$('tvIndividualColor').value=tvColorOf(m);
+  $('tvColorState').textContent=validTvColor(m.tvColorOverride)?'Individual color override active.':'Using the '+TV_STATUS_LABELS[tvStatusOf(m)]+' type color.';
+ }
  const wifi=isAccessPoint(d);$('avWifi').style.display=wifi?'block':'none';
  if(wifi){ $('avWifiOn').checked=m.showRange===true;
   $('avWifiAngleRow').style.display=mountOf(m)==='wall'?'block':'none';
@@ -1822,6 +2089,43 @@ function showAVPanel(m){
 }
 function selectedAV(){const m=markers.find(x=>x.id===[...sel][0]);return m&&isAVDevice(DEV[m.type])?m:null;}
 function updateAV(fn){const m=selectedAV();if(!m)return;pushUndo();fn(m);refresh();}
+function updateTV(fn){const m=selectedAV();if(m?.type==='tv')updateAV(fn);}
+$('tvStatus').onchange=e=>updateTV(m=>{m.tvStatus=e.target.value;});
+$('tvLabelText').onchange=e=>{
+ const text=e.target.value.replace(/\s+/g,' ').trim().slice(0,18)||'TV';e.target.value=text;
+ const current=selectedAV();if(current?.type!=='tv'||tvLabelMain(current)===text)return;
+ updateTV(m=>{if(text==='TV')delete m.tvLabelText;else m.tvLabelText=text;});
+};
+$('tvLabelScale').onpointerdown=()=>{if(selectedAV()?.type==='tv')pushUndo();};
+$('tvLabelScale').onkeydown=e=>{if(selectedAV()?.type==='tv'&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key))pushUndo();};
+$('tvLabelScale').oninput=e=>{
+  const m=selectedAV();if(m?.type!=='tv')return;
+  m.tvLabelScale=+e.target.value;
+  refresh();
+};
+$('tvResetLabelSize').onclick=()=>{
+  const m=selectedAV();if(m?.type!=='tv'||tvLabelScaleOf(m)===1)return;
+  updateTV(tv=>{delete tv.tvLabelScale;});
+};
+$('tvApplyLabelSizeAll').onclick=()=>{
+  const selected=selectedAV();if(selected?.type!=='tv')return;
+  const scale=tvLabelScaleOf(selected),tvs=markers.filter(m=>m.type==='tv');
+  if(tvs.every(m=>tvLabelScaleOf(m)===scale))return;
+  pushUndo();tvs.forEach(m=>{if(scale===1)delete m.tvLabelScale;else m.tvLabelScale=scale;});
+  refresh();status('Applied '+Math.round(scale*100)+'% TV label size to '+tvs.length+' TVs on all pages.');
+};
+$('tvLabelVisible').onchange=e=>updateTV(m=>{m.tvLabelVisible=e.target.checked;});
+$('tvResetLabelPosition').onclick=()=>updateTV(m=>{delete m.tvLabelDx;delete m.tvLabelDy;});
+$('tvIndividualColor').onchange=e=>updateTV(m=>{if(validTvColor(e.target.value))m.tvColorOverride=e.target.value;});
+$('tvUseTypeColor').onclick=()=>updateTV(m=>{delete m.tvColorOverride;});
+for(const [key,id] of [['confirmed','tvColorConfirmed'],['future','tvColorFuture'],['prewire','tvColorPrewire']]){
+ $(id).onchange=e=>{if(!validTvColor(e.target.value)||tvTypeColors[key]===e.target.value)return;pushUndo();tvTypeColors[key]=e.target.value;refresh();status('Updated '+TV_STATUS_LABELS[key]+' color across all pages.');};
+}
+$('tvResetColors').onclick=()=>{pushUndo();tvTypeColors={...TV_DEFAULT_COLORS};refresh();status('Restored the three TV type colors. Individual overrides remain unchanged.');};
+for(const [id,visible] of [['tvShowAllLabels',true],['tvHideAllLabels',false]]){
+ $(id).onclick=()=>{const tvs=markers.filter(m=>m.type==='tv');if(!tvs.some(m=>(m.tvLabelVisible!==false)!==visible))return;pushUndo();tvs.forEach(m=>{m.tvLabelVisible=visible;});refresh();status((visible?'Showing':'Hiding')+' TV labels on all pages. TV footprints remain visible.');};
+}
+$('tvApplySelectedStatus').onclick=()=>{const tvs=[...sel].map(id=>markers.find(m=>m.id===id)).filter(m=>m?.type==='tv');if(!tvs.length){status('Select one or more TV devices first.');return;}const type=$('tvBulkStatus').value;pushUndo();tvs.forEach(m=>{m.tvStatus=type;});refresh();status('Set '+tvs.length+' selected TVs to '+TV_STATUS_LABELS[type]+'.');};
 $('avMount').onchange=e=>updateAV(m=>{m.mount=e.target.value;});
 $('avDirection').onpointerdown=()=>{if(selectedAV())pushUndo();};
 $('avDirection').oninput=e=>{const m=selectedAV();if(!m)return;m.rot=+e.target.value;refresh();};
@@ -1998,6 +2302,15 @@ refresh();
 
   head.after(nav);
 
+  // Keep workflow navigation, selection and undo/redo pinned while the
+  // drawing scrolls. Alignment is contextual, inside Selected Devices below.
+  const quick=document.createElement('div');quick.className='aht-quick-actions';
+  quick.setAttribute('aria-label','Sticky editing actions');
+  quick.append($('selectBtn'),document.querySelector('.edit-history-bar'));
+  nav.append(quick);
+  $('alignXBtn').onclick=()=>alignSelectedDevices('x');
+  $('alignYBtn').onclick=()=>alignSelectedDevices('y');
+
   const buttons = [];
 
   function select(id) {
@@ -2031,6 +2344,7 @@ refresh();
   });
 
   select('planSection');
+  refreshTvPaletteUi();
 
   const room = $('changeDetails');
 
