@@ -65,7 +65,10 @@ test('CCTV imports poles and heads at original coordinates only',()=>{
   assert.ok(Number.isFinite(heads[0].x));
 });
 
-test('mismatched filenames are reported to require user confirmation',()=>{
+test('mismatched or missing PDF filenames cannot be treated as a verified match',()=>{
   const source={tool:'CCTV',pdfName:'one.pdf',markers:[{type:'pole3',x:9,y:9}]};
   assert.equal(C.importCctvPoles(source,'two.pdf').samePdf,false);
+  assert.equal(C.importCctvPoles({...source,pdfName:''},'two.pdf').samePdf,false);
+  assert.equal(C.importCctvPoles(source,'').samePdf,false);
+  assert.equal(C.importCctvPoles(source,'C:\\Plans\\ONE.PDF').samePdf,true);
 });

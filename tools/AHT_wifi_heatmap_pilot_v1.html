@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AHT Wi-Fi Heat Map — Pilot v0.1.0</title>
+<title>AHT Wi-Fi Heat Map — Pilot v0.2.0</title>
 <style>
 :root{--navy:#173c5b;--blue:#1b649b;--border:#c4d7e5;--muted:#5c7182;--pale:#eef6fc;--paper:#fff;--ink:#263e51}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;font:12px/1.4 Arial,Helvetica,sans-serif;color:var(--ink);background:#f0f5f9}
@@ -16,21 +16,46 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
 #zoom{position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:5px}#zoom button{width:33px;height:33px;padding:0;font-size:15px;background:#fff}#status{position:absolute;left:14px;bottom:14px;max-width:60%;color:#183f61;background:#fffdf0;border:1px solid #b7cddd;border-radius:6px;padding:7px 10px;font-size:11px;box-shadow:0 1px 9px #132e4820}#warning{background:#fff7e5;border:1px solid #eed6ad;padding:7px;border-radius:5px;font-size:10px;color:#71542a}
 #empty[hidden]{display:none}
 @media(max-width:830px){#app{grid-template-columns:270px minmax(0,1fr)}#sidebar{padding:0 8px 15px}}@media(max-width:600px){#app{grid-template-columns:1fr;grid-template-rows:45% 55%}#sidebar{grid-row:2;border-top:1px solid #c3d4e1}#canvasArea{grid-row:1}#workflow{position:relative}}
+/* Match the established AHT drawing tools: drawing left, sticky workflow right. */
+#app{grid-template-columns:minmax(0,1fr) 306px}
+#canvasArea{grid-column:1;grid-row:1}
+#sidebar{grid-column:2;grid-row:1;border-left:1px solid #c3d4e1;border-right:0}
+#workflow .edit-controls{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:5px;margin-top:6px}
+#workflow .edit-controls button{font-size:11px;font-weight:bold;padding:6px 2px}
+#selectBtn{background:#147568;border-color:#147568;color:#fff}
+#selectBtn:not(.active){background:#edf8f5;color:#14665c;border-color:#87b7a9}
+#workflow .check{margin:5px 0 1px}
+#modeHelp{font-size:10px;color:#536e80;margin:4px 0 0}
+.editing-guide{background:#fff8db;border:1px solid #e1c56c;color:#654f12;border-radius:6px;padding:7px;margin:7px 0;font-size:11px}
+#reshapeBtn{width:100%;font-weight:bold;margin:4px 0 7px}
+#reshapeBtn.active{background:#b77b18;border-color:#b77b18;color:white}
+#wallDraftHelp{font-size:11px;color:#80541b}
+#wifiContextMenu{position:fixed;z-index:1000;background:#fff;border:1px solid #8fa9bd;border-radius:7px;box-shadow:0 8px 24px #173c5b45;min-width:160px;padding:5px}
+#wifiContextMenu[hidden]{display:none}
+#wifiContextMenu button{display:block;width:100%;border:0;text-align:left;background:#fff;padding:8px 10px}
+#wifiContextMenu button:hover:not(:disabled){background:#eaf4fb}
+#poleFields[hidden],#wallDraftHelp[hidden],#cancelWall[hidden]{display:none}
+#poleFields{background:#f7fbfe;border:1px solid #d4e5ef;padding:8px;border-radius:7px;margin-top:8px}
+#overlay{overflow:hidden}
+@media(max-width:830px){#app{grid-template-columns:minmax(0,1fr) 286px}}
+@media(max-width:600px){#app{grid-template-columns:1fr;grid-template-rows:45% 55%}#sidebar{grid-column:1;grid-row:2;border-left:0;border-top:1px solid #c3d4e1}#canvasArea{grid-column:1;grid-row:1}}
 </style>
 </head>
 <body>
 <div id="app">
 <aside id="sidebar">
-<header><img src="aht-global-tools-logo.png" alt="AHT Global"><h1>Wi-Fi Heat Map</h1><p>Indoor / outdoor AP placement and illustrative signal coverage.</p><div id="version">Pilot v0.1.0 · Build wifi-20261122-a · PREVIEW</div></header>
+<header><img src="aht-global-tools-logo.png" alt="AHT Global"><h1>Wi-Fi Heat Map</h1><p>Indoor / outdoor AP placement and illustrative signal coverage.</p><div id="version">Pilot v0.2.0 · Build wifi-20261122-b · PREVIEW</div></header>
 <nav id="workflow" aria-label="Wi-Fi drawing workflow"><strong>Your drawing workflow — jump to any step</strong><div class="steps">
   <button data-step="open" aria-current="step"><b>1</b>Open</button><button data-step="place"><b>2</b>Place</button><button data-step="adjust"><b>3</b>Adjust</button>
   <button data-step="walls"><b>4</b>Walls</button><button data-step="review"><b>5</b>Review</button><button data-step="export"><b>6</b>Export</button>
-</div><div class="buttons" style="grid-template-columns:1.4fr 1fr 1fr"><button id="selectBtn" class="active">Select / Adjust</button><button id="undoBtn">Undo</button><button id="redoBtn">Redo</button></div></nav>
+</div><div class="edit-controls"><button id="selectBtn" class="active" title="Select items, adjust shapes and pan the drawing">↖ Select / Adjust</button><button id="undoBtn" title="Undo last edit">↶ Undo</button><button id="redoBtn" title="Redo last undone edit">↷ Redo</button></div>
+<label class="check"><input type="checkbox" id="placeMultiple"><span><strong>Place Multiple</strong> (off = return to Select)</span></label><p id="modeHelp">Select an item or drag blank space to pan.</p></nav>
 <section id="openSection"><h2>1 · Open Drawing</h2><button id="openBtn" class="primary" style="width:100%">Choose PDF drawing…</button><input id="pdfFile" type="file" accept=".pdf,application/pdf" hidden><p id="fileLabel" class="hint">No plan loaded</p>
 <label class="label">Page</label><select id="pageSel" disabled><option>Open a PDF first</option></select>
 <label class="label">Drawing scale</label><select id="scaleSel"><option value="0.125">1/8 inch = 1 foot</option><option value="0.1875">3/16 inch = 1 foot</option><option value="0.25">1/4 inch = 1 foot</option><option value="0.0625">1/16 inch = 1 foot</option><option value="0.3333">1/3 inch = 1 foot</option></select><p class="hint">Confirm scale for approximate coverage-distance controls. Use boundary handles to refine.</p></section>
-<section id="placeSection"><h2>2 · Place Access Points</h2><p class="hint">Pick a type, then click its location on the PDF. Coverage starts with a realistic directional profile and remains editable.</p><label class="label">AP mount / antenna</label><select id="newKind"><option value="ceiling">Indoor · Ceiling omnidirectional</option><option value="wall">Indoor · Wall-facing</option><option value="pole-omni">Outdoor · Pole omnidirectional</option><option value="pole-directional">Outdoor · Pole directional</option></select><div class="buttons"><button id="placeBtn" class="primary">Place AP</button><button id="wallBtn">Draw obstruction</button></div><label class="check"><input type="checkbox" id="multiPlace">Keep placing APs</label></section>
-<section id="adjustSection"><h2>3 · Adjust Coverage</h2><p class="hint">Select an AP to drag it. Yellow handles around the outer edge reshape signal reach independently in each direction.</p><div id="selectedFields" hidden><h3>Selected access point</h3>
+<section id="placeSection"><h2>2 · Place Access Points</h2><p class="hint">Pick a type, then click its location on the PDF. Coverage starts with an illustrative directional profile and remains editable.</p><label class="label">AP mount / antenna</label><select id="newKind"><option value="ceiling">Indoor · Ceiling omnidirectional</option><option value="wall">Indoor · Wall-facing</option><option value="pole-omni">Outdoor · Pole omnidirectional</option><option value="pole-directional">Outdoor · Pole directional</option></select><div class="buttons"><button id="placeBtn" class="primary">Place AP</button><button id="wallBtn">Draw obstruction</button></div></section>
+<section id="adjustSection"><h2>3 · Adjust Coverage</h2><p class="hint">Select an AP to see the coverage outline and yellow drag handles. Pull any handle inward or outward to reshape one part of the coverage.</p><button id="reshapeBtn">✥ Reshape coverage on drawing</button><div class="editing-guide" id="reshapeHelp">1. Place or select an AP. 2. Click Reshape. 3. Drag yellow points on the dashed outline. Esc returns to Select.</div>
+<div class="buttons"><button id="copyItem">Copy selected</button><button id="pasteItem">Paste</button></div><p class="hint">Right-click the drawing for Copy, Paste Here or Delete. Ctrl/Cmd+C and V work too.</p><div id="selectedFields" hidden><h3>Selected access point</h3>
 <label class="label">Name / ID</label><input type="text" id="apName" maxlength="90"><label class="label">Mount type</label><select id="apKind"><option value="ceiling">Indoor ceiling · Omni</option><option value="wall">Indoor wall-facing</option><option value="pole-omni">Outdoor pole · Omni</option><option value="pole-directional">Outdoor pole · Directional</option></select>
 <label class="label">Estimated open-air reach <span id="rangeValue">60</span> ft</label><input type="range" id="rangeFt" min="5" max="250" value="60" step="5">
 <label class="label">Direction <span id="directionValue">0</span>°</label><input type="range" id="apRotation" min="0" max="359" step="1" value="0"><button type="button" id="resetShape">Reset coverage shape for this mount</button>
@@ -38,15 +63,16 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
 <p id="selectionHelp" class="hint">Select an AP on the drawing to edit it.</p>
 <label class="check"><input type="checkbox" id="globalHeat" checked>Show heat-map coverage</label><label class="label">Heat-map transparency <span id="opacityValue">65</span>%</label><input type="range" id="heatOpacity" min="10" max="95" value="65">
 <div class="color-key"><span><i class="swatch" style="background:#e53935"></i>Strong</span><span><i class="swatch" style="background:#f57c00"></i>Moderate</span><span><i class="swatch" style="background:#fdd835"></i>Marginal</span></div></section>
-<section id="wallsSection"><h2>4 · Walls &amp; Obstructions</h2><p class="hint">Draw a line along a wall or steel structure. Coverage behind it is shortened automatically. You can still drag individual AP coverage points.</p><label class="label">New obstruction</label><select id="wallPreset"><option value=".85">Concrete / steel · High attenuation</option><option value=".50">Standard wall · Medium attenuation</option><option value=".25">Glass / light partition · Low attenuation</option><option value="1">Almost complete blockage</option></select><button id="addWall">Draw wall on PDF</button><div id="wallFields" hidden><h3>Selected obstruction</h3><label class="label">Block coverage behind it <span id="wallValue">85</span>%</label><input id="wallAttenuation" type="range" min="0" max="100" step="5"><label class="label">Description</label><input id="wallNote" type="text" maxlength="160"><button id="deleteWall">Remove selected obstruction</button></div><label class="check"><input id="showWalls" type="checkbox" checked>Show obstruction lines on PDF</label></section>
-<section id="reviewSection"><h2>5 · CCTV Pole Coordination</h2><p class="hint">Paste poles copied from the CCTV tool, or import a saved CCTV work JSON. Camera bodies and mounting arms remain visible without camera viewing cones.</p><div class="buttons"><button id="pastePoles">Paste CCTV poles</button><button id="importPoles">Import CCTV JSON…</button></div><input id="cctvFile" type="file" accept=".json,application/json" hidden><label class="check"><input id="showPoles" type="checkbox" checked>Show imported CCTV poles</label><p id="counts" class="hint">0 access points · 0 poles · 0 obstructions</p><p id="poleStatus" class="hint">Copy selected poles in CCTV or load the CCTV work file.</p></section>
+<section id="wallsSection"><h2>4 · Walls &amp; Obstructions</h2><p class="hint">Click and drag across a wall to draw its obstruction line, or click a start and end point. Esc or Cancel removes an unfinished line.</p><label class="label">New obstruction</label><select id="wallPreset"><option value=".85">Concrete / steel · High attenuation</option><option value=".50">Standard wall · Medium attenuation</option><option value=".25">Glass / light partition · Low attenuation</option><option value="1">Almost complete blockage</option></select><div class="buttons"><button id="addWall">Draw wall on PDF</button><button id="cancelWall" hidden>Cancel unfinished line</button></div><p id="wallDraftHelp" hidden>Click the second endpoint or drag to finish. Esc cancels.</p><div id="wallFields" hidden><h3>Selected obstruction</h3><label class="label">Block coverage behind it <span id="wallValue">85</span>%</label><input id="wallAttenuation" type="range" min="0" max="100" step="5"><label class="label">Description</label><input id="wallNote" type="text" maxlength="160"><button id="deleteWall">Remove selected obstruction</button></div><label class="check"><input id="showWalls" type="checkbox" checked>Show obstruction lines on PDF</label></section>
+<section id="reviewSection"><h2>5 · CCTV Pole Coordination</h2><p class="hint">Copy selected poles in CCTV, then paste here on the <strong>same PDF</strong>. Only camera poles with their heads/arms are imported; viewing cones are excluded.</p><div class="buttons"><button id="pastePoles">Paste CCTV poles</button><button id="importPoles">Import CCTV JSON…</button></div><input id="cctvFile" type="file" accept=".json,application/json" hidden><label class="label">JSON import scope</label><select id="poleImportScope"><option value="page">This PDF page only</option><option value="all">All pages in matching PDF</option></select><label class="check"><input id="showPoles" type="checkbox" checked>Show imported CCTV poles</label><div id="poleFields" hidden><strong>Selected CCTV pole</strong><p id="poleDetails" class="hint"></p><button id="deletePole">Remove selected pole</button></div><button id="clearPoles" style="width:100%">Clear imported CCTV poles</button><p id="counts" class="hint">0 access points · 0 poles · 0 obstructions</p><p id="poleStatus" class="hint">Copy selected poles in CCTV or load the matching CCTV work JSON. Different drawing filenames are blocked to prevent misalignment.</p></section>
 <section id="exportSection"><h2>6 · Save &amp; Export</h2><button id="saveBtn" style="width:100%">Save Editable Work (JSON)</button><button id="loadBtn" style="width:100%;margin-top:6px">Load Work (JSON)…</button><input id="workFile" type="file" accept=".json,application/json" hidden><button id="pdfBtn" class="primary" style="width:100%;margin-top:8px">Export Marked-up PDF</button><p id="warning">Illustrative planning coverage only. This is not a measured RF survey or validated antenna propagation study.</p></section>
 </aside>
-<main id="canvasArea"><div id="viewport"><div id="stage"><canvas id="planCanvas"></canvas><canvas id="heatCanvas"></canvas><svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg></div><div id="empty">Open a PDF drawing to begin the Wi-Fi coverage layout.</div></div><div id="zoom"><button id="zoomIn" title="Zoom in">+</button><button id="zoomOut" title="Zoom out">−</button><button id="zFit" title="Fit drawing">⤢</button></div><div id="status" role="status">Ready · Pilot v0.1.0</div></main>
+<main id="canvasArea"><div id="viewport"><div id="stage"><canvas id="planCanvas"></canvas><canvas id="heatCanvas"></canvas><svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg></div><div id="empty">Open a PDF drawing to begin the Wi-Fi coverage layout.</div></div><div id="zoom"><button id="zoomIn" title="Zoom in">+</button><button id="zoomOut" title="Zoom out">−</button><button id="zFit" title="Fit drawing">⤢</button></div><div id="status" role="status">Ready · Pilot v0.2.0</div></main>
 </div>
+<div id="wifiContextMenu" hidden role="menu" aria-label="Drawing editing menu"><button data-action="copy" role="menuitem">Copy selected</button><button data-action="paste" role="menuitem">Paste here</button><button data-action="duplicate" role="menuitem">Duplicate</button><button data-action="delete" role="menuitem">Delete selected</button><button data-action="cancel-wall" role="menuitem">Cancel obstruction</button></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="aht-wifi-coverage-core-v1.js?v=20261122-a"></script>
-<script src="aht-wifi-heatmap-ui-v1.js?v=20261122-a"></script>
+<script src="aht-wifi-coverage-core-v1.js?v=20261122-b"></script>
+<script src="aht-wifi-heatmap-ui-v1.js?v=20261122-b"></script>
 </body>
 </html>

@@ -83,15 +83,16 @@
       return {kind:h.kind||'cam',x:pole.x+Math.sin(a)*r,y:pole.y-Math.cos(a)*r,tier:h.tier||1,index:i};
     });
   }
+  function pdfFileName(name){return String(name||'').replace(/\\/g,'/').split('/').pop().trim().toLowerCase();}
   function importCctvPoles(source,pdfName){
     if(!source||!Array.isArray(source.markers))throw Error('Choose a CCTV work JSON file.');
     if(source.tool&&!/cctv/i.test(source.tool))throw Error('This JSON was not saved by the CCTV tool.');
-    const same=!source.pdfName||!pdfName||source.pdfName===pdfName;
+    const same=!!pdfFileName(source.pdfName)&&pdfFileName(source.pdfName)===pdfFileName(pdfName);
     const poles=source.markers.filter(m=>m.type==='pole3').map(m=>({type:'pole3',page:Number(m.page)||1,
       x:Number(m.x),y:Number(m.y),rot:Number(m.rot)||0,size:Number(m.size)||1,
       heads:Array.isArray(m.heads)?JSON.parse(JSON.stringify(m.heads)):[],note:String(m.note||'')}))
       .filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
-    return {poles,samePdf:same,sourceName:source.pdfName||''};
+    return {poles,samePdf:same,sourceName:source.pdfName||'',ignoredMarkers:source.markers.length-poles.length};
   }
-  root.AHTWifiCore={COUNT,TAU,angle,unit,shapeFor,radiusAt,effectiveRadius,pointAt,nearestHandle,updateHandle,poleHeads,importCctvPoles,clamp};
+  root.AHTWifiCore={COUNT,TAU,angle,unit,shapeFor,radiusAt,effectiveRadius,pointAt,nearestHandle,updateHandle,poleHeads,pdfFileName,importCctvPoles,clamp};
 })(window);
