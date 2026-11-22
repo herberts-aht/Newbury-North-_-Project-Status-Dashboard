@@ -67,6 +67,8 @@
     const state = { enabled: false, scale: 1, title: 'DEVICE KEY', positions: {}, hiddenPages: {}, edits: {} };
     const parent = document.getElementById('exportSection');
     if (!parent || !document.getElementById('ov')) throw new Error('AHT drawing key: editor sections not found');
+    const exportStepNumber = parent.querySelector('.step-heading .step-number');
+    if (exportStepNumber) exportStepNumber.textContent = '7';
     const section = document.createElement('section');
     section.id = 'drawingKeySection'; section.className = 'workflow-step aht-drawing-key-step';
     section.innerHTML = '<div class="step-heading"><span class="step-number">6</span><h2>Drawing Key</h2></div>' +
