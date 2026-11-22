@@ -52,3 +52,8 @@ test('descriptions wrap to fit rather than creating extra key entries', () => {
   assert.ok(rows.length>=2 && rows.length<=3);
   assert.ok(rows.every(r=>r.length<=24));
 });
+
+test('drag pointerdown reaches the key without a capturing overlay interceptor', () => {
+  assert.match(script, /main\.addEventListener\('pointerdown'/);
+  assert.doesNotMatch(script, /getElementById\('ov'\)\.addEventListener\('pointerdown'/);
+});

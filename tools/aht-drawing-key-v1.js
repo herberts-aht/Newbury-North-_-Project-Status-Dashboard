@@ -78,16 +78,19 @@
       '<label class="lbl" for="ahtKeyTitle">Key heading</label><input id="ahtKeyTitle" type="text" value="DEVICE KEY" maxlength="80">' +
       '<label class="lbl" for="ahtKeyScale">Size <output id="ahtKeyScaleLabel">100%</output></label>' +
       '<input id="ahtKeyScale" type="range" min="65" max="200" step="5" value="100">' +
+      '<p class="muted helper">Drag the key directly on the drawing to position it. X/Y is available below only for fine adjustments.</p>' +
+      '<details class="aht-key-advanced"><summary>Fine-position with X/Y (optional)</summary>' +
       '<div class="aht-key-position"><label>X (%)<input id="ahtKeyX" type="number" min="0" max="100" step="1" value="70"></label>' +
-      '<label>Y (%)<input id="ahtKeyY" type="number" min="0" max="100" step="1" value="4"></label></div>' +
+      '<label>Y (%)<input id="ahtKeyY" type="number" min="0" max="100" step="1" value="4"></label></div></details>' +
       '<button type="button" id="ahtKeyReset">Reset position for this page</button>' +
-      '<p class="muted helper">Drag the key on the drawing to move it. Size, location and visibility are saved with your work JSON.</p>' +
+      '<p class="muted helper">Size, location and visibility are saved with your work JSON.</p>' +
       '<h3 class="aht-key-subheading">Icons on this page</h3><div id="ahtKeyRows"></div>';
     const style = document.createElement('style');
     style.textContent = '.aht-drawing-key-step{border-top:1px solid #c6dce9;margin-top:8px;padding-top:10px}' +
       '.aht-drawing-key-step .aht-key-check{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:12px}' +
       '.aht-drawing-key-step input[type=text],.aht-drawing-key-step input[type=number]{width:100%;box-sizing:border-box;padding:7px;border:1px solid #adc9dc;border-radius:5px}' +
       '.aht-drawing-key-step input[type=range]{width:100%;accent-color:#17649a}' +
+      '.aht-key-advanced{margin:9px 0}.aht-key-advanced summary{font-size:11px;color:#24577d;cursor:pointer}' +
       '.aht-key-position{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}' +
       '.aht-key-position label{font-size:11px;color:#314e67}.aht-key-position input{margin-top:4px}' +
       '.aht-key-subheading{font-size:13px;color:#123b5f;margin:16px 0 8px}' +
@@ -148,11 +151,15 @@
       if (!state.enabled || state.hiddenPages[p] || !vp) return;
       const g = layout(vp, p); if (!g) return;
       const main = node('g', { 'data-aht-drawing-key':'', transform:`translate(${g.x} ${g.y})`,
-        style:'cursor:move;touch-action:none;user-select:none' }, scene);
+        style:'cursor:grab;touch-action:none;user-select:none' }, scene);
+      node('title', {}, main).textContent = 'Drag the device key to move it';
       node('rect', { width:g.w, height:g.h, rx:g.fs*.25, fill:'#ffffff', 'fill-opacity':.96,
         stroke:'#1d5887','stroke-width':Math.max(.8,g.fs*.07) }, main);
       node('rect', { width:g.w, height:g.fs*2.22, rx:g.fs*.25, fill:'#e8f2f9' }, main);
       svgText(main, state.title, g.fs*.72, g.fs*1.53, g.fs*1.13, '#143a5d', 800);
+      // Visual grip is editor-only, not part of the exported PDF.
+      for (let i=0;i<3;i++) node('line',{x1:g.w-g.fs*(1.55+i*.28),x2:g.w-g.fs*(1.55+i*.28),
+        y1:g.fs*.75,y2:g.fs*1.53,stroke:'#4d7998','stroke-width':g.fs*.09,'stroke-linecap':'round'},main);
       g.entries.forEach(e => {
         const ix=g.fs*1.68, iy=e.top+g.fs*1.26;
         iconSvg(e,ix,iy,g.fs*1.28,main);
@@ -165,6 +172,7 @@
       main.addEventListener('pointerdown', ev => {
         if (ev.button !== 0) return;
         ev.stopPropagation(); ev.preventDefault();
+        main.style.cursor = 'grabbing';
         const origin = position(p), startX=ev.clientX, startY=ev.clientY;
         const matrix = scene.getScreenCTM(); const factor = matrix ? Math.hypot(matrix.a, matrix.b) : 1;
         const move = e => {
@@ -174,7 +182,7 @@
           const loc=layout(vp,p); if(loc) main.setAttribute('transform',`translate(${loc.x} ${loc.y})`);
           syncPosition();
         };
-        const end = () => { window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',end);window.removeEventListener('pointercancel',end); };
+        const end = () => { main.style.cursor = 'grab';window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',end);window.removeEventListener('pointercancel',end); };
         window.addEventListener('pointermove',move);window.addEventListener('pointerup',end);window.addEventListener('pointercancel',end);
       });
       main.addEventListener('click', ev => ev.stopPropagation());
@@ -219,9 +227,9 @@
       y:clamp(Number($('ahtKeyY').value)/100,0,1)};paintSvg();};
     $('ahtKeyX').addEventListener('input',setPosition);$('ahtKeyY').addEventListener('input',setPosition);
     $('ahtKeyReset').addEventListener('click',()=>{delete state.positions[currPage()];refresh();});
-    document.getElementById('ov').addEventListener('pointerdown',ev=>{
-      if (ev.target.closest('[data-aht-drawing-key]')) ev.stopPropagation();
-    },true);
+    // The SVG key's own pointerdown stops bubbling into viewport placement/pan.
+    // Do not intercept during capture on #ov: that prevents the key from
+    // receiving the event and breaks drag-and-drop entirely.
     const observer = new MutationObserver(mutations=>{
       if(mutations.some(m=>Array.from(m.addedNodes).some(n=>n.nodeType===1&&n.id==='annotationScene')))refresh();
     });
