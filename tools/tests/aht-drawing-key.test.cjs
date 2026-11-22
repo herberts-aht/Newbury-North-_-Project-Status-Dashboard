@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const script = fs.readFileSync(path.join(__dirname, '..', 'aht-drawing-key-v1.js'), 'utf8');
 const window = {};
 vm.runInNewContext(script, {window});
-const {collectEntries, wrap} = window.AHTDrawingKey;
+const {collectEntries, wrap, inside} = window.AHTDrawingKey;
 const adapter = {
   isDevice:m=>!['area','arrow_note'].includes(m.type),
   isVisible:m=>!m.hidden,
@@ -53,7 +53,12 @@ test('descriptions wrap to fit rather than creating extra key entries', () => {
   assert.ok(rows.every(r=>r.length<=24));
 });
 
-test('drag pointerdown reaches the key without a capturing overlay interceptor', () => {
-  assert.match(script, /main\.addEventListener\('pointerdown'/);
+test('viewport hit-test prioritizes key dragging over placement crosshairs', () => {
+  const key={x:294,y:32,w:310,h:86};
+  assert.equal(inside(300,70,key),true);
+  assert.equal(inside(290,70,key),false);
+  assert.match(script, /getElementById\('viewport'\)\.addEventListener\('pointerdown'/);
+  assert.match(script, /\{capture:true\}/);
+  assert.match(script, /startBoxX\+dx/);
   assert.doesNotMatch(script, /getElementById\('ov'\)\.addEventListener\('pointerdown'/);
 });

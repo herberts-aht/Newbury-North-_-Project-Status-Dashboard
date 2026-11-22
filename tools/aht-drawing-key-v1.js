@@ -12,6 +12,7 @@
     if (parent) parent.appendChild(n);
     return n;
   };
+  const inside = (x,y,g) => x>=g.x && x<=g.x+g.w && y>=g.y && y<=g.y+g.h;
   const svgText = (parent, value, x, y, fontSize, color, weight) => {
     const n = node('text', { x, y, 'font-size': fontSize, fill: color, 'font-weight': weight || 400,
       'font-family': 'Arial,Helvetica,sans-serif', 'pointer-events': 'none' }, parent);
@@ -169,24 +170,36 @@
         node('line',{x1:g.fs*.65,x2:g.w-g.fs*.65,y1:e.top+e.height-.12*g.fs,y2:e.top+e.height-.12*g.fs,
           stroke:'#dce8f0','stroke-width':.6},main);
       });
-      main.addEventListener('pointerdown', ev => {
-        if (ev.button !== 0) return;
-        ev.stopPropagation(); ev.preventDefault();
-        main.style.cursor = 'grabbing';
-        const origin = position(p), startX=ev.clientX, startY=ev.clientY;
-        const matrix = scene.getScreenCTM(); const factor = matrix ? Math.hypot(matrix.a, matrix.b) : 1;
-        const move = e => {
-          e.preventDefault();
-          const dx=(e.clientX-startX)/factor, dy=(e.clientY-startY)/factor;
-          state.positions[p]={x:clamp(origin.x+dx/vp.width,0,1),y:clamp(origin.y+dy/vp.height,0,1)};
-          const loc=layout(vp,p); if(loc) main.setAttribute('transform',`translate(${loc.x} ${loc.y})`);
-          syncPosition();
-        };
-        const end = () => { main.style.cursor = 'grab';window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',end);window.removeEventListener('pointercancel',end); };
-        window.addEventListener('pointermove',move);window.addEventListener('pointerup',end);window.addEventListener('pointercancel',end);
-      });
       main.addEventListener('click', ev => ev.stopPropagation());
       main.addEventListener('dblclick', ev => ev.stopPropagation());
+    }
+    function startDrag(ev,scene,main,g,p,vp) {
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      main.style.cursor='grabbing';
+      const startX=ev.clientX,startY=ev.clientY;
+      // Use the actual CLAMPED box coordinates, not the original requested
+      // percentage (which may lie beyond the sheet edge and create a dead zone).
+      const startBoxX=g.x,startBoxY=g.y;
+      const matrix=scene.getScreenCTM();
+      const factor=matrix?Math.max(.0001,Math.hypot(matrix.a,matrix.b)):1;
+      const move=e=>{
+        e.preventDefault();
+        const dx=(e.clientX-startX)/factor,dy=(e.clientY-startY)/factor;
+        state.positions[p]={x:clamp((startBoxX+dx)/vp.width,0,1),y:clamp((startBoxY+dy)/vp.height,0,1)};
+        const loc=layout(vp,p);
+        if(loc)main.setAttribute('transform',`translate(${loc.x} ${loc.y})`);
+        syncPosition();
+      };
+      const end=()=>{
+        main.style.cursor='grab';
+        window.removeEventListener('pointermove',move);
+        window.removeEventListener('pointerup',end);
+        window.removeEventListener('pointercancel',end);
+      };
+      window.addEventListener('pointermove',move);
+      window.addEventListener('pointerup',end);
+      window.addEventListener('pointercancel',end);
     }
     function syncPosition() {
       const pos=position(currPage());
@@ -227,9 +240,23 @@
       y:clamp(Number($('ahtKeyY').value)/100,0,1)};paintSvg();};
     $('ahtKeyX').addEventListener('input',setPosition);$('ahtKeyY').addEventListener('input',setPosition);
     $('ahtKeyReset').addEventListener('click',()=>{delete state.positions[currPage()];refresh();});
-    // The SVG key's own pointerdown stops bubbling into viewport placement/pan.
-    // Do not intercept during capture on #ov: that prevents the key from
-    // receiving the event and breaks drag-and-drop entirely.
+    // The key takes priority over the viewport's placement/pan interaction,
+    // even if the surrounding PDF is showing a placement crosshair. Capture
+    // at #viewport and hit-test the drawn box in SVG/PDF-point coordinates;
+    // this also works when a transparent SVG child fails native hit-testing.
+    document.getElementById('viewport').addEventListener('pointerdown',ev=>{
+      if(ev.button!==0||!state.enabled||state.hiddenPages[currPage()])return;
+      const scene=document.getElementById('annotationScene');
+      const main=scene?.querySelector('[data-aht-drawing-key]');
+      const vp=currView(),p=currPage();
+      if(!scene||!main||!vp)return;
+      const g=layout(vp,p),matrix=scene.getScreenCTM();
+      if(!g||!matrix)return;
+      const point=document.getElementById('ov').createSVGPoint();
+      point.x=ev.clientX;point.y=ev.clientY;
+      const local=point.matrixTransform(matrix.inverse());
+      if(inside(local.x,local.y,g))startDrag(ev,scene,main,g,p,vp);
+    },{capture:true});
     const observer = new MutationObserver(mutations=>{
       if(mutations.some(m=>Array.from(m.addedNodes).some(n=>n.nodeType===1&&n.id==='annotationScene')))refresh();
     });
@@ -272,5 +299,5 @@
     refresh();
     return {refresh,serialize,restore,drawPdf,entriesForPage};
   }
-  root.AHTDrawingKey={create,wrap,defaultDefinition,collectEntries};
+  root.AHTDrawingKey={create,wrap,defaultDefinition,collectEntries,inside};
 })(window);
