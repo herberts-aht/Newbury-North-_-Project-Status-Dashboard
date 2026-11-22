@@ -102,6 +102,19 @@ test('freeform AREA visibly closes on Enter, while Escape cancels an unfinished 
   assert.match(h.get('addWall').textContent,/Draw obstruction on PDF/);
 });
 
+test('an existing closed freeform drawing can become an open line without redrawing',async()=>{
+  const h=harness();await h.page();h.get('obstructionShape').value='polygon';h.get('addWall').onclick();
+  for(const p of [[100,100],[170,110],[190,160],[100,175]]){h.mouse('pointerdown',...p);h.mouse('pointerup',...p);}
+  h.get('finishPolygon').onclick();const initial=(await h.currentWork()).walls[0];
+  assert.equal(h.get('obstructionClosedModeRow').hidden,false);
+  h.get('obstructionClosedMode').onchange({target:{value:'polyline'}});
+  const updated=(await h.currentWork()).walls[0];assert.equal(updated.shape,'polyline');
+  assert.deepEqual(updated.points,initial.points,'all original points remain in the same places');
+  const group=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall'));
+  assert.ok(!group.children[0].getAttribute('d').trim().endsWith('Z'));
+  h.get('undoBtn').onclick();assert.equal((await h.currentWork()).walls[0].shape,'polygon');
+});
+
 test('dragging a wall creates a real line, and Delete/Undo work',async()=>{
   const h=harness();await h.page();h.get('addWall').onclick();
   h.mouse('pointerdown',100,100);h.mouse('pointermove',230,100);h.mouse('pointerup',230,100);

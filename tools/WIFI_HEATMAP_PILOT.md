@@ -1,4 +1,4 @@
-# AHT Wi-Fi Heat Map — preview pilot v0.5.0 (`wifi-20261122-e`)
+# AHT Wi-Fi Heat Map — preview pilot v0.5.1 (`wifi-20261122-f`)
 
 This tool is intentionally a **preview**, not an RF prediction or survey instrument.
 Do not infer dBm, throughput, roaming performance, channel contention, or compliance
@@ -26,6 +26,8 @@ from its colored illustration.
    - **Freeform AREA**: click around an irregular footprint and **press Enter**
      to finish. This intentionally closes to its starting point. A prominent
      overlay prompt, modeled after CCTV Senstar, reminds you to press Enter.
+   - Select an existing freeform area to switch it to an **OPEN line** without
+     redrawing or losing any vertices (or switch an open path back to an area).
    - **Esc** cancels drawing and returns the button to blue. The global Show
      Obstructions checkbox controls all items.
    - Select an obstruction on the PDF or in the **Edit a placed obstruction**

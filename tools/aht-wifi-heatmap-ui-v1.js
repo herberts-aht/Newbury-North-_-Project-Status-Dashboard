@@ -162,10 +162,12 @@ function refreshObstructionList(){const list=$('obstructionList');list.replaceCh
   list.value=selected?.kind==='wall'?String(selected.id):'';
 }
 function syncSelection(){const ap=selectedAp(),w=selectedWall(),pole=selectedPole();$('selectedFields').hidden=!ap;$('wallFields').hidden=!w;$('poleFields').hidden=!pole;
+  $('obstructionClosedModeRow').hidden=!w||!isFreeform(w.shape);
   $('selectionHelp').hidden=!!ap;$('selectionHelp').textContent=pole?'A CCTV pole is selected. Use its panel in step 5 to edit or remove it.':w?'An obstruction is selected. Use its panel in step 4.':'Select an AP on the drawing to edit its shape and settings.';
   if(ap){$('apName').value=ap.name||'';$('apKind').value=ap.kind;$('rangeFt').value=ap.rangeFt||60;$('rangeValue').textContent=ap.rangeFt||60;
     $('apRotation').value=ap.rot||0;$('directionValue').textContent=ap.rot||0;$('apMake').value=ap.make||'';$('apModel').value=ap.model||'';$('apNote').value=ap.note||'';$('apShowCoverage').checked=ap.showCoverage!==false;}
-  if(w){$('wallAttenuation').value=Math.round((w.attenuation??0)*100);$('wallValue').textContent=$('wallAttenuation').value;$('wallNote').value=w.note||'';
+  if(w){if(isFreeform(w.shape))$('obstructionClosedMode').value=w.shape;
+    $('wallAttenuation').value=Math.round((w.attenuation??0)*100);$('wallValue').textContent=$('wallAttenuation').value;$('wallNote').value=w.note||'';
     $('obstructionLabelText').value=w.labelText||'';$('obstructionLabelVisible').checked=w.showLabel===true;
     $('obstructionVisible').checked=w.show!==false;$('obstructionColor').value=obstructionColor(w);
     $('obstructionOpacity').value=Math.round(obstructionOpacity(w)*100);$('obstructionOpacityValue').textContent=$('obstructionOpacity').value;}
@@ -427,6 +429,11 @@ function bind(){
   $('wallNote').onchange=e=>{const w=selectedWall();if(w){remember();w.note=e.target.value;refreshObstructionList();drawOverlay();}};
   $('obstructionList').onchange=e=>{const id=Number(e.target.value);if(!id){selected=null;syncSelection();drawOverlay();return;}
     const w=pageWalls().find(m=>m.id===id);if(w)selectItem('wall',w.id);};
+  $('obstructionClosedMode').onchange=e=>{const w=selectedWall(),shape=e.target.value;if(!w||!isFreeform(w.shape)||!isFreeform(shape))return;
+    if(shape==='polygon'&&(!Array.isArray(w.points)||w.points.length<3)){
+      e.target.value='polyline';status('Add at least three points before converting a line into a closed area.');return;}
+    remember();w.shape=shape;refreshObstructionList();draw();
+    status(shape==='polyline'?'Converted to an OPEN freeform line; every existing point is preserved.':'Converted to a CLOSED freeform area; every existing point is preserved.');};
   $('obstructionLabelText').onchange=e=>{const w=selectedWall();if(!w)return;remember();w.labelText=e.target.value;
     refreshObstructionList();drawOverlay();};
   $('obstructionLabelVisible').onchange=e=>{const w=selectedWall();if(!w)return;remember();w.showLabel=e.target.checked;
