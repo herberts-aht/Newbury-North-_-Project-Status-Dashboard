@@ -33,7 +33,7 @@ class FakeElement{
 function harness(){
   const ids=new Map([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>[m[1],new FakeElement('div',m[1])]));
   const get=id=>ids.get(id),events={};let savedBlob=null;
-  get('scaleSel').value='.125';get('newKind').value='ceiling';get('wallPreset').value='.85';
+  get('scaleSel').value='.125';get('newKind').value='ceiling';get('wallPreset').value='.85';get('obstructionShape').value='line';
   get('wallPreset').selectedOptions=[{textContent:'Concrete / steel · High attenuation'}];
   get('poleImportScope').value='page';get('pageSel').value='1';get('placeMultiple').checked=false;
   for(const action of ['copy','paste','duplicate','delete','cancel-wall']){const el=new FakeElement('button');el.dataset.action=action;el.setAttribute('data-action',action);get('wifiContextMenu').append(el);}
@@ -55,12 +55,15 @@ function harness(){
   const mouse=(type,x,y,target=get('overlay'))=>{const e={button:0,pointerId:1,target,...screen(x,y),preventDefault(){},stopPropagation(){}};
     get('viewport').dispatch(type,e);return e;};
   const currentWork=async()=>{get('saveBtn').onclick();return JSON.parse(await savedBlob.text());};
-  return {get,page,mouse,currentWork,events};
+  return {get,page,mouse,currentWork,events,window:ctx.window};
 }
 
 test('layout is drawing-left and tools-right with full editing controls',()=>{
   assert.match(html,/#sidebar\{grid-column:2;grid-row:1/);
   assert.match(html,/#canvasArea\{grid-column:1;grid-row:1/);
+  assert.match(html,/#selectBtn\{grid-column:1 \/ -1/,'Select/Adjust gets a full row above Undo/Redo');
+  assert.doesNotMatch(html,/id="wallBtn"/,'no second obstruction button appears in AP placement');
+  assert.match(html,/id="obstructionShape"/);
   for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles'])assert.match(html,new RegExp('id="'+id+'"'));
 });
 
@@ -85,6 +88,68 @@ test('a second click completes the obstruction and makes its end handles availab
   assert.equal((await h.currentWork()).walls.length,1);
   const all=(n)=>[n,...n.children.flatMap(all)];
   assert.equal(all(h.get('overlay')).filter(n=>n.getAttribute?.('data-wall-handle')).length,2);
+});
+
+test('rectangle obstruction drags, resizes, moves, deletes and restores with Undo',async()=>{
+  const h=harness();await h.page();h.get('obstructionShape').value='rect';h.get('addWall').onclick();
+  h.mouse('pointerdown',80,100);h.mouse('pointermove',200,170);h.mouse('pointerup',200,170);
+  let w=(await h.currentWork()).walls[0];assert.equal(w.shape,'rect');assert.ok(Math.abs(w.x2-200)<1e-6);
+  const corner=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall-handle')==='c2');
+  assert.ok(corner,'rectangle has draggable resize corners');
+  h.mouse('pointerdown',200,170,corner);h.mouse('pointermove',235,190,corner);h.mouse('pointerup',235,190,corner);
+  w=(await h.currentWork()).walls[0];assert.ok(Math.abs(w.x2-235)<1e-6);assert.ok(Math.abs(w.y2-190)<1e-6);
+  const group=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall'));
+  h.mouse('pointerdown',150,140,group.children[0]);h.mouse('pointermove',170,155,group.children[0]);h.mouse('pointerup',170,155,group.children[0]);
+  w=(await h.currentWork()).walls[0];assert.ok(Math.abs(w.x-100)<1e-6);assert.ok(Math.abs(w.y-115)<1e-6);
+  h.get('deleteWall').onclick();assert.equal((await h.currentWork()).walls.length,0);
+  h.get('undoBtn').onclick();assert.equal((await h.currentWork()).walls.length,1);
+});
+
+test('ellipse obstruction creates a rounded pool footprint and can be copied',async()=>{
+  const h=harness();await h.page();h.get('obstructionShape').value='ellipse';h.get('addWall').onclick();
+  h.mouse('pointerdown',90,90);h.mouse('pointermove',210,190);h.mouse('pointerup',210,190);
+  const work=await h.currentWork();assert.equal(work.walls.length,1);assert.equal(work.walls[0].shape,'ellipse');
+  const group=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall'));
+  assert.equal(group.children[0].getAttribute('d').split(' L ').length,64);
+  h.get('copyItem').onclick();h.get('pasteItem').onclick();
+  const after=await h.currentWork();assert.equal(after.walls.length,2);assert.equal(after.walls[1].shape,'ellipse');
+  assert.ok(Math.abs(after.walls[1].x-(after.walls[0].x+18))<1e-6);
+});
+
+test('freeform obstruction polygon supports editable vertices, moving and JSON reload',async()=>{
+  const h=harness();await h.page();h.get('obstructionShape').value='polygon';h.get('addWall').onclick();
+  for(const p of [[100,110],[160,110],[175,160],[100,170]]){h.mouse('pointerdown',...p);h.mouse('pointerup',...p);}
+  assert.equal(h.get('finishPolygon').hidden,false);
+  h.get('finishPolygon').onclick();
+  let w=(await h.currentWork()).walls[0];assert.equal(w.shape,'polygon');assert.equal(w.points.length,4);
+  const handle=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall-handle')==='v1');assert.ok(handle);
+  h.mouse('pointerdown',160,110,handle);h.mouse('pointermove',180,120,handle);h.mouse('pointerup',180,120,handle);
+  w=(await h.currentWork()).walls[0];assert.ok(Math.abs(w.points[1][0]-180)<1e-6);
+  const group=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall'));
+  h.mouse('pointerdown',130,140,group.children[0]);h.mouse('pointermove',145,160,group.children[0]);h.mouse('pointerup',145,160,group.children[0]);
+  w=(await h.currentWork()).walls[0];assert.ok(Math.abs(w.points[0][0]-115)<1e-6);
+  h.get('copyItem').onclick();h.get('pasteItem').onclick();
+  const saved=await h.currentWork();assert.equal(saved.walls.length,2);
+  assert.ok(Math.abs(saved.walls[1].points[0][0]-133)<1e-6);
+  await h.get('workFile').onchange({target:{files:[{text:async()=>JSON.stringify(saved)}],value:''}});
+  const reloaded=await h.currentWork();assert.equal(reloaded.walls.length,2);
+  assert.equal(reloaded.walls[1].shape,'polygon');assert.equal(reloaded.walls[1].points.length,4);
+});
+
+test('PDF export includes the outlines of rectangle, ellipse and polygon obstructions',async()=>{
+  const h=harness();await h.page();
+  const drawLines=[];const pages=Array.from({length:2},()=>({drawLine:opts=>drawLines.push(opts),drawCircle(){},drawText(){}}));
+  h.window.PDFLib={PDFDocument:{load:async()=>({embedFont:async()=>({}),getPages:()=>pages,save:async()=>new Uint8Array([1])})},
+    StandardFonts:{HelveticaBold:'test'},rgb:(...v)=>v,degrees:n=>n};
+  for(const [shape,a,b] of [['rect',[50,70],[150,170]],['ellipse',[180,70],[300,170]]]){
+    h.get('obstructionShape').value=shape;h.get('addWall').onclick();h.mouse('pointerdown',...a);h.mouse('pointermove',...b);h.mouse('pointerup',...b);
+  }
+  h.get('obstructionShape').value='polygon';h.get('addWall').onclick();
+  for(const p of [[340,90],[420,100],[390,170]]){h.mouse('pointerdown',...p);h.mouse('pointerup',...p);}
+  h.get('finishPolygon').onclick();
+  await h.get('pdfBtn').onclick();
+  assert.equal(drawLines.length,4+64+3);
+  assert.equal(h.get('pdfBtn').disabled,false);
 });
 
 test('AP boundary handle actually changes saved shape, with copy/paste and undo',async()=>{

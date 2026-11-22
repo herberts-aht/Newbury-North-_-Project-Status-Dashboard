@@ -25,14 +25,18 @@ function line(parent,x1,y1,x2,y2,color='#46677d',width=2,dash){return el('line',
 function circle(parent,x,y,r,color,stroke='#fff',sw=2){return el('circle',{cx:x,cy:y,r,fill:color,stroke,'stroke-width':sw},parent);}
 function title(parent,s){el('title',{},parent).textContent=s;}
 function clamp(v,a,b){return C.clamp(v,a,b);}
-function updateMode(){for(const [id,active] of [['selectBtn',tool==='select'],['placeBtn',tool==='ap'],['wallBtn',tool==='wall'],['addWall',tool==='wall'],['reshapeBtn',tool==='reshape']])$(id).classList.toggle('active',active);
+const shapeName=shape=>({line:'line',rect:'rectangle',ellipse:'circle/oval',polygon:'freeform shape'})[shape]||'obstruction';
+const shapePath=(points,closed)=>'M '+points.map(p=>p.join(' ')).join(' L ')+(closed?' Z':'');
+function updateMode(){for(const [id,active] of [['selectBtn',tool==='select'],['placeBtn',tool==='ap'],['addWall',tool==='wall'],['reshapeBtn',tool==='reshape']])$(id).classList.toggle('active',active);
   $('viewport').style.cursor=tool==='select'?'grab':tool==='reshape'?'crosshair':'crosshair';
-  $('modeHelp').textContent=tool==='ap'?'Placing APs · click a location; Esc to finish.':tool==='wall'?'Draw a wall · drag a line or click two endpoints.':tool==='reshape'?'Reshaping · select an AP and drag yellow edge points.':'Select / Adjust · click an icon, drag blank drawing to pan.';
+  $('modeHelp').textContent=tool==='ap'?'Placing APs · click a location; Esc to finish.':tool==='wall'?'Drawing '+shapeName($('obstructionShape').value)+' · Esc to cancel.':tool==='reshape'?'Reshape · select an AP and drag yellow edge points.':'Active · Click to select; drag blank drawing to pan.';
   $('cancelWall').hidden=!pendingWall;$('wallDraftHelp').hidden=!pendingWall;
+  $('finishPolygon').hidden=!pendingWall||pendingWall.shape!=='polygon'||pendingWall.points.length<3;
 }
 function cancelWall(showStatus=true){pendingWall=null;if(drag?.kind==='wall-draft')drag=null;updateMode();if(vp)drawOverlay();if(showStatus)status('Unfinished obstruction cancelled.');}
 function setMode(mode){if(pendingWall)cancelWall(false);tool=mode;updateMode();
-  status(mode==='ap'?'Click a location to place an access point.':mode==='wall'?'Click and drag to draw a wall, or click two endpoints.':mode==='reshape'?'Select an AP, then drag a yellow boundary point to reshape it.':'Select APs, CCTV poles or walls; drag blank drawing space to pan.');}
+  const shape=$('obstructionShape').value;
+  status(mode==='ap'?'Click a location to place an access point.':mode==='wall'?(shape==='polygon'?'Click around the obstruction boundary. Double-click, click the first vertex or press Enter to finish.':'Drag to draw a '+shapeName(shape)+', or click two opposite points.'):mode==='reshape'?'Select an AP, then drag a yellow boundary point to reshape it.':'Select APs, CCTV poles or obstructions; drag blank drawing space to pan.');}
 function toView(e){const r=$('viewport').getBoundingClientRect();return [(e.clientX-r.left-tx)/zoom,(e.clientY-r.top-ty)/zoom];}
 function inDrawing(p){return vp&&p[0]>=0&&p[1]>=0&&p[0]<=vp.width&&p[1]<=vp.height;}
 function applyTransform(){$('stage').style.transform=`translate(${tx}px,${ty}px) scale(${zoom})`;}
@@ -69,11 +73,18 @@ function heatCanvasDraw(ctx,p,pageView){const w=pageView.width,h=pageView.height
 function drawHeat(){if(!vp)return;const canvas=$('heatCanvas');heatCanvasDraw(canvas.getContext('2d'),pageNum,vp);}
 function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildren();
   if(state.showWalls)pageWalls().forEach(w=>{
-    const g=el('g',{'data-wall':w.id,style:'cursor:pointer'},root);const active=selected?.kind==='wall'&&selected.id===w.id;
-    line(g,w.x,w.y,w.x2,w.y2,active?'#e89919':'#815f9c',Math.max(3,6*Number(w.attenuation||.5)),'9 5');
-    line(g,w.x,w.y,w.x2,w.y2,'transparent',14);
+    const g=el('g',{'data-wall':w.id,style:'cursor:move'},root),active=selected?.kind==='wall'&&selected.id===w.id;
+    const shape=w.shape||'line',points=C.obstructionOutline(w),closed=shape!=='line',d=shapePath(points,closed);
+    el('path',{d,fill:closed?'rgba(127,87,158,.11)':'none',stroke:active?'#e89919':'#815f9c',
+      'stroke-width':Math.max(3,6*Number(w.attenuation||.5)),'stroke-dasharray':'9 5','stroke-linejoin':'round'},g);
+    el('path',{d,fill:closed?'transparent':'none',stroke:'transparent','stroke-width':14,'pointer-events':closed?'all':'stroke'},g);
     title(g,`${w.note||'Obstruction'} · ${Math.round((w.attenuation||0)*100)}% estimated blocking`);
-    if(active){[['a',w.x,w.y],['b',w.x2,w.y2]].forEach(([h,x,y])=>{const d=circle(root,x,y,Math.max(6,6/zoom),'#fff','#a36415',2);d.setAttribute('data-wall-handle',h);d.setAttribute('data-wall',w.id);d.style.cursor='move';});}
+    if(active){let handles;
+      if(shape==='polygon')handles=points.map((p,i)=>['v'+i,...p]);
+      else if(shape==='rect'||shape==='ellipse')handles=[[w.x,w.y],[w.x2,w.y],[w.x2,w.y2],[w.x,w.y2]].map((p,i)=>['c'+i,...p]);
+      else handles=[['a',w.x,w.y],['b',w.x2,w.y2]];
+      handles.forEach(([h,x,y])=>{const dot=circle(root,x,y,Math.max(6,6/zoom),'#fff','#a36415',2);
+        dot.setAttribute('data-wall-handle',h);dot.setAttribute('data-wall',w.id);dot.style.cursor='move';});}
   });
   if(state.showPoles)pagePoles().forEach(pole=>{
     const active=selected?.kind==='pole'&&selected.id===pole.id,g=el('g',{'data-pole':pole.id,style:'cursor:move'},root),size=17*(pole.size||1);
@@ -104,10 +115,14 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
     text(g,ap.name||'AP',ap.x+13,ap.y-8,Math.max(9,10/zoom),'#20486c');
     title(g,[ap.name,ap.kind,ap.make,ap.model,ap.note].filter(Boolean).join(' · '));
   });
-  if(pendingWall){const a=pendingWall.start,b=pendingWall.end||a;
-    const preview=line(root,a[0],a[1],b[0],b[1],'#b25b08',Math.max(3,3/zoom),'6 4');preview.setAttribute('pointer-events','none');
-    const dot=circle(root,a[0],a[1],Math.max(5,6/zoom),'#ffa726','#fff',2);dot.setAttribute('pointer-events','none');
-    if(Math.hypot(b[0]-a[0],b[1]-a[1])>2){const end=circle(root,b[0],b[1],Math.max(4,5/zoom),'#fff','#b25b08',2);end.setAttribute('pointer-events','none');}
+  if(pendingWall){const a=pendingWall.start,b=pendingWall.end||a,shape=pendingWall.shape;
+    const points=shape==='polygon'?[...pendingWall.points,b]:C.obstructionOutline({shape,x:a[0],y:a[1],x2:b[0],y2:b[1]});
+    const preview=el('path',{d:shapePath(points,shape!=='line'&&shape!=='polygon'),fill:'none',stroke:'#b25b08',
+      'stroke-width':Math.max(3,3/zoom),'stroke-dasharray':'6 4','pointer-events':'none'},root);
+    title(preview,'Obstruction preview');
+    (shape==='polygon'?pendingWall.points:[a,b]).forEach((p,i)=>{
+      const dot=circle(root,p[0],p[1],Math.max(5,6/zoom),i===0?'#ffa726':'#fff','#b25b08',2);
+      dot.setAttribute('pointer-events','none');});
   }
 }
 function draw(){if(!vp)return;drawHeat();drawOverlay();$('counts').textContent=`${state.devices.length} access points · ${state.poles.length} poles · ${state.walls.length} obstructions`;
@@ -199,12 +214,16 @@ function deleteSelected(){if(pendingWall){cancelWall();return true;}const item=i
 function copySelected(){const item=itemForSelection();if(!pdfDoc||!item){status('Select an AP, wall or CCTV pole on the drawing before copying.');return false;}
   copied={kind:selected.kind,item:JSON.parse(JSON.stringify(item)),pdfName,page:pageNum,width:vp.width,height:vp.height};copyCount=0;updateUndo();
   status('Copied selected '+(selected.kind==='ap'?'access point':selected.kind==='wall'?'obstruction':'CCTV pole')+'. Choose Paste or right-click a destination.');return true;}
+function translateObstruction(w,dx,dy){w.x+=dx;w.y+=dy;
+  if(w.x2!==undefined){w.x2+=dx;w.y2+=dy;}
+  if(Array.isArray(w.points))w.points=w.points.map(p=>[p[0]+dx,p[1]+dy]);}
 function pasteCopied(at=null){if(!copied||!pdfDoc||!vp){status('Copy an existing item before pasting.');return false;}
   if(C.pdfFileName(copied.pdfName)!==C.pdfFileName(pdfName)){status('Paste blocked: copied item belongs to a different PDF.');return false;}
   const m=JSON.parse(JSON.stringify(copied.item)),sx=vp.width/copied.width,sy=vp.height/copied.height;
   m.x*=sx;m.y*=sy;if(m.x2!==undefined){m.x2*=sx;m.y2*=sy;}
+  if(Array.isArray(m.points))m.points=m.points.map(p=>[p[0]*sx,p[1]*sy]);
   const offset=at?[at[0]-m.x,at[1]-m.y]:pageNum===copied.page?[(copyCount+1)*18,(copyCount+1)*18]:[0,0];
-  remember();m.x+=offset[0];m.y+=offset[1];if(m.x2!==undefined){m.x2+=offset[0];m.y2+=offset[1];}
+  remember();if(copied.kind==='wall')translateObstruction(m,offset[0],offset[1]);else{m.x+=offset[0];m.y+=offset[1];}
   m.id=state.nextId++;m.page=pageNum;
   if(copied.kind==='ap')state.devices.push(m);else if(copied.kind==='wall')state.walls.push(m);else state.poles.push(m);
   selected={kind:copied.kind,id:m.id};copyCount++;syncSelection();draw();status('Pasted '+copied.kind+' on page '+pageNum+'. Undo is available.');return true;}
@@ -226,19 +245,46 @@ function openContext(e){if(!pdfDoc||!vp)return;e.preventDefault();e.stopPropagat
   const margin=8;menu.style.left=Math.max(margin,Math.min(e.clientX,window.innerWidth-menu.offsetWidth-margin))+'px';
   menu.style.top=Math.max(margin,Math.min(e.clientY,window.innerHeight-menu.offsetHeight-margin))+'px';
 }
-function finishWall(endpoint){if(!pendingWall)return;const a=pendingWall.start;
-  if(Math.hypot(endpoint[0]-a[0],endpoint[1]-a[1])<Math.max(8,8/zoom)){status('Obstruction needs a longer line. Drag farther or click a second endpoint.');return;}
-  remember();const wall={id:state.nextId++,page:pageNum,type:'wall',x:a[0],y:a[1],x2:endpoint[0],y2:endpoint[1],attenuation:Number($('wallPreset').value),note:$('wallPreset').selectedOptions[0].textContent.split(' · ')[0]};
-  state.walls.push(wall);pendingWall=null;selected={kind:'wall',id:wall.id};setMode($('placeMultiple').checked?'wall':'select');syncSelection();draw();
-  status('Obstruction line added. Drag its endpoints to edit, Delete/right-click to remove, or Undo.');}
+function saveObstruction(shape,start,end,points){
+  remember();const wall={id:state.nextId++,page:pageNum,type:'wall',shape,
+    x:start[0],y:start[1],x2:end[0],y2:end[1],attenuation:Number($('wallPreset').value),
+    note:$('wallPreset').selectedOptions[0].textContent.split(' · ')[0]};
+  if(shape==='polygon')wall.points=points.map(p=>p.slice());
+  state.walls.push(wall);pendingWall=null;selected={kind:'wall',id:wall.id};
+  setMode($('placeMultiple').checked?'wall':'select');syncSelection();draw();
+  status(shapeName(shape)+' obstruction added. Drag to move; select and drag its handles to reshape. Undo is available.');
+}
+function finishWall(endpoint){if(!pendingWall)return;const a=pendingWall.start,shape=pendingWall.shape;
+  if(shape==='polygon'){finishPolygon();return;}
+  if(Math.hypot(endpoint[0]-a[0],endpoint[1]-a[1])<Math.max(8,8/zoom)||
+    (shape!=='line'&&(Math.abs(endpoint[0]-a[0])<Math.max(5,5/zoom)||Math.abs(endpoint[1]-a[1])<Math.max(5,5/zoom)))){
+    status('Draw a larger '+shapeName(shape)+' with two separated corners.');return;}
+  saveObstruction(shape,a,endpoint);
+}
+function finishPolygon(){if(!pendingWall||pendingWall.shape!=='polygon')return;
+  const points=pendingWall.points.slice();const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  if(points.length>1&&distance(points[0],points.at(-1))<Math.max(9,9/zoom))points.pop();
+  if(points.length<3){status('A freeform obstruction needs at least three corners.');return;}
+  const area=Math.abs(points.reduce((sum,p,i)=>{const next=points[(i+1)%points.length];return sum+p[0]*next[1]-next[0]*p[1];},0))/2;
+  if(area<30){status('Freeform obstruction is too small or nearly a straight line. Add more area.');return;}
+  saveObstruction('polygon',points[0],points[1],points);
+}
 function startDrag(e,settings){drag={...settings,changed:false};$('viewport').setPointerCapture(e.pointerId);e.preventDefault();}
 function selectItem(kind,id){selected={kind,id};syncSelection();drawOverlay();}
 function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toView(e),target=e.target;
   if(!inDrawing(p))return;
   if(tool==='wall'){
+    const shape=$('obstructionShape').value;
+    if(shape==='polygon'){
+      e.preventDefault();
+      if(!pendingWall){pendingWall={shape,start:p,points:[p],end:p};status('Click around the obstruction edge. Close at the first point, double-click or press Enter.');}
+      else if(pendingWall.points.length>=3&&Math.hypot(p[0]-pendingWall.start[0],p[1]-pendingWall.start[1])<Math.max(10,10/zoom)){finishPolygon();return;}
+      else if(Math.hypot(p[0]-pendingWall.points.at(-1)[0],p[1]-pendingWall.points.at(-1)[1])>=Math.max(4,4/zoom))pendingWall.points.push(p);
+      pendingWall.end=p;updateMode();drawOverlay();return;
+    }
     if(pendingWall){finishWall(p);}
-    else{pendingWall={start:p,end:p};updateMode();drawOverlay();startDrag(e,{kind:'wall-draft',start:p});
-      status('Drag to the other end, or release and click the second endpoint. Esc cancels.');}
+    else{pendingWall={shape,start:p,end:p};updateMode();drawOverlay();startDrag(e,{kind:'wall-draft',start:p});
+      status('Drag to the opposite corner, or release and click a second point. Esc cancels.');}
     return;
   }
   if(tool==='ap'){remember();const ap=newAp(...p);state.devices.push(ap);selected={kind:'ap',id:ap.id};syncSelection();draw();
@@ -259,14 +305,15 @@ function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toVie
     if(tool==='reshape')return;startDrag(e,{kind:'move',id:ap.id,start:p,x:ap.x,y:ap.y});return;}
   if(poleEl){const pole=state.poles.find(m=>m.id===Number(poleEl.dataset.pole));if(!pole)return;selectItem('pole',pole.id);
     if(tool==='reshape')return;startDrag(e,{kind:'pole-move',id:pole.id,start:p,x:pole.x,y:pole.y});return;}
-  if(wallEl){const w=state.walls.find(m=>m.id===Number(wallEl.dataset.wall));if(w)selectItem('wall',w.id);return;}
+  if(wallEl){const w=state.walls.find(m=>m.id===Number(wallEl.dataset.wall));if(!w)return;
+    selectItem('wall',w.id);startDrag(e,{kind:'wall-move',id:w.id,start:p,original:JSON.parse(JSON.stringify(w))});return;}
   if(tool==='reshape'){const candidates=pageAps().map(ap=>{const dx=p[0]-ap.x,dy=p[1]-ap.y;
       const a=Math.atan2(dx,-dy),d=Math.hypot(dx,dy),r=C.smoothEffectiveRadius(ap,a,pointsPerFoot(),pageWalls());return {ap,d,inside:d<=r};})
       .filter(x=>x.inside).sort((a,b)=>a.d-b.d);
     if(candidates.length){selectItem('ap',candidates[0].ap.id);status('AP selected. Drag a yellow boundary handle or the dashed outline.');return;}}
   selected=null;syncSelection();drawOverlay();startDrag(e,{kind:'pan',sx:e.clientX,sy:e.clientY,tx,ty});
 }
-function pointerMove(e){if(!drag)return;const p=toView(e);
+function pointerMove(e){if(!drag){if(pendingWall?.shape==='polygon'&&tool==='wall'){pendingWall.end=toView(e);drawOverlay();}return;}const p=toView(e);
   if(drag.kind==='wall-draft'){if(!pendingWall)return;pendingWall.end=p;
     if(Math.hypot(p[0]-drag.start[0],p[1]-drag.start[1])>Math.max(8,8/zoom))drag.changed=true;
     drawOverlay();return;}
@@ -274,27 +321,41 @@ function pointerMove(e){if(!drag)return;const p=toView(e);
   if(!drag.changed){if(Math.hypot(p[0]-drag.start[0],p[1]-drag.start[1])<3/zoom)return;remember();drag.changed=true;}
   if(drag.kind==='move'||drag.kind==='pole-move'){const items=drag.kind==='move'?state.devices:state.poles,ap=items.find(m=>m.id===drag.id);
     if(!ap)return;ap.x=drag.x+p[0]-drag.start[0];ap.y=drag.y+p[1]-drag.start[1];}
+  if(drag.kind==='wall-move'){const w=state.walls.find(m=>m.id===drag.id);if(w){
+    Object.assign(w,drag.original);translateObstruction(w,p[0]-drag.start[0],p[1]-drag.start[1]);}}
   if(drag.kind==='handle'){const ap=state.devices.find(m=>m.id===drag.id);if(ap){const delta=(p[0]-drag.start[0])*drag.unit[0]+(p[1]-drag.start[1])*drag.unit[1];
       const r=Math.max(0,drag.baseline+delta);C.updateHandle(ap,drag.index,ap.x+drag.unit[0]*r,ap.y+drag.unit[1]*r,pointsPerFoot(),pageWalls());}}
-  if(drag.kind==='wall-handle'){const w=state.walls.find(m=>m.id===drag.id);if(w){const k=drag.handle==='a'?'':'2';w['x'+k]=p[0];w['y'+k]=p[1];}}
+  if(drag.kind==='wall-handle'){const w=state.walls.find(m=>m.id===drag.id);if(w){
+    const handle=drag.handle;
+    if(handle.startsWith('v')&&Array.isArray(w.points)){
+      w.points[Number(handle.slice(1))]=p;
+      w.x=w.points[0][0];w.y=w.points[0][1];w.x2=w.points[1][0];w.y2=w.points[1][1];
+    }else if(handle.startsWith('c')){
+      const corner=Number(handle.slice(1));if(corner===0||corner===3)w.x=p[0];else w.x2=p[0];
+      if(corner===0||corner===1)w.y=p[1];else w.y2=p[1];
+    }else{const k=handle==='a'?'':'2';w['x'+k]=p[0];w['y'+k]=p[1];}
+  }}
   draw();
 }
 function pointerUp(e){if(!drag)return;const d=drag;drag=null;
   try{$('viewport').releasePointerCapture(e.pointerId);}catch(_){}
   if(d.kind==='wall-draft'){if(e.type==='pointercancel'){cancelWall();return;}
     if(d.changed&&pendingWall)finishWall(pendingWall.end);
-    else status('Wall start placed. Click the second endpoint or press Esc to cancel.');}
+    else status('Obstruction start placed. Click the second point or press Esc to cancel.');}
   updateUndo();
 }
 function bind(){
   $('openBtn').onclick=()=>$('pdfFile').click();$('pdfFile').onchange=e=>{const f=e.target.files?.[0];if(f)void openPdf(f);e.target.value='';};
   $('pageSel').onchange=e=>{pageNum=Number(e.target.value);void renderPage();};
   $('scaleSel').onchange=e=>{state.scaleInch=Number(e.target.value);draw();};
-  $('selectBtn').onclick=()=>setMode('select');$('placeBtn').onclick=()=>setMode('ap');$('wallBtn').onclick=$('addWall').onclick=()=>setMode('wall');
+  $('selectBtn').onclick=()=>setMode('select');$('placeBtn').onclick=()=>setMode('ap');$('addWall').onclick=()=>setMode('wall');
   $('reshapeBtn').onclick=()=>setMode(tool==='reshape'?'select':'reshape');$('cancelWall').onclick=()=>cancelWall();
+  $('finishPolygon').onclick=finishPolygon;
+  $('obstructionShape').onchange=()=>{if(pendingWall)cancelWall(false);if(tool==='wall')setMode('wall');};
   $('copyItem').onclick=copySelected;$('pasteItem').onclick=()=>pasteCopied();
   document.querySelectorAll('[data-step]').forEach((b)=>b.addEventListener('click',()=>{document.querySelectorAll('[data-step]').forEach(n=>n.removeAttribute('aria-current'));b.setAttribute('aria-current','step');$(b.dataset.step+'Section')?.scrollIntoView({behavior:'smooth',block:'start'});}));
   $('viewport').addEventListener('pointerdown',pointerDown);$('viewport').addEventListener('pointermove',pointerMove);$('viewport').addEventListener('pointerup',pointerUp);$('viewport').addEventListener('pointercancel',pointerUp);
+  $('viewport').addEventListener('dblclick',e=>{if(pendingWall?.shape==='polygon'){e.preventDefault();finishPolygon();}});
   $('viewport').addEventListener('wheel',e=>{if(!vp)return;e.preventDefault();const r=$('viewport').getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
   $('zoomIn').onclick=()=>{const r=$('viewport').getBoundingClientRect();zoomAt(1.25,r.width/2,r.height/2);};
   $('zoomOut').onclick=()=>{const r=$('viewport').getBoundingClientRect();zoomAt(.8,r.width/2,r.height/2);};$('zFit').onclick=fit;
@@ -341,6 +402,7 @@ function bind(){
   document.addEventListener('keydown',e=>{
     if(e.target instanceof Element&&e.target.closest('input,select,textarea,[contenteditable="true"]'))return;
     if(e.key==='Escape'){e.preventDefault();if(!$('wifiContextMenu').hidden)closeContext();else if(pendingWall)cancelWall();else setMode('select');return;}
+    if(e.key==='Enter'&&pendingWall?.shape==='polygon'){e.preventDefault();finishPolygon();return;}
     if((e.ctrlKey||e.metaKey)&&!e.altKey){const key=e.key.toLowerCase();
       if(key==='z'){e.preventDefault();$(e.shiftKey?'redoBtn':'undoBtn').click();return;}
       if(key==='y'){e.preventDefault();$('redoBtn').click();return;}
@@ -350,7 +412,7 @@ function bind(){
     if(selected&&e.key.startsWith('Arrow')){const item=itemForSelection();if(!item)return;e.preventDefault();
       const step=e.shiftKey?10:1,dx=e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0;
       const dy=e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0;
-      remember();item.x+=dx;item.y+=dy;if(selected.kind==='wall'){item.x2+=dx;item.y2+=dy;}draw();}
+      remember();if(selected.kind==='wall')translateObstruction(item,dx,dy);else{item.x+=dx;item.y+=dy;}draw();}
   });
   updateUndo();updateMode();
 }
@@ -358,7 +420,7 @@ async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing fir
   if(!window.PDFLib){status('PDF exporter is unavailable.');return;}
   const btn=$('pdfBtn');btn.disabled=true;status('Exporting all pages with Wi-Fi heat maps…');
   try{
-    const {PDFDocument,StandardFonts,rgb,degrees}=PDFLib,doc=await PDFDocument.load(pdfBytes.slice());
+    const {PDFDocument,StandardFonts,rgb,degrees}=window.PDFLib,doc=await PDFDocument.load(pdfBytes.slice());
     const font=await doc.embedFont(StandardFonts.HelveticaBold),pages=doc.getPages(),ppf=pointsPerFoot();
     for(let p=1;p<=pages.length;p++){
       const aps=state.devices.filter(m=>(m.page||1)===p),walls=state.walls.filter(m=>(m.page||1)===p),poles=state.poles.filter(m=>(m.page||1)===p);
@@ -374,7 +436,12 @@ async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing fir
       }
       const ink=rgb(.09,.29,.45),asci=s=>String(s||'').replace(/[^\x20-\x7e]/g,'?');
       const label=(s,x,y,size=9)=>{const a=conv(x,y);page.drawText(asci(s),{x:a[0],y:a[1],font,size,color:ink,rotate:degrees(angle*180/Math.PI)});};
-      if(state.showWalls)walls.forEach(w=>{const a=conv(w.x,w.y),b=conv(w.x2,w.y2);page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:2,color:rgb(.52,.35,.65),dashArray:[7,4]});});
+      if(state.showWalls)walls.forEach(w=>{const points=C.obstructionOutline(w),closed=(w.shape||'line')!=='line';
+        if(points.length<2)return;
+        for(let i=0;i<(closed?points.length:points.length-1);i++){
+          const a=conv(...points[i]),b=conv(...points[(i+1)%points.length]);
+          page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:2,color:rgb(.52,.35,.65),dashArray:[7,4]});
+        }});
       if(state.showPoles)poles.forEach(pole=>{const origin=conv(pole.x,pole.y);page.drawCircle({x:origin[0],y:origin[1],size:7,color:rgb(.78,.84,.88),borderColor:ink,borderWidth:1.4});
         C.poleHeads(pole,17*(pole.size||1)).forEach(h=>{const end=conv(h.x,h.y);page.drawLine({start:{x:origin[0],y:origin[1]},end:{x:end[0],y:end[1]},thickness:2,color:ink});page.drawCircle({x:end[0],y:end[1],size:3.6,color:rgb(.24,.34,.49)});});});
       aps.forEach(ap=>{const a=conv(ap.x,ap.y);page.drawCircle({x:a[0],y:a[1],size:7,color:rgb(.91,.97,1),borderColor:rgb(.1,.38,.61),borderWidth:2});

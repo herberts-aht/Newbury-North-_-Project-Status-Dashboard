@@ -33,6 +33,23 @@ test('obstruction reduces coverage only where the ray intersects the wall',()=>{
   assert.ok(Math.abs(south-180)<1e-7);
 });
 
+test('rectangle, pool ellipse and irregular polygon attenuate rays through their footprints',()=>{
+  const p=ap();
+  const rect={shape:'rect',x:250,y:150,x2:350,y2:250,attenuation:.8};
+  const ellipse={shape:'ellipse',x:270,y:160,x2:330,y2:240,attenuation:.7};
+  const polygon={shape:'polygon',points:[[250,180],[330,200],[250,220]],attenuation:.6};
+  assert.equal(C.obstructionOutline(rect).length,4);
+  assert.equal(C.obstructionOutline(ellipse).length,64);
+  assert.equal(C.obstructionOutline(polygon).length,3);
+  const expected=(distance,attenuation)=>distance+(180-distance)*(1-attenuation);
+  assert.ok(Math.abs(C.effectiveRadius(p,Math.PI/2,3,[rect])-expected(50,.8))<1e-6);
+  assert.ok(Math.abs(C.effectiveRadius(p,Math.PI/2,3,[ellipse])-expected(70,.7))<1e-6);
+  assert.ok(Math.abs(C.effectiveRadius(p,Math.PI/2,3,[polygon])-expected(50,.6))<1e-6);
+  assert.ok(Math.abs(C.effectiveRadius(p,0,3,[rect])-180)<1e-6);
+  assert.ok(Math.abs(C.effectiveRadius(p,0,3,[ellipse])-180)<1e-6);
+  assert.ok(Math.abs(C.effectiveRadius(p,0,3,[polygon])-180)<1e-6);
+});
+
 test('dragged outer boundary handle moves independently',()=>{
   const p=ap();
   C.updateHandle(p,0,200,-70,3);

@@ -24,14 +24,52 @@
     const scalar=Number(samples[i])*(1-t)+Number(samples[(i+1)%COUNT])*t;
     return radiusPts(ap,pointsPerFoot)*clamp(scalar,.06,2.5);
   }
-  // Intersection of a finite AP ray and an obstruction segment.
-  function intersectRay(origin,dir,maxDist,wall){
-    const dx=Number(wall.x2)-Number(wall.x),dy=Number(wall.y2)-Number(wall.y);
+  function obstructionOutline(wall,steps=64){
+    const shape=wall.shape||'line';
+    const x=Number(wall.x),y=Number(wall.y),x2=Number(wall.x2),y2=Number(wall.y2);
+    if(shape==='polygon')return Array.isArray(wall.points)?wall.points.filter(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)).map(p=>p.slice()):[];
+    if(shape==='rect')return [[x,y],[x2,y],[x2,y2],[x,y2]];
+    if(shape==='ellipse'){
+      const cx=(x+x2)/2,cy=(y+y2)/2,rx=Math.abs(x2-x)/2,ry=Math.abs(y2-y)/2;
+      return Array.from({length:Math.max(12,Math.round(steps))},(_,i)=>{
+        const a=TAU*i/Math.max(12,Math.round(steps));return [cx+rx*Math.cos(a),cy+ry*Math.sin(a)];
+      });
+    }
+    return [[x,y],[x2,y2]];
+  }
+  // Intersection of a finite AP ray and a straight obstruction segment.
+  function intersectRaySegment(origin,dir,maxDist,a,b){
+    const dx=b[0]-a[0],dy=b[1]-a[1];
     const cross=dir[0]*dy-dir[1]*dx;
     if(Math.abs(cross)<1e-8)return null;
-    const qx=wall.x-origin[0],qy=wall.y-origin[1];
+    const qx=a[0]-origin[0],qy=a[1]-origin[1];
     const t=(qx*dy-qy*dx)/cross,u=(qx*dir[1]-qy*dir[0])/cross;
     return t>=0&&t<=maxDist&&u>=0&&u<=1?t:null;
+  }
+  function intersectRay(origin,dir,maxDist,wall){
+    const shape=wall.shape||'line';
+    if(shape==='ellipse'){
+      const cx=(Number(wall.x)+Number(wall.x2))/2,cy=(Number(wall.y)+Number(wall.y2))/2;
+      const rx=Math.abs(Number(wall.x2)-Number(wall.x))/2,ry=Math.abs(Number(wall.y2)-Number(wall.y))/2;
+      if(rx<1e-6||ry<1e-6)return null;
+      const ox=origin[0]-cx,oy=origin[1]-cy;
+      const a=dir[0]*dir[0]/(rx*rx)+dir[1]*dir[1]/(ry*ry);
+      const b=2*(ox*dir[0]/(rx*rx)+oy*dir[1]/(ry*ry));
+      const c=ox*ox/(rx*rx)+oy*oy/(ry*ry)-1;
+      const discriminant=b*b-4*a*c;
+      if(discriminant<0)return null;
+      if(c<=0)return 0;
+      const t=(-b-Math.sqrt(discriminant))/(2*a);
+      return t>=0&&t<=maxDist?t:null;
+    }
+    const points=obstructionOutline(wall),closed=shape==='rect'||shape==='polygon';
+    if(points.length<2)return null;
+    let closest=null;
+    for(let i=0;i<(closed?points.length:points.length-1);i++){
+      const d=intersectRaySegment(origin,dir,maxDist,points[i],points[(i+1)%points.length]);
+      if(d!==null&&(closest===null||d<closest))closest=d;
+    }
+    return closest;
   }
   function effectiveRadius(ap,a,pointsPerFoot,walls=[]){
     const dir=unit(a);let r=radiusAt(ap,a,pointsPerFoot);
@@ -144,5 +182,5 @@
       .filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
     return {poles,samePdf:same,sourceName:source.pdfName||'',ignoredMarkers:source.markers.length-poles.length};
   }
-  root.AHTWifiCore={COUNT,TAU,angle,unit,shapeFor,radiusAt,effectiveRadius,smoothEffectiveRadius,smoothBoundary,softenShape,pointAt,nearestHandle,updateHandle,poleHeads,pdfFileName,importCctvPoles,clamp};
+  root.AHTWifiCore={COUNT,TAU,angle,unit,shapeFor,radiusAt,effectiveRadius,smoothEffectiveRadius,smoothBoundary,softenShape,obstructionOutline,pointAt,nearestHandle,updateHandle,poleHeads,pdfFileName,importCctvPoles,clamp};
 })(window);
