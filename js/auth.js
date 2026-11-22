@@ -47,49 +47,7 @@ let teamsNaaActive = false;
 const TEAMS_NAA_BUNDLE_URL =
   "js/vendor/msal-browser-v5.bundle.js?v=20261005-naa-stage2";
 
-const TEMP_PASSWORDS = {
-  stacy: "ahtadmin8626",
-  aht: "ahtadmin",
-  external: "user"
-};
-
-function passwordForUser(user) {
-  return TEMP_PASSWORDS[user?.passwordProfile] || "";
-}
-
-function populateLoginUsers(selectedUserId = "") {
-  const activeUsers = USERS.filter(user => user.active !== false);
-  loginUser.innerHTML = activeUsers
-    .map(user => `<option value="${user.id}">${user.name} — ${user.role}</option>`)
-    .join("");
-
-  if (selectedUserId && activeUsers.some(user => user.id === selectedUserId)) {
-    loginUser.value = selectedUserId;
-  }
-}
-
-const DemoAuthProvider = {
-  sessionKey: "aht_demo_user",
-
-  async initialize() {},
-
-  async signIn({ userId, password }) {
-    const user = USERS.find(item => item.id === userId && item.active !== false);
-    if (!user) throw new Error("The selected user is not active or could not be found.");
-    if (password !== passwordForUser(user)) throw new Error("Incorrect password.");
-    sessionStorage.setItem(this.sessionKey, user.id);
-    return user;
-  },
-
-  async signOut() {
-    sessionStorage.removeItem(this.sessionKey);
-  },
-
-  async restoreSession() {
-    const userId = sessionStorage.getItem(this.sessionKey);
-    return userId ? USERS.find(item => item.id === userId && item.active !== false) || null : null;
-  }
-};
+// Retired the shared-password demo login. Microsoft Entra is the sole sign-in provider.
 
 function microsoftRedirectUri() {
   return APP_CONFIG.entra.redirectUri || window.location.origin;
@@ -906,7 +864,7 @@ const MicrosoftAuthProvider = {
   }
 };
 
-let AuthProvider = APP_CONFIG.authProvider === "microsoft" ? MicrosoftAuthProvider : DemoAuthProvider;
+const AuthProvider = MicrosoftAuthProvider;
 
 async function getMicrosoftAccessToken(
   scopes = APP_CONFIG.entra.scopes,
@@ -1026,19 +984,9 @@ window.getMicrosoftAccessToken =
   getMicrosoftAccessToken;
 
 function configureLoginScreen() {
-  const microsoftMode = APP_CONFIG.authProvider === "microsoft";
-  const userField = loginUser.closest(".field");
-  const passwordField = loginPassword.closest(".field");
-  const note = loginScreen.querySelector(".demo-note");
-
-  userField?.classList.toggle("hidden", microsoftMode);
-  passwordField?.classList.toggle("hidden", microsoftMode);
-  loginBtn.textContent = microsoftMode ? "Sign in with Microsoft" : "Sign In";
-  if (note) {
-    note.textContent = microsoftMode
-      ? "Use the email address associated with your Project Control invitation. Microsoft will guide you through sign-in or verification. No Project Control password is stored."
-      : "Temporary local passwords are assigned by user type. This interim login is not production security.";
-  }
+  const note = loginScreen.querySelector(".login-note");
+  loginBtn.textContent = "Sign in with Microsoft";
+  if (note) note.textContent = "Use the email address associated with your Project Control invitation. Microsoft will guide you through sign-in or verification. No Project Control password is stored.";
 }
 
 function showSignedInApplication() {
@@ -1068,22 +1016,16 @@ function showSignedInApplication() {
 function showLoginScreen() {
   app.classList.add("hidden");
   loginScreen.classList.remove("hidden");
-  if (APP_CONFIG.authProvider !== "microsoft") {
-    requestAnimationFrame(() => loginPassword.focus());
-  }
 }
 
 async function handleLogin() {
   try {
-    currentUser = await AuthProvider.signIn({
-      userId: loginUser.value,
-      password: loginPassword.value
-    });
+    currentUser = await AuthProvider.signIn();
 
     // Microsoft redirect authentication leaves this page and returns through
     // initializeAuthentication(), where handleRedirectPromise restores the
     // signed-in account. Do not render the app before that round trip completes.
-    if (APP_CONFIG.authProvider === "microsoft" && !currentUser) return;
+    if (!currentUser) return;
 
     // SharePoint data requires the authenticated Microsoft account/token.
     // Load the live state only after sign-in has completed.
@@ -1095,7 +1037,6 @@ async function handleLogin() {
       if (!state.auditLog) state.auditLog = [];
     }
 
-    loginPassword.value = "";
     showSignedInApplication();
   } catch (error) {
     console.error(error);
@@ -1110,16 +1051,13 @@ async function handleLogout() {
 }
 
 async function initializeAuthentication({ deferRender = false } = {}) {
-  populateLoginUsers();
+  if (APP_CONFIG.authProvider !== "microsoft") {
+    throw new Error("Only Microsoft Entra authentication is supported. Check js/config.js.");
+  }
   configureLoginScreen();
   await AuthProvider.initialize();
 
   loginBtn.onclick = handleLogin;
-  loginPassword.addEventListener("keydown", event => {
-    if (event.key !== "Enter" || APP_CONFIG.authProvider === "microsoft") return;
-    event.preventDefault();
-    handleLogin();
-  });
   logoutBtn.onclick = handleLogout;
 
   currentUser = await AuthProvider.restoreSession();

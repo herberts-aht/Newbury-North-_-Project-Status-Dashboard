@@ -6981,8 +6981,6 @@ function renderAdmin(){
        .join("");
  }
 
- adminPasswordProfile.value=selected.id==="stacy"?"stacy":selected.passwordProfile||(selected.isInternal?"aht":"external");
- adminPasswordProfile.disabled=selected.id==="stacy";
  adminUserActive.checked=selected.active!==false;
  archiveUserBtn.textContent=selected.active===false?"Archived":"Archive User";
  archiveUserBtn.disabled=selected.active===false||selected.id===currentUser?.id||(selected.role==="Admin"&&activeAdministratorCount()<=1);
