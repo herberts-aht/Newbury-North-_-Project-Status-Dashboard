@@ -47,6 +47,47 @@
     const dir=unit(a),r=effectiveRadius(ap,a,pointsPerFoot,walls);
     return [ap.x+dir[0]*r,ap.y+dir[1]*r];
   }
+  // Draw an organic, C1-continuous outline through the same 24 editable
+  // control points. Monotone cubic interpolation prevents new sharp spikes
+  // or overshoot, even when an obstruction shortens neighboring rays.
+  function smoothRadius(samples,index){
+    const count=samples.length,i=Math.floor(index),t=index-i;
+    const at=n=>samples[(n%count+count)%count];
+    const a=at(i),b=at(i+1);
+    const tangent=(left,right)=>left*right<=0?0:2*left*right/(left+right);
+    const m0=tangent(a-at(i-1),b-a),m1=tangent(b-a,at(i+2)-b);
+    const t2=t*t,t3=t2*t;
+    const r=(2*t3-3*t2+1)*a+(t3-2*t2+t)*m0+(-2*t3+3*t2)*b+(t3-t2)*m1;
+    return clamp(r,Math.min(a,b),Math.max(a,b));
+  }
+  function effectiveSamples(ap,pointsPerFoot,walls){
+    const rotation=(Number(ap.rot)||0)*Math.PI/180;
+    return Array.from({length:COUNT},(_,i)=>effectiveRadius(ap,angle(i)+rotation,pointsPerFoot,walls));
+  }
+  function smoothEffectiveRadius(ap,a,pointsPerFoot,walls=[]){
+    const samples=effectiveSamples(ap,pointsPerFoot,walls);
+    const index=normalize(a-(Number(ap.rot)||0)*Math.PI/180)/TAU*COUNT;
+    return smoothRadius(samples,index);
+  }
+  function smoothBoundary(ap,pointsPerFoot,walls=[],stepsPerHandle=8){
+    const samples=effectiveSamples(ap,pointsPerFoot,walls);
+    const rotation=(Number(ap.rot)||0)*Math.PI/180;
+    const steps=clamp(Math.round(stepsPerHandle),1,24),points=[];
+    for(let i=0;i<COUNT;i++)for(let s=0;s<steps;s++){
+      const index=i+s/steps,a=angle(index)+rotation,r=smoothRadius(samples,index),dir=unit(a);
+      points.push([ap.x+dir[0]*r,ap.y+dir[1]*r]);
+    }
+    return points;
+  }
+  function softenShape(ap){
+    const samples=Array.isArray(ap.radii)&&ap.radii.length===COUNT?ap.radii:shapeFor(ap.kind);
+    const at=i=>Number(samples[(i+COUNT)%COUNT]);
+    // A gentle circular five-point blur rounds older custom shapes without
+    // changing the number of handles or preventing further manual edits.
+    ap.radii=Array.from({length:COUNT},(_,i)=>clamp(
+      .2*at(i)+.8*(at(i-2)+4*at(i-1)+6*at(i)+4*at(i+1)+at(i+2))/16,.06,2.5));
+    return ap;
+  }
   function nearestHandle(ap,x,y,pointsPerFoot,walls=[],tolerance=12){
     let best=null,distance=tolerance;
     for(let i=0;i<COUNT;i++){
@@ -71,7 +112,16 @@
       projected=surviving>0?d+(projected-d)/surviving:d;
     }
     const samples=Array.isArray(ap.radii)&&ap.radii.length===COUNT?ap.radii.slice():shapeFor(ap.kind);
-    samples[i]=clamp(projected/radiusPts(ap,pointsPerFoot),.06,2.5);
+    const next=clamp(projected/radiusPts(ap,pointsPerFoot),.06,2.5),delta=next-samples[i];
+    samples[i]=next;
+    // A dragged handle softly pulls its neighbors too, like deforming a
+    // flexible surface, instead of creating an isolated pointed vertex.
+    for(const [distance,weight] of [[1,.72],[2,.40],[3,.12]]){
+      for(const sign of [-1,1]){
+        const neighbor=(i+sign*distance+COUNT)%COUNT;
+        samples[neighbor]=clamp(samples[neighbor]+delta*weight,.06,2.5);
+      }
+    }
     ap.radii=samples;
     return ap;
   }
@@ -94,5 +144,5 @@
       .filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
     return {poles,samePdf:same,sourceName:source.pdfName||'',ignoredMarkers:source.markers.length-poles.length};
   }
-  root.AHTWifiCore={COUNT,TAU,angle,unit,shapeFor,radiusAt,effectiveRadius,pointAt,nearestHandle,updateHandle,poleHeads,pdfFileName,importCctvPoles,clamp};
+  root.AHTWifiCore={COUNT,TAU,angle,unit,shapeFor,radiusAt,effectiveRadius,smoothEffectiveRadius,smoothBoundary,softenShape,pointAt,nearestHandle,updateHandle,poleHeads,pdfFileName,importCctvPoles,clamp};
 })(window);

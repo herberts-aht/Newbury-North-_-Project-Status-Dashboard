@@ -2,6 +2,7 @@
 (function(){
 'use strict';
 const C=window.AHTWifiCore,NS='http://www.w3.org/2000/svg', $=id=>document.getElementById(id);
+const BOUNDARY_STEPS=8;
 if(!C){$('status').textContent='Could not load Wi-Fi coverage geometry.';return;}
 const state={devices:[],walls:[],poles:[],nextId:1,showCoverage:true,opacity:.65,scaleInch:.125,showPoles:true,showWalls:true};
 let pdfDoc=null,pdfBytes=null,pdfName='',pdfHash='',pageNum=1,vp=null,zoom=1,tx=0,ty=0,selected=null,tool='select',pendingWall=null,drag=null,pendingLoad=null;
@@ -49,10 +50,13 @@ function newAp(x,y){const kind=$('newKind').value,id=state.nextId++;return {id,t
 function heatCanvasDraw(ctx,p,pageView){const w=pageView.width,h=pageView.height;ctx.clearRect(0,0,w,h);if(!state.showCoverage)return;
   const ppf=pointsPerFoot(),walls=state.walls.filter(m=>(m.page||1)===p);
   state.devices.filter(m=>(m.page||1)===p&&m.showCoverage!==false).forEach(ap=>{
+    // Subdivide the editable control points into a rounded contour before
+    // painting each narrow gradient sector. This removes straight, angular
+    // wedges while preserving per-direction reach and wall attenuation.
+    const edge=C.smoothBoundary(ap,ppf,walls,BOUNDARY_STEPS);
     ctx.save();ctx.globalAlpha=state.opacity;
-    for(let i=0;i<C.COUNT;i++){
-      const a=C.angle(i)+(Number(ap.rot)||0)*Math.PI/180,b=C.angle(i+1)+(Number(ap.rot)||0)*Math.PI/180;
-      const p1=C.pointAt(ap,a,ppf,walls),p2=C.pointAt(ap,b,ppf,walls);
+    for(let i=0;i<edge.length;i++){
+      const p1=edge[i],p2=edge[(i+1)%edge.length];
       const mx=(p1[0]+p2[0])/2,my=(p1[1]+p2[1])/2;
       const grad=ctx.createLinearGradient(ap.x,ap.y,mx,my);
       grad.addColorStop(0,'rgba(229,57,53,1)');grad.addColorStop(.42,'rgba(229,57,53,.9)');
@@ -85,13 +89,12 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
   });
   pageAps().forEach(ap=>{
     const active=selected?.kind==='ap'&&selected.id===ap.id,g=el('g',{'data-ap':ap.id,style:'cursor:move'},root);
-    if(active){const edge=[];
-      for(let i=0;i<C.COUNT;i++){const a=C.angle(i)+(Number(ap.rot)||0)*Math.PI/180;edge.push(C.pointAt(ap,a,pointsPerFoot(),pageWalls()));}
+    if(active){const edge=C.smoothBoundary(ap,pointsPerFoot(),pageWalls(),BOUNDARY_STEPS);
       const d='M '+edge.map(p=>p.join(' ')).join(' L ')+' Z';
       const outline=el('path',{d,fill:'none',stroke:'#77540c','stroke-width':Math.max(1.8,2/zoom),'stroke-dasharray':`${8/zoom} ${5/zoom}`,'pointer-events':'stroke','data-boundary-ap':ap.id,style:'cursor:crosshair'},g);
       title(outline,'Drag this boundary to reshape Wi-Fi coverage');
-      edge.forEach((p,i)=>{const hPos=visibleHandle(ap,p),h=circle(g,hPos[0],hPos[1],Math.max(3.5,6/zoom),'#ffe34b','#77540c',Math.max(1,1.3/zoom));
-        h.setAttribute('data-handle',i);h.style.cursor='crosshair';title(h,'Drag to reshape this direction');});
+      for(let i=0;i<C.COUNT;i++){const p=edge[i*BOUNDARY_STEPS],hPos=visibleHandle(ap,p),h=circle(g,hPos[0],hPos[1],Math.max(3.5,6/zoom),'#ffe34b','#77540c',Math.max(1,1.3/zoom));
+        h.setAttribute('data-handle',i);h.style.cursor='crosshair';title(h,'Drag to reshape this direction');}
     }
     circle(g,ap.x,ap.y,Math.max(active?11:9,7/zoom),'#eaf6fd',active?'#f2a91b':'#1b6698',active?3:2);
     circle(g,ap.x,ap.y,Math.max(3,2/zoom),'#1a6598','none',0);
@@ -258,7 +261,7 @@ function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toVie
     if(tool==='reshape')return;startDrag(e,{kind:'pole-move',id:pole.id,start:p,x:pole.x,y:pole.y});return;}
   if(wallEl){const w=state.walls.find(m=>m.id===Number(wallEl.dataset.wall));if(w)selectItem('wall',w.id);return;}
   if(tool==='reshape'){const candidates=pageAps().map(ap=>{const dx=p[0]-ap.x,dy=p[1]-ap.y;
-      const a=Math.atan2(dx,-dy),d=Math.hypot(dx,dy),r=C.effectiveRadius(ap,a,pointsPerFoot(),pageWalls());return {ap,d,inside:d<=r};})
+      const a=Math.atan2(dx,-dy),d=Math.hypot(dx,dy),r=C.smoothEffectiveRadius(ap,a,pointsPerFoot(),pageWalls());return {ap,d,inside:d<=r};})
       .filter(x=>x.inside).sort((a,b)=>a.d-b.d);
     if(candidates.length){selectItem('ap',candidates[0].ap.id);status('AP selected. Drag a yellow boundary handle or the dashed outline.');return;}}
   selected=null;syncSelection();drawOverlay();startDrag(e,{kind:'pan',sx:e.clientX,sy:e.clientY,tx,ty});
@@ -308,6 +311,7 @@ function bind(){
   slider('rangeFt',(a,t)=>{a.rangeFt=Number(t.value);$('rangeValue').textContent=t.value;});
   slider('apRotation',(a,t)=>{a.rot=Number(t.value);$('directionValue').textContent=t.value;});
   edit('apShowCoverage',(a,t)=>a.showCoverage=t.checked);
+  $('softenShape').onclick=()=>{const a=selectedAp();if(!a)return;remember();C.softenShape(a);draw();status('Coverage rounded into a softer, organic shape. Undo is available.');};
   $('resetShape').onclick=()=>{const a=selectedAp();if(!a)return;remember();a.radii=C.shapeFor(a.kind);draw();};
   $('deleteAp').onclick=deleteSelected;
   $('wallAttenuation').oninput=e=>{const w=selectedWall();if(!w)return;w.attenuation=Number(e.target.value)/100;$('wallValue').textContent=e.target.value;draw();};

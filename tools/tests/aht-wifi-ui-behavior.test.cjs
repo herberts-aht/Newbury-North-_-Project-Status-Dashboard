@@ -61,7 +61,7 @@ function harness(){
 test('layout is drawing-left and tools-right with full editing controls',()=>{
   assert.match(html,/#sidebar\{grid-column:2;grid-row:1/);
   assert.match(html,/#canvasArea\{grid-column:1;grid-row:1/);
-  for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','wifiContextMenu','cancelWall','clearPoles'])assert.match(html,new RegExp('id="'+id+'"'));
+  for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles'])assert.match(html,new RegExp('id="'+id+'"'));
 });
 
 test('dragging a wall creates a real line, and Delete/Undo work',async()=>{
@@ -90,6 +90,9 @@ test('a second click completes the obstruction and makes its end handles availab
 test('AP boundary handle actually changes saved shape, with copy/paste and undo',async()=>{
   const h=harness();await h.page();h.get('placeBtn').onclick();h.mouse('pointerdown',250,250);
   let before=await h.currentWork();assert.equal(before.devices.length,1);
+  const findContour=(n)=>{if(n.getAttribute?.('data-boundary-ap'))return n;for(const ch of n.children||[]){const match=findContour(ch);if(match)return match;}return null;};
+  const outline=findContour(h.get('overlay'));assert.ok(outline);
+  assert.equal(outline.getAttribute('d').split(' L ').length,192,'organic outline uses 192 small segments');
   const findHandle=(n)=>{if(n.getAttribute?.('data-handle')==='0')return n;for(const ch of n.children||[]){const match=findHandle(ch);if(match)return match;}return null;};
   const handle=findHandle(h.get('overlay'));assert.ok(handle,'selected AP has visible boundary handles');
   const x=Number(handle.getAttribute('cx')),y=Number(handle.getAttribute('cy'));
@@ -98,6 +101,19 @@ test('AP boundary handle actually changes saved shape, with copy/paste and undo'
   let work=await h.currentWork();assert.notEqual(work.devices[0].radii[0],before.devices[0].radii[0]);
   h.get('copyItem').onclick();h.get('pasteItem').onclick();work=await h.currentWork();assert.equal(work.devices.length,2);
   h.get('undoBtn').onclick();work=await h.currentWork();assert.equal(work.devices.length,1);
+});
+
+test('softening a previously sharp coverage outline is undoable',async()=>{
+  const h=harness();await h.page();h.get('placeBtn').onclick();h.mouse('pointerdown',250,250);
+  const handle=h.get('overlay').children.flatMap(g=>g.children).find(el=>el.getAttribute?.('data-handle')==='0');
+  assert.ok(handle);
+  const x=Number(handle.getAttribute('cx')),y=Number(handle.getAttribute('cy'));
+  h.mouse('pointerdown',x,y,handle);h.mouse('pointermove',x,y-120,handle);h.mouse('pointerup',x,y-120,handle);
+  const before=JSON.stringify((await h.currentWork()).devices[0].radii);
+  h.get('softenShape').onclick();
+  assert.notEqual(JSON.stringify((await h.currentWork()).devices[0].radii),before);
+  h.get('undoBtn').onclick();
+  assert.equal(JSON.stringify((await h.currentWork()).devices[0].radii),before);
 });
 
 test('mismatched CCTV PDF is blocked; matching import excludes unrelated cameras',async()=>{

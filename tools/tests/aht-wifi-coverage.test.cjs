@@ -47,6 +47,48 @@ test('boundary handle targets visible distance with a partial wall',()=>{
   assert.ok(Math.abs(C.effectiveRadius(p,0,3,[wall])-105)<1e-6);
 });
 
+test('organic coverage boundary is smooth, closed and passes through all 24 editable handles',()=>{
+  const p=ap();
+  C.updateHandle(p,0,200,-100,3);
+  const boundary=C.smoothBoundary(p,3,[],8);
+  assert.equal(boundary.length,192);
+  for(let i=0;i<C.COUNT;i++){
+    const fromHandle=C.pointAt(p,C.angle(i),3),fromContour=boundary[i*8];
+    assert.ok(Math.hypot(fromHandle[0]-fromContour[0],fromHandle[1]-fromContour[1])<1e-6);
+  }
+  // A single pulled-out handle produces a gradual lobe, not 24 hard facets.
+  assert.ok(boundary[4][1]<boundary[8][1]);
+  const atHandle=boundary[0],before=boundary.at(-1),after=boundary[1];
+  const tangentBefore=Math.atan2(atHandle[1]-before[1],atHandle[0]-before[0]);
+  const tangentAfter=Math.atan2(after[1]-atHandle[1],after[0]-atHandle[0]);
+  assert.ok(Math.abs(Math.atan2(Math.sin(tangentBefore-tangentAfter),Math.cos(tangentBefore-tangentAfter)))<.3);
+  assert.ok(p.radii[1]>1&&p.radii[2]>1,'adjacent handles gently follow the dragged handle');
+  assert.equal(p.radii[6],1,'distant handles remain independent');
+});
+
+test('an old sharply edited contour can be softened without deleting its custom shape',()=>{
+  const p=ap();p.radii[0]=2.5;
+  C.softenShape(p);
+  assert.ok(p.radii[0]>1&&p.radii[0]<2.5);
+  assert.ok(p.radii[1]>1&&p.radii[23]>1);
+  assert.equal(p.radii[8],1);
+});
+
+test('smoothed wall-limited boundary never overshoots neighboring control distances',()=>{
+  const p=ap(),wall={x:150,y:170,x2:250,y2:170,attenuation:.85};
+  const points=C.smoothBoundary(p,3,[wall]);
+  const center=[p.x,p.y];
+  for(let i=0;i<C.COUNT;i++){
+    const a=C.effectiveRadius(p,C.angle(i),3,[wall]);
+    const b=C.effectiveRadius(p,C.angle(i+1),3,[wall]);
+    for(let step=0;step<8;step++){
+      const point=points[i*8+step],r=Math.hypot(point[0]-center[0],point[1]-center[1]);
+      assert.ok(r>=Math.min(a,b)-1e-7&&r<=Math.max(a,b)+1e-7);
+      assert.ok(Math.abs(r-C.smoothEffectiveRadius(p,C.angle(i+step/8),3,[wall]))<1e-6);
+    }
+  }
+});
+
 test('CCTV imports poles and heads at original coordinates only',()=>{
   const source={tool:'CCTV',pdfName:'same.pdf',markers:[
     {type:'pole3',x:22.5,y:190.25,page:2,rot:270,size:1.5,heads:[{kind:'ptz',rel:45,tier:2}]},
