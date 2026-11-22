@@ -27,7 +27,7 @@
   function obstructionOutline(wall,steps=64){
     const shape=wall.shape||'line';
     const x=Number(wall.x),y=Number(wall.y),x2=Number(wall.x2),y2=Number(wall.y2);
-    if(shape==='polygon')return Array.isArray(wall.points)?wall.points.filter(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)).map(p=>p.slice()):[];
+    if(shape==='polygon'||shape==='polyline')return Array.isArray(wall.points)?wall.points.filter(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)).map(p=>p.slice()):[];
     if(shape==='rect')return [[x,y],[x2,y],[x2,y2],[x,y2]];
     if(shape==='ellipse'){
       const cx=(x+x2)/2,cy=(y+y2)/2,rx=Math.abs(x2-x)/2,ry=Math.abs(y2-y)/2;

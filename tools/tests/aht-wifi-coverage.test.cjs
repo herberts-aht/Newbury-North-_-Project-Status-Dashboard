@@ -50,6 +50,15 @@ test('rectangle, pool ellipse and irregular polygon attenuate rays through their
   assert.ok(Math.abs(C.effectiveRadius(p,0,3,[polygon])-180)<1e-6);
 });
 
+test('freeform OPEN line never adds an invisible closing segment',()=>{
+  const p=ap(),points=[[250,180],[330,200],[250,220]];
+  const open={shape:'polyline',points,attenuation:.6},closed={shape:'polygon',points,attenuation:.6};
+  assert.equal(C.obstructionOutline(open).length,3);
+  const east=C.angle(6),expected=distance=>distance+(180-distance)*.4;
+  assert.ok(Math.abs(C.effectiveRadius(p,east,3,[open])-expected(130))<1e-6);
+  assert.ok(Math.abs(C.effectiveRadius(p,east,3,[closed])-expected(50))<1e-6);
+});
+
 test('dragged outer boundary handle moves independently',()=>{
   const p=ap();
   C.updateHandle(p,0,200,-70,3);

@@ -64,7 +64,42 @@ test('layout is drawing-left and tools-right with full editing controls',()=>{
   assert.match(html,/#selectBtn\{grid-column:1 \/ -1/,'Select/Adjust gets a full row above Undo/Redo');
   assert.doesNotMatch(html,/id="wallBtn"/,'no second obstruction button appears in AP placement');
   assert.match(html,/id="obstructionShape"/);
-  for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles'])assert.match(html,new RegExp('id="'+id+'"'));
+  assert.match(html,/#addWall\.active\{background:#147568/,'active drawing button has a distinct green state');
+  for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles','obstructionFinishDock','obstructionList','obstructionColor','obstructionOpacity','obstructionVisible','obstructionLabelVisible'])assert.match(html,new RegExp('id="'+id+'"'));
+});
+
+test('freeform LINE displays CCTV-style Enter prompt and stays OPEN when Enter finishes it',async()=>{
+  const h=harness();await h.page();h.get('obstructionShape').value='polyline';h.get('addWall').onclick();
+  assert.match(h.get('addWall').textContent,/DRAWING ACTIVE/);
+  for(const p of [[100,110],[170,130],[205,170]]){h.mouse('pointerdown',...p);h.mouse('pointerup',...p);}
+  assert.equal(h.get('obstructionFinishDock').hidden,false);
+  assert.equal(h.get('obstructionFinishTitle').textContent,'FREEFORM LINE ACTIVE');
+  assert.match(h.get('obstructionFinishHint').textContent,/stays OPEN/);
+  const event={key:'Enter',target:new FakeElement('div'),preventDefault(){}};
+  for(const handler of h.events.keydown)handler(event);
+  const saved=await h.currentWork();assert.equal(saved.version,3);
+  assert.equal(saved.walls.length,1);assert.equal(saved.walls[0].shape,'polyline');
+  assert.equal(saved.walls[0].points.length,3);
+  const group=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall'));
+  assert.ok(group);assert.ok(!group.children[0].getAttribute('d').trim().endsWith('Z'),'open line is not closed in SVG');
+  assert.equal(h.get('obstructionFinishDock').hidden,true);
+  assert.match(h.get('addWall').textContent,/Draw obstruction on PDF/,'button returns to inactive blue state');
+});
+
+test('freeform AREA visibly closes on Enter, while Escape cancels an unfinished route',async()=>{
+  const h=harness();await h.page();h.get('obstructionShape').value='polygon';h.get('addWall').onclick();
+  for(const p of [[100,110],[170,110],[190,170]]){h.mouse('pointerdown',...p);h.mouse('pointerup',...p);}
+  assert.equal(h.get('obstructionFinishTitle').textContent,'FREEFORM AREA ACTIVE');
+  assert.match(h.get('obstructionFinishHint').textContent,/CLOSES to first dot/);
+  for(const handler of h.events.keydown)handler({key:'Enter',target:new FakeElement('div'),preventDefault(){}});
+  const saved=await h.currentWork();assert.equal(saved.walls[0].shape,'polygon');
+  const group=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall'));
+  assert.ok(group.children[0].getAttribute('d').trim().endsWith('Z'));
+  h.get('obstructionShape').value='polyline';h.get('addWall').onclick();h.mouse('pointerdown',220,220);
+  for(const handler of h.events.keydown)handler({key:'Escape',target:new FakeElement('div'),preventDefault(){}});
+  assert.equal(h.get('obstructionFinishDock').hidden,true);
+  assert.equal((await h.currentWork()).walls.length,1,'cancelled partial route is not saved');
+  assert.match(h.get('addWall').textContent,/Draw obstruction on PDF/);
 });
 
 test('dragging a wall creates a real line, and Delete/Undo work',async()=>{
@@ -136,9 +171,38 @@ test('freeform obstruction polygon supports editable vertices, moving and JSON r
   assert.equal(reloaded.walls[1].shape,'polygon');assert.equal(reloaded.walls[1].points.length,4);
 });
 
+test('obstructions have draggable callout labels, selectable colors and individual visibility controls',async()=>{
+  const h=harness();await h.page();h.get('obstructionShape').value='rect';h.get('addWall').onclick();
+  h.mouse('pointerdown',100,100);h.mouse('pointermove',220,200);h.mouse('pointerup',220,200);
+  h.get('obstructionLabelText').onchange({target:{value:'WATER HEATER'}});
+  h.get('obstructionLabelVisible').onchange({target:{checked:true}});
+  const label=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall-label'));
+  assert.ok(label,'attached label appears with draggable box');
+  h.mouse('pointerdown',192,126,label.children[0]);h.mouse('pointermove',220,146,label.children[0]);h.mouse('pointerup',220,146,label.children[0]);
+  h.get('obstructionColor').onchange({target:{value:'#00aaee'}});
+  h.get('obstructionOpacity').oninput({target:{value:'35'}});
+  h.get('obstructionOpacity').onchange();
+  let work=await h.currentWork(),w=work.walls[0];
+  assert.equal(w.labelText,'WATER HEATER');assert.equal(w.showLabel,true);
+  assert.ok(Math.abs(w.labelDx-60)<1e-6);assert.ok(Math.abs(w.labelDy+4)<1e-6);
+  assert.equal(w.color,'#00aaee');assert.equal(w.opacity,.35);
+  h.get('obstructionVisible').onchange({target:{checked:false}});
+  assert.equal((await h.currentWork()).walls[0].show,false);
+  assert.ok(h.get('overlay').children.find(n=>n.getAttribute?.('data-wall-label')),'label can remain visible while outline is hidden');
+  h.get('obstructionLabelVisible').onchange({target:{checked:false}});
+  assert.ok(!h.get('overlay').children.find(n=>n.getAttribute?.('data-wall')),'both may be hidden');
+  assert.equal(h.get('obstructionList').children.length,2,'hidden item remains accessible in selector');
+  h.get('obstructionList').onchange({target:{value:String(w.id)}});
+  assert.equal(h.get('wallFields').hidden,false);
+  h.get('obstructionVisible').onchange({target:{checked:true}});
+  work=await h.currentWork();assert.equal(work.walls[0].show,true);
+  await h.get('workFile').onchange({target:{files:[{text:async()=>JSON.stringify(work)}],value:''}});
+  w=(await h.currentWork()).walls[0];assert.equal(w.color,'#00aaee');assert.equal(w.labelText,'WATER HEATER');
+});
+
 test('PDF export includes the outlines of rectangle, ellipse and polygon obstructions',async()=>{
   const h=harness();await h.page();
-  const drawLines=[];const pages=Array.from({length:2},()=>({drawLine:opts=>drawLines.push(opts),drawCircle(){},drawText(){}}));
+  const drawLines=[],drawRectangles=[],drawTexts=[];const pages=Array.from({length:2},()=>({drawLine:opts=>drawLines.push(opts),drawRectangle:opts=>drawRectangles.push(opts),drawCircle(){},drawText:(s,opts)=>drawTexts.push({s,opts})}));
   h.window.PDFLib={PDFDocument:{load:async()=>({embedFont:async()=>({}),getPages:()=>pages,save:async()=>new Uint8Array([1])})},
     StandardFonts:{HelveticaBold:'test'},rgb:(...v)=>v,degrees:n=>n};
   for(const [shape,a,b] of [['rect',[50,70],[150,170]],['ellipse',[180,70],[300,170]]]){
@@ -147,8 +211,15 @@ test('PDF export includes the outlines of rectangle, ellipse and polygon obstruc
   h.get('obstructionShape').value='polygon';h.get('addWall').onclick();
   for(const p of [[340,90],[420,100],[390,170]]){h.mouse('pointerdown',...p);h.mouse('pointerup',...p);}
   h.get('finishPolygon').onclick();
+  h.get('obstructionLabelText').onchange({target:{value:'POOL EDGE'}});
+  h.get('obstructionLabelVisible').onchange({target:{checked:true}});
+  h.get('obstructionShape').value='polyline';h.get('addWall').onclick();
+  for(const p of [[100,300],[180,310],[190,380]]){h.mouse('pointerdown',...p);h.mouse('pointerup',...p);}
+  for(const handler of h.events.keydown)handler({key:'Enter',target:new FakeElement('div'),preventDefault(){}});
   await h.get('pdfBtn').onclick();
-  assert.equal(drawLines.length,4+64+3);
+  assert.equal(drawLines.length,4+64+3+2+1,'PDF exports open polyline segments and the attached leader line');
+  assert.equal(drawRectangles.length,1,'callout box exports');
+  assert.ok(drawTexts.some(t=>t.s==='POOL EDGE'),'editable label text exports');
   assert.equal(h.get('pdfBtn').disabled,false);
 });
 
