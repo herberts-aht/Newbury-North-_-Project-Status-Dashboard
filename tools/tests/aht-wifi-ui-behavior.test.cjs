@@ -30,7 +30,7 @@ class FakeElement{
   getContext(){return {clearRect(){},save(){},restore(){},createLinearGradient(){return {addColorStop(){}};},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){}};}
 }
 
-function harness(){
+function harness({drawingKey=false,clock=false}={}){
   const ids=new Map([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>[m[1],new FakeElement('div',m[1])]));
   const get=id=>ids.get(id),events={};let savedBlob=null;
   get('scaleSel').value='.125';get('newKind').value='ceiling';get('wallPreset').value='.85';get('obstructionShape').value='line';
@@ -38,14 +38,22 @@ function harness(){
   get('poleImportScope').value='page';get('pageSel').value='1';get('placeMultiple').checked=false;
   for(const action of ['copy','paste','duplicate','delete','cancel-wall']){const el=new FakeElement('button');el.dataset.action=action;el.setAttribute('data-action',action);get('wifiContextMenu').append(el);}
   const document={getElementById:get,createElementNS:(_,tag)=>new FakeElement(tag),createElement:tag=>new FakeElement(tag),
-    querySelectorAll:selector=>selector==='[data-step]'?['open','place','adjust','walls','review','export'].map(step=>{const e=new FakeElement('button');e.dataset.step=step;return e;}):[],
+    querySelectorAll:selector=>selector==='[data-step]'?['open','place','adjust','walls','review','key','export'].map(step=>{const e=new FakeElement('button');e.dataset.step=step;return e;}):[],
     addEventListener(type,fn){(events[type]||=[]).push(fn);},body:{append(){}}};
   const viewport={width:500,height:500,convertToPdfPoint:(x,y)=>[x,500-y],convertToViewportPoint:(x,y)=>[x,500-y]};
   const pdfPage={rotate:0,getViewport:()=>viewport,render:()=>({promise:Promise.resolve()})};
   const pdf={numPages:2,getPage:async()=>pdfPage};
+  const timers=new Map();let nextTimer=1;
   const ctx={window:{addEventListener(){},crypto:undefined,innerWidth:1200,innerHeight:900},document,Element:FakeElement,
     pdfjsLib:{getDocument:()=>({promise:Promise.resolve(pdf)})},Blob,URL:{createObjectURL(blob){savedBlob=blob;return 'blob:local';},revokeObjectURL(){}},
-    console,Math,Number,Uint8Array,JSON,Array,Date,Promise,confirm:()=>true,setTimeout:()=>{},clearTimeout:()=>{}};
+    console,Math,Number,Uint8Array,JSON,Array,Date,Promise,confirm:()=>true,
+    setTimeout:(fn,delay)=>{if(!clock)return;const id=nextTimer++;timers.set(id,{fn,delay});return id;},
+    clearTimeout:id=>{timers.delete(id);}};
+  let keyAdapter=null,keyState={enabled:false,edits:{},positions:{},hiddenPages:{}},keyPdfCalls=[];
+  if(drawingKey)ctx.window.AHTDrawingKey={create(adapter){keyAdapter=adapter;return {
+    refresh(){},serialize(){return JSON.parse(JSON.stringify(keyState));},
+    restore(saved){keyState=saved||{enabled:false};},drawPdf(opts){if(keyState.enabled)keyPdfCalls.push(opts.pageNumber);}
+  };}};
   vm.runInNewContext(core,ctx);vm.runInNewContext(ui,ctx);
   const page=async()=>{const f={name:'test.pdf',arrayBuffer:async()=>new ArrayBuffer(100)};
     get('pdfFile').onchange({target:{files:[f],value:''}});
@@ -55,7 +63,8 @@ function harness(){
   const mouse=(type,x,y,target=get('overlay'))=>{const e={button:0,pointerId:1,target,...screen(x,y),preventDefault(){},stopPropagation(){}};
     get('viewport').dispatch(type,e);return e;};
   const currentWork=async()=>{get('saveBtn').onclick();return JSON.parse(await savedBlob.text());};
-  return {get,page,mouse,currentWork,events,window:ctx.window};
+  const fireTimers=duration=>{for(const [id,t] of timers){if(t.delay<=duration){timers.delete(id);t.fn();}}};
+  return {get,page,mouse,currentWork,events,window:ctx.window,get keyAdapter(){return keyAdapter;},keyPdfCalls,fireTimers};
 }
 
 test('layout is drawing-left and tools-right with full editing controls',()=>{
@@ -68,6 +77,56 @@ test('layout is drawing-left and tools-right with full editing controls',()=>{
   for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles','obstructionFinishDock','obstructionList','obstructionColor','obstructionOpacity','obstructionVisible','obstructionLabelVisible','obstructionLabelSize','apRadios','apEditBand','strongRange','moderateRange','marginalRange','viewRadio'])assert.match(html,new RegExp('id="'+id+'"'));
 });
 
+test('bottom-left status notice dismisses automatically and has a close button',()=>{
+  const h=harness({clock:true});
+  assert.equal(h.get('status').hidden,false);
+  h.fireTimers(5500);assert.equal(h.get('status').hidden,true,'ready notice disappears after a few seconds');
+  h.get('addWall').onclick();assert.equal(h.get('status').hidden,false,'a new action shows the next notice');
+  h.get('dismissStatus').onclick();assert.equal(h.get('status').hidden,true,'close button dismisses immediately');
+  assert.match(html,/#status\[hidden\]\{display:none\}/);
+});
+
+test('Wi-Fi has a dedicated Drawing Key step before export, using the shared draggable module',()=>{
+  assert.match(html,/<button data-step="key"><b>6<\/b>Key<\/button>/);
+  assert.match(html,/<button data-step="export"><b>7<\/b>Export<\/button>/);
+  assert.match(html,/aht-drawing-key-v1\.js\?v=/);
+  assert.match(ui,/sceneId:'overlay'/);
+  assert.match(ui,/window\.ahtDrawingKey\?\.refresh\(\)/);
+});
+
+test('Wi-Fi key includes only distinct symbols actually visible on the current drawing',async()=>{
+  const h=harness({drawingKey:true});await h.page();
+  h.get('placeMultiple').checked=true;h.get('placeBtn').onclick();h.mouse('pointerdown',120,120);h.mouse('pointerdown',240,140);
+  h.get('selectBtn').onclick();h.get('obstructionShape').value='line';h.get('addWall').onclick();
+  h.mouse('pointerdown',80,250);h.mouse('pointermove',240,250);h.mouse('pointerup',240,250);
+  const script=fs.readFileSync(path.join(root,'aht-drawing-key-v1.js'),'utf8'),context={window:{}};
+  vm.runInNewContext(script,context);
+  const entries=context.window.AHTDrawingKey.collectEntries(h.keyAdapter.getMarkers(),1,h.keyAdapter);
+  assert.equal(entries.length,2,'two identical APs yield one AP row plus one barrier row');
+  assert.equal(entries.find(e=>e.id==='wifi:ap').count,2);
+  assert.ok(entries.some(e=>e.id.startsWith('wifi:obstruction:')));
+  h.get('showWalls').onchange({target:{checked:false}});
+  const hidden=context.window.AHTDrawingKey.collectEntries(h.keyAdapter.getMarkers(),1,h.keyAdapter);
+  assert.equal(hidden.length,1,'globally hidden obstructions disappear from the key');
+  assert.equal(hidden[0].defaultName,'Wi-Fi Access Point');
+});
+
+test('Wi-Fi key settings are preserved through work JSON and invoked on the marked-up PDF',async()=>{
+  const h=harness({drawingKey:true});await h.page();h.get('addWall').onclick();
+  h.mouse('pointerdown',100,150);h.mouse('pointermove',230,150);h.mouse('pointerup',230,150);
+  const keySettings={enabled:true,title:'WIFI DEVICE KEY',scale:1.4,positions:{1:{x:.3,y:.4}},hiddenPages:{},edits:{'wifi:obstruction:line:Concrete / steel:#815f9c':{name:'Wall',description:'High attenuation'}}};
+  h.window.ahtDrawingKey.restore(keySettings);
+  const saved=await h.currentWork();assert.equal(saved.version,5);
+  assert.equal(saved.drawingKey.title,'WIFI DEVICE KEY');
+  await h.get('workFile').onchange({target:{files:[{text:async()=>JSON.stringify(saved)}],value:''}});
+  assert.equal((await h.currentWork()).drawingKey.scale,1.4);
+  const pages=Array.from({length:2},()=>({drawLine(){},drawRectangle(){},drawCircle(){},drawText(){}}));
+  h.window.PDFLib={PDFDocument:{load:async()=>({embedFont:async()=>({}),getPages:()=>pages,save:async()=>new Uint8Array([1])})},
+    StandardFonts:{HelveticaBold:'bold',Helvetica:'plain'},rgb:(...x)=>x,degrees:n=>n};
+  await h.get('pdfBtn').onclick();
+  assert.deepEqual(h.keyPdfCalls,[1],'key is exported only on the marked drawing page');
+});
+
 test('freeform LINE displays CCTV-style Enter prompt and stays OPEN when Enter finishes it',async()=>{
   const h=harness();await h.page();h.get('obstructionShape').value='polyline';h.get('addWall').onclick();
   assert.match(h.get('addWall').textContent,/DRAWING ACTIVE/);
@@ -77,7 +136,7 @@ test('freeform LINE displays CCTV-style Enter prompt and stays OPEN when Enter f
   assert.match(h.get('obstructionFinishHint').textContent,/stays OPEN/);
   const event={key:'Enter',target:new FakeElement('div'),preventDefault(){}};
   for(const handler of h.events.keydown)handler(event);
-  const saved=await h.currentWork();assert.equal(saved.version,4);
+  const saved=await h.currentWork();assert.equal(saved.version,5);
   assert.equal(saved.walls.length,1);assert.equal(saved.walls[0].shape,'polyline');
   assert.equal(saved.walls[0].points.length,3);
   const group=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall'));
@@ -253,7 +312,7 @@ test('older Wi-Fi work JSON restores labels and legacy AP coverage without requi
   assert.equal(h.get('viewRadio').value,'combined');
   const current=await h.currentWork();assert.equal(current.devices.length,1);
   assert.equal(current.devices[0].rangeFt,60);
-  assert.equal(current.version,4);
+  assert.equal(current.version,5);
   h.get('overlay').querySelector('[data-ap]');
 });
 

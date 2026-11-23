@@ -9,7 +9,11 @@ let pdfDoc=null,pdfBytes=null,pdfName='',pdfHash='',pageNum=1,vp=null,zoom=1,tx=
 let copied=null,copyCount=0,contextPoint=null;
 const undo=[],redo=[];
 const pointsPerFoot=()=>72*state.scaleInch;
-const status=s=>{$('status').textContent=s;};
+let statusTimer=null;
+const status=s=>{const popup=$('status');$('statusText').textContent=s;popup.hidden=false;
+  if(statusTimer!==null)clearTimeout(statusTimer);
+  statusTimer=setTimeout(()=>{popup.hidden=true;statusTimer=null;},/blocked|failed|could not|error|unavailable/i.test(s)?10000:5500);};
+const dismissStatus=()=>{if(statusTimer!==null)clearTimeout(statusTimer);statusTimer=null;$('status').hidden=true;};
 const onPage=m=>(Number(m.page)||1)===pageNum;
 const pageAps=()=>state.devices.filter(onPage),pageWalls=()=>state.walls.filter(onPage),pagePoles=()=>state.poles.filter(onPage);
 const selectedAp=()=>selected?.kind==='ap'?state.devices.find(d=>d.id===selected.id):null;
@@ -27,6 +31,42 @@ function title(parent,s){el('title',{},parent).textContent=s;}
 function clamp(v,a,b){return C.clamp(v,a,b);}
 const shapeName=shape=>({line:'line',rect:'rectangle',ellipse:'circle/oval',polyline:'freeform line',polygon:'closed freeform area'})[shape]||'obstruction';
 const isFreeform=shape=>shape==='polyline'||shape==='polygon';
+const wifiKeyName=m=>m.type==='ap'?'Wi-Fi Access Point':m.type==='pole3'?`CCTV Pole (${m.heads?.length||0} heads)`:
+  `${m.note||'Wi-Fi'} obstruction (${shapeName(m.shape||'line')})`;
+const wifiKeyVariant=m=>m.type==='ap'?'wifi:ap':m.type==='pole3'?
+  'wifi:pole:'+((m.heads||[]).map(h=>h.kind||'cam').sort().join('+')||'bare'):
+  'wifi:obstruction:'+(m.shape||'line')+':'+(m.note||'')+':'+obstructionColor(m);
+const wifiKeyDevice=m=>m.type==='ap'?{kind:'wifi-ap',color:'#1b6698'}:m.type==='pole3'?
+  {kind:'wifi-pole',color:'#4c5964',headKinds:(m.heads||[]).map(h=>h.kind||'cam')}:
+  {kind:'wifi-obstruction',color:obstructionColor(m),shape:m.shape||'line'};
+function wifiKeySvgIcon(dev,x,y,size,group){const s=size*.5,color=dev.color||'#1b6698';
+  if(dev.kind==='wifi-ap'){
+    circle(group,x,y,s*.7,'#eaf6fd',color,Math.max(1,size*.09));circle(group,x,y,s*.2,color,'none',0);
+    for(const r of [.55,.85])el('path',{d:`M ${x-r*s} ${y-s*.22} Q ${x} ${y-r*s*1.7} ${x+r*s} ${y-s*.22}`,
+      fill:'none',stroke:color,'stroke-width':Math.max(1,size*.06)},group);
+  }else if(dev.kind==='wifi-pole'){
+    circle(group,x,y,s*.4,'#e0e8ee',color,Math.max(1,size*.08));
+    const count=Math.min(5,Math.max(1,dev.headKinds?.length||1));
+    for(let i=0;i<count;i++){const a=(i/count)*Math.PI*2,xx=x+Math.cos(a)*s*.85,yy=y+Math.sin(a)*s*.85;
+      line(group,x,y,xx,yy,color,Math.max(1,size*.09));
+      el('rect',{x:xx-s*.18,y:yy-s*.12,width:s*.36,height:s*.24,rx:1,fill:dev.headKinds?.[i]==='lidar'?'#865bb0':color,stroke:'#fff','stroke-width':.6},group);}
+  }else if(dev.kind==='wifi-obstruction'){
+    const attrs={fill:'none',stroke:color,'stroke-width':Math.max(1.5,size*.13),'stroke-dasharray':'4 2'};
+    if(dev.shape==='ellipse')el('ellipse',{cx:x,cy:y,rx:s*.85,ry:s*.53,...attrs},group);
+    else if(dev.shape==='rect'||dev.shape==='polygon')el('rect',{x:x-s*.8,y:y-s*.55,width:s*1.6,height:s*1.1,rx:1,...attrs},group);
+    else line(group,x-s*.85,y+s*.30,x+s*.85,y-s*.30,color,Math.max(1.5,size*.14));
+  }
+}
+function setupWifiDrawingKey(){if(!window.AHTDrawingKey)return;
+  window.ahtDrawingKey=window.AHTDrawingKey.create({
+    toolName:'Wi-Fi Heat Map',rootSvgId:'overlay',sceneId:'overlay',getPage:()=>pageNum,getViewport:()=>vp,
+    getMarkers:()=>[...state.devices,...state.poles,...state.walls],
+    isDevice:m=>['ap','pole3','wall'].includes(m.type),
+    isVisible:m=>m.type==='ap'||m.type==='pole3'?m.type==='ap'||state.showPoles:state.showWalls&&m.show!==false,
+    variantKey:wifiKeyVariant,labelFor:wifiKeyName,deviceFor:wifiKeyDevice,
+    drawSvgIcon:wifiKeySvgIcon
+  });
+}
 const shapePath=(points,closed)=>'M '+points.map(p=>p.join(' ')).join(' L ')+(closed?' Z':'');
 const obstructionColor=w=>/^#[0-9a-f]{6}$/i.test(w.color||'')?w.color:'#815f9c';
 const obstructionOpacity=w=>clamp(Number(w.opacity??.85),.05,1);
@@ -160,6 +200,7 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
       const dot=circle(root,p[0],p[1],Math.max(5,6/zoom),i===0?'#ffa726':'#fff','#b25b08',2);
       dot.setAttribute('pointer-events','none');});
   }
+  window.ahtDrawingKey?.refresh();
 }
 function draw(){if(!vp)return;drawHeat();drawOverlay();$('counts').textContent=`${state.devices.length} access points · ${state.poles.length} poles · ${state.walls.length} obstructions`;
   updateUndo();}
@@ -209,8 +250,9 @@ async function openPdf(file){try{status('Opening '+file.name+'…');const buffer
     if(pendingWarning)status(pendingWarning);
   }catch(e){console.error(e);status('Could not open PDF: '+e.message);}}
 function download(name,blob){const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=name;document.body.append(link);link.click();setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove();},1500);}
-function workData(){return {tool:'AHT Wi-Fi Heat Map',version:4,pdfName,pdfHash,page:pageNum,scaleInch:state.scaleInch,
-  devices:state.devices,walls:state.walls,poles:state.poles,nextId:state.nextId,showCoverage:state.showCoverage,opacity:state.opacity,showWalls:state.showWalls,showPoles:state.showPoles,viewRadio:state.viewRadio};}
+function workData(){return {tool:'AHT Wi-Fi Heat Map',version:5,pdfName,pdfHash,page:pageNum,scaleInch:state.scaleInch,
+  devices:state.devices,walls:state.walls,poles:state.poles,nextId:state.nextId,showCoverage:state.showCoverage,opacity:state.opacity,showWalls:state.showWalls,showPoles:state.showPoles,viewRadio:state.viewRadio,
+  drawingKey:window.ahtDrawingKey?.serialize()};}
 function applyWork(o){if(!o||!Array.isArray(o.devices)||!Array.isArray(o.walls))throw Error('Not a Wi-Fi work JSON.');
   if(pdfDoc){if(!C.pdfFileName(o.pdfName)||C.pdfFileName(o.pdfName)!==C.pdfFileName(pdfName))throw Error('JSON belongs to a different PDF drawing.');
     if(o.pdfHash&&pdfHash&&o.pdfHash!==pdfHash)throw Error('PDF filename matches but drawing content is different.');}
@@ -219,6 +261,7 @@ function applyWork(o){if(!o||!Array.isArray(o.devices)||!Array.isArray(o.walls))
   const ids=new Set([...state.devices,...state.walls].map(m=>m.id));state.poles.forEach(p=>{if(!Number.isInteger(p.id)||ids.has(p.id))p.id=state.nextId++;ids.add(p.id);});
   state.scaleInch=Number(o.scaleInch)||.125;state.showCoverage=o.showCoverage!==false;state.opacity=clamp(o.opacity==null?.65:Number(o.opacity),.1,.95);state.showPoles=o.showPoles!==false;state.showWalls=o.showWalls!==false;
   state.viewRadio=['combined','2.4','5'].includes(o.viewRadio)?o.viewRadio:'combined';
+  window.ahtDrawingKey?.restore(o.drawingKey);
   $('scaleSel').value=String(state.scaleInch);$('globalHeat').checked=state.showCoverage;$('heatOpacity').value=Math.round(state.opacity*100);$('opacityValue').textContent=$('heatOpacity').value;
   $('showPoles').checked=state.showPoles;$('showWalls').checked=state.showWalls;$('viewRadio').value=state.viewRadio;
   if(pdfDoc&&Number(o.page)>=1&&Number(o.page)<=pdfDoc.numPages){pageNum=Number(o.page);$('pageSel').value=pageNum;}
@@ -414,6 +457,7 @@ function pointerUp(e){if(!drag)return;const d=drag;drag=null;
   updateUndo();
 }
 function bind(){
+  $('dismissStatus').onclick=dismissStatus;
   $('openBtn').onclick=()=>$('pdfFile').click();$('pdfFile').onchange=e=>{const f=e.target.files?.[0];if(f)void openPdf(f);e.target.value='';};
   $('pageSel').onchange=e=>{pageNum=Number(e.target.value);void renderPage();};
   $('scaleSel').onchange=e=>{state.scaleInch=Number(e.target.value);draw();};
@@ -422,7 +466,7 @@ function bind(){
   $('finishPolygon').onclick=finishFreeform;
   $('obstructionShape').onchange=()=>{if(pendingWall)cancelWall(false);if(tool==='wall')setMode('wall');else updateMode();};
   $('copyItem').onclick=copySelected;$('pasteItem').onclick=()=>pasteCopied();
-  document.querySelectorAll('[data-step]').forEach((b)=>b.addEventListener('click',()=>{document.querySelectorAll('[data-step]').forEach(n=>n.removeAttribute('aria-current'));b.setAttribute('aria-current','step');$(b.dataset.step+'Section')?.scrollIntoView({behavior:'smooth',block:'start'});}));
+  document.querySelectorAll('[data-step]').forEach((b)=>b.addEventListener('click',()=>{document.querySelectorAll('[data-step]').forEach(n=>n.removeAttribute('aria-current'));b.setAttribute('aria-current','step');$(b.dataset.step==='key'?'drawingKeySection':b.dataset.step+'Section')?.scrollIntoView({behavior:'smooth',block:'start'});}));
   $('viewport').addEventListener('pointerdown',pointerDown);$('viewport').addEventListener('pointermove',pointerMove);$('viewport').addEventListener('pointerup',pointerUp);$('viewport').addEventListener('pointercancel',pointerUp);
   $('viewport').addEventListener('dblclick',e=>{if(isFreeform(pendingWall?.shape)){e.preventDefault();finishFreeform();}});
   $('viewport').addEventListener('wheel',e=>{if(!vp)return;e.preventDefault();const r=$('viewport').getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
@@ -516,14 +560,14 @@ function bind(){
       const dy=e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0;
       remember();if(selected.kind==='wall')translateObstruction(item,dx,dy);else{item.x+=dx;item.y+=dy;}draw();}
   });
-  updateUndo();updateMode();
+  updateUndo();updateMode();status('Ready · Pilot v0.6.1');
 }
 async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing first.');return;}
   if(!window.PDFLib){status('PDF exporter is unavailable.');return;}
   const btn=$('pdfBtn');btn.disabled=true;status('Exporting all pages with Wi-Fi heat maps…');
   try{
     const {PDFDocument,StandardFonts,rgb,degrees}=window.PDFLib,doc=await PDFDocument.load(pdfBytes.slice());
-    const font=await doc.embedFont(StandardFonts.HelveticaBold),pages=doc.getPages(),ppf=pointsPerFoot();
+    const font=await doc.embedFont(StandardFonts.HelveticaBold),plainFont=await doc.embedFont(StandardFonts.Helvetica),pages=doc.getPages(),ppf=pointsPerFoot();
     for(let p=1;p<=pages.length;p++){
       const aps=state.devices.filter(m=>(m.page||1)===p),walls=state.walls.filter(m=>(m.page||1)===p),poles=state.poles.filter(m=>(m.page||1)===p);
       if(!aps.length&&!walls.length&&!poles.length)continue;
@@ -561,9 +605,48 @@ async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing fir
       aps.forEach(ap=>{const a=conv(ap.x,ap.y);page.drawCircle({x:a[0],y:a[1],size:7,color:rgb(.91,.97,1),borderColor:rgb(.1,.38,.61),borderWidth:2});
         page.drawCircle({x:a[0],y:a[1],size:2,color:rgb(.1,.38,.61)});label(ap.name||'AP',ap.x+12,ap.y-9,9);});
       label('PRELIMINARY WIFI COVERAGE - ILLUSTRATIVE ONLY',24,24,9);
+      if(window.ahtDrawingKey){
+        const rotation=degrees(angle*180/Math.PI);
+        const hexRgb=hex=>{const h=/^#[0-9a-f]{6}$/i.test(hex||'')?hex.slice(1):'1b6698';
+          return rgb(parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),16)/255,parseInt(h.slice(4,6),16)/255);};
+        const keyText=(value,x,y,size,color,bold)=>{const [px,py]=conv(x,y);
+          page.drawText(asci(value),{x:px,y:py,font:bold?font:plainFont,size,color,rotate:rotation});};
+        const polygon=(points,fill,opacity,stroke,borderOpacity,borderWidth)=>{
+          // Shared drawing keys use rectangle panels; transform their lower-left
+          // corner into PDF space, respecting any source-page rotation.
+          const bl=conv(...points[3]),top=conv(...points[0]),right=conv(...points[1]);
+          const width=Math.hypot(right[0]-top[0],right[1]-top[1]);
+          const height=Math.hypot(top[0]-bl[0],top[1]-bl[1]);
+          page.drawRectangle({x:bl[0],y:bl[1],width,height,rotate:rotation,
+            ...(fill?{color:fill,opacity}:{}),...(stroke?{borderColor:stroke,borderOpacity,borderWidth}:{})});
+        };
+        const drawIconPdf=(dev,x,y,size)=>{const center=conv(x,y),color=hexRgb(dev.color),s=size*.5;
+          if(dev.kind==='wifi-ap'){
+            page.drawCircle({x:center[0],y:center[1],size:s*.38,color:rgb(.91,.97,1),borderColor:color,borderWidth:Math.max(1,size*.08)});
+            page.drawCircle({x:center[0],y:center[1],size:s*.12,color});
+          }else if(dev.kind==='wifi-pole'){
+            page.drawCircle({x:center[0],y:center[1],size:s*.34,color:rgb(.85,.89,.92),borderColor:color,borderWidth:1});
+            const count=Math.min(5,Math.max(1,dev.headKinds?.length||1));
+            for(let i=0;i<count;i++){const a=i/count*Math.PI*2,end=conv(x+Math.cos(a)*s*.8,y+Math.sin(a)*s*.8);
+              page.drawLine({start:{x:center[0],y:center[1]},end:{x:end[0],y:end[1]},thickness:Math.max(1,size*.07),color});
+              page.drawCircle({x:end[0],y:end[1],size:s*.12,color});}
+          }else if(dev.kind==='wifi-obstruction'){
+            const shape=dev.shape||'line';
+            const points=shape==='ellipse'?Array.from({length:18},(_,i)=>{
+              const a=i/18*Math.PI*2;return [x+Math.cos(a)*s*.85,y+Math.sin(a)*s*.53];}):
+              shape==='rect'||shape==='polygon'?[[x-s*.8,y-s*.55],[x+s*.8,y-s*.55],[x+s*.8,y+s*.55],[x-s*.8,y+s*.55]]:
+              [[x-s*.85,y+s*.3],[x+s*.85,y-s*.3]];
+            const closed=shape==='ellipse'||shape==='rect'||shape==='polygon';
+            for(let i=0;i<(closed?points.length:points.length-1);i++){
+              const a=conv(...points[i]),b=conv(...points[(i+1)%points.length]);
+              page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:Math.max(1.2,size*.10),color});}
+          }
+        };
+        window.ahtDrawingKey.drawPdf({pageNumber:p,viewport,polygon,text:keyText,rgb,conv,page,drawIconPdf,hexRgb,PDFLib:window.PDFLib});
+      }
     }
     const out=await doc.save();download(pdfName.replace(/\.pdf$/i,'')+' - Wi-Fi Heat Map.pdf',new Blob([out],{type:'application/pdf'}));status('Exported '+pages.length+' PDF pages. Original drawing unchanged.');
   }catch(e){console.error(e);status('PDF export failed: '+e.message);}finally{btn.disabled=false;}
 }
-bind();
+bind();setupWifiDrawingKey();
 })();

@@ -1,4 +1,4 @@
-# AHT Wi-Fi Heat Map — preview pilot v0.6.0 (`wifi-20261123-a`)
+# AHT Wi-Fi Heat Map — preview pilot v0.6.1 (`wifi-20261123-b`)
 
 This tool is intentionally a **preview**, not an RF prediction or survey instrument.
 Do not infer dBm, throughput, roaming performance, channel contention, or compliance
@@ -41,9 +41,18 @@ from its colored illustration.
    Multi-head arms and devices are shown; viewing cones and standalone cameras are not.
    CCTV-specific PDF rotations are converted on import. PDFs with different filenames,
    page counts, sizes or available content hashes are blocked rather than guessed.
-7. Save the **editable Wi-Fi JSON**. Export the marked-up PDF to get all pages, or
+7. **Drawing Key:** Step 6 automatically lists only actual visible device and obstruction
+   symbol types on the current PDF sheet. Multiple matching APs produce one AP row,
+   while different displayed obstruction types/materials get their own entries.
+   Rename each row and customize its description. Show/hide the key globally or on
+   individual sheets, drag it on the plan, scale it from 65–200%, and use X/Y for
+   fine positioning. Settings are retained in Wi-Fi work JSON and included on the
+   exported marked-up PDF when enabled.
+8. Brief bottom-left drawing notices auto-hide after about six seconds (ten for
+   errors) and can be dismissed immediately with ×.
+9. Save the **editable Wi-Fi JSON**. Export the marked-up PDF to get all pages, or
    reopen matching PDF and JSON to continue later.
-8. Right-click an item for **Copy / Paste Here / Duplicate / Delete**, or use
+10. Right-click an item for **Copy / Paste Here / Duplicate / Delete**, or use
    Cmd/Ctrl+C/V, Delete, Undo and Redo. CCTV poles can be selected and deleted in Wi-Fi.
 
 ## Color and geometry
@@ -89,8 +98,8 @@ Do not merge the draft PR to main until the preview has been reviewed.
   page counts, sizes and content fingerprints to prevent silent cross-drawing shifts.
 - The local pole clipboard is per browser origin; JSON import is a portable alternative.
 - Page positions are preserved in PDF viewport coordinates and editable work JSON.
-- Wi-Fi JSON format v4 preserves the new radio ranges, visible band and obstruction
-  label text sizes. Existing v3 files remain readable. Always save your current JSON
+- Wi-Fi JSON format v5 preserves the drawing key in addition to radio ranges, visible
+  band and obstruction label text sizes. Existing v3/v4 files remain readable. Save your current JSON
   before testing a newer preview.
 - The tool does **not** read measurements from equipment catalogs or perform calibrated
   propagation, reflected multipath, floor-to-floor signal, power budgets, or RF survey.

@@ -672,6 +672,7 @@
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="aht-drawing-key-v1.js?v=20261122-1"></script>
 <script>
 const CFG = {"title":"AHT Device Locations — Audio / Displays / Wi-Fi / Theater","fileTag":"Device Locations","iconScale":1.25,"devices":[{"key":"speaker","label":"Speaker (SPK)","style":"tile","color":"#ff7f00","glyph":"SPK","preview":"circle","kind":"point"},{"key":"invspk","label":"Invisible speaker","style":"tile","color":"#2776bb","fill":"#addef7","glyph":"SPK","preview":"circle","kind":"point"},{"key":"sub","label":"Subwoofer (SUB)","style":"tile","color":"#ffbf00","glyph":"SUB","preview":"circle","kind":"point"},{"key":"landspk","label":"Landscape Speaker","style":"speakerSymbol","color":"#3a8d59","fill":"#e9fbef","glyph":"LSP","preview":"cone","kind":"point"},{"key":"landsub","label":"Landscape Subwoofer","style":"speakerSymbol","color":"#687b29","fill":"#f0f5d5","glyph":"LSUB","preview":"cone","kind":"point"},{"key":"soundbar","label":"Soundbar","style":"soundbarSymbol","color":"#8350b8","fill":"#f6edfe","glyph":"SB","preview":"cone","kind":"point"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","overlay":true,"kind":"point"},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","overlay":true,"kind":"point"}],"preview":{"title":"Illustrative Speaker Coverage","presets":[{"name":"Small","r":5},{"name":"Medium","r":8},{"name":"Large","r":12}],"defaultPreset":1,"disclaimer":"Illustrative relative guide only; not acoustic modeling or verified distance. PDF coverage export is optional and off by default."}};
 const NS = 'http://www.w3.org/2000/svg';
@@ -1858,12 +1859,13 @@ $('viewport').addEventListener('pointercancel',()=>{
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, tvTypeColors, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, tvTypeColors, drawingKey:window.ahtDrawingKey?.serialize(), markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
   r.onload = () => { try {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
+    window.ahtDrawingKey?.restore(o.drawingKey);
     if (o.tool && o.tool !== CFG.fileTag && !(CFG.fileTag === 'Device Locations' && o.tool === 'Speakers')) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || m.type === 'area'||m.type==='arrow_note'; const bad = o.markers.filter(m => !okM(m)).length; const ms = o.markers.filter(okM);
     if (pdfDoc) { pushUndo(); markers = ms; tvTypeColors=normalizedTvColors(o.tvTypeColors); nextId = Math.max(0, ...ms.map(m => m.id)) + 1; if (o.calPtsPerFt) calibratedPtsPerFt = o.calPtsPerFt; else { calibratedPtsPerFt = null; if (o.inchesPerFt) inchesPerFt = o.inchesPerFt; } buildScaleSel(null); sel.clear(); refresh(); status('Loaded ' + ms.length + ' devices' + (o.pdfName && o.pdfName !== pdfName ? ' (saved against “' + o.pdfName + '”; make sure the right plan is open).' : '.')); }
@@ -2035,6 +2037,7 @@ $('pdfBtn').onclick = async () => {
       if (G.leader) { const a = conv(G.lx, G.ly), b = conv(G.leader[0], G.leader[1]); page.drawLine({ start: { x: a[0], y: a[1] }, end: { x: b[0], y: b[1] }, thickness: Math.max(1, sw * 0.7), color: col }); }
       polygon([[G.bx, G.by], [G.bx + G.w, G.by], [G.bx + G.w, G.by + G.h], [G.bx, G.by + G.h]], rgb(1, 1, 1), 0.95, col, 1, sw * 0.8);
       G.lines.forEach((t, i) => text(t, G.lx, G.base(i), G.fs, col, true)); });
+    window.ahtDrawingKey?.drawPdf({pageNumber:p,viewport:vp,page,conv,polygon,text,rgb,drawIconPdf,hexRgb,PDFLib});
         // AHT_BRANDED_EXPORT_V1: compact, two-line plan stamp; no counts or dates.
     const fs = Math.max(8, Math.min(10, Math.max(vp.width, vp.height) / 360));
     const stampTitle = 'AHT GLOBAL - PRELIMINARY';
@@ -2270,6 +2273,12 @@ $('reopenSizing').onclick=()=>{const m=markers.find(x=>x.id===[...sel][0]);if(!m
 
 window.addEventListener('resize', () => { if (vp) scheduleSharpRedraw(); });
 refresh();
+window.ahtDrawingKey = AHTDrawingKey.create({
+  toolName:CFG.fileTag,getMarkers:()=>markers,getPage:()=>pageNum,getViewport:()=>vp,
+  isDevice:m=>!!DEV[m.type]&&!isArea(m)&&!isArrowNote(m),isVisible:()=>true,
+  variantKey:m=>speakerLabel(m),labelFor:m=>speakerLabel(m),
+  deviceFor:m=>variantDev(m),drawSvgIcon:(dev,x,y,d,g)=>drawIcon(dev,x,y,d,g,g)
+});
 </script>
 <script src="aht-tool-project-picker-button.js?v=1"></script>
 
@@ -2289,6 +2298,7 @@ refresh();
     ['detailsSection','Size & Face','Match symbol size and adjust direction.'],
     ['bulkCoveragePanel','Coverage','Show, hide or adjust coverage.'],
     ['reviewSection','Review','Check devices and counts.'],
+    ['drawingKeySection','Key','Customize the key of symbols present on the drawing.'],
     ['exportSection','Export','Save JSON, marked-up PDF or CSV.']
   ];
 
@@ -2383,7 +2393,8 @@ refresh();
 
   [
     ['reviewSection','5','Review Changes & Counts'],
-    ['exportSection','6','Save & Export']
+    ['drawingKeySection','6','Drawing Key'],
+    ['exportSection','7','Save & Export']
   ].forEach(([id,num,title]) => {
     const el = $(id);
     if (!el) return;
