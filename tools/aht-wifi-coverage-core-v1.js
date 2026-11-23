@@ -17,6 +17,28 @@
     });
   }
   const radiusPts=(ap,pointsPerFoot)=>clamp(Number(ap.rangeFt)||60,5,500)*pointsPerFoot;
+  const ZONES=['strong','moderate','marginal'];
+  const RADIO_BANDS=['2.4','5'];
+  // The two radios start with illustrative, editable ranges. These are not
+  // calibrated propagation estimates or promises of measured RSSI.
+  function zoneRanges(ap,band='2.4'){
+    const reference=clamp(Number(ap.rangeFt)||60,5,250);
+    const factors=band==='5'?[.30,.50,.75]:[.42,.67,1];
+    const saved=ap.zoneRanges?.[band]||{};
+    const r={};
+    ZONES.forEach((zone,i)=>{const n=Number(saved[zone]);r[zone]=clamp(Number.isFinite(n)&&n>0?n:Math.round(reference*factors[i]),5,250);});
+    r.moderate=Math.max(r.moderate,r.strong);
+    r.marginal=Math.max(r.marginal,r.moderate);
+    return r;
+  }
+  function activeBands(ap,view='combined'){
+    const enabled=ap.radioMode==='2.4'?['2.4']:ap.radioMode==='5'?['5']:RADIO_BANDS;
+    return view==='combined'?enabled:enabled.filter(b=>b===view);
+  }
+  function outerReach(ap,view='combined'){
+    const active=activeBands(ap,view);
+    return active.length?Math.max(...active.map(b=>zoneRanges(ap,b).marginal)):0;
+  }
   function radiusAt(ap,a,pointsPerFoot){
     const samples=Array.isArray(ap.radii)&&ap.radii.length===COUNT?ap.radii:shapeFor(ap.kind);
     const rel=normalize(a-(Number(ap.rot)||0)*Math.PI/180)/TAU*COUNT;
@@ -117,6 +139,22 @@
     }
     return points;
   }
+  // Independent distances for the three heat colors. Each frequency has its
+  // own contour, with obstructions applied separately at each reach. Combined
+  // view uses the maximum contour for each color (the union of the radios).
+  function coverageContours(ap,pointsPerFoot,walls=[],view='combined',stepsPerHandle=8){
+    const bands=activeBands(ap,view),contours={strong:[],moderate:[],marginal:[],bands};
+    if(!bands.length)return contours;
+    for(const zone of ZONES){
+      const shapes=bands.map(b=>smoothBoundary({...ap,rangeFt:zoneRanges(ap,b)[zone]},pointsPerFoot,walls,stepsPerHandle));
+      contours[zone]=shapes[0].map((pt,i)=>{
+        if(shapes.length===1)return pt;
+        const point=shapes.reduce((best,s)=>Math.hypot(s[i][0]-ap.x,s[i][1]-ap.y)>Math.hypot(best[0]-ap.x,best[1]-ap.y)?s[i]:best,pt);
+        return point;
+      });
+    }
+    return contours;
+  }
   function softenShape(ap){
     const samples=Array.isArray(ap.radii)&&ap.radii.length===COUNT?ap.radii:shapeFor(ap.kind);
     const at=i=>Number(samples[(i+COUNT)%COUNT]);
@@ -182,5 +220,5 @@
       .filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
     return {poles,samePdf:same,sourceName:source.pdfName||'',ignoredMarkers:source.markers.length-poles.length};
   }
-  root.AHTWifiCore={COUNT,TAU,angle,unit,shapeFor,radiusAt,effectiveRadius,smoothEffectiveRadius,smoothBoundary,softenShape,obstructionOutline,pointAt,nearestHandle,updateHandle,poleHeads,pdfFileName,importCctvPoles,clamp};
+  root.AHTWifiCore={COUNT,TAU,angle,unit,shapeFor,zoneRanges,activeBands,outerReach,coverageContours,radiusAt,effectiveRadius,smoothEffectiveRadius,smoothBoundary,softenShape,obstructionOutline,pointAt,nearestHandle,updateHandle,poleHeads,pdfFileName,importCctvPoles,clamp};
 })(window);

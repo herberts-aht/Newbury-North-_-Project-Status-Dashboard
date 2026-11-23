@@ -65,7 +65,7 @@ test('layout is drawing-left and tools-right with full editing controls',()=>{
   assert.doesNotMatch(html,/id="wallBtn"/,'no second obstruction button appears in AP placement');
   assert.match(html,/id="obstructionShape"/);
   assert.match(html,/#addWall\.active\{background:#147568/,'active drawing button has a distinct green state');
-  for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles','obstructionFinishDock','obstructionList','obstructionColor','obstructionOpacity','obstructionVisible','obstructionLabelVisible'])assert.match(html,new RegExp('id="'+id+'"'));
+  for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles','obstructionFinishDock','obstructionList','obstructionColor','obstructionOpacity','obstructionVisible','obstructionLabelVisible','obstructionLabelSize','apRadios','apEditBand','strongRange','moderateRange','marginalRange','viewRadio'])assert.match(html,new RegExp('id="'+id+'"'));
 });
 
 test('freeform LINE displays CCTV-style Enter prompt and stays OPEN when Enter finishes it',async()=>{
@@ -77,7 +77,7 @@ test('freeform LINE displays CCTV-style Enter prompt and stays OPEN when Enter f
   assert.match(h.get('obstructionFinishHint').textContent,/stays OPEN/);
   const event={key:'Enter',target:new FakeElement('div'),preventDefault(){}};
   for(const handler of h.events.keydown)handler(event);
-  const saved=await h.currentWork();assert.equal(saved.version,3);
+  const saved=await h.currentWork();assert.equal(saved.version,4);
   assert.equal(saved.walls.length,1);assert.equal(saved.walls[0].shape,'polyline');
   assert.equal(saved.walls[0].points.length,3);
   const group=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall'));
@@ -189,6 +189,8 @@ test('obstructions have draggable callout labels, selectable colors and individu
   h.mouse('pointerdown',100,100);h.mouse('pointermove',220,200);h.mouse('pointerup',220,200);
   h.get('obstructionLabelText').onchange({target:{value:'WATER HEATER'}});
   h.get('obstructionLabelVisible').onchange({target:{checked:true}});
+  h.get('obstructionLabelSize').oninput({target:{value:'19'}});
+  h.get('obstructionLabelSize').onchange();
   const label=h.get('overlay').children.find(n=>n.getAttribute?.('data-wall-label'));
   assert.ok(label,'attached label appears with draggable box');
   h.mouse('pointerdown',192,126,label.children[0]);h.mouse('pointermove',220,146,label.children[0]);h.mouse('pointerup',220,146,label.children[0]);
@@ -197,6 +199,7 @@ test('obstructions have draggable callout labels, selectable colors and individu
   h.get('obstructionOpacity').onchange();
   let work=await h.currentWork(),w=work.walls[0];
   assert.equal(w.labelText,'WATER HEATER');assert.equal(w.showLabel,true);
+  assert.equal(w.labelSize,19);assert.equal(h.get('obstructionLabelSizeValue').textContent,19);
   assert.ok(Math.abs(w.labelDx-60)<1e-6);assert.ok(Math.abs(w.labelDy+4)<1e-6);
   assert.equal(w.color,'#00aaee');assert.equal(w.opacity,.35);
   h.get('obstructionVisible').onchange({target:{checked:false}});
@@ -211,6 +214,47 @@ test('obstructions have draggable callout labels, selectable colors and individu
   work=await h.currentWork();assert.equal(work.walls[0].show,true);
   await h.get('workFile').onchange({target:{files:[{text:async()=>JSON.stringify(work)}],value:''}});
   w=(await h.currentWork()).walls[0];assert.equal(w.color,'#00aaee');assert.equal(w.labelText,'WATER HEATER');
+  assert.equal(w.labelSize,19,'per-obstruction text size survives work JSON reload');
+});
+
+test('red/orange/yellow ranges and 2.4/5 GHz radio modes can be edited independently',async()=>{
+  const h=harness();await h.page();h.get('placeBtn').onclick();h.mouse('pointerdown',240,220);
+  let ap=(await h.currentWork()).devices[0];
+  assert.equal(ap.radioMode,'both');assert.equal(ap.zoneRanges['2.4'].marginal,60);
+  assert.equal(ap.zoneRanges['5'].marginal,45);
+  h.get('apEditBand').onchange({target:{value:'5'}});
+  h.get('strongRange').dispatch('input',{target:{value:'24'}});
+  h.get('moderateRange').dispatch('input',{target:{value:'35'}});
+  h.get('marginalRange').dispatch('input',{target:{value:'72'}});
+  ap=(await h.currentWork()).devices[0];
+  assert.deepEqual([ap.zoneRanges['5'].strong,ap.zoneRanges['5'].moderate,ap.zoneRanges['5'].marginal],[24,35,72]);
+  assert.deepEqual([ap.zoneRanges['2.4'].strong,ap.zoneRanges['2.4'].moderate,ap.zoneRanges['2.4'].marginal],[25,40,60]);
+  h.get('apEditBand').onchange({target:{value:'2.4'}});
+  h.get('strongRange').dispatch('input',{target:{value:'200'}});
+  ap=(await h.currentWork()).devices[0];
+  assert.equal(ap.zoneRanges['2.4'].strong,40,'strong distance cannot exceed orange');
+  h.get('apRadios').dispatch('change',{target:{value:'2.4'}});
+  assert.equal((await h.currentWork()).devices[0].radioMode,'2.4');
+  assert.equal(h.get('apEditBand').disabled,true,'only the enabled radio may be adjusted');
+  h.get('viewRadio').onchange({target:{value:'5'}});
+  const saved=await h.currentWork();assert.equal(saved.viewRadio,'5');
+  await h.get('workFile').onchange({target:{files:[{text:async()=>JSON.stringify(saved)}],value:''}});
+  assert.equal(h.get('viewRadio').value,'5');
+  assert.equal((await h.currentWork()).devices[0].zoneRanges['5'].marginal,72);
+  h.get('undoBtn').onclick();
+  assert.equal(h.get('undoBtn').disabled,true,'work reload clears prior undo history');
+});
+
+test('older Wi-Fi work JSON restores labels and legacy AP coverage without requiring new fields',async()=>{
+  const h=harness();await h.page();h.get('placeBtn').onclick();h.mouse('pointerdown',210,180);
+  const old=await h.currentWork();old.version=3;delete old.viewRadio;
+  delete old.devices[0].radioMode;delete old.devices[0].editBand;delete old.devices[0].zoneRanges;
+  await h.get('workFile').onchange({target:{files:[{text:async()=>JSON.stringify(old)}],value:''}});
+  assert.equal(h.get('viewRadio').value,'combined');
+  const current=await h.currentWork();assert.equal(current.devices.length,1);
+  assert.equal(current.devices[0].rangeFt,60);
+  assert.equal(current.version,4);
+  h.get('overlay').querySelector('[data-ap]');
 });
 
 test('PDF export includes the outlines of rectangle, ellipse and polygon obstructions',async()=>{
@@ -226,6 +270,8 @@ test('PDF export includes the outlines of rectangle, ellipse and polygon obstruc
   h.get('finishPolygon').onclick();
   h.get('obstructionLabelText').onchange({target:{value:'POOL EDGE'}});
   h.get('obstructionLabelVisible').onchange({target:{checked:true}});
+  h.get('obstructionLabelSize').oninput({target:{value:'22'}});
+  h.get('obstructionLabelSize').onchange();
   h.get('obstructionShape').value='polyline';h.get('addWall').onclick();
   for(const p of [[100,300],[180,310],[190,380]]){h.mouse('pointerdown',...p);h.mouse('pointerup',...p);}
   for(const handler of h.events.keydown)handler({key:'Enter',target:new FakeElement('div'),preventDefault(){}});
@@ -233,6 +279,7 @@ test('PDF export includes the outlines of rectangle, ellipse and polygon obstruc
   assert.equal(drawLines.length,4+64+3+2+1,'PDF exports open polyline segments and the attached leader line');
   assert.equal(drawRectangles.length,1,'callout box exports');
   assert.ok(drawTexts.some(t=>t.s==='POOL EDGE'),'editable label text exports');
+  assert.equal(drawTexts.find(t=>t.s==='POOL EDGE').opts.size,22,'PDF label uses edited text size');
   assert.equal(h.get('pdfBtn').disabled,false);
 });
 

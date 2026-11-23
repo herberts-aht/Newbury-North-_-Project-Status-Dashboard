@@ -140,3 +140,44 @@ test('mismatched or missing PDF filenames cannot be treated as a verified match'
   assert.equal(C.importCctvPoles(source,'').samePdf,false);
   assert.equal(C.importCctvPoles(source,'C:\\Plans\\ONE.PDF').samePdf,true);
 });
+
+test('radio-specific red, orange, yellow reaches remain independent and ordered',()=>{
+  const p=ap();p.radioMode='both';p.zoneRanges={
+    '2.4':{strong:15,moderate:35,marginal:90},
+    '5':{strong:7,moderate:18,marginal:40}
+  };
+  const range24=C.zoneRanges(p,'2.4'),range5=C.zoneRanges(p,'5');
+  assert.equal(range24.strong,15);assert.equal(range24.moderate,35);assert.equal(range24.marginal,90);
+  assert.equal(range5.strong,7);assert.equal(range5.moderate,18);assert.equal(range5.marginal,40);
+  assert.equal(C.outerReach(p,'combined'),90);
+  assert.equal(C.outerReach(p,'5'),40);
+  const c24=C.coverageContours(p,3,[],'2.4'),c5=C.coverageContours(p,3,[],'5');
+  assert.equal(Math.hypot(c24.strong[0][0]-p.x,c24.strong[0][1]-p.y),45);
+  assert.equal(Math.hypot(c24.marginal[0][0]-p.x,c24.marginal[0][1]-p.y),270);
+  assert.equal(Math.hypot(c5.marginal[0][0]-p.x,c5.marginal[0][1]-p.y),120);
+  assert.equal(c24.marginal.length,192);
+  p.radioMode='5';assert.equal(C.outerReach(p,'combined'),40);
+  assert.equal(C.coverageContours(p,3,[],'2.4').marginal.length,0,'disabled radio does not paint');
+});
+
+test('combined frequency heat map is the longest reach in each color, even when 5 GHz is stronger',()=>{
+  const p=ap();p.radioMode='both';p.zoneRanges={
+    '2.4':{strong:12,moderate:26,marginal:65},
+    '5':{strong:20,moderate:42,marginal:50}
+  };
+  const combined=C.coverageContours(p,2,[],'combined');
+  for(const [zone,ft] of [['strong',20],['moderate',42],['marginal',65]]){
+    assert.ok(Math.abs(Math.hypot(combined[zone][0][0]-p.x,combined[zone][0][1]-p.y)-ft*2)<1e-8);
+  }
+  const wall={shape:'line',x:150,y:170,x2:250,y2:170,attenuation:.8};
+  const withWall=C.coverageContours(p,2,[wall],'combined');
+  assert.ok(Math.hypot(...withWall.marginal[0].map((v,i)=>v-[p.x,p.y][i]))<130);
+});
+
+test('older APs without radio fields get backward-compatible range defaults',()=>{
+  const p=ap();delete p.zoneRanges;delete p.radioMode;
+  assert.deepEqual(Object.values(C.zoneRanges(p,'2.4')).join(','),'25,40,60');
+  assert.deepEqual(Object.values(C.zoneRanges(p,'5')).join(','),'18,30,45');
+  assert.equal(C.outerReach(p),60);
+  assert.equal(C.coverageContours(p,3).marginal.length,192);
+});

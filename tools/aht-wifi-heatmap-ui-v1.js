@@ -4,7 +4,7 @@
 const C=window.AHTWifiCore,NS='http://www.w3.org/2000/svg', $=id=>document.getElementById(id);
 const BOUNDARY_STEPS=8;
 if(!C){$('status').textContent='Could not load Wi-Fi coverage geometry.';return;}
-const state={devices:[],walls:[],poles:[],nextId:1,showCoverage:true,opacity:.65,scaleInch:.125,showPoles:true,showWalls:true};
+const state={devices:[],walls:[],poles:[],nextId:1,showCoverage:true,opacity:.65,scaleInch:.125,showPoles:true,showWalls:true,viewRadio:'combined'};
 let pdfDoc=null,pdfBytes=null,pdfName='',pdfHash='',pageNum=1,vp=null,zoom=1,tx=0,ty=0,selected=null,tool='select',pendingWall=null,drag=null,pendingLoad=null;
 let copied=null,copyCount=0,contextPoint=null;
 const undo=[],redo=[];
@@ -30,6 +30,9 @@ const isFreeform=shape=>shape==='polyline'||shape==='polygon';
 const shapePath=(points,closed)=>'M '+points.map(p=>p.join(' ')).join(' L ')+(closed?' Z':'');
 const obstructionColor=w=>/^#[0-9a-f]{6}$/i.test(w.color||'')?w.color:'#815f9c';
 const obstructionOpacity=w=>clamp(Number(w.opacity??.85),.05,1);
+const obstructionLabelSize=w=>clamp(Number(w.labelSize)||11,7,28);
+function obstructionLabelMetrics(w){const size=obstructionLabelSize(w),length=String(w.labelText||'').slice(0,120).length;
+  return {size,width:Math.max(34,length*size*.61+15),height:size+12};}
 function obstructionLabelPosition(w){
   const points=C.obstructionOutline(w),center=points.length?
     [points.reduce((s,p)=>s+p[0],0)/points.length,points.reduce((s,p)=>s+p[1],0)/points.length]:[w.x,w.y];
@@ -64,21 +67,27 @@ function visibleHandle(ap,p){if(!vp)return p;const pad=Math.min(10/zoom,vp.width
   else if(dy>0&&p[1]>vp.height-pad)t=Math.min(t,(vp.height-pad-ap.y)/dy);
   t=clamp(t,0,1);return [ap.x+dx*t,ap.y+dy*t];}
 async function hashBytes(bytes){if(!window.crypto?.subtle||!bytes?.length)return '';try{const digest=await window.crypto.subtle.digest('SHA-256',bytes.slice());return [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');}catch(_){return '';}}
-function newAp(x,y){const kind=$('newKind').value,id=state.nextId++;return {id,type:'ap',page:pageNum,x,y,kind,rot:0,rangeFt:60,radii:C.shapeFor(kind),name:'AP '+id,make:'',model:'',note:'',showCoverage:true};}
+function newAp(x,y){const kind=$('newKind').value,id=state.nextId++;return {id,type:'ap',page:pageNum,x,y,kind,rot:0,rangeFt:60,radii:C.shapeFor(kind),
+  radioMode:'both',editBand:'2.4',zoneRanges:{'2.4':C.zoneRanges({rangeFt:60},'2.4'),'5':C.zoneRanges({rangeFt:60},'5')},
+  name:'AP '+id,make:'',model:'',note:'',showCoverage:true};}
 function heatCanvasDraw(ctx,p,pageView){const w=pageView.width,h=pageView.height;ctx.clearRect(0,0,w,h);if(!state.showCoverage)return;
   const ppf=pointsPerFoot(),walls=state.walls.filter(m=>(m.page||1)===p);
   state.devices.filter(m=>(m.page||1)===p&&m.showCoverage!==false).forEach(ap=>{
-    // Subdivide the editable control points into a rounded contour before
-    // painting each narrow gradient sector. This removes straight, angular
-    // wedges while preserving per-direction reach and wall attenuation.
-    const edge=C.smoothBoundary(ap,ppf,walls,BOUNDARY_STEPS);
+    const shapes=C.coverageContours(ap,ppf,walls,state.viewRadio,BOUNDARY_STEPS);
+    if(!shapes.bands.length)return;
+    const edge=shapes.marginal;
     ctx.save();ctx.globalAlpha=state.opacity;
     for(let i=0;i<edge.length;i++){
-      const p1=edge[i],p2=edge[(i+1)%edge.length];
+      const next=(i+1)%edge.length,p1=edge[i],p2=edge[next];
       const mx=(p1[0]+p2[0])/2,my=(p1[1]+p2[1])/2;
+      const dist=(pt)=>Math.hypot(pt[0]-ap.x,pt[1]-ap.y);
+      const outer=Math.max(.001,(dist(p1)+dist(p2))/2);
+      const strong=clamp((dist(shapes.strong[i])+dist(shapes.strong[next]))/(2*outer),0,1);
+      const moderate=clamp((dist(shapes.moderate[i])+dist(shapes.moderate[next]))/(2*outer),strong,1);
       const grad=ctx.createLinearGradient(ap.x,ap.y,mx,my);
-      grad.addColorStop(0,'rgba(229,57,53,1)');grad.addColorStop(.42,'rgba(229,57,53,.9)');
-      grad.addColorStop(.67,'rgba(245,124,0,.88)');grad.addColorStop(.91,'rgba(253,216,53,.75)');grad.addColorStop(1,'rgba(253,216,53,0)');
+      grad.addColorStop(0,'rgba(229,57,53,1)');grad.addColorStop(strong*.86,'rgba(229,57,53,.96)');
+      grad.addColorStop(strong,'rgba(245,124,0,.92)');grad.addColorStop((strong+moderate)/2,'rgba(245,124,0,.9)');
+      grad.addColorStop(moderate,'rgba(253,216,53,.84)');grad.addColorStop(1,'rgba(253,216,53,0)');
       ctx.beginPath();ctx.moveTo(ap.x,ap.y);ctx.lineTo(...p1);ctx.lineTo(...p2);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
     }
     ctx.restore();
@@ -103,13 +112,13 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
           dot.setAttribute('data-wall-handle',h);dot.setAttribute('data-wall',w.id);dot.style.cursor='move';});}
     }
     if(w.showLabel===true&&w.labelText){const L=obstructionLabelPosition(w),label=String(w.labelText).slice(0,120);
-      const width=Math.max(34,label.length*6.6+15),height=22;
+      const {size,width,height}=obstructionLabelMetrics(w);
       const leader=line(root,L.anchor[0],L.anchor[1],L.x,L.y,color,Math.max(1.4,1.4/zoom));
       leader.setAttribute('stroke-opacity',opacity);leader.setAttribute('pointer-events','none');
       const group=el('g',{'data-wall-label':w.id,'data-wall':w.id,style:'cursor:move'},root);
       el('rect',{x:L.x-width/2,y:L.y-height/2,width,height,rx:4,fill:'#fff','fill-opacity':.93,stroke:color,
         'stroke-opacity':opacity,'stroke-width':Math.max(1.1,1.1/zoom)},group);
-      text(group,label,L.x-width/2+7,L.y+3.7,11,color,700);
+      text(group,label,L.x-width/2+7,L.y+size*.34,size,color,700);
       title(group,'Drag this attached label to move it without moving the obstruction');
     }
   });
@@ -127,7 +136,7 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
   });
   pageAps().forEach(ap=>{
     const active=selected?.kind==='ap'&&selected.id===ap.id,g=el('g',{'data-ap':ap.id,style:'cursor:move'},root);
-    if(active){const edge=C.smoothBoundary(ap,pointsPerFoot(),pageWalls(),BOUNDARY_STEPS);
+    if(active&&C.activeBands(ap,state.viewRadio).length){const edge=C.coverageContours(ap,pointsPerFoot(),pageWalls(),state.viewRadio,BOUNDARY_STEPS).marginal;
       const d='M '+edge.map(p=>p.join(' ')).join(' L ')+' Z';
       const outline=el('path',{d,fill:'none',stroke:'#77540c','stroke-width':Math.max(1.8,2/zoom),'stroke-dasharray':`${8/zoom} ${5/zoom}`,'pointer-events':'stroke','data-boundary-ap':ap.id,style:'cursor:crosshair'},g);
       title(outline,'Drag this boundary to reshape Wi-Fi coverage');
@@ -140,7 +149,7 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
     for(const r of [5,7])el('path',{d:`M ${ap.x-r} ${ap.y-2} Q ${ap.x} ${ap.y-r*1.65} ${ap.x+r} ${ap.y-2}`,
       fill:'none',stroke:'#1a6598','stroke-width':1.15,'pointer-events':'none'},g);
     text(g,ap.name||'AP',ap.x+13,ap.y-8,Math.max(9,10/zoom),'#20486c');
-    title(g,[ap.name,ap.kind,ap.make,ap.model,ap.note].filter(Boolean).join(' · '));
+    title(g,[ap.name,ap.kind,ap.radioMode==='2.4'?'2.4 GHz':ap.radioMode==='5'?'5 GHz':'2.4 + 5 GHz',ap.make,ap.model,ap.note].filter(Boolean).join(' · '));
   });
   if(pendingWall){const a=pendingWall.start,b=pendingWall.end||a,shape=pendingWall.shape;
     const points=isFreeform(shape)?[...pendingWall.points,b]:C.obstructionOutline({shape,x:a[0],y:a[1],x2:b[0],y2:b[1]});
@@ -161,14 +170,20 @@ function refreshObstructionList(){const list=$('obstructionList');list.replaceCh
     list.append(option);});
   list.value=selected?.kind==='wall'?String(selected.id):'';
 }
+function syncApRangeFields(ap){const radio=ap.radioMode==='2.4'||ap.radioMode==='5'?ap.radioMode:(ap.editBand==='5'?'5':'2.4');
+  $('apEditBand').value=radio;$('apEditBand').disabled=ap.radioMode==='2.4'||ap.radioMode==='5';
+  const ranges=C.zoneRanges(ap,radio);
+  for(const zone of ['strong','moderate','marginal']){$(zone+'Range').value=ranges[zone];$(zone+'RangeValue').textContent=ranges[zone];}
+}
 function syncSelection(){const ap=selectedAp(),w=selectedWall(),pole=selectedPole();$('selectedFields').hidden=!ap;$('wallFields').hidden=!w;$('poleFields').hidden=!pole;
   $('obstructionClosedModeRow').hidden=!w||!isFreeform(w.shape);
   $('selectionHelp').hidden=!!ap;$('selectionHelp').textContent=pole?'A CCTV pole is selected. Use its panel in step 5 to edit or remove it.':w?'An obstruction is selected. Use its panel in step 4.':'Select an AP on the drawing to edit its shape and settings.';
-  if(ap){$('apName').value=ap.name||'';$('apKind').value=ap.kind;$('rangeFt').value=ap.rangeFt||60;$('rangeValue').textContent=ap.rangeFt||60;
+  if(ap){$('apName').value=ap.name||'';$('apKind').value=ap.kind;$('apRadios').value=ap.radioMode||'both';syncApRangeFields(ap);
     $('apRotation').value=ap.rot||0;$('directionValue').textContent=ap.rot||0;$('apMake').value=ap.make||'';$('apModel').value=ap.model||'';$('apNote').value=ap.note||'';$('apShowCoverage').checked=ap.showCoverage!==false;}
   if(w){if(isFreeform(w.shape))$('obstructionClosedMode').value=w.shape;
     $('wallAttenuation').value=Math.round((w.attenuation??0)*100);$('wallValue').textContent=$('wallAttenuation').value;$('wallNote').value=w.note||'';
     $('obstructionLabelText').value=w.labelText||'';$('obstructionLabelVisible').checked=w.showLabel===true;
+    $('obstructionLabelSize').value=obstructionLabelSize(w);$('obstructionLabelSizeValue').textContent=obstructionLabelSize(w);
     $('obstructionVisible').checked=w.show!==false;$('obstructionColor').value=obstructionColor(w);
     $('obstructionOpacity').value=Math.round(obstructionOpacity(w)*100);$('obstructionOpacityValue').textContent=$('obstructionOpacity').value;}
   if(pole)$('poleDetails').textContent=`Page ${pole.page} · ${pole.heads?.length||0} camera head(s) · drag the pole to relocate it.`;
@@ -194,8 +209,8 @@ async function openPdf(file){try{status('Opening '+file.name+'…');const buffer
     if(pendingWarning)status(pendingWarning);
   }catch(e){console.error(e);status('Could not open PDF: '+e.message);}}
 function download(name,blob){const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=name;document.body.append(link);link.click();setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove();},1500);}
-function workData(){return {tool:'AHT Wi-Fi Heat Map',version:3,pdfName,pdfHash,page:pageNum,scaleInch:state.scaleInch,
-  devices:state.devices,walls:state.walls,poles:state.poles,nextId:state.nextId,showCoverage:state.showCoverage,opacity:state.opacity,showWalls:state.showWalls,showPoles:state.showPoles};}
+function workData(){return {tool:'AHT Wi-Fi Heat Map',version:4,pdfName,pdfHash,page:pageNum,scaleInch:state.scaleInch,
+  devices:state.devices,walls:state.walls,poles:state.poles,nextId:state.nextId,showCoverage:state.showCoverage,opacity:state.opacity,showWalls:state.showWalls,showPoles:state.showPoles,viewRadio:state.viewRadio};}
 function applyWork(o){if(!o||!Array.isArray(o.devices)||!Array.isArray(o.walls))throw Error('Not a Wi-Fi work JSON.');
   if(pdfDoc){if(!C.pdfFileName(o.pdfName)||C.pdfFileName(o.pdfName)!==C.pdfFileName(pdfName))throw Error('JSON belongs to a different PDF drawing.');
     if(o.pdfHash&&pdfHash&&o.pdfHash!==pdfHash)throw Error('PDF filename matches but drawing content is different.');}
@@ -203,8 +218,9 @@ function applyWork(o){if(!o||!Array.isArray(o.devices)||!Array.isArray(o.walls))
   state.nextId=Math.max(Number(o.nextId)||1,1,...[...state.devices,...state.walls,...state.poles].map(m=>(Number(m.id)||0)+1));
   const ids=new Set([...state.devices,...state.walls].map(m=>m.id));state.poles.forEach(p=>{if(!Number.isInteger(p.id)||ids.has(p.id))p.id=state.nextId++;ids.add(p.id);});
   state.scaleInch=Number(o.scaleInch)||.125;state.showCoverage=o.showCoverage!==false;state.opacity=clamp(o.opacity==null?.65:Number(o.opacity),.1,.95);state.showPoles=o.showPoles!==false;state.showWalls=o.showWalls!==false;
+  state.viewRadio=['combined','2.4','5'].includes(o.viewRadio)?o.viewRadio:'combined';
   $('scaleSel').value=String(state.scaleInch);$('globalHeat').checked=state.showCoverage;$('heatOpacity').value=Math.round(state.opacity*100);$('opacityValue').textContent=$('heatOpacity').value;
-  $('showPoles').checked=state.showPoles;$('showWalls').checked=state.showWalls;
+  $('showPoles').checked=state.showPoles;$('showWalls').checked=state.showWalls;$('viewRadio').value=state.viewRadio;
   if(pdfDoc&&Number(o.page)>=1&&Number(o.page)<=pdfDoc.numPages){pageNum=Number(o.page);$('pageSel').value=pageNum;}
   selected=null;undo.length=0;redo.length=0;syncSelection();draw();
 }
@@ -338,12 +354,14 @@ function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toVie
   const apEl=target.closest?.('[data-ap]'),wallEl=target.closest?.('[data-wall]'),poleEl=target.closest?.('[data-pole]');
   if(handle&&apEl){const ap=state.devices.find(m=>m.id===Number(apEl.dataset.ap));if(!ap)return;
     const index=Number(handle.dataset.handle),a=C.angle(index)+(Number(ap.rot)||0)*Math.PI/180;
-    selectItem('ap',ap.id);startDrag(e,{kind:'handle',id:ap.id,index,start:p,baseline:C.effectiveRadius(ap,a,pointsPerFoot(),pageWalls()),unit:C.unit(a)});return;}
+    const reachFt=C.outerReach(ap,state.viewRadio),shape={...ap,rangeFt:reachFt};
+    selectItem('ap',ap.id);startDrag(e,{kind:'handle',id:ap.id,index,start:p,reachFt,baseline:C.effectiveRadius(shape,a,pointsPerFoot(),pageWalls()),unit:C.unit(a)});return;}
   if(boundary&&apEl){const ap=state.devices.find(m=>m.id===Number(apEl.dataset.ap));if(!ap)return;
     const a=Math.atan2(p[0]-ap.x,-(p[1]-ap.y))-(Number(ap.rot)||0)*Math.PI/180;
     const index=((Math.round((a%(2*Math.PI)+2*Math.PI)%(2*Math.PI)/(2*Math.PI)*C.COUNT)%C.COUNT)+C.COUNT)%C.COUNT;
     const angle=C.angle(index)+(Number(ap.rot)||0)*Math.PI/180;
-    selectItem('ap',ap.id);startDrag(e,{kind:'handle',id:ap.id,index,start:p,baseline:C.effectiveRadius(ap,angle,pointsPerFoot(),pageWalls()),unit:C.unit(angle)});return;}
+    const reachFt=C.outerReach(ap,state.viewRadio),shape={...ap,rangeFt:reachFt};
+    selectItem('ap',ap.id);startDrag(e,{kind:'handle',id:ap.id,index,start:p,reachFt,baseline:C.effectiveRadius(shape,angle,pointsPerFoot(),pageWalls()),unit:C.unit(angle)});return;}
   if(wallHandle){const w=state.walls.find(m=>m.id===Number(wallHandle.dataset.wall));if(!w)return;
     selectItem('wall',w.id);startDrag(e,{kind:'wall-handle',id:w.id,handle:wallHandle.dataset.wallHandle,start:p});return;}
   if(wallLabel){const w=state.walls.find(m=>m.id===Number(wallLabel.dataset.wallLabel));if(!w)return;
@@ -355,7 +373,8 @@ function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toVie
   if(wallEl){const w=state.walls.find(m=>m.id===Number(wallEl.dataset.wall));if(!w)return;
     selectItem('wall',w.id);startDrag(e,{kind:'wall-move',id:w.id,start:p,original:JSON.parse(JSON.stringify(w))});return;}
   if(tool==='reshape'){const candidates=pageAps().map(ap=>{const dx=p[0]-ap.x,dy=p[1]-ap.y;
-      const a=Math.atan2(dx,-dy),d=Math.hypot(dx,dy),r=C.smoothEffectiveRadius(ap,a,pointsPerFoot(),pageWalls());return {ap,d,inside:d<=r};})
+      const a=Math.atan2(dx,-dy),d=Math.hypot(dx,dy),reachFt=C.outerReach(ap,state.viewRadio);
+      const r=reachFt?C.smoothEffectiveRadius({...ap,rangeFt:reachFt},a,pointsPerFoot(),pageWalls()):0;return {ap,d,inside:reachFt>0&&d<=r};})
       .filter(x=>x.inside).sort((a,b)=>a.d-b.d);
     if(candidates.length){selectItem('ap',candidates[0].ap.id);status('AP selected. Drag a yellow boundary handle or the dashed outline.');return;}}
   selected=null;syncSelection();drawOverlay();startDrag(e,{kind:'pan',sx:e.clientX,sy:e.clientY,tx,ty});
@@ -373,7 +392,8 @@ function pointerMove(e){if(!drag){if(isFreeform(pendingWall?.shape)&&tool==='wal
   if(drag.kind==='wall-label'){const w=state.walls.find(m=>m.id===drag.id);if(w){
     w.labelDx=drag.dx+p[0]-drag.start[0];w.labelDy=drag.dy+p[1]-drag.start[1];}}
   if(drag.kind==='handle'){const ap=state.devices.find(m=>m.id===drag.id);if(ap){const delta=(p[0]-drag.start[0])*drag.unit[0]+(p[1]-drag.start[1])*drag.unit[1];
-      const r=Math.max(0,drag.baseline+delta);C.updateHandle(ap,drag.index,ap.x+drag.unit[0]*r,ap.y+drag.unit[1]*r,pointsPerFoot(),pageWalls());}}
+      const r=Math.max(0,drag.baseline+delta),shape={...ap,rangeFt:drag.reachFt};
+      C.updateHandle(shape,drag.index,ap.x+drag.unit[0]*r,ap.y+drag.unit[1]*r,pointsPerFoot(),pageWalls());ap.radii=shape.radii;}}
   if(drag.kind==='wall-handle'){const w=state.walls.find(m=>m.id===drag.id);if(w){
     const handle=drag.handle;
     if(handle.startsWith('v')&&Array.isArray(w.points)){
@@ -418,7 +438,14 @@ function bind(){
     input.addEventListener('change',()=>{started=false;});};
   edit('apName',(a,t)=>{a.name=t.value;drawOverlay();});edit('apMake',(a,t)=>a.make=t.value);edit('apModel',(a,t)=>a.model=t.value);edit('apNote',(a,t)=>a.note=t.value);
   edit('apKind',(a,t)=>{a.kind=t.value;a.radii=C.shapeFor(a.kind);});
-  slider('rangeFt',(a,t)=>{a.rangeFt=Number(t.value);$('rangeValue').textContent=t.value;});
+  edit('apRadios',(a,t)=>{a.radioMode=t.value;if(a.radioMode!=='both')a.editBand=a.radioMode;syncApRangeFields(a);});
+  $('apEditBand').onchange=e=>{const a=selectedAp();if(!a)return;a.editBand=e.target.value;syncApRangeFields(a);};
+  for(const zone of ['strong','moderate','marginal'])slider(zone+'Range',(a,t)=>{
+    const band=a.radioMode==='2.4'||a.radioMode==='5'?a.radioMode:a.editBand==='5'?'5':'2.4';
+    const ranges=C.zoneRanges(a,band),value=Number(t.value);
+    ranges[zone]=zone==='strong'?clamp(value,5,ranges.moderate):zone==='moderate'?clamp(value,ranges.strong,ranges.marginal):clamp(value,ranges.moderate,250);
+    a.zoneRanges={...a.zoneRanges,[band]:ranges};t.value=ranges[zone];$(zone+'RangeValue').textContent=ranges[zone];
+  });
   slider('apRotation',(a,t)=>{a.rot=Number(t.value);$('directionValue').textContent=t.value;});
   edit('apShowCoverage',(a,t)=>a.showCoverage=t.checked);
   $('softenShape').onclick=()=>{const a=selectedAp();if(!a)return;remember();C.softenShape(a);draw();status('Coverage rounded into a softer, organic shape. Undo is available.');};
@@ -436,6 +463,11 @@ function bind(){
     status(shape==='polyline'?'Converted to an OPEN freeform line; every existing point is preserved.':'Converted to a CLOSED freeform area; every existing point is preserved.');};
   $('obstructionLabelText').onchange=e=>{const w=selectedWall();if(!w)return;remember();w.labelText=e.target.value;
     refreshObstructionList();drawOverlay();};
+  let labelSizeStarted=false;
+  $('obstructionLabelSize').addEventListener('pointerdown',()=>{if(selectedWall()&&!labelSizeStarted){remember();labelSizeStarted=true;}});
+  $('obstructionLabelSize').oninput=e=>{const w=selectedWall();if(!w)return;if(!labelSizeStarted){remember();labelSizeStarted=true;}
+    w.labelSize=clamp(Number(e.target.value),7,28);$('obstructionLabelSizeValue').textContent=w.labelSize;drawOverlay();};
+  $('obstructionLabelSize').onchange=()=>{labelSizeStarted=false;};
   $('obstructionLabelVisible').onchange=e=>{const w=selectedWall();if(!w)return;remember();w.showLabel=e.target.checked;
     if(w.showLabel&&!w.labelText){w.labelText=w.note||'Obstruction';$('obstructionLabelText').value=w.labelText;}
     drawOverlay();};
@@ -453,6 +485,7 @@ function bind(){
     if(!confirm('Remove all imported CCTV poles from the Wi-Fi drawing? Undo will restore them.'))return;
     remember();state.poles=[];selected=null;syncSelection();draw();status('Imported CCTV poles cleared. Undo is available.');};
   $('globalHeat').onchange=e=>{state.showCoverage=e.target.checked;drawHeat();};
+  $('viewRadio').onchange=e=>{state.viewRadio=e.target.value;draw();};
   $('heatOpacity').oninput=e=>{state.opacity=Number(e.target.value)/100;$('opacityValue').textContent=e.target.value;drawHeat();};
   $('showPoles').onchange=e=>{state.showPoles=e.target.checked;drawOverlay();};$('showWalls').onchange=e=>{state.showWalls=e.target.checked;drawOverlay();};
   $('pastePoles').onclick=()=>{try{const raw=localStorage.getItem('aht:wifi:poles:v1');if(!raw){status('No CCTV poles copied yet. Use Copy poles for Wi-Fi in the CCTV tool.');return;}void importPoles(JSON.parse(raw));}catch(e){status('Pole clipboard could not be read: '+e.message);}};
@@ -513,13 +546,14 @@ async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing fir
             const a=conv(...points[i]),b=conv(...points[(i+1)%points.length]);
             page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:2,color:paint,opacity,dashArray:[7,4]});
           }}
-        if(w.showLabel===true&&w.labelText){const L=obstructionLabelPosition(w),labelText=asci(w.labelText).slice(0,120),width=Math.max(36,labelText.length*6.3+15),height=20;
+        if(w.showLabel===true&&w.labelText){const L=obstructionLabelPosition(w),labelText=asci(w.labelText).slice(0,120);
+          const {size,width,height}=obstructionLabelMetrics(w);
           const a=conv(...L.anchor),b=conv(L.x,L.y),bottomLeftLabel=conv(L.x-width/2,L.y+height/2);
           page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:1.1,color:paint,opacity});
           page.drawRectangle({x:bottomLeftLabel[0],y:bottomLeftLabel[1],width,height,rotate:degrees(angle*180/Math.PI),
             color:rgb(1,1,1),opacity:.92,borderColor:paint,borderOpacity:opacity,borderWidth:1});
-          const labelPoint=conv(L.x-width/2+6,L.y+3.5);
-          page.drawText(labelText,{x:labelPoint[0],y:labelPoint[1],font,size:10,color:paint,opacity,rotate:degrees(angle*180/Math.PI)});
+          const labelPoint=conv(L.x-width/2+7,L.y+size*.34);
+          page.drawText(labelText,{x:labelPoint[0],y:labelPoint[1],font,size,color:paint,opacity,rotate:degrees(angle*180/Math.PI)});
         }
       });
       if(state.showPoles)poles.forEach(pole=>{const origin=conv(pole.x,pole.y);page.drawCircle({x:origin[0],y:origin[1],size:7,color:rgb(.78,.84,.88),borderColor:ink,borderWidth:1.4});

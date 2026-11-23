@@ -1,4 +1,4 @@
-# AHT Wi-Fi Heat Map — preview pilot v0.5.1 (`wifi-20261122-f`)
+# AHT Wi-Fi Heat Map — preview pilot v0.6.0 (`wifi-20261123-a`)
 
 This tool is intentionally a **preview**, not an RF prediction or survey instrument.
 Do not infer dBm, throughput, roaming performance, channel contention, or compliance
@@ -13,7 +13,7 @@ from its colored illustration.
    Undo/Redo and Place Multiple pinned at the top. Drag an AP center to move it.
    Select the AP or click **Reshape**
    and drag yellow handles on the dashed outline (including handles clipped to the PDF edge).
-   Change range, facing and make/model/notes
+   Change facing, make/model/notes, and the per-radio signal ranges
    in the sidebar. Neighboring directions deform softly as you drag; **Soften selected
    outline** rounds previously edited shapes. **Reset coverage shape** restores the mount default.
 5. **Obstructions:** Step 2 only places APs; all obstructions are created in Step 4.
@@ -33,7 +33,7 @@ from its colored illustration.
    - Select an obstruction on the PDF or in the **Edit a placed obstruction**
      dropdown (including hidden ones). Drag its outline to move, or its handles
      to reshape. Each has its own **color, transparency, outline visibility,
-     editable text label, label visibility, and independently draggable label**
+     editable text label, adjustable label text size (7–28 pt), label visibility, and independently draggable label**
      with a leader line. Undo/Redo, copy/paste, JSON and PDF export preserve them.
 6. **CCTV:** in the CCTV tool, use its review section to **Copy selected poles for Wi-Fi**
    (or **Copy all poles**). Return to Wi-Fi, open the same PDF and click **Paste CCTV poles**.
@@ -50,6 +50,17 @@ from its colored illustration.
 
 - Default color: **red** strongest nearest AP, **orange** moderate, **yellow** at the
   outer estimated edge, then transparent. Opacity and each AP's visibility are editable.
+- Each AP can have **2.4 GHz, 5 GHz, or both** radios enabled. Select the radio being edited
+  and independently set the reach of the **strong (red), moderate (orange), and marginal
+  (yellow)** areas, in feet. The ranges remain ordered so the colors don't cross.
+- New APs start at an illustrative **25 / 40 / 60 ft** for 2.4 GHz and
+  **18 / 30 / 45 ft** for 5 GHz; these are editable planning defaults, not
+  manufacturer-specific specifications. An older saved JSON without the radio settings
+  uses matching defaults based on its original estimated AP range.
+- The global **Display radio coverage** menu switches between 2.4 GHz only, 5 GHz
+  only, and combined. Combined takes the longest estimated reach for each color from
+  either enabled band instead of artificially stacking opacity. Exported PDF uses the
+  same view that is shown in the editor, and JSON preserves the AP's independent settings.
 - Indoor ceiling and outdoor pole omni start with equal all-around radius.
 - Wall-facing and pole directional begin with different forward-focused profiles.
 - Heat-map contours are rendered smoothly between the 24 editable radial handles.
@@ -78,6 +89,9 @@ Do not merge the draft PR to main until the preview has been reviewed.
   page counts, sizes and content fingerprints to prevent silent cross-drawing shifts.
 - The local pole clipboard is per browser origin; JSON import is a portable alternative.
 - Page positions are preserved in PDF viewport coordinates and editable work JSON.
+- Wi-Fi JSON format v4 preserves the new radio ranges, visible band and obstruction
+  label text sizes. Existing v3 files remain readable. Always save your current JSON
+  before testing a newer preview.
 - The tool does **not** read measurements from equipment catalogs or perform calibrated
   propagation, reflected multipath, floor-to-floor signal, power budgets, or RF survey.
 - Server-side file permissions are unchanged; dashboard tool grants control UI visibility
