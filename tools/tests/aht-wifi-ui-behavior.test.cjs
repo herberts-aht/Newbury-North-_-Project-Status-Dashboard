@@ -60,7 +60,7 @@ function harness({drawingKey=false,clock=false}={}){
     await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));};
   const screen=(x,y)=>{const transform=get('stage').style.transform.match(/translate\(([-.\d]+)px,([-.\d]+)px\) scale\(([-.\d]+)\)/);
     const [,tx,ty,zoom]=transform.map(Number);return {clientX:x*zoom+tx,clientY:y*zoom+ty};};
-  const mouse=(type,x,y,target=get('overlay'))=>{const e={button:0,pointerId:1,target,...screen(x,y),preventDefault(){},stopPropagation(){}};
+  const mouse=(type,x,y,target=get('overlay'),options={})=>{const e={button:0,pointerId:1,target,...screen(x,y),...options,preventDefault(){},stopPropagation(){}};
     get('viewport').dispatch(type,e);return e;};
   const currentWork=async()=>{get('saveBtn').onclick();return JSON.parse(await savedBlob.text());};
   const fireTimers=duration=>{for(const [id,t] of timers){if(t.delay<=duration){timers.delete(id);t.fn();}}};
@@ -74,7 +74,7 @@ test('layout is drawing-left and tools-right with full editing controls',()=>{
   assert.doesNotMatch(html,/id="wallBtn"/,'no second obstruction button appears in AP placement');
   assert.match(html,/id="obstructionShape"/);
   assert.match(html,/#addWall\.active\{background:#147568/,'active drawing button has a distinct green state');
-  for(const id of ['selectBtn','undoBtn','redoBtn','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles','obstructionFinishDock','obstructionList','obstructionColor','obstructionOpacity','obstructionVisible','obstructionLabelVisible','obstructionLabelSize','apRadios','apEditBand','strongRange','moderateRange','marginalRange','viewRadio'])assert.match(html,new RegExp('id="'+id+'"'));
+  for(const id of ['selectBtn','undoBtn','redoBtn','bulkSelectBtn','bulkSelectionCount','selectAllPage','clearSelection','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles','obstructionFinishDock','obstructionList','obstructionColor','obstructionOpacity','obstructionVisible','obstructionLabelVisible','obstructionLabelSize','apRadios','apEditBand','apIconScale','apIconScaleValue','applyIconScaleToKind','strongRange','moderateRange','marginalRange','viewRadio'])assert.match(html,new RegExp('id="'+id+'"'));
 });
 
 test('bottom-left status notice dismisses automatically and has a close button',()=>{
@@ -412,4 +412,98 @@ test('an imported CCTV pole can be moved, deleted and restored through Undo',asy
   h.get('deletePole').onclick();assert.equal((await h.currentWork()).poles.length,0);
   h.get('undoBtn').onclick();work=await h.currentWork();assert.equal(work.poles.length,1);
   assert.ok(Math.abs(work.poles[0].x-185)<1e-6);
+});
+
+test('AP icon size is independent of coverage, exports at selected size, and applies by mount type across pages',async()=>{
+  const h=harness();await h.page();h.get('placeMultiple').checked=true;h.get('placeBtn').onclick();
+  h.mouse('pointerdown',100,100);h.mouse('pointerdown',210,100);
+  h.get('newKind').value='wall';h.mouse('pointerdown',320,100);
+  h.get('pageSel').onchange({target:{value:'2'}});
+  await new Promise(resolve=>setImmediate(resolve));
+  h.get('newKind').value='ceiling';h.mouse('pointerdown',125,150);
+  h.get('pageSel').onchange({target:{value:'1'}});
+  await new Promise(resolve=>setImmediate(resolve));
+  h.get('selectBtn').onclick();
+  const first=h.get('overlay').children.find(el=>el.getAttribute?.('data-ap')==='1');
+  h.mouse('pointerdown',100,100,first);h.mouse('pointerup',100,100,first);
+  const coverageBefore=JSON.stringify((await h.currentWork()).devices[0].radii);
+  h.get('apIconScale').dispatch('input',{target:{value:'175'}});
+  h.get('apIconScale').dispatch('change',{});
+  let work=await h.currentWork();assert.equal(work.devices[0].iconScale,1.75);
+  assert.equal(work.devices[1].iconScale,1,'other same-type AP unchanged until apply');
+  assert.equal(JSON.stringify(work.devices[0].radii),coverageBefore,'coverage shape is not resized');
+  h.get('applyIconScaleToKind').onclick();work=await h.currentWork();
+  assert.deepEqual(work.devices.map(a=>a.iconScale),[1.75,1.75,1,1.75]);
+  assert.equal(h.get('apIconScaleValue').textContent,175);
+  const svg=h.get('overlay').children.find(el=>el.getAttribute?.('data-ap')==='2');
+  assert.equal(Number(svg.children.find(c=>c.getAttribute?.('fill')==='#eaf6fd').getAttribute('r')),15.75);
+  const circles=[];
+  h.window.PDFLib={PDFDocument:{load:async()=>({embedFont:async()=>({}),getPages:()=>Array.from({length:2},()=>({drawLine(){},drawRectangle(){},drawCircle:o=>circles.push(o),drawText(){}})),save:async()=>new Uint8Array([1])})},
+    StandardFonts:{HelveticaBold:'bold',Helvetica:'plain'},rgb:(...x)=>x,degrees:n=>n};
+  h.get('globalHeat').onchange({target:{checked:false}});
+  await h.get('pdfBtn').onclick();
+  assert.equal(circles.filter(c=>c.size===12.25).length,3,'three ceiling AP outer symbols export at 175%');
+  assert.equal(circles.filter(c=>c.size===7).length,1,'wall AP keeps its default symbol size');
+  h.get('undoBtn').onclick();assert.deepEqual((await h.currentWork()).devices.map(a=>a.iconScale),[1.75,1,1,1],
+    'one undo restores all same-type APs without reverting the original individual edit');
+  const saved=await h.currentWork();
+  await h.get('workFile').onchange({target:{files:[{text:async()=>JSON.stringify(saved)}],value:''}});
+  assert.deepEqual((await h.currentWork()).devices.map(a=>a.iconScale),[1.75,1,1,1],
+    'symbol-size choices survive save and reopen');
+});
+
+test('bulk select box moves APs, pole and obstruction together; group copy/paste/delete are undoable',async()=>{
+  const h=harness();await h.page();h.get('placeMultiple').checked=true;h.get('placeBtn').onclick();
+  h.mouse('pointerdown',100,110);h.mouse('pointerdown',210,140);
+  h.get('selectBtn').onclick();h.get('obstructionShape').value='line';h.get('addWall').onclick();
+  h.mouse('pointerdown',100,300);h.mouse('pointermove',230,300);h.mouse('pointerup',230,300);
+  await h.get('cctvFile').onchange({target:{files:[{text:async()=>JSON.stringify({tool:'CCTV',pdfName:'test.pdf',markers:[{type:'pole3',page:1,x:350,y:350,heads:[{kind:'ptz',rel:30,tier:1}]}]})}],value:''}});
+  h.get('bulkSelectBtn').onclick();assert.equal(h.get('bulkSelectBtn').getAttribute('aria-pressed'),'true');
+  h.mouse('pointerdown',60,65);h.mouse('pointermove',410,405);h.mouse('pointerup',410,405);
+  assert.match(h.get('bulkSelectionCount').textContent,/4 items selected/);
+  assert.equal(h.get('selectedFields').hidden,true,'individual AP editing is hidden while group selected');
+  let before=await h.currentWork();const ap=h.get('overlay').children.find(el=>el.getAttribute?.('data-ap')==='1');
+  h.mouse('pointerdown',100,110,ap);h.mouse('pointermove',130,135,ap);h.mouse('pointerup',130,135,ap);
+  let work=await h.currentWork();
+  assert.deepEqual(work.devices.map(a=>[a.x,a.y]),[[130,135],[240,165]]);
+  assert.deepEqual([work.walls[0].x,work.walls[0].x2,work.walls[0].y],[130,260,325]);
+  assert.deepEqual([work.poles[0].x,work.poles[0].y],[380,375]);
+  assert.match(h.get('bulkSelectionCount').textContent,/4 items selected/,'group stays selected after move');
+  h.get('undoBtn').onclick();work=await h.currentWork();
+  assert.deepEqual(work.devices.map(a=>[a.x,a.y]),before.devices.map(a=>[a.x,a.y]));
+  assert.ok(Math.abs(work.walls[0].x-100)<1e-6);assert.ok(Math.abs(work.poles[0].x-350)<1e-6);
+  h.get('selectAllPage').onclick();assert.match(h.get('bulkSelectionCount').textContent,/4 items selected/);
+  const menu=h.get('wifiContextMenu'),selectedAp=h.get('overlay').children.find(el=>el.getAttribute?.('data-ap')==='1');
+  h.get('viewport').dispatch('contextmenu',{target:selectedAp,clientX:250,clientY:230,preventDefault(){},stopPropagation(){}});
+  assert.equal(menu.querySelector('[data-action="copy"]').textContent,'Copy 4 selected',
+    'right-click on a member does not collapse the group');
+  menu.dispatch('click',{target:menu.querySelector('[data-action="copy"]')});
+  h.get('pasteItem').onclick();work=await h.currentWork();
+  assert.deepEqual([work.devices.length,work.walls.length,work.poles.length],[4,2,2]);
+  assert.ok(Math.abs(work.devices[2].x-118)<1e-6);assert.ok(Math.abs(work.walls[1].x2-248)<1e-6);
+  assert.ok(Math.abs(work.poles[1].y-368)<1e-6);
+  assert.match(h.get('bulkSelectionCount').textContent,/4 items selected/,'pasted items become the new group');
+  h.get('undoBtn').onclick();work=await h.currentWork();
+  assert.deepEqual([work.devices.length,work.walls.length,work.poles.length],[2,1,1],
+    'single undo removes all four pasted items');
+  h.get('selectAllPage').onclick();
+  h.get('viewport').dispatch('contextmenu',{target:h.get('overlay'),clientX:340,clientY:280,preventDefault(){},stopPropagation(){}});
+  assert.equal(menu.querySelector('[data-action="delete"]').textContent,'Delete 4 selected');
+  menu.dispatch('click',{target:menu.querySelector('[data-action="delete"]')});
+  work=await h.currentWork();assert.equal(work.devices.length+work.walls.length+work.poles.length,0);
+  h.get('undoBtn').onclick();work=await h.currentWork();assert.equal(work.devices.length+work.walls.length+work.poles.length,4);
+});
+
+test('Shift-click toggles group membership without entering bulk mode and supports group nudging',async()=>{
+  const h=harness();await h.page();h.get('placeMultiple').checked=true;h.get('placeBtn').onclick();
+  h.mouse('pointerdown',100,100);h.mouse('pointerdown',220,110);h.get('selectBtn').onclick();
+  const aps=()=>h.get('overlay').children.filter(el=>el.getAttribute?.('data-ap'));
+  const first=aps()[0];
+  h.mouse('pointerdown',100,100,first,{shiftKey:true});
+  assert.match(h.get('bulkSelectionCount').textContent,/2 items selected/);
+  for(const keydown of h.events.keydown)keydown({key:'ArrowRight',target:new FakeElement('div'),preventDefault(){}});
+  assert.ok((await h.currentWork()).devices.every((a,i)=>Math.abs(a.x-[101,221][i])<1e-6));
+  h.mouse('pointerdown',100,100,aps()[0],{shiftKey:true});
+  assert.match(h.get('bulkSelectionCount').textContent,/1 item selected/);
+  h.get('clearSelection').onclick();assert.equal(h.get('bulkSelectionCount').textContent,'No items selected');
 });

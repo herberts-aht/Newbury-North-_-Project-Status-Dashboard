@@ -24,6 +24,11 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
 #workflow .edit-controls button{font-size:11px;font-weight:bold;padding:6px 2px}
 #selectBtn{grid-column:1 / -1;background:#147568;border-color:#147568;color:#fff;min-height:28px}
 #selectBtn:not(.active){background:#edf8f5;color:#14665c;border-color:#87b7a9}
+#bulkSelectBtn{grid-column:1 / -1;min-height:28px}
+#bulkSelectBtn.active{background:#164a73;border-color:#164a73;color:#fff}
+#bulkSelectionCount{font-size:10px;color:#1a648c;font-weight:700;margin:4px 0 0}
+#bulkActions{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:6px 0}
+#bulkActions button{font-size:11px;padding:7px 4px}
 #workflow .check{margin:5px 0 1px}
 #modeHelp{font-size:10px;color:#536e80;margin:7px 0;display:flex;align-items:flex-start;gap:6px}
 #modeHelp::before{content:'';display:inline-block;background:#25ad70;border-radius:50%;width:7px;height:7px;flex:0 0 7px;margin-top:3px}
@@ -53,19 +58,20 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
 <body>
 <div id="app">
 <aside id="sidebar">
-<header><img src="aht-global-tools-logo.png" alt="AHT Global"><h1>Wi-Fi Heat Map</h1><p>Indoor / outdoor AP placement and illustrative signal coverage.</p><div id="version">Pilot v0.6.1 · Build wifi-20261123-b · PREVIEW</div></header>
+<header><img src="aht-global-tools-logo.png" alt="AHT Global"><h1>Wi-Fi Heat Map</h1><p>Indoor / outdoor AP placement and illustrative signal coverage.</p><div id="version">Pilot v0.6.2 · Build wifi-20261123-c · PREVIEW</div></header>
 <nav id="workflow" aria-label="Wi-Fi drawing workflow"><strong>Your drawing workflow — jump to any step</strong><div class="steps">
   <button data-step="open" aria-current="step"><b>1</b>Open</button><button data-step="place"><b>2</b>Place</button><button data-step="adjust"><b>3</b>Adjust</button>
   <button data-step="walls"><b>4</b>Obstructions</button><button data-step="review"><b>5</b>Review</button><button data-step="key"><b>6</b>Key</button><button data-step="export"><b>7</b>Export</button>
-</div><div class="edit-controls"><button id="selectBtn" class="active" title="Select items, adjust shapes and pan the drawing">↖ Select / Adjust</button><button id="undoBtn" title="Undo last edit">↶ Undo</button><button id="redoBtn" title="Redo last undone edit">↷ Redo</button></div>
-<p id="modeHelp">Active · Click an icon to select; drag blank space to pan.</p><label class="check"><input type="checkbox" id="placeMultiple"><span><strong>Place Multiple</strong> (off = return after one)</span></label></nav>
+</div><div class="edit-controls"><button id="selectBtn" class="active" title="Select items, adjust shapes and pan the drawing">↖ Select / Adjust</button><button id="undoBtn" title="Undo last edit">↶ Undo</button><button id="redoBtn" title="Redo last undone edit">↷ Redo</button><button id="bulkSelectBtn" aria-pressed="false" title="Select multiple items by clicking or dragging a selection box">□ Bulk Select / Box</button></div>
+<p id="modeHelp">Active · Click an icon to select; drag blank space to pan.</p><p id="bulkSelectionCount" aria-live="polite">No items selected</p><label class="check"><input type="checkbox" id="placeMultiple"><span><strong>Place Multiple</strong> (off = return after one)</span></label></nav>
 <section id="openSection"><h2>1 · Open Drawing</h2><button id="openBtn" class="primary" style="width:100%">Choose PDF drawing…</button><input id="pdfFile" type="file" accept=".pdf,application/pdf" hidden><p id="fileLabel" class="hint">No plan loaded</p>
 <label class="label">Page</label><select id="pageSel" disabled><option>Open a PDF first</option></select>
 <label class="label">Drawing scale</label><select id="scaleSel"><option value="0.125">1/8 inch = 1 foot</option><option value="0.1875">3/16 inch = 1 foot</option><option value="0.25">1/4 inch = 1 foot</option><option value="0.0625">1/16 inch = 1 foot</option><option value="0.3333">1/3 inch = 1 foot</option></select><p class="hint">Confirm scale for approximate coverage-distance controls. Use boundary handles to refine.</p></section>
 <section id="placeSection"><h2>2 · Place Access Points</h2><p class="hint">Pick a type, then click its location on the PDF. Coverage starts with an illustrative directional profile and remains editable.</p><label class="label">AP mount / antenna</label><select id="newKind"><option value="ceiling">Indoor · Ceiling omnidirectional</option><option value="wall">Indoor · Wall-facing</option><option value="pole-omni">Outdoor · Pole omnidirectional</option><option value="pole-directional">Outdoor · Pole directional</option></select><button id="placeBtn" class="primary" style="width:100%;margin-top:8px">Place AP</button></section>
 <section id="adjustSection"><h2>3 · Adjust Coverage</h2><p class="hint">Select an AP to see its smooth, rounded coverage outline and yellow drag handles. Pull any handle inward or outward to morph the coverage, with gentle curves between handles.</p><button id="reshapeBtn">✥ Reshape coverage on drawing</button><div class="editing-guide" id="reshapeHelp">1. Place or select an AP. 2. Click Reshape. 3. Drag yellow points on the dashed outline. Esc returns to Select.</div>
-<div class="buttons"><button id="copyItem">Copy selected</button><button id="pasteItem">Paste</button></div><p class="hint">Right-click the drawing for Copy, Paste Here or Delete. Ctrl/Cmd+C and V work too.</p><div id="selectedFields" hidden><h3>Selected access point</h3>
+<div id="bulkActions"><button id="selectAllPage">Select all on page</button><button id="clearSelection">Clear selection</button></div><div class="buttons"><button id="copyItem">Copy selected</button><button id="pasteItem">Paste</button></div><p class="hint">Bulk Select: click multiple items or drag a box over them, then drag any selected item to move the group. Shift-click toggles an item. Copy, Paste, Delete and arrow keys work on the full selection. Right-click for these actions.</p><div id="selectedFields" hidden><h3>Selected access point</h3>
 <label class="label">Name / ID</label><input type="text" id="apName" maxlength="90"><label class="label">Mount type</label><select id="apKind"><option value="ceiling">Indoor ceiling · Omni</option><option value="wall">Indoor wall-facing</option><option value="pole-omni">Outdoor pole · Omni</option><option value="pole-directional">Outdoor pole · Directional</option></select>
+<label class="label">AP symbol size · <span id="apIconScaleValue">100</span>%</label><input type="range" id="apIconScale" min="50" max="250" step="5" value="100"><button id="applyIconScaleToKind" style="width:100%;margin-top:4px">Apply this symbol size to all APs of this mount type</button><p class="hint">Changes the AP icon on screen and in PDF exports, not the Wi-Fi signal coverage. Apply to type updates matching APs across every page; Undo restores all of them.</p>
 <label class="label">AP radios enabled</label><select id="apRadios"><option value="both">2.4 GHz + 5 GHz</option><option value="2.4">2.4 GHz only</option><option value="5">5 GHz only</option></select>
 <label class="label">Adjust signal ranges for</label><select id="apEditBand"><option value="2.4">2.4 GHz</option><option value="5">5 GHz</option></select><p class="hint">Set each color's distance independently for this AP and radio. Red = strongest, orange = moderate, yellow = marginal. Ranges are planning estimates, not RF measurements.</p>
 <label class="label">🔴 Strong (red) · <span id="strongRangeValue">25</span> ft</label><input type="range" id="strongRange" min="5" max="250" step="1" value="25">
@@ -91,7 +97,7 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
     <div id="obstructionFinishHint" style="font-size:12px;font-weight:600">Click to add bends · Line stays OPEN · Esc cancels</div>
   </div>
   <div id="zoom"><button id="zoomIn" title="Zoom in">+</button><button id="zoomOut" title="Zoom out">−</button><button id="zFit" title="Fit drawing">⤢</button></div>
-  <div id="status" role="status"><span id="statusText">Ready · Pilot v0.6.1</span><button id="dismissStatus" type="button" aria-label="Dismiss message" title="Dismiss message">×</button></div>
+  <div id="status" role="status"><span id="statusText">Ready · Pilot v0.6.2</span><button id="dismissStatus" type="button" aria-label="Dismiss message" title="Dismiss message">×</button></div>
 </main>
 </div>
 <div id="wifiContextMenu" hidden role="menu" aria-label="Drawing editing menu"><button data-action="copy" role="menuitem">Copy selected</button><button data-action="paste" role="menuitem">Paste here</button><button data-action="duplicate" role="menuitem">Duplicate</button><button data-action="delete" role="menuitem">Delete selected</button><button data-action="cancel-wall" role="menuitem">Cancel obstruction</button></div>
@@ -99,6 +105,6 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="aht-drawing-key-v1.js?v=20261123-b"></script>
 <script src="aht-wifi-coverage-core-v1.js?v=20261123-b"></script>
-<script src="aht-wifi-heatmap-ui-v1.js?v=20261123-b"></script>
+<script src="aht-wifi-heatmap-ui-v1.js?v=20261123-c"></script>
 </body>
 </html>

@@ -21,7 +21,7 @@
     shades: {name: 'Shades & Drapery', path: 'tools/AHT_shades_tool_pilot_v3.html'},
     cctv: {name: 'CCTV Cameras', path: 'tools/AHT_cctv_workflow_pilot_v3.html?v=20261122-polebridge-b'},
     devices: {name: 'Device Locations', path: 'tools/AHT_device_locations_pilot_v1.html'},
-    wifi: {name: 'Wi-Fi Heat Map · Pilot v0.6.1', path: 'tools/AHT_wifi_heatmap_pilot_v1.html?v=20261123-b'},
+    wifi: {name: 'Wi-Fi Heat Map · Pilot v0.6.2', path: 'tools/AHT_wifi_heatmap_pilot_v1.html?v=20261123-c'},
     access: {name: 'Access Control', path: 'tools/AHT_access_workflow_pilot_v3.html'},
     labels: {name: 'Wire Label Printer', path: 'tools/AHT_Wire_Label_Print_Tool.html?v=20261030-label-sharepoint-v1'},
     forms: {name: 'Project Forms', path: 'tools/aht-project-forms.html'}

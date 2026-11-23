@@ -6,6 +6,8 @@ const BOUNDARY_STEPS=8;
 if(!C){$('status').textContent='Could not load Wi-Fi coverage geometry.';return;}
 const state={devices:[],walls:[],poles:[],nextId:1,showCoverage:true,opacity:.65,scaleInch:.125,showPoles:true,showWalls:true,viewRadio:'combined'};
 let pdfDoc=null,pdfBytes=null,pdfName='',pdfHash='',pageNum=1,vp=null,zoom=1,tx=0,ty=0,selected=null,tool='select',pendingWall=null,drag=null,pendingLoad=null;
+let bulkMode=false;
+const selectedKeys=new Set();
 let copied=null,copyCount=0,contextPoint=null;
 const undo=[],redo=[];
 const pointsPerFoot=()=>72*state.scaleInch;
@@ -19,10 +21,23 @@ const pageAps=()=>state.devices.filter(onPage),pageWalls=()=>state.walls.filter(
 const selectedAp=()=>selected?.kind==='ap'?state.devices.find(d=>d.id===selected.id):null;
 const selectedWall=()=>selected?.kind==='wall'?state.walls.find(w=>w.id===selected.id):null;
 const selectedPole=()=>selected?.kind==='pole'?state.poles.find(p=>p.id===selected.id):null;
+const selectionKey=(kind,id)=>`${kind}:${id}`;
+const collectionFor=kind=>kind==='ap'?state.devices:kind==='wall'?state.walls:state.poles;
+const isSelected=(kind,id)=>selectedKeys.has(selectionKey(kind,id));
+function selectedItems(){return [...selectedKeys].map(key=>{const [kind,id]=key.split(':');return {kind,item:collectionFor(kind).find(m=>m.id===Number(id)&&onPage(m))};}).filter(x=>x.item);}
+function clearSelected(){selected=null;selectedKeys.clear();}
+function setSelected(kind,id,additive=false,toggle=false){const key=selectionKey(kind,id);
+  if(!additive)selectedKeys.clear();
+  if(toggle&&selectedKeys.has(key))selectedKeys.delete(key);else selectedKeys.add(key);
+  if(selectedKeys.has(key))selected={kind,id};
+  else{const tail=[...selectedKeys].at(-1);const [otherKind,otherId]=tail?tail.split(':'):[];selected=tail?{kind:otherKind,id:Number(otherId)}:null;}
+  syncSelection();drawOverlay();
+}
+const apIconScale=ap=>clamp(Number(ap?.iconScale)||1,.5,2.5);
 function snapshot(){return JSON.stringify({devices:state.devices,walls:state.walls,poles:state.poles,nextId:state.nextId});}
-function restoreSnapshot(s){const o=JSON.parse(s);Object.assign(state,o);selected=null;pendingWall=null;drag=null;updateMode();syncSelection();draw();}
+function restoreSnapshot(s){const o=JSON.parse(s);Object.assign(state,o);clearSelected();pendingWall=null;drag=null;updateMode();syncSelection();draw();}
 function remember(){undo.push(snapshot());if(undo.length>50)undo.shift();redo.length=0;updateUndo();}
-function updateUndo(){$('undoBtn').disabled=undo.length===0;$('redoBtn').disabled=redo.length===0;$('copyItem').disabled=!selected;$('pasteItem').disabled=!copied||copied.pdfName!==pdfName;}
+function updateUndo(){$('undoBtn').disabled=undo.length===0;$('redoBtn').disabled=redo.length===0;$('copyItem').disabled=!selectedItems().length;$('pasteItem').disabled=!copied||copied.pdfName!==pdfName;}
 function el(tag,attrs,parent){const n=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>n.setAttribute(k,String(v)));if(parent)parent.append(n);return n;}
 function text(parent,s,x,y,size=12,color='#183e5d',weight=700){const n=el('text',{x,y,fill:color,'font-family':'Arial,Helvetica,sans-serif','font-weight':weight,'font-size':size,'pointer-events':'none'},parent);n.textContent=s;return n;}
 function line(parent,x1,y1,x2,y2,color='#46677d',width=2,dash){return el('line',{x1,y1,x2,y2,stroke:color,'stroke-width':width,'stroke-linecap':'round',...(dash?{'stroke-dasharray':dash}:{})},parent);}
@@ -78,10 +93,11 @@ function obstructionLabelPosition(w){
     [points.reduce((s,p)=>s+p[0],0)/points.length,points.reduce((s,p)=>s+p[1],0)/points.length]:[w.x,w.y];
   return {anchor:center,x:center[0]+Number(w.labelDx??32),y:center[1]+Number(w.labelDy??-24)};
 }
-function updateMode(){for(const [id,active] of [['selectBtn',tool==='select'],['placeBtn',tool==='ap'],['addWall',tool==='wall'],['reshapeBtn',tool==='reshape']])$(id).classList.toggle('active',active);
-  $('viewport').style.cursor=tool==='select'?'grab':tool==='reshape'?'crosshair':'crosshair';
+function updateMode(){for(const [id,active] of [['selectBtn',tool==='select'],['placeBtn',tool==='ap'],['addWall',tool==='wall'],['reshapeBtn',tool==='reshape'],['bulkSelectBtn',bulkMode]])$(id).classList.toggle('active',active);
+  $('bulkSelectBtn').setAttribute('aria-pressed',bulkMode?'true':'false');
+  $('viewport').style.cursor=tool==='select'?(bulkMode?'crosshair':'grab'):'crosshair';
   const shape=$('obstructionShape').value;
-  $('modeHelp').textContent=tool==='ap'?'Placing APs · click a location; Esc to finish.':tool==='wall'?'DRAWING ACTIVE · '+shapeName(shape)+' · Esc to stop.':tool==='reshape'?'Reshape · select an AP and drag yellow edge points.':'Active · Click to select; drag blank drawing to pan.';
+  $('modeHelp').textContent=tool==='ap'?'Placing APs · click a location; Esc to finish.':tool==='wall'?'DRAWING ACTIVE · '+shapeName(shape)+' · Esc to stop.':tool==='reshape'?'Reshape · select an AP and drag yellow edge points.':bulkMode?'Bulk Select ON · Click to add; drag a box to select; drag a selected icon to move group.':'Active · Click to select; drag blank drawing to pan.';
   $('addWall').textContent=tool==='wall'?'● DRAWING ACTIVE — Esc to stop':'Draw obstruction on PDF';
   $('obstructionGuide').textContent=isFreeform(shape)?shape==='polyline'?'Click points along the line, then PRESS ENTER. It will stay OPEN.':'Click around the area, then PRESS ENTER. It will CLOSE to the first point.':'Drag between two opposite points, or click a start and end point.';
   $('cancelWall').hidden=!pendingWall;$('wallDraftHelp').hidden=!pendingWall;
@@ -91,9 +107,9 @@ function updateMode(){for(const [id,active] of [['selectBtn',tool==='select'],['
     $('obstructionFinishHint').textContent=pendingWall.shape==='polyline'?'Click to add bends · Line stays OPEN · Esc cancels':'Click around area · Enter CLOSES to first dot · Esc cancels';}
 }
 function cancelWall(showStatus=true){pendingWall=null;if(drag?.kind==='wall-draft')drag=null;updateMode();if(vp)drawOverlay();if(showStatus)status('Unfinished obstruction cancelled.');}
-function setMode(mode){if(pendingWall)cancelWall(false);tool=mode;updateMode();
+function setMode(mode){if(pendingWall)cancelWall(false);tool=mode;if(mode!=='select')bulkMode=false;updateMode();
   const shape=$('obstructionShape').value;
-  status(mode==='ap'?'Click a location to place an access point.':mode==='wall'?(isFreeform(shape)?'Click the first point, then add bends. Press Enter to finish '+(shape==='polyline'?'the OPEN line.':'the CLOSED area.'):'Drag to draw a '+shapeName(shape)+', or click two opposite points.'):mode==='reshape'?'Select an AP, then drag a yellow boundary point to reshape it.':'Select APs, CCTV poles or obstructions; drag blank drawing space to pan.');}
+  status(mode==='ap'?'Click a location to place an access point.':mode==='wall'?(isFreeform(shape)?'Click the first point, then add bends. Press Enter to finish '+(shape==='polyline'?'the OPEN line.':'the CLOSED area.'):'Drag to draw a '+shapeName(shape)+', or click two opposite points.'):mode==='reshape'?'Select an AP, then drag a yellow boundary point to reshape it.':bulkMode?'Bulk Select: click to add items, drag a box to select a group, then drag any selected item to move all.':'Select APs, CCTV poles or obstructions; drag blank drawing space to pan.');}
 function toView(e){const r=$('viewport').getBoundingClientRect();return [(e.clientX-r.left-tx)/zoom,(e.clientY-r.top-ty)/zoom];}
 function inDrawing(p){return vp&&p[0]>=0&&p[1]>=0&&p[0]<=vp.width&&p[1]<=vp.height;}
 function applyTransform(){$('stage').style.transform=`translate(${tx}px,${ty}px) scale(${zoom})`;}
@@ -107,7 +123,7 @@ function visibleHandle(ap,p){if(!vp)return p;const pad=Math.min(10/zoom,vp.width
   else if(dy>0&&p[1]>vp.height-pad)t=Math.min(t,(vp.height-pad-ap.y)/dy);
   t=clamp(t,0,1);return [ap.x+dx*t,ap.y+dy*t];}
 async function hashBytes(bytes){if(!window.crypto?.subtle||!bytes?.length)return '';try{const digest=await window.crypto.subtle.digest('SHA-256',bytes.slice());return [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');}catch(_){return '';}}
-function newAp(x,y){const kind=$('newKind').value,id=state.nextId++;return {id,type:'ap',page:pageNum,x,y,kind,rot:0,rangeFt:60,radii:C.shapeFor(kind),
+function newAp(x,y){const kind=$('newKind').value,id=state.nextId++;return {id,type:'ap',page:pageNum,x,y,kind,rot:0,iconScale:1,rangeFt:60,radii:C.shapeFor(kind),
   radioMode:'both',editBand:'2.4',zoneRanges:{'2.4':C.zoneRanges({rangeFt:60},'2.4'),'5':C.zoneRanges({rangeFt:60},'5')},
   name:'AP '+id,make:'',model:'',note:'',showCoverage:true};}
 function heatCanvasDraw(ctx,p,pageView){const w=pageView.width,h=pageView.height;ctx.clearRect(0,0,w,h);if(!state.showCoverage)return;
@@ -136,15 +152,17 @@ function heatCanvasDraw(ctx,p,pageView){const w=pageView.width,h=pageView.height
 function drawHeat(){if(!vp)return;const canvas=$('heatCanvas');heatCanvasDraw(canvas.getContext('2d'),pageNum,vp);}
 function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildren();
   if(state.showWalls)pageWalls().forEach(w=>{
-    const active=selected?.kind==='wall'&&selected.id===w.id,shape=w.shape||'line';
+    const active=isSelected('wall',w.id),single=selectedKeys.size===1,shape=w.shape||'line';
     const color=obstructionColor(w),opacity=obstructionOpacity(w),points=C.obstructionOutline(w);
     if(w.show!==false&&points.length>=2){
       const g=el('g',{'data-wall':w.id,style:'cursor:move'},root),closed=shape!=='line'&&shape!=='polyline',d=shapePath(points,closed);
       el('path',{d,fill:closed?color:'none','fill-opacity':closed?opacity*.16:0,stroke:color,'stroke-opacity':opacity,
-        'stroke-width':Math.max(3,6*Number(w.attenuation||.5)),'stroke-dasharray':'9 5','stroke-linejoin':'round'},g);
+        'stroke-width':Math.max(3,6*Number(w.attenuation||.5))+(active?1.4:0),'stroke-dasharray':'9 5','stroke-linejoin':'round'},g);
+      if(active)el('path',{d,fill:'none',stroke:'#e5a023','stroke-width':Math.max(1.5,2/zoom),
+        'stroke-dasharray':'5 4','pointer-events':'none'},g);
       el('path',{d,fill:closed?'transparent':'none',stroke:'transparent','stroke-width':14,'pointer-events':closed?'all':'stroke'},g);
       title(g,`${w.note||'Obstruction'} · ${Math.round((w.attenuation||0)*100)}% estimated blocking`);
-      if(active){let handles;
+      if(active&&single){let handles;
         if(isFreeform(shape))handles=points.map((p,i)=>['v'+i,...p]);
         else if(shape==='rect'||shape==='ellipse')handles=[[w.x,w.y],[w.x2,w.y],[w.x2,w.y2],[w.x,w.y2]].map((p,i)=>['c'+i,...p]);
         else handles=[['a',w.x,w.y],['b',w.x2,w.y2]];
@@ -163,7 +181,7 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
     }
   });
   if(state.showPoles)pagePoles().forEach(pole=>{
-    const active=selected?.kind==='pole'&&selected.id===pole.id,g=el('g',{'data-pole':pole.id,style:'cursor:move'},root),size=17*(pole.size||1);
+    const active=isSelected('pole',pole.id),g=el('g',{'data-pole':pole.id,style:'cursor:move'},root),size=17*(pole.size||1);
     if(active)circle(g,pole.x,pole.y,size*.72,'none','#df9f24',Math.max(2,2/zoom));
     circle(g,pole.x,pole.y,size*.48,'#e0e8ee','#384e60',2.2);circle(g,pole.x,pole.y,size*.22,'#40576b','#fff',1);
     C.poleHeads(pole,size).forEach(h=>{
@@ -175,20 +193,20 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
     title(g,'CCTV pole with '+(pole.heads?.length||0)+' mounted devices · camera cones hidden'+(pole.note?' · '+pole.note:''));
   });
   pageAps().forEach(ap=>{
-    const active=selected?.kind==='ap'&&selected.id===ap.id,g=el('g',{'data-ap':ap.id,style:'cursor:move'},root);
-    if(active&&C.activeBands(ap,state.viewRadio).length){const edge=C.coverageContours(ap,pointsPerFoot(),pageWalls(),state.viewRadio,BOUNDARY_STEPS).marginal;
+    const active=isSelected('ap',ap.id),single=selectedKeys.size===1,size=apIconScale(ap),g=el('g',{'data-ap':ap.id,style:'cursor:move'},root);
+    if(active&&single&&C.activeBands(ap,state.viewRadio).length){const edge=C.coverageContours(ap,pointsPerFoot(),pageWalls(),state.viewRadio,BOUNDARY_STEPS).marginal;
       const d='M '+edge.map(p=>p.join(' ')).join(' L ')+' Z';
       const outline=el('path',{d,fill:'none',stroke:'#77540c','stroke-width':Math.max(1.8,2/zoom),'stroke-dasharray':`${8/zoom} ${5/zoom}`,'pointer-events':'stroke','data-boundary-ap':ap.id,style:'cursor:crosshair'},g);
       title(outline,'Drag this boundary to reshape Wi-Fi coverage');
       for(let i=0;i<C.COUNT;i++){const p=edge[i*BOUNDARY_STEPS],hPos=visibleHandle(ap,p),h=circle(g,hPos[0],hPos[1],Math.max(3.5,6/zoom),'#ffe34b','#77540c',Math.max(1,1.3/zoom));
         h.setAttribute('data-handle',i);h.style.cursor='crosshair';title(h,'Drag to reshape this direction');}
     }
-    circle(g,ap.x,ap.y,Math.max(active?11:9,7/zoom),'#eaf6fd',active?'#f2a91b':'#1b6698',active?3:2);
-    circle(g,ap.x,ap.y,Math.max(3,2/zoom),'#1a6598','none',0);
-    circle(g,ap.x,ap.y,Math.max(12,12/zoom),'transparent','none',0);
-    for(const r of [5,7])el('path',{d:`M ${ap.x-r} ${ap.y-2} Q ${ap.x} ${ap.y-r*1.65} ${ap.x+r} ${ap.y-2}`,
-      fill:'none',stroke:'#1a6598','stroke-width':1.15,'pointer-events':'none'},g);
-    text(g,ap.name||'AP',ap.x+13,ap.y-8,Math.max(9,10/zoom),'#20486c');
+    circle(g,ap.x,ap.y,Math.max((active?11:9)*size,7/zoom),'#eaf6fd',active?'#f2a91b':'#1b6698',(active?3:2)*size);
+    circle(g,ap.x,ap.y,Math.max(3*size,2/zoom),'#1a6598','none',0);
+    circle(g,ap.x,ap.y,Math.max(12*size,12/zoom),'transparent','none',0);
+    for(const r of [5,7])el('path',{d:`M ${ap.x-r*size} ${ap.y-2*size} Q ${ap.x} ${ap.y-r*1.65*size} ${ap.x+r*size} ${ap.y-2*size}`,
+      fill:'none',stroke:'#1a6598','stroke-width':1.15*size,'pointer-events':'none'},g);
+    text(g,ap.name||'AP',ap.x+13*size,ap.y-8*size,Math.max(9,10/zoom),'#20486c');
     title(g,[ap.name,ap.kind,ap.radioMode==='2.4'?'2.4 GHz':ap.radioMode==='5'?'5 GHz':'2.4 + 5 GHz',ap.make,ap.model,ap.note].filter(Boolean).join(' · '));
   });
   if(pendingWall){const a=pendingWall.start,b=pendingWall.end||a,shape=pendingWall.shape;
@@ -199,6 +217,11 @@ function drawOverlay(){if(!vp)return;const root=$('overlay');root.replaceChildre
     (isFreeform(shape)?pendingWall.points:[a,b]).forEach((p,i)=>{
       const dot=circle(root,p[0],p[1],Math.max(5,6/zoom),i===0?'#ffa726':'#fff','#b25b08',2);
       dot.setAttribute('pointer-events','none');});
+  }
+  if(drag?.kind==='marquee'){
+    const x=Math.min(drag.start[0],drag.end[0]),y=Math.min(drag.start[1],drag.end[1]);
+    el('rect',{x,y,width:Math.abs(drag.end[0]-drag.start[0]),height:Math.abs(drag.end[1]-drag.start[1]),
+      fill:'#2378b8','fill-opacity':.13,stroke:'#1b649b','stroke-width':Math.max(1.1,1.1/zoom),'stroke-dasharray':`${6/zoom} ${4/zoom}`,'pointer-events':'none'},root);
   }
   window.ahtDrawingKey?.refresh();
 }
@@ -216,10 +239,13 @@ function syncApRangeFields(ap){const radio=ap.radioMode==='2.4'||ap.radioMode===
   const ranges=C.zoneRanges(ap,radio);
   for(const zone of ['strong','moderate','marginal']){$(zone+'Range').value=ranges[zone];$(zone+'RangeValue').textContent=ranges[zone];}
 }
-function syncSelection(){const ap=selectedAp(),w=selectedWall(),pole=selectedPole();$('selectedFields').hidden=!ap;$('wallFields').hidden=!w;$('poleFields').hidden=!pole;
+function syncSelection(){const count=selectedItems().length,multiple=count>1,ap=multiple?null:selectedAp(),w=multiple?null:selectedWall(),pole=multiple?null:selectedPole();
+  $('bulkSelectionCount').textContent=count?`${count} item${count===1?'':'s'} selected${multiple?' · drag one selected item to move all':''}`:'No items selected';
+  $('selectedFields').hidden=!ap;$('wallFields').hidden=!w;$('poleFields').hidden=!pole;
   $('obstructionClosedModeRow').hidden=!w||!isFreeform(w.shape);
-  $('selectionHelp').hidden=!!ap;$('selectionHelp').textContent=pole?'A CCTV pole is selected. Use its panel in step 5 to edit or remove it.':w?'An obstruction is selected. Use its panel in step 4.':'Select an AP on the drawing to edit its shape and settings.';
+  $('selectionHelp').hidden=!!ap;$('selectionHelp').textContent=multiple?`${count} items selected. Drag one to move the group, or Copy, Paste, Delete, or use arrow keys. Clear the selection to edit one AP.`:pole?'A CCTV pole is selected. Use its panel in step 5 to edit or remove it.':w?'An obstruction is selected. Use its panel in step 4.':'Select an AP on the drawing to edit its shape and settings.';
   if(ap){$('apName').value=ap.name||'';$('apKind').value=ap.kind;$('apRadios').value=ap.radioMode||'both';syncApRangeFields(ap);
+    $('apIconScale').value=Math.round(apIconScale(ap)*100);$('apIconScaleValue').textContent=$('apIconScale').value;
     $('apRotation').value=ap.rot||0;$('directionValue').textContent=ap.rot||0;$('apMake').value=ap.make||'';$('apModel').value=ap.model||'';$('apNote').value=ap.note||'';$('apShowCoverage').checked=ap.showCoverage!==false;}
   if(w){if(isFreeform(w.shape))$('obstructionClosedMode').value=w.shape;
     $('wallAttenuation').value=Math.round((w.attenuation??0)*100);$('wallValue').textContent=$('wallAttenuation').value;$('wallNote').value=w.note||'';
@@ -237,7 +263,7 @@ async function renderPage(){if(!pdfDoc)return;const page=await pdfDoc.getPage(pa
   $('overlay').setAttribute('viewBox',`0 0 ${vp.width} ${vp.height}`);$('overlay').setAttribute('width',vp.width);$('overlay').setAttribute('height',vp.height);
   const canvas=$('planCanvas'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
   await page.render({canvasContext:ctx,viewport:vp}).promise;
-  $('empty').hidden=true;selected=null;syncSelection();fit();draw();status('Page '+pageNum+' ready. Select/adjust or place access points.');
+  $('empty').hidden=true;clearSelected();syncSelection();fit();draw();status('Page '+pageNum+' ready. Select/adjust or place access points.');
 }
 async function openPdf(file){try{status('Opening '+file.name+'…');const buffer=await file.arrayBuffer();pdfBytes=new Uint8Array(buffer);
     pdfDoc=await pdfjsLib.getDocument({data:pdfBytes.slice()}).promise;pdfName=file.name;pdfHash=await hashBytes(pdfBytes);pageNum=1;
@@ -265,7 +291,7 @@ function applyWork(o){if(!o||!Array.isArray(o.devices)||!Array.isArray(o.walls))
   $('scaleSel').value=String(state.scaleInch);$('globalHeat').checked=state.showCoverage;$('heatOpacity').value=Math.round(state.opacity*100);$('opacityValue').textContent=$('heatOpacity').value;
   $('showPoles').checked=state.showPoles;$('showWalls').checked=state.showWalls;$('viewRadio').value=state.viewRadio;
   if(pdfDoc&&Number(o.page)>=1&&Number(o.page)<=pdfDoc.numPages){pageNum=Number(o.page);$('pageSel').value=pageNum;}
-  selected=null;undo.length=0;redo.length=0;syncSelection();draw();
+  clearSelected();undo.length=0;redo.length=0;syncSelection();draw();
 }
 async function importPoles(source){try{
     if(!pdfDoc){status('Open the same PDF in Wi-Fi before importing CCTV pole locations.');return;}
@@ -300,44 +326,51 @@ async function importPoles(source){try{
     }
     remember();converted.forEach(p=>p.id=state.nextId++);
     state.poles=scope==='all'?converted:[...state.poles.filter(p=>p.page!==pageNum),...converted];
-    selected=null;syncSelection();draw();
+    clearSelected();syncSelection();draw();
     $('poleStatus').textContent=`Imported ${converted.length} multi-head pole(s) from matching PDF · ${result.ignoredMarkers} standalone/other markers excluded · ${scope==='all'?'all pages':'page '+pageNum}.`;
     status(`Imported ${converted.length} CCTV pole(s) at verified positions. Camera cones hidden. Undo restores the previous poles.`);
   }catch(e){status('Pole import failed: '+e.message);}}
-function itemForSelection(){if(!selected)return null;return selected.kind==='ap'?selectedAp():selected.kind==='wall'?selectedWall():selectedPole();}
-function deleteSelected(){if(pendingWall){cancelWall();return true;}const item=itemForSelection();if(!item)return false;remember();
-  if(selected.kind==='ap')state.devices=state.devices.filter(x=>x.id!==item.id);
-  else if(selected.kind==='wall')state.walls=state.walls.filter(x=>x.id!==item.id);
-  else if(selected.kind==='pole')state.poles=state.poles.filter(x=>x.id!==item.id);
-  selected=null;syncSelection();draw();status('Selected drawing item deleted. Undo is available.');return true;}
-function copySelected(){const item=itemForSelection();if(!pdfDoc||!item){status('Select an AP, wall or CCTV pole on the drawing before copying.');return false;}
-  copied={kind:selected.kind,item:JSON.parse(JSON.stringify(item)),pdfName,page:pageNum,width:vp.width,height:vp.height};copyCount=0;updateUndo();
-  status('Copied selected '+(selected.kind==='ap'?'access point':selected.kind==='wall'?'obstruction':'CCTV pole')+'. Choose Paste or right-click a destination.');return true;}
+function itemForSelection(){if(!selected)return null;return collectionFor(selected.kind).find(m=>m.id===selected.id&&onPage(m))||null;}
+function deleteSelected(){if(pendingWall){cancelWall();return true;}const items=selectedItems();if(!items.length)return false;remember();
+  for(const [kind,field] of [['ap','devices'],['wall','walls'],['pole','poles']]){
+    const ids=new Set(items.filter(x=>x.kind===kind).map(x=>x.item.id));state[field]=state[field].filter(x=>!ids.has(x.id));}
+  clearSelected();syncSelection();draw();status(`Deleted ${items.length} selected item${items.length===1?'':'s'}. Undo restores the group.`);return true;}
+function copySelected(){const items=selectedItems();if(!pdfDoc||!items.length){status('Select one or more APs, obstructions or CCTV poles before copying.');return false;}
+  const entries=items.map(({kind,item})=>({kind,item:JSON.parse(JSON.stringify(item))}));
+  const anchor=entries.length===1?[entries[0].item.x,entries[0].item.y]:[
+    Math.min(...entries.flatMap(({kind,item})=>kind==='wall'?C.obstructionOutline(item).map(p=>p[0]):[item.x])),
+    Math.min(...entries.flatMap(({kind,item})=>kind==='wall'?C.obstructionOutline(item).map(p=>p[1]):[item.y]))];
+  copied={entries,anchor,pdfName,page:pageNum,width:vp.width,height:vp.height};copyCount=0;updateUndo();
+  status(`Copied ${entries.length} item${entries.length===1?'':'s'}. Choose Paste or right-click a destination.`);return true;}
 function translateObstruction(w,dx,dy){w.x+=dx;w.y+=dy;
   if(w.x2!==undefined){w.x2+=dx;w.y2+=dy;}
   if(Array.isArray(w.points))w.points=w.points.map(p=>[p[0]+dx,p[1]+dy]);}
 function pasteCopied(at=null){if(!copied||!pdfDoc||!vp){status('Copy an existing item before pasting.');return false;}
-  if(C.pdfFileName(copied.pdfName)!==C.pdfFileName(pdfName)){status('Paste blocked: copied item belongs to a different PDF.');return false;}
-  const m=JSON.parse(JSON.stringify(copied.item)),sx=vp.width/copied.width,sy=vp.height/copied.height;
-  m.x*=sx;m.y*=sy;if(m.x2!==undefined){m.x2*=sx;m.y2*=sy;}
-  if(Array.isArray(m.points))m.points=m.points.map(p=>[p[0]*sx,p[1]*sy]);
-  const offset=at?[at[0]-m.x,at[1]-m.y]:pageNum===copied.page?[(copyCount+1)*18,(copyCount+1)*18]:[0,0];
-  remember();if(copied.kind==='wall')translateObstruction(m,offset[0],offset[1]);else{m.x+=offset[0];m.y+=offset[1];}
-  m.id=state.nextId++;m.page=pageNum;
-  if(copied.kind==='ap')state.devices.push(m);else if(copied.kind==='wall')state.walls.push(m);else state.poles.push(m);
-  selected={kind:copied.kind,id:m.id};copyCount++;syncSelection();draw();status('Pasted '+copied.kind+' on page '+pageNum+'. Undo is available.');return true;}
+  if(C.pdfFileName(copied.pdfName)!==C.pdfFileName(pdfName)){status('Paste blocked: copied items belong to a different PDF.');return false;}
+  const sx=vp.width/copied.width,sy=vp.height/copied.height;
+  const offset=at?[at[0]-copied.anchor[0]*sx,at[1]-copied.anchor[1]*sy]:pageNum===copied.page?[(copyCount+1)*18,(copyCount+1)*18]:[0,0];
+  remember();clearSelected();
+  for(const {kind,item} of copied.entries){const m=JSON.parse(JSON.stringify(item));
+    m.x*=sx;m.y*=sy;if(m.x2!==undefined){m.x2*=sx;m.y2*=sy;}
+    if(Array.isArray(m.points))m.points=m.points.map(p=>[p[0]*sx,p[1]*sy]);
+    if(kind==='wall')translateObstruction(m,offset[0],offset[1]);else{m.x+=offset[0];m.y+=offset[1];}
+    m.id=state.nextId++;m.page=pageNum;collectionFor(kind).push(m);
+    selectedKeys.add(selectionKey(kind,m.id));selected={kind,id:m.id};
+  }
+  copyCount++;syncSelection();draw();status(`Pasted ${copied.entries.length} item${copied.entries.length===1?'':'s'} on page ${pageNum}. Undo is available.`);return true;}
 function closeContext(){const menu=$('wifiContextMenu');menu.hidden=true;contextPoint=null;}
 function openContext(e){if(!pdfDoc||!vp)return;e.preventDefault();e.stopPropagation();
   const p=toView(e);if(!inDrawing(p))return;
   const element=e.target instanceof Element?e.target:null;
   const ap=element?.closest('[data-ap]'),wall=element?.closest('[data-wall]'),pole=element?.closest('[data-pole]');
-  if(ap)selected={kind:'ap',id:Number(ap.dataset.ap)};
-  else if(wall)selected={kind:'wall',id:Number(wall.dataset.wall)};
-  else if(pole)selected={kind:'pole',id:Number(pole.dataset.pole)};
-  syncSelection();drawOverlay();contextPoint=p;
-  const menu=$('wifiContextMenu');menu.querySelector('[data-action="copy"]').disabled=!itemForSelection();
-  menu.querySelector('[data-action="delete"]').disabled=!itemForSelection()&&!pendingWall;
-  menu.querySelector('[data-action="duplicate"]').disabled=!itemForSelection();
+  const hit=ap?{kind:'ap',id:Number(ap.dataset.ap)}:wall?{kind:'wall',id:Number(wall.dataset.wall)}:pole?{kind:'pole',id:Number(pole.dataset.pole)}:null;
+  if(hit&&!isSelected(hit.kind,hit.id))setSelected(hit.kind,hit.id);
+  contextPoint=p;
+  const menu=$('wifiContextMenu'),count=selectedItems().length;
+  for(const action of ['copy','delete','duplicate']){
+    const btn=menu.querySelector(`[data-action="${action}"]`);btn.disabled=!count&&(action!=='delete'||!pendingWall);
+    btn.textContent=action==='duplicate'?`Duplicate${count>1?' '+count+' selected':''}`:`${action==='copy'?'Copy':'Delete'} ${count>1?count+' selected':'selected'}`;
+  }
   menu.querySelector('[data-action="paste"]').disabled=!copied||C.pdfFileName(copied.pdfName)!==C.pdfFileName(pdfName);
   menu.querySelector('[data-action="cancel-wall"]').hidden=!pendingWall;
   menu.hidden=false;
@@ -350,7 +383,7 @@ function saveObstruction(shape,start,end,points){
     x:start[0],y:start[1],x2:end[0],y2:end[1],attenuation:Number($('wallPreset').value),
     note:material,labelText:material,showLabel:false,show:true,color:'#815f9c',opacity:.85,labelDx:32,labelDy:-24};
   if(isFreeform(shape))wall.points=points.map(p=>p.slice());
-  state.walls.push(wall);pendingWall=null;selected={kind:'wall',id:wall.id};
+  state.walls.push(wall);pendingWall=null;clearSelected();selectedKeys.add(selectionKey('wall',wall.id));selected={kind:'wall',id:wall.id};
   setMode($('placeMultiple').checked?'wall':'select');syncSelection();draw();
   status(shapeName(shape)+' obstruction added. Drag to move; select and drag its handles to reshape. Undo is available.');
 }
@@ -373,7 +406,30 @@ function finishFreeform(){if(!pendingWall||!isFreeform(pendingWall.shape))return
   saveObstruction(shape,points[0],points[1],points);
 }
 function startDrag(e,settings){drag={...settings,changed:false};$('viewport').setPointerCapture(e.pointerId);e.preventDefault();}
-function selectItem(kind,id){selected={kind,id};syncSelection();drawOverlay();}
+function selectItem(kind,id){setSelected(kind,id);}
+function selectAllPage(){if(!vp)return;clearSelected();
+  for(const [kind,items] of [['ap',pageAps()],['pole',state.showPoles?pagePoles():[]],
+    ['wall',state.showWalls?pageWalls().filter(w=>w.show!==false||w.showLabel===true):[]]]){
+    for(const item of items){selectedKeys.add(selectionKey(kind,item.id));selected={kind,id:item.id};}}
+  syncSelection();drawOverlay();status(`Selected ${selectedKeys.size} visible item${selectedKeys.size===1?'':'s'} on page ${pageNum}.`);
+}
+function startItemMove(e,p,kind,item){if(selectedItems().length>1){const originals=selectedItems().map(({kind,item})=>({kind,id:item.id,original:JSON.parse(JSON.stringify(item))}));
+    startDrag(e,{kind:'group-move',start:p,originals});return;}
+  if(kind==='wall')startDrag(e,{kind:'wall-move',id:item.id,start:p,original:JSON.parse(JSON.stringify(item))});
+  else startDrag(e,{kind:kind==='ap'?'move':'pole-move',id:item.id,start:p,x:item.x,y:item.y});
+}
+function marqueeSelect(start,end,additive=false){const [x1,x2]=[Math.min(start[0],end[0]),Math.max(start[0],end[0])];
+  const [y1,y2]=[Math.min(start[1],end[1]),Math.max(start[1],end[1])];
+  if(!additive)clearSelected();
+  const inside=(x,y)=>x>=x1&&x<=x2&&y>=y1&&y<=y2;
+  const add=(kind,item)=>{selectedKeys.add(selectionKey(kind,item.id));selected={kind,id:item.id};};
+  pageAps().forEach(ap=>{if(inside(ap.x,ap.y))add('ap',ap);});
+  if(state.showPoles)pagePoles().forEach(p=>{if(inside(p.x,p.y))add('pole',p);});
+  if(state.showWalls)pageWalls().forEach(w=>{if(w.show===false&&w.showLabel!==true)return;
+    const points=C.obstructionOutline(w);if(points.length&&Math.max(...points.map(p=>p[0]))>=x1&&Math.min(...points.map(p=>p[0]))<=x2&&
+      Math.max(...points.map(p=>p[1]))>=y1&&Math.min(...points.map(p=>p[1]))<=y2)add('wall',w);});
+  syncSelection();drawOverlay();
+}
 function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toView(e),target=e.target;
   if(!inDrawing(p))return;
   if(tool==='wall'){
@@ -390,11 +446,14 @@ function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toVie
       status('Drag to the opposite corner, or release and click a second point. Esc cancels.');}
     return;
   }
-  if(tool==='ap'){remember();const ap=newAp(...p);state.devices.push(ap);selected={kind:'ap',id:ap.id};syncSelection();draw();
+  if(tool==='ap'){remember();const ap=newAp(...p);state.devices.push(ap);clearSelected();selectedKeys.add(selectionKey('ap',ap.id));selected={kind:'ap',id:ap.id};syncSelection();draw();
     if(!$('placeMultiple').checked)setMode('select');status('AP placed. Select it to reshape coverage; yellow boundary handles appear around it.');return;}
   const handle=target.closest?.('[data-handle]'),wallHandle=target.closest?.('[data-wall-handle]'),boundary=target.closest?.('[data-boundary-ap]');
   const wallLabel=target.closest?.('[data-wall-label]');
   const apEl=target.closest?.('[data-ap]'),wallEl=target.closest?.('[data-wall]'),poleEl=target.closest?.('[data-pole]');
+  const hit=apEl?{kind:'ap',id:Number(apEl.dataset.ap)}:poleEl?{kind:'pole',id:Number(poleEl.dataset.pole)}:wallEl?{kind:'wall',id:Number(wallEl.dataset.wall)}:null;
+  if(tool==='select'&&hit&&(e.shiftKey||(bulkMode&&!isSelected(hit.kind,hit.id)))){
+    setSelected(hit.kind,hit.id,true,!!e.shiftKey);return;}
   if(handle&&apEl){const ap=state.devices.find(m=>m.id===Number(apEl.dataset.ap));if(!ap)return;
     const index=Number(handle.dataset.handle),a=C.angle(index)+(Number(ap.rot)||0)*Math.PI/180;
     const reachFt=C.outerReach(ap,state.viewRadio),shape={...ap,rangeFt:reachFt};
@@ -408,30 +467,39 @@ function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toVie
   if(wallHandle){const w=state.walls.find(m=>m.id===Number(wallHandle.dataset.wall));if(!w)return;
     selectItem('wall',w.id);startDrag(e,{kind:'wall-handle',id:w.id,handle:wallHandle.dataset.wallHandle,start:p});return;}
   if(wallLabel){const w=state.walls.find(m=>m.id===Number(wallLabel.dataset.wallLabel));if(!w)return;
+    if(isSelected('wall',w.id)&&selectedItems().length>1){startItemMove(e,p,'wall',w);return;}
     selectItem('wall',w.id);startDrag(e,{kind:'wall-label',id:w.id,start:p,dx:Number(w.labelDx??32),dy:Number(w.labelDy??-24)});return;}
-  if(apEl){const ap=state.devices.find(m=>m.id===Number(apEl.dataset.ap));if(!ap)return;selectItem('ap',ap.id);
-    if(tool==='reshape')return;startDrag(e,{kind:'move',id:ap.id,start:p,x:ap.x,y:ap.y});return;}
-  if(poleEl){const pole=state.poles.find(m=>m.id===Number(poleEl.dataset.pole));if(!pole)return;selectItem('pole',pole.id);
-    if(tool==='reshape')return;startDrag(e,{kind:'pole-move',id:pole.id,start:p,x:pole.x,y:pole.y});return;}
+  if(apEl){const ap=state.devices.find(m=>m.id===Number(apEl.dataset.ap));if(!ap)return;
+    if(!isSelected('ap',ap.id))selectItem('ap',ap.id);
+    if(tool==='reshape')return;startItemMove(e,p,'ap',ap);return;}
+  if(poleEl){const pole=state.poles.find(m=>m.id===Number(poleEl.dataset.pole));if(!pole)return;
+    if(!isSelected('pole',pole.id))selectItem('pole',pole.id);
+    if(tool==='reshape')return;startItemMove(e,p,'pole',pole);return;}
   if(wallEl){const w=state.walls.find(m=>m.id===Number(wallEl.dataset.wall));if(!w)return;
-    selectItem('wall',w.id);startDrag(e,{kind:'wall-move',id:w.id,start:p,original:JSON.parse(JSON.stringify(w))});return;}
+    if(!isSelected('wall',w.id))selectItem('wall',w.id);startItemMove(e,p,'wall',w);return;}
   if(tool==='reshape'){const candidates=pageAps().map(ap=>{const dx=p[0]-ap.x,dy=p[1]-ap.y;
       const a=Math.atan2(dx,-dy),d=Math.hypot(dx,dy),reachFt=C.outerReach(ap,state.viewRadio);
       const r=reachFt?C.smoothEffectiveRadius({...ap,rangeFt:reachFt},a,pointsPerFoot(),pageWalls()):0;return {ap,d,inside:reachFt>0&&d<=r};})
       .filter(x=>x.inside).sort((a,b)=>a.d-b.d);
     if(candidates.length){selectItem('ap',candidates[0].ap.id);status('AP selected. Drag a yellow boundary handle or the dashed outline.');return;}}
-  selected=null;syncSelection();drawOverlay();startDrag(e,{kind:'pan',sx:e.clientX,sy:e.clientY,tx,ty});
+  if(tool==='select'&&bulkMode){startDrag(e,{kind:'marquee',start:p,end:p,additive:!!e.shiftKey});drawOverlay();return;}
+  clearSelected();syncSelection();drawOverlay();startDrag(e,{kind:'pan',sx:e.clientX,sy:e.clientY,tx,ty});
 }
 function pointerMove(e){if(!drag){if(isFreeform(pendingWall?.shape)&&tool==='wall'){pendingWall.end=toView(e);drawOverlay();}return;}const p=toView(e);
   if(drag.kind==='wall-draft'){if(!pendingWall)return;pendingWall.end=p;
     if(Math.hypot(p[0]-drag.start[0],p[1]-drag.start[1])>Math.max(8,8/zoom))drag.changed=true;
     drawOverlay();return;}
   if(drag.kind==='pan'){tx=drag.tx+(e.clientX-drag.sx);ty=drag.ty+(e.clientY-drag.sy);applyTransform();return;}
+  if(drag.kind==='marquee'){drag.end=p;drawOverlay();return;}
   if(!drag.changed){if(Math.hypot(p[0]-drag.start[0],p[1]-drag.start[1])<3/zoom)return;remember();drag.changed=true;}
   if(drag.kind==='move'||drag.kind==='pole-move'){const items=drag.kind==='move'?state.devices:state.poles,ap=items.find(m=>m.id===drag.id);
     if(!ap)return;ap.x=drag.x+p[0]-drag.start[0];ap.y=drag.y+p[1]-drag.start[1];}
   if(drag.kind==='wall-move'){const w=state.walls.find(m=>m.id===drag.id);if(w){
     Object.assign(w,drag.original);translateObstruction(w,p[0]-drag.start[0],p[1]-drag.start[1]);}}
+  if(drag.kind==='group-move')for(const entry of drag.originals){const item=collectionFor(entry.kind).find(m=>m.id===entry.id);if(!item)continue;
+    Object.assign(item,JSON.parse(JSON.stringify(entry.original)));
+    const dx=p[0]-drag.start[0],dy=p[1]-drag.start[1];
+    if(entry.kind==='wall')translateObstruction(item,dx,dy);else{item.x+=dx;item.y+=dy;}}
   if(drag.kind==='wall-label'){const w=state.walls.find(m=>m.id===drag.id);if(w){
     w.labelDx=drag.dx+p[0]-drag.start[0];w.labelDy=drag.dy+p[1]-drag.start[1];}}
   if(drag.kind==='handle'){const ap=state.devices.find(m=>m.id===drag.id);if(ap){const delta=(p[0]-drag.start[0])*drag.unit[0]+(p[1]-drag.start[1])*drag.unit[1];
@@ -454,6 +522,7 @@ function pointerUp(e){if(!drag)return;const d=drag;drag=null;
   if(d.kind==='wall-draft'){if(e.type==='pointercancel'){cancelWall();return;}
     if(d.changed&&pendingWall)finishWall(pendingWall.end);
     else status('Obstruction start placed. Click the second point or press Esc to cancel.');}
+  if(d.kind==='marquee'&&e.type!=='pointercancel')marqueeSelect(d.start,d.end,d.additive);
   updateUndo();
 }
 function bind(){
@@ -462,6 +531,9 @@ function bind(){
   $('pageSel').onchange=e=>{pageNum=Number(e.target.value);void renderPage();};
   $('scaleSel').onchange=e=>{state.scaleInch=Number(e.target.value);draw();};
   $('selectBtn').onclick=()=>setMode('select');$('placeBtn').onclick=()=>setMode('ap');$('addWall').onclick=()=>setMode('wall');
+  $('bulkSelectBtn').onclick=()=>{bulkMode=!bulkMode;setMode('select');status(bulkMode?'Bulk selection ON. Click items to add; drag a box around several; drag a selected item to move all.':'Bulk selection OFF. Shift-click still allows multiple selection.');};
+  $('selectAllPage').onclick=selectAllPage;
+  $('clearSelection').onclick=()=>{clearSelected();syncSelection();drawOverlay();};
   $('reshapeBtn').onclick=()=>setMode(tool==='reshape'?'select':'reshape');$('cancelWall').onclick=()=>{cancelWall();setMode('select');};
   $('finishPolygon').onclick=finishFreeform;
   $('obstructionShape').onchange=()=>{if(pendingWall)cancelWall(false);if(tool==='wall')setMode('wall');else updateMode();};
@@ -482,6 +554,11 @@ function bind(){
     input.addEventListener('change',()=>{started=false;});};
   edit('apName',(a,t)=>{a.name=t.value;drawOverlay();});edit('apMake',(a,t)=>a.make=t.value);edit('apModel',(a,t)=>a.model=t.value);edit('apNote',(a,t)=>a.note=t.value);
   edit('apKind',(a,t)=>{a.kind=t.value;a.radii=C.shapeFor(a.kind);});
+  slider('apIconScale',(a,t)=>{a.iconScale=clamp(Number(t.value)/100,.5,2.5);$('apIconScaleValue').textContent=Math.round(a.iconScale*100);});
+  $('applyIconScaleToKind').onclick=()=>{const a=selectedAp();if(!a||selectedItems().length!==1)return;
+    const matches=state.devices.filter(d=>d.kind===a.kind),size=apIconScale(a);
+    if(!matches.length)return;remember();matches.forEach(d=>{d.iconScale=size;});draw();
+    status(`Set ${matches.length} ${a.kind} AP symbol${matches.length===1?'':'s'} to ${Math.round(size*100)}% across all pages. Undo restores the previous sizes.`);};
   edit('apRadios',(a,t)=>{a.radioMode=t.value;if(a.radioMode!=='both')a.editBand=a.radioMode;syncApRangeFields(a);});
   $('apEditBand').onchange=e=>{const a=selectedAp();if(!a)return;a.editBand=e.target.value;syncApRangeFields(a);};
   for(const zone of ['strong','moderate','marginal'])slider(zone+'Range',(a,t)=>{
@@ -498,7 +575,7 @@ function bind(){
   $('wallAttenuation').oninput=e=>{const w=selectedWall();if(!w)return;w.attenuation=Number(e.target.value)/100;$('wallValue').textContent=e.target.value;draw();};
   $('wallAttenuation').onpointerdown=()=>{if(selectedWall())remember();};
   $('wallNote').onchange=e=>{const w=selectedWall();if(w){remember();w.note=e.target.value;refreshObstructionList();drawOverlay();}};
-  $('obstructionList').onchange=e=>{const id=Number(e.target.value);if(!id){selected=null;syncSelection();drawOverlay();return;}
+  $('obstructionList').onchange=e=>{const id=Number(e.target.value);if(!id){clearSelected();syncSelection();drawOverlay();return;}
     const w=pageWalls().find(m=>m.id===id);if(w)selectItem('wall',w.id);};
   $('obstructionClosedMode').onchange=e=>{const w=selectedWall(),shape=e.target.value;if(!w||!isFreeform(w.shape)||!isFreeform(shape))return;
     if(shape==='polygon'&&(!Array.isArray(w.points)||w.points.length<3)){
@@ -527,7 +604,7 @@ function bind(){
   $('deletePole').onclick=deleteSelected;
   $('clearPoles').onclick=()=>{if(!state.poles.length){status('No CCTV poles to clear.');return;}
     if(!confirm('Remove all imported CCTV poles from the Wi-Fi drawing? Undo will restore them.'))return;
-    remember();state.poles=[];selected=null;syncSelection();draw();status('Imported CCTV poles cleared. Undo is available.');};
+    remember();state.poles=[];clearSelected();syncSelection();draw();status('Imported CCTV poles cleared. Undo is available.');};
   $('globalHeat').onchange=e=>{state.showCoverage=e.target.checked;drawHeat();};
   $('viewRadio').onchange=e=>{state.viewRadio=e.target.value;draw();};
   $('heatOpacity').oninput=e=>{state.opacity=Number(e.target.value)/100;$('opacityValue').textContent=e.target.value;drawHeat();};
@@ -547,20 +624,21 @@ function bind(){
   window.addEventListener('blur',closeContext);window.addEventListener('resize',closeContext);
   document.addEventListener('keydown',e=>{
     if(e.target instanceof Element&&e.target.closest('input,select,textarea,[contenteditable="true"]'))return;
-    if(e.key==='Escape'){e.preventDefault();if(!$('wifiContextMenu').hidden)closeContext();else{if(pendingWall)cancelWall();setMode('select');}return;}
+    if(e.key==='Escape'){e.preventDefault();if(!$('wifiContextMenu').hidden)closeContext();else{if(pendingWall)cancelWall();else clearSelected();bulkMode=false;setMode('select');syncSelection();drawOverlay();}return;}
     if(e.key==='Enter'&&isFreeform(pendingWall?.shape)){e.preventDefault();finishFreeform();return;}
     if((e.ctrlKey||e.metaKey)&&!e.altKey){const key=e.key.toLowerCase();
       if(key==='z'){e.preventDefault();$(e.shiftKey?'redoBtn':'undoBtn').click();return;}
       if(key==='y'){e.preventDefault();$('redoBtn').click();return;}
-      if(key==='c'&&itemForSelection()){e.preventDefault();copySelected();return;}
+      if(key==='a'&&pdfDoc){e.preventDefault();selectAllPage();return;}
+      if(key==='c'&&selectedItems().length){e.preventDefault();copySelected();return;}
       if(key==='v'&&copied){e.preventDefault();pasteCopied();return;}}
-    if((e.key==='Delete'||e.key==='Backspace')&&(selected||pendingWall)){e.preventDefault();deleteSelected();return;}
-    if(selected&&e.key.startsWith('Arrow')){const item=itemForSelection();if(!item)return;e.preventDefault();
+    if((e.key==='Delete'||e.key==='Backspace')&&(selectedItems().length||pendingWall)){e.preventDefault();deleteSelected();return;}
+    if(selectedItems().length&&e.key.startsWith('Arrow')){e.preventDefault();
       const step=e.shiftKey?10:1,dx=e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0;
       const dy=e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0;
-      remember();if(selected.kind==='wall')translateObstruction(item,dx,dy);else{item.x+=dx;item.y+=dy;}draw();}
+      remember();for(const {kind,item} of selectedItems()){if(kind==='wall')translateObstruction(item,dx,dy);else{item.x+=dx;item.y+=dy;}}draw();}
   });
-  updateUndo();updateMode();status('Ready · Pilot v0.6.1');
+  updateUndo();updateMode();status('Ready · Pilot v0.6.2');
 }
 async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing first.');return;}
   if(!window.PDFLib){status('PDF exporter is unavailable.');return;}
@@ -602,8 +680,8 @@ async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing fir
       });
       if(state.showPoles)poles.forEach(pole=>{const origin=conv(pole.x,pole.y);page.drawCircle({x:origin[0],y:origin[1],size:7,color:rgb(.78,.84,.88),borderColor:ink,borderWidth:1.4});
         C.poleHeads(pole,17*(pole.size||1)).forEach(h=>{const end=conv(h.x,h.y);page.drawLine({start:{x:origin[0],y:origin[1]},end:{x:end[0],y:end[1]},thickness:2,color:ink});page.drawCircle({x:end[0],y:end[1],size:3.6,color:rgb(.24,.34,.49)});});});
-      aps.forEach(ap=>{const a=conv(ap.x,ap.y);page.drawCircle({x:a[0],y:a[1],size:7,color:rgb(.91,.97,1),borderColor:rgb(.1,.38,.61),borderWidth:2});
-        page.drawCircle({x:a[0],y:a[1],size:2,color:rgb(.1,.38,.61)});label(ap.name||'AP',ap.x+12,ap.y-9,9);});
+      aps.forEach(ap=>{const a=conv(ap.x,ap.y),size=apIconScale(ap);page.drawCircle({x:a[0],y:a[1],size:7*size,color:rgb(.91,.97,1),borderColor:rgb(.1,.38,.61),borderWidth:2*size});
+        page.drawCircle({x:a[0],y:a[1],size:2*size,color:rgb(.1,.38,.61)});label(ap.name||'AP',ap.x+13*size,ap.y-9*size,9);});
       label('PRELIMINARY WIFI COVERAGE - ILLUSTRATIVE ONLY',24,24,9);
       if(window.ahtDrawingKey){
         const rotation=degrees(angle*180/Math.PI);
