@@ -8,6 +8,7 @@ const state={devices:[],walls:[],poles:[],nextId:1,showCoverage:true,opacity:.65
 let pdfDoc=null,pdfBytes=null,pdfName='',pdfHash='',pageNum=1,vp=null,zoom=1,tx=0,ty=0,selected=null,tool='select',pendingWall=null,drag=null,pendingLoad=null;
 let bulkMode=false;
 const selectedKeys=new Set();
+let bulkGuideStage=null,bulkGuideX=80,bulkGuideY=100;
 let copied=null,copyCount=0,contextPoint=null;
 const undo=[],redo=[];
 const pointsPerFoot=()=>72*state.scaleInch;
@@ -26,6 +27,18 @@ const collectionFor=kind=>kind==='ap'?state.devices:kind==='wall'?state.walls:st
 const isSelected=(kind,id)=>selectedKeys.has(selectionKey(kind,id));
 function selectedItems(){return [...selectedKeys].map(key=>{const [kind,id]=key.split(':');return {kind,item:collectionFor(kind).find(m=>m.id===Number(id)&&onPage(m))};}).filter(x=>x.item);}
 function clearSelected(){selected=null;selectedKeys.clear();}
+function positionBulkGuide(){const guide=$('bulkGuide'),width=guide.offsetWidth||210,height=guide.offsetHeight||90;
+  guide.style.left=Math.max(8,Math.min(bulkGuideX+16,window.innerWidth-width-8))+'px';
+  guide.style.top=Math.max(8,Math.min(bulkGuideY+18,window.innerHeight-height-8))+'px';}
+function updateBulkGuide(){const guide=$('bulkGuide'),count=selectedItems().length;
+  if(!count&&bulkGuideStage==='actions')bulkGuideStage=null;
+  guide.hidden=!count||(!bulkMode&&bulkGuideStage!=='actions');
+  if(guide.hidden)return;
+  $('bulkGuideCount').textContent=`${count} icon${count===1?'':'s'} selected`;
+  $('bulkGuidePicking').hidden=!bulkMode;$('bulkGuideActions').hidden=bulkMode;
+  positionBulkGuide();
+}
+function rememberBulkGuidePoint(e){bulkGuideX=e.clientX;bulkGuideY=e.clientY;}
 function setSelected(kind,id,additive=false,toggle=false){const key=selectionKey(kind,id);
   if(!additive)selectedKeys.clear();
   if(toggle&&selectedKeys.has(key))selectedKeys.delete(key);else selectedKeys.add(key);
@@ -95,6 +108,7 @@ function obstructionLabelPosition(w){
 }
 function updateMode(){for(const [id,active] of [['selectBtn',tool==='select'],['placeBtn',tool==='ap'],['addWall',tool==='wall'],['reshapeBtn',tool==='reshape'],['bulkSelectBtn',bulkMode]])$(id).classList.toggle('active',active);
   $('bulkSelectBtn').setAttribute('aria-pressed',bulkMode?'true':'false');
+  $('bulkSelectBtn').textContent=bulkMode?'✓ Done Selecting':'□ Bulk Select / Box';
   $('viewport').style.cursor=tool==='select'?(bulkMode?'crosshair':'grab'):'crosshair';
   const shape=$('obstructionShape').value;
   $('modeHelp').textContent=tool==='ap'?'Placing APs · click a location; Esc to finish.':tool==='wall'?'DRAWING ACTIVE · '+shapeName(shape)+' · Esc to stop.':tool==='reshape'?'Reshape · select an AP and drag yellow edge points.':bulkMode?'Bulk Select ON · Click to add; drag a box to select; drag a selected icon to move group.':'Active · Click to select; drag blank drawing to pan.';
@@ -105,9 +119,10 @@ function updateMode(){for(const [id,active] of [['selectBtn',tool==='select'],['
   const dock=$('obstructionFinishDock');dock.hidden=!pendingWall||!isFreeform(pendingWall.shape);
   if(!dock.hidden){$('obstructionFinishTitle').textContent=pendingWall.shape==='polyline'?'FREEFORM LINE ACTIVE':'FREEFORM AREA ACTIVE';
     $('obstructionFinishHint').textContent=pendingWall.shape==='polyline'?'Click to add bends · Line stays OPEN · Esc cancels':'Click around area · Enter CLOSES to first dot · Esc cancels';}
+  updateBulkGuide();
 }
 function cancelWall(showStatus=true){pendingWall=null;if(drag?.kind==='wall-draft')drag=null;updateMode();if(vp)drawOverlay();if(showStatus)status('Unfinished obstruction cancelled.');}
-function setMode(mode){if(pendingWall)cancelWall(false);tool=mode;if(mode!=='select')bulkMode=false;updateMode();
+function setMode(mode){if(pendingWall)cancelWall(false);tool=mode;if(mode!=='select'){bulkMode=false;bulkGuideStage=null;}updateMode();
   const shape=$('obstructionShape').value;
   status(mode==='ap'?'Click a location to place an access point.':mode==='wall'?(isFreeform(shape)?'Click the first point, then add bends. Press Enter to finish '+(shape==='polyline'?'the OPEN line.':'the CLOSED area.'):'Drag to draw a '+shapeName(shape)+', or click two opposite points.'):mode==='reshape'?'Select an AP, then drag a yellow boundary point to reshape it.':bulkMode?'Bulk Select: click to add items, drag a box to select a group, then drag any selected item to move all.':'Select APs, CCTV poles or obstructions; drag blank drawing space to pan.');}
 function toView(e){const r=$('viewport').getBoundingClientRect();return [(e.clientX-r.left-tx)/zoom,(e.clientY-r.top-ty)/zoom];}
@@ -256,6 +271,7 @@ function syncSelection(){const count=selectedItems().length,multiple=count>1,ap=
   if(pole)$('poleDetails').textContent=`Page ${pole.page} · ${pole.heads?.length||0} camera head(s) · drag the pole to relocate it.`;
   refreshObstructionList();
   updateUndo();
+  updateBulkGuide();
 }
 async function renderPage(){if(!pdfDoc)return;const page=await pdfDoc.getPage(pageNum);vp=page.getViewport({scale:1});
   for(const c of [$('planCanvas'),$('heatCanvas')]){c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);c.style.width=vp.width+'px';c.style.height=vp.height+'px';}
@@ -358,7 +374,8 @@ function pasteCopied(at=null){if(!copied||!pdfDoc||!vp){status('Copy an existing
     selectedKeys.add(selectionKey(kind,m.id));selected={kind,id:m.id};
   }
   copyCount++;syncSelection();draw();status(`Pasted ${copied.entries.length} item${copied.entries.length===1?'':'s'} on page ${pageNum}. Undo is available.`);return true;}
-function closeContext(){const menu=$('wifiContextMenu');menu.hidden=true;contextPoint=null;}
+function closeContext(){const menu=$('wifiContextMenu'),wasOpen=!menu.hidden;menu.hidden=true;contextPoint=null;
+  if(wasOpen)updateBulkGuide();}
 function openContext(e){if(!pdfDoc||!vp)return;e.preventDefault();e.stopPropagation();
   const p=toView(e);if(!inDrawing(p))return;
   const element=e.target instanceof Element?e.target:null;
@@ -373,6 +390,7 @@ function openContext(e){if(!pdfDoc||!vp)return;e.preventDefault();e.stopPropagat
   }
   menu.querySelector('[data-action="paste"]').disabled=!copied||C.pdfFileName(copied.pdfName)!==C.pdfFileName(pdfName);
   menu.querySelector('[data-action="cancel-wall"]').hidden=!pendingWall;
+  $('bulkGuide').hidden=true;
   menu.hidden=false;
   const margin=8;menu.style.left=Math.max(margin,Math.min(e.clientX,window.innerWidth-menu.offsetWidth-margin))+'px';
   menu.style.top=Math.max(margin,Math.min(e.clientY,window.innerHeight-menu.offsetHeight-margin))+'px';
@@ -414,9 +432,10 @@ function selectAllPage(){if(!vp)return;clearSelected();
   syncSelection();drawOverlay();status(`Selected ${selectedKeys.size} visible item${selectedKeys.size===1?'':'s'} on page ${pageNum}.`);
 }
 function startItemMove(e,p,kind,item){if(selectedItems().length>1){const originals=selectedItems().map(({kind,item})=>({kind,id:item.id,original:JSON.parse(JSON.stringify(item))}));
-    startDrag(e,{kind:'group-move',start:p,originals});return;}
-  if(kind==='wall')startDrag(e,{kind:'wall-move',id:item.id,start:p,original:JSON.parse(JSON.stringify(item))});
-  else startDrag(e,{kind:kind==='ap'?'move':'pole-move',id:item.id,start:p,x:item.x,y:item.y});
+    $('bulkGuide').hidden=true;startDrag(e,{kind:'group-move',start:p,originals,selectionTarget:{kind,id:item.id}});return;}
+  $('bulkGuide').hidden=true;
+  if(kind==='wall')startDrag(e,{kind:'wall-move',id:item.id,start:p,original:JSON.parse(JSON.stringify(item)),selectionTarget:{kind,id:item.id}});
+  else startDrag(e,{kind:kind==='ap'?'move':'pole-move',id:item.id,start:p,x:item.x,y:item.y,selectionTarget:{kind,id:item.id}});
 }
 function marqueeSelect(start,end,additive=false){const [x1,x2]=[Math.min(start[0],end[0]),Math.max(start[0],end[0])];
   const [y1,y2]=[Math.min(start[1],end[1]),Math.max(start[1],end[1])];
@@ -453,6 +472,7 @@ function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toVie
   const apEl=target.closest?.('[data-ap]'),wallEl=target.closest?.('[data-wall]'),poleEl=target.closest?.('[data-pole]');
   const hit=apEl?{kind:'ap',id:Number(apEl.dataset.ap)}:poleEl?{kind:'pole',id:Number(poleEl.dataset.pole)}:wallEl?{kind:'wall',id:Number(wallEl.dataset.wall)}:null;
   if(tool==='select'&&hit&&(e.shiftKey||(bulkMode&&!isSelected(hit.kind,hit.id)))){
+    if(bulkMode)rememberBulkGuidePoint(e);
     setSelected(hit.kind,hit.id,true,!!e.shiftKey);return;}
   if(handle&&apEl){const ap=state.devices.find(m=>m.id===Number(apEl.dataset.ap));if(!ap)return;
     const index=Number(handle.dataset.handle),a=C.angle(index)+(Number(ap.rot)||0)*Math.PI/180;
@@ -482,7 +502,7 @@ function pointerDown(e){if(!vp||e.button!==0)return;closeContext();const p=toVie
       const r=reachFt?C.smoothEffectiveRadius({...ap,rangeFt:reachFt},a,pointsPerFoot(),pageWalls()):0;return {ap,d,inside:reachFt>0&&d<=r};})
       .filter(x=>x.inside).sort((a,b)=>a.d-b.d);
     if(candidates.length){selectItem('ap',candidates[0].ap.id);status('AP selected. Drag a yellow boundary handle or the dashed outline.');return;}}
-  if(tool==='select'&&bulkMode){startDrag(e,{kind:'marquee',start:p,end:p,additive:!!e.shiftKey});drawOverlay();return;}
+  if(tool==='select'&&bulkMode){$('bulkGuide').hidden=true;startDrag(e,{kind:'marquee',start:p,end:p,additive:!!e.shiftKey});drawOverlay();return;}
   clearSelected();syncSelection();drawOverlay();startDrag(e,{kind:'pan',sx:e.clientX,sy:e.clientY,tx,ty});
 }
 function pointerMove(e){if(!drag){if(isFreeform(pendingWall?.shape)&&tool==='wall'){pendingWall.end=toView(e);drawOverlay();}return;}const p=toView(e);
@@ -522,7 +542,12 @@ function pointerUp(e){if(!drag)return;const d=drag;drag=null;
   if(d.kind==='wall-draft'){if(e.type==='pointercancel'){cancelWall();return;}
     if(d.changed&&pendingWall)finishWall(pendingWall.end);
     else status('Obstruction start placed. Click the second point or press Esc to cancel.');}
-  if(d.kind==='marquee'&&e.type!=='pointercancel')marqueeSelect(d.start,d.end,d.additive);
+  if(d.kind==='marquee'&&e.type!=='pointercancel'){rememberBulkGuidePoint(e);marqueeSelect(d.start,d.end,d.additive);}
+  if(bulkMode&&d.selectionTarget&&e.type!=='pointercancel'){
+    rememberBulkGuidePoint(e);
+    if(!d.changed)setSelected(d.selectionTarget.kind,d.selectionTarget.id,true,true);
+    else updateBulkGuide();
+  }
   updateUndo();
 }
 function bind(){
@@ -531,7 +556,17 @@ function bind(){
   $('pageSel').onchange=e=>{pageNum=Number(e.target.value);void renderPage();};
   $('scaleSel').onchange=e=>{state.scaleInch=Number(e.target.value);draw();};
   $('selectBtn').onclick=()=>setMode('select');$('placeBtn').onclick=()=>setMode('ap');$('addWall').onclick=()=>setMode('wall');
-  $('bulkSelectBtn').onclick=()=>{bulkMode=!bulkMode;setMode('select');status(bulkMode?'Bulk selection ON. Click items to add; drag a box around several; drag a selected item to move all.':'Bulk selection OFF. Shift-click still allows multiple selection.');};
+  const toggleBulkPicking=()=>{if(bulkMode){bulkMode=false;bulkGuideStage=selectedItems().length?'actions':null;}
+    else{bulkMode=true;bulkGuideStage='pick';}
+    setMode('select');updateBulkGuide();
+    status(bulkMode?'Bulk selection ON. Click scattered icons one by one or drag a box; choose Done when finished.':
+      selectedItems().length?'Selection complete. Choose Move group or Copy group in the floating menu.':'Bulk selection OFF. Shift-click still allows multiple selection.');};
+  $('bulkSelectBtn').onclick=toggleBulkPicking;
+  $('bulkGuideDone').onclick=()=>{if(bulkMode)toggleBulkPicking();};
+  $('bulkGuideMore').onclick=()=>{if(!bulkMode)toggleBulkPicking();};
+  $('bulkGuideMove').onclick=()=>{bulkGuideStage=null;updateBulkGuide();status('Drag any selected icon to move the full group. Undo restores the previous positions.');};
+  $('bulkGuideCopy').onclick=()=>{bulkGuideStage=null;updateBulkGuide();copySelected();};
+  $('bulkGuideClear').onclick=()=>{bulkGuideStage=null;clearSelected();syncSelection();drawOverlay();};
   $('selectAllPage').onclick=selectAllPage;
   $('clearSelection').onclick=()=>{clearSelected();syncSelection();drawOverlay();};
   $('reshapeBtn').onclick=()=>setMode(tool==='reshape'?'select':'reshape');$('cancelWall').onclick=()=>{cancelWall();setMode('select');};
@@ -621,10 +656,11 @@ function bind(){
     else if(action==='duplicate'){if(copySelected())pasteCopied();}
     else if(action==='delete')deleteSelected();else if(action==='cancel-wall')cancelWall();});
   document.addEventListener('pointerdown',e=>{if(!$('wifiContextMenu').hidden&&!$('wifiContextMenu').contains(e.target))closeContext();},true);
-  window.addEventListener('blur',closeContext);window.addEventListener('resize',closeContext);
+  window.addEventListener('blur',closeContext);window.addEventListener('resize',()=>{closeContext();updateBulkGuide();});
   document.addEventListener('keydown',e=>{
     if(e.target instanceof Element&&e.target.closest('input,select,textarea,[contenteditable="true"]'))return;
-    if(e.key==='Escape'){e.preventDefault();if(!$('wifiContextMenu').hidden)closeContext();else{if(pendingWall)cancelWall();else clearSelected();bulkMode=false;setMode('select');syncSelection();drawOverlay();}return;}
+    if(e.key==='Escape'){e.preventDefault();if(!$('wifiContextMenu').hidden)closeContext();else if(bulkMode){toggleBulkPicking();}
+      else{if(pendingWall)cancelWall();else clearSelected();bulkGuideStage=null;bulkMode=false;setMode('select');syncSelection();drawOverlay();}return;}
     if(e.key==='Enter'&&isFreeform(pendingWall?.shape)){e.preventDefault();finishFreeform();return;}
     if((e.ctrlKey||e.metaKey)&&!e.altKey){const key=e.key.toLowerCase();
       if(key==='z'){e.preventDefault();$(e.shiftKey?'redoBtn':'undoBtn').click();return;}
@@ -638,7 +674,7 @@ function bind(){
       const dy=e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0;
       remember();for(const {kind,item} of selectedItems()){if(kind==='wall')translateObstruction(item,dx,dy);else{item.x+=dx;item.y+=dy;}}draw();}
   });
-  updateUndo();updateMode();status('Ready · Pilot v0.6.2');
+  updateUndo();updateMode();status('Ready · Pilot v0.6.3');
 }
 async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing first.');return;}
   if(!window.PDFLib){status('PDF exporter is unavailable.');return;}

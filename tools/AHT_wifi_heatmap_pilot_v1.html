@@ -29,6 +29,14 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
 #bulkSelectionCount{font-size:10px;color:#1a648c;font-weight:700;margin:4px 0 0}
 #bulkActions{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:6px 0}
 #bulkActions button{font-size:11px;padding:7px 4px}
+#bulkGuide[hidden],#bulkGuidePicking[hidden],#bulkGuideActions[hidden]{display:none!important}
+#bulkGuide{position:fixed;z-index:1001;min-width:188px;max-width:min(285px,calc(100vw - 18px));background:#fff;border:1px solid #a9ccdc;border-radius:8px;box-shadow:0 5px 18px #12395038;padding:9px 10px;color:#21485f;font-size:11px}
+#bulkGuideCount{font-weight:700;color:#174f70;margin-bottom:7px}
+#bulkGuidePicking{display:flex;gap:8px;align-items:center;justify-content:space-between}
+#bulkGuidePicking span{color:#517187}
+#bulkGuideActions{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+#bulkGuide button{color:#0c7559;border:1px solid #178269;font-weight:700;padding:6px 7px;min-height:30px}
+#bulkGuide button:hover{background:#eaf7f0}
 #workflow .check{margin:5px 0 1px}
 #modeHelp{font-size:10px;color:#536e80;margin:7px 0;display:flex;align-items:flex-start;gap:6px}
 #modeHelp::before{content:'';display:inline-block;background:#25ad70;border-radius:50%;width:7px;height:7px;flex:0 0 7px;margin-top:3px}
@@ -58,7 +66,7 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
 <body>
 <div id="app">
 <aside id="sidebar">
-<header><img src="aht-global-tools-logo.png" alt="AHT Global"><h1>Wi-Fi Heat Map</h1><p>Indoor / outdoor AP placement and illustrative signal coverage.</p><div id="version">Pilot v0.6.2 · Build wifi-20261123-c · PREVIEW</div></header>
+<header><img src="aht-global-tools-logo.png" alt="AHT Global"><h1>Wi-Fi Heat Map</h1><p>Indoor / outdoor AP placement and illustrative signal coverage.</p><div id="version">Pilot v0.6.3 · Build wifi-20261123-d · PREVIEW</div></header>
 <nav id="workflow" aria-label="Wi-Fi drawing workflow"><strong>Your drawing workflow — jump to any step</strong><div class="steps">
   <button data-step="open" aria-current="step"><b>1</b>Open</button><button data-step="place"><b>2</b>Place</button><button data-step="adjust"><b>3</b>Adjust</button>
   <button data-step="walls"><b>4</b>Obstructions</button><button data-step="review"><b>5</b>Review</button><button data-step="key"><b>6</b>Key</button><button data-step="export"><b>7</b>Export</button>
@@ -69,7 +77,7 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
 <label class="label">Drawing scale</label><select id="scaleSel"><option value="0.125">1/8 inch = 1 foot</option><option value="0.1875">3/16 inch = 1 foot</option><option value="0.25">1/4 inch = 1 foot</option><option value="0.0625">1/16 inch = 1 foot</option><option value="0.3333">1/3 inch = 1 foot</option></select><p class="hint">Confirm scale for approximate coverage-distance controls. Use boundary handles to refine.</p></section>
 <section id="placeSection"><h2>2 · Place Access Points</h2><p class="hint">Pick a type, then click its location on the PDF. Coverage starts with an illustrative directional profile and remains editable.</p><label class="label">AP mount / antenna</label><select id="newKind"><option value="ceiling">Indoor · Ceiling omnidirectional</option><option value="wall">Indoor · Wall-facing</option><option value="pole-omni">Outdoor · Pole omnidirectional</option><option value="pole-directional">Outdoor · Pole directional</option></select><button id="placeBtn" class="primary" style="width:100%;margin-top:8px">Place AP</button></section>
 <section id="adjustSection"><h2>3 · Adjust Coverage</h2><p class="hint">Select an AP to see its smooth, rounded coverage outline and yellow drag handles. Pull any handle inward or outward to morph the coverage, with gentle curves between handles.</p><button id="reshapeBtn">✥ Reshape coverage on drawing</button><div class="editing-guide" id="reshapeHelp">1. Place or select an AP. 2. Click Reshape. 3. Drag yellow points on the dashed outline. Esc returns to Select.</div>
-<div id="bulkActions"><button id="selectAllPage">Select all on page</button><button id="clearSelection">Clear selection</button></div><div class="buttons"><button id="copyItem">Copy selected</button><button id="pasteItem">Paste</button></div><p class="hint">Bulk Select: click multiple items or drag a box over them, then drag any selected item to move the group. Shift-click toggles an item. Copy, Paste, Delete and arrow keys work on the full selection. Right-click for these actions.</p><div id="selectedFields" hidden><h3>Selected access point</h3>
+<div id="bulkActions"><button id="selectAllPage">Select all on page</button><button id="clearSelection">Clear selection</button></div><div class="buttons"><button id="copyItem">Copy selected</button><button id="pasteItem">Paste</button></div><p class="hint">Bulk Select: click scattered devices one by one or draw a box around several. The floating prompt lets you continue picking or finish with Done. Drag the chosen group, or use Copy, Paste, Delete and Undo. Shift-click also toggles individual items.</p><div id="selectedFields" hidden><h3>Selected access point</h3>
 <label class="label">Name / ID</label><input type="text" id="apName" maxlength="90"><label class="label">Mount type</label><select id="apKind"><option value="ceiling">Indoor ceiling · Omni</option><option value="wall">Indoor wall-facing</option><option value="pole-omni">Outdoor pole · Omni</option><option value="pole-directional">Outdoor pole · Directional</option></select>
 <label class="label">AP symbol size · <span id="apIconScaleValue">100</span>%</label><input type="range" id="apIconScale" min="50" max="250" step="5" value="100"><button id="applyIconScaleToKind" style="width:100%;margin-top:4px">Apply this symbol size to all APs of this mount type</button><p class="hint">Changes the AP icon on screen and in PDF exports, not the Wi-Fi signal coverage. Apply to type updates matching APs across every page; Undo restores all of them.</p>
 <label class="label">AP radios enabled</label><select id="apRadios"><option value="both">2.4 GHz + 5 GHz</option><option value="2.4">2.4 GHz only</option><option value="5">5 GHz only</option></select>
@@ -97,14 +105,15 @@ section{border-top:1px solid #d9e4ec;margin-top:14px;padding-top:9px;scroll-marg
     <div id="obstructionFinishHint" style="font-size:12px;font-weight:600">Click to add bends · Line stays OPEN · Esc cancels</div>
   </div>
   <div id="zoom"><button id="zoomIn" title="Zoom in">+</button><button id="zoomOut" title="Zoom out">−</button><button id="zFit" title="Fit drawing">⤢</button></div>
-  <div id="status" role="status"><span id="statusText">Ready · Pilot v0.6.2</span><button id="dismissStatus" type="button" aria-label="Dismiss message" title="Dismiss message">×</button></div>
+  <div id="status" role="status"><span id="statusText">Ready · Pilot v0.6.3</span><button id="dismissStatus" type="button" aria-label="Dismiss message" title="Dismiss message">×</button></div>
 </main>
 </div>
+<div id="bulkGuide" role="group" aria-label="Bulk selection options" hidden><div id="bulkGuideCount">1 item selected</div><div id="bulkGuidePicking"><span>Select another icon, or</span><button id="bulkGuideDone" type="button">Done</button></div><div id="bulkGuideActions" hidden><button id="bulkGuideMove" type="button">Move group</button><button id="bulkGuideCopy" type="button">Copy group</button><button id="bulkGuideMore" type="button">Select more</button><button id="bulkGuideClear" type="button">Clear</button></div></div>
 <div id="wifiContextMenu" hidden role="menu" aria-label="Drawing editing menu"><button data-action="copy" role="menuitem">Copy selected</button><button data-action="paste" role="menuitem">Paste here</button><button data-action="duplicate" role="menuitem">Duplicate</button><button data-action="delete" role="menuitem">Delete selected</button><button data-action="cancel-wall" role="menuitem">Cancel obstruction</button></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="aht-drawing-key-v1.js?v=20261123-b"></script>
 <script src="aht-wifi-coverage-core-v1.js?v=20261123-b"></script>
-<script src="aht-wifi-heatmap-ui-v1.js?v=20261123-c"></script>
+<script src="aht-wifi-heatmap-ui-v1.js?v=20261123-d"></script>
 </body>
 </html>

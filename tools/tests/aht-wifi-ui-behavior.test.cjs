@@ -74,7 +74,7 @@ test('layout is drawing-left and tools-right with full editing controls',()=>{
   assert.doesNotMatch(html,/id="wallBtn"/,'no second obstruction button appears in AP placement');
   assert.match(html,/id="obstructionShape"/);
   assert.match(html,/#addWall\.active\{background:#147568/,'active drawing button has a distinct green state');
-  for(const id of ['selectBtn','undoBtn','redoBtn','bulkSelectBtn','bulkSelectionCount','selectAllPage','clearSelection','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles','obstructionFinishDock','obstructionList','obstructionColor','obstructionOpacity','obstructionVisible','obstructionLabelVisible','obstructionLabelSize','apRadios','apEditBand','apIconScale','apIconScaleValue','applyIconScaleToKind','strongRange','moderateRange','marginalRange','viewRadio'])assert.match(html,new RegExp('id="'+id+'"'));
+  for(const id of ['selectBtn','undoBtn','redoBtn','bulkSelectBtn','bulkSelectionCount','bulkGuide','bulkGuideCount','bulkGuidePicking','bulkGuideDone','bulkGuideActions','bulkGuideMove','bulkGuideCopy','bulkGuideMore','bulkGuideClear','selectAllPage','clearSelection','placeMultiple','reshapeBtn','softenShape','wifiContextMenu','cancelWall','clearPoles','obstructionFinishDock','obstructionList','obstructionColor','obstructionOpacity','obstructionVisible','obstructionLabelVisible','obstructionLabelSize','apRadios','apEditBand','apIconScale','apIconScaleValue','applyIconScaleToKind','strongRange','moderateRange','marginalRange','viewRadio'])assert.match(html,new RegExp('id="'+id+'"'));
 });
 
 test('bottom-left status notice dismisses automatically and has a close button',()=>{
@@ -506,4 +506,61 @@ test('Shift-click toggles group membership without entering bulk mode and suppor
   h.mouse('pointerdown',100,100,aps()[0],{shiftKey:true});
   assert.match(h.get('bulkSelectionCount').textContent,/1 item selected/);
   h.get('clearSelection').onclick();assert.equal(h.get('bulkSelectionCount').textContent,'No items selected');
+});
+
+test('Wi-Fi guided bulk selection matches CCTV: pick scattered icons, see Done, then move, copy or select more',async()=>{
+  const h=harness();await h.page();h.get('placeMultiple').checked=true;h.get('placeBtn').onclick();
+  h.mouse('pointerdown',100,100);h.mouse('pointerdown',370,330);h.mouse('pointerdown',220,420);
+  h.get('selectBtn').onclick();h.get('clearSelection').onclick();
+  const ap=id=>h.get('overlay').children.find(el=>el.getAttribute?.('data-ap')===String(id));
+  h.get('bulkSelectBtn').onclick();assert.equal(h.get('bulkSelectBtn').getAttribute('aria-pressed'),'true');
+  assert.equal(h.get('bulkGuide').hidden,true,'prompt stays hidden until an icon is selected');
+  h.mouse('pointerdown',100,100,ap(1));
+  assert.equal(h.get('bulkGuide').hidden,false);
+  assert.equal(h.get('bulkGuideCount').textContent,'1 icon selected');
+  assert.equal(h.get('bulkGuidePicking').hidden,false);
+  assert.equal(h.get('bulkGuideActions').hidden,true);
+  assert.match(h.get('bulkGuide').style.left,/px$/,'guide floats beside the chosen icon');
+  h.mouse('pointerdown',370,330,ap(2));
+  assert.equal(h.get('bulkGuideCount').textContent,'2 icons selected',
+    'distant icons can be picked individually without boxing');
+  h.mouse('pointerdown',100,100,ap(1));h.mouse('pointerup',100,100,ap(1));
+  assert.equal(h.get('bulkGuideCount').textContent,'1 icon selected','clicking an already selected icon removes it');
+  h.mouse('pointerdown',100,100,ap(1));
+  assert.equal(h.get('bulkGuideCount').textContent,'2 icons selected');
+  h.get('bulkGuideDone').onclick();
+  assert.equal(h.get('bulkSelectBtn').getAttribute('aria-pressed'),'false');
+  assert.equal(h.get('bulkGuidePicking').hidden,true);
+  assert.equal(h.get('bulkGuideActions').hidden,false,'Done opens the Move/Copy/Select more actions');
+  assert.match(h.get('bulkSelectionCount').textContent,/2 items selected/);
+  h.get('bulkGuideMove').onclick();assert.equal(h.get('bulkGuide').hidden,true);
+  const first=ap(1);h.mouse('pointerdown',100,100,first);h.mouse('pointermove',125,120,first);h.mouse('pointerup',125,120,first);
+  let saved=await h.currentWork();
+  assert.ok(Math.abs(saved.devices[0].x-125)<1e-6);
+  assert.ok(Math.abs(saved.devices[1].x-395)<1e-6);
+  assert.ok(Math.abs(saved.devices[2].x-220)<1e-6,'unselected AP does not move');
+  h.get('bulkSelectBtn').onclick();assert.equal(h.get('bulkGuidePicking').hidden,false);
+  h.get('bulkGuideDone').onclick();h.get('bulkGuideMore').onclick();
+  h.mouse('pointerdown',220,420,ap(3));
+  assert.equal(h.get('bulkGuideCount').textContent,'3 icons selected');
+  h.get('bulkGuideDone').onclick();h.get('bulkGuideCopy').onclick();
+  assert.equal(h.get('bulkGuide').hidden,true);
+  h.get('pasteItem').onclick();saved=await h.currentWork();assert.equal(saved.devices.length,6);
+  h.get('undoBtn').onclick();assert.equal((await h.currentWork()).devices.length,3);
+});
+
+test('bulk selection box also shows floating Done prompt, and Escape finishes choosing without deleting markers',async()=>{
+  const h=harness();await h.page();h.get('placeMultiple').checked=true;h.get('placeBtn').onclick();
+  h.mouse('pointerdown',100,110);h.mouse('pointerdown',210,140);h.get('selectBtn').onclick();
+  h.get('bulkSelectBtn').onclick();
+  h.mouse('pointerdown',60,65);h.mouse('pointermove',250,175);h.mouse('pointerup',250,175);
+  assert.equal(h.get('bulkGuideCount').textContent,'2 icons selected');
+  assert.equal(h.get('bulkGuidePicking').hidden,false);
+  assert.equal(h.get('bulkGuide').hidden,false);
+  for(const keydown of h.events.keydown)keydown({key:'Escape',target:new FakeElement('div'),preventDefault(){}});
+  assert.equal(h.get('bulkSelectBtn').getAttribute('aria-pressed'),'false');
+  assert.equal(h.get('bulkGuideActions').hidden,false,'Escape ends picking but retains the group');
+  assert.equal((await h.currentWork()).devices.length,2);
+  h.get('bulkGuideClear').onclick();assert.equal(h.get('bulkGuide').hidden,true);
+  assert.equal(h.get('bulkSelectionCount').textContent,'No items selected');
 });
