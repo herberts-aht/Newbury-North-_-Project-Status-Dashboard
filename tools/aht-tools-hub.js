@@ -17,12 +17,12 @@
   if (!(menu && panel && frame && title && back && pageHeader && toolbar)) return;
 
   const tools = Object.freeze({
-    lighting: {name: 'Lighting / Keypads / PIR', path: 'tools/AHT_pir_tool_flow_v9_9.html'},
-    shades: {name: 'Shades & Drapery', path: 'tools/AHT_shades_tool_pilot_v3.html'},
-    cctv: {name: 'CCTV Cameras', path: 'tools/AHT_cctv_workflow_pilot_v3.html?v=20261122-polebridge-b'},
-    devices: {name: 'Device Locations', path: 'tools/AHT_device_locations_pilot_v1.html'},
+    lighting: {name: 'Lighting / Keypads / PIR', path: 'tools/AHT_pir_tool_flow_v9_9.html?v=20261123-box1'},
+    shades: {name: 'Shades & Drapery', path: 'tools/AHT_shades_tool_pilot_v3.html?v=20261123-box1'},
+    cctv: {name: 'CCTV Cameras', path: 'tools/AHT_cctv_workflow_pilot_v3.html?v=20261123-box1'},
+    devices: {name: 'Device Locations', path: 'tools/AHT_device_locations_pilot_v1.html?v=20261123-box1'},
     wifi: {name: 'Wi-Fi Heat Map · Pilot v0.6.3', path: 'tools/AHT_wifi_heatmap_pilot_v1.html?v=20261123-d'},
-    access: {name: 'Access Control', path: 'tools/AHT_access_workflow_pilot_v3.html'},
+    access: {name: 'Access Control', path: 'tools/AHT_access_workflow_pilot_v3.html?v=20261123-box1'},
     labels: {name: 'Wire Label Printer', path: 'tools/AHT_Wire_Label_Print_Tool.html?v=20261030-label-sharepoint-v1'},
     forms: {name: 'Project Forms', path: 'tools/aht-project-forms.html'}
   });
