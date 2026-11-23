@@ -164,10 +164,8 @@
     <div class="login-logo-wrap"><img class="login-logo" src="assets/aht-global-logo.svg" alt="AHT Global Lifestyle Technology" /></div>
     <h1>Project Control</h1>
     <p>Luxury Builder Division · Secure project visibility and coordination.</p><div class="version-tag" id="versionTag">Version —</div>
-    <div class="field"><label>User</label><select id="loginUser"></select></div>
-    <div class="field"><label>Password</label><input id="loginPassword" type="password" value="demo" /></div>
-    <button id="loginBtn">Sign In</button>
-    <div class="demo-note">Use the email address associated with your Project Control invitation. Microsoft will guide you through sign-in or verification. No Project Control password is stored.</div>
+    <button id="loginBtn">Sign in with Microsoft</button>
+    <div class="login-note">Use the email address associated with your Project Control invitation. Microsoft will guide you through sign-in or verification. No Project Control password is stored.</div>
   </div>
 </div>
 
@@ -568,7 +566,7 @@
 <div id="aht-tools-hub">
   <div data-aht-hub-menu>
     <p class="aht-hub-intro">Choose a plan markup or production tool. Save work inside each markup tool before switching editors.</p>
-    <div class="aht-hub-section"><h3>Plan Markup</h3><span>5 tools</span></div>
+    <div class="aht-hub-section"><h3>Plan Markup</h3><span>6 tools</span></div>
     <div class="aht-hub-grid">
       <button class="aht-hub-card" type="button" data-aht-tool="lighting">
         <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 14a6 6 0 1 1 8 0c-1 1-1.5 2-1.5 3.5h-5C9.5 16 9 15 8 14Z"/><path d="M9.5 20h5M10.5 22h3"/></svg></span>
@@ -585,6 +583,10 @@
       <button class="aht-hub-card" type="button" data-aht-tool="devices">
         <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="7" r="1"/></svg></span>
         <span class="aht-hub-card-copy"><span class="aht-hub-name">Device Locations</span><span class="aht-hub-description">Speakers, subs, TVs, indoor/outdoor APs, projectors and screens</span><span class="aht-hub-open">Open tool →</span></span>
+      </button>
+      <button class="aht-hub-card" type="button" data-aht-tool="wifi">
+        <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="19" r="1.7" fill="currentColor" stroke="none"/><path d="M5 13a10 10 0 0 1 14 0M8 16a6 6 0 0 1 8 0M2 10a14 14 0 0 1 20 0"/></svg></span>
+        <span class="aht-hub-card-copy"><span class="aht-hub-name">Wi-Fi Heat Map <small>· Pilot</small></span><span class="aht-hub-description">Indoor/outdoor APs, editable signal zones, barriers and CCTV poles</span><span class="aht-hub-open">Open tool →</span></span>
       </button>
       <button class="aht-hub-card" type="button" data-aht-tool="access">
         <span class="aht-hub-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14a4 4 0 1 1 3.5-2L9 16H6v3H3v-4l5.5-5"/><circle cx="13.5" cy="8" r=".7"/></svg></span>
@@ -618,7 +620,7 @@
 <script src="tools/aht-project-document-picker.js?v=20261030-integrated1"></script>
 <!-- AHT-OPS-TOOLS-V3 -->
 <script src="js/aht-tool-access.js?v=20261030-integrated1"></script>
-<script src="tools/aht-tools-hub.js?v=20261030-integrated1"></script>
+<script src="tools/aht-tools-hub.js?v=20261122-wifi-pilot2"></script>
 <!-- AHT-TOOLS-HUB-V1: end -->
 <!-- AHT-PROJECT-FORMS-TOOLS-MERGE-V4 -->
 </section>
@@ -1172,11 +1174,6 @@
               ></div>
             </div>
 
-            <div id="legacyPasswordControls"><label style="margin-top:10px">Temporary Password</label><select id="adminPasswordProfile">
-              <option value="aht">AHT Internal — ahtadmin</option>
-              <option value="external">External — user</option>
-              <option value="stacy">Stacy Administrator — ahtadmin8626</option>
-            </select></div>
             <label class="active-user-check organization-wide-user-control"><input id="adminUserActive" type="checkbox" checked /> Active user</label>
             <label class="active-user-check organization-wide-user-control"><input id="showArchivedUsers" type="checkbox" /> Show archived users</label>
             <button class="btn danger organization-wide-user-control" id="archiveUserBtn" type="button">Archive User</button>
@@ -1648,8 +1645,8 @@
 <script src="data/projects.js"></script>
 <script src="js/data-provider.js?v=20261030-integrated1"></script>
 <script src="js/storage.js"></script>
-<script src="js/auth.js?v=20261105-field299"></script>
-<script src="js/microsoft-access.js?v=1790254956"></script>
+<script src="js/auth.js?v=20261122-microsoft-only1"></script>
+<script src="js/microsoft-access.js?v=20261122-microsoft-only1"></script>
 <script src="js/permissions.js"></script>
 <script src="js/project-contacts.js?v=20260928163552"></script>
 <script src="js/project-contacts-view.js?v=20260928163552"></script>
@@ -1863,7 +1860,7 @@
   }
 </style>
 <script src="js/room-builder.js?v=20261030-integrated1"></script>
-  <script src="js/dashboard.js?v=20261106-admin1"></script>
+  <script src="js/dashboard.js?v=20261122-microsoft-only1"></script>
 <script src="js/help-center.js?v=20261030-integrated1"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
@@ -2891,8 +2888,6 @@ function startNewUser(){
  adminRoleSelect.value="Editor";
  adminRoleSelect.disabled=false;
 
- adminPasswordProfile.value="aht";
- adminPasswordProfile.disabled=false;
  adminUserActive.checked=true;
 
  projectAssignmentList
@@ -3042,7 +3037,6 @@ if(addAhtUserBtn){
      employeeDirectoryId:selectedEmployee.id||0,
      managementDivisions:[],
      role,
-     passwordProfile:"aht",
      active:true,
      projects:role==="Admin"?["*"]:selectedProjects,
      projectAccess:{},
@@ -3291,7 +3285,6 @@ saveAccessBtn.onclick=async()=>{
      email:"",
      company:"AHT Global",
      role:"Editor",
-     passwordProfile:"aht",
      active:true,
      projects:[],
      projectAccess:{},
@@ -3397,7 +3390,6 @@ saveAccessBtn.onclick=async()=>{
  if(configuredAdmin){
    user.role="Admin";
  }
- user.passwordProfile=user.id==="stacy"?"stacy":adminPasswordProfile.value;
 
  const requestedActive=
    operatorHasOrganizationWideAdminScope

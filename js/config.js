@@ -14,9 +14,7 @@ const APP_CONFIG = Object.freeze({
   // Development stays fully local until Entra and hosting are approved.
   environment: "production",
 
-  // Supported values today:
-  //   "demo"      = temporary local login
-  //   "microsoft" = reserved for Entra/MSAL integration
+  // Only Microsoft Entra/MSAL sign-in is supported.
   authProvider: "microsoft",
 
   // "localStorage" preserves the current dashboard behavior.
