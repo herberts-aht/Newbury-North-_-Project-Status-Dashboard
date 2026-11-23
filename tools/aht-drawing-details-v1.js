@@ -12,9 +12,9 @@
   const section=document.createElement('section');
   section.id='ahtDrawingDetailsSection';section.className='aht-dd-section workflow-step';
   section.innerHTML='<div class="aht-dd-section-title"><h2>Equipment Details</h2><span>Edit one or several placed icons</span></div>'+
-    '<p class="aht-dd-intro">Choose <strong>Bulk Select</strong>, click the icons you want on the drawing, then enter and save their shared details here. Click a picked icon again to remove it.</p>';
+    '<p class="aht-dd-intro">Choose <strong>Bulk Select / Box</strong>. Click scattered icons one by one, or drag a rectangle around several on the drawing. Both methods use the same selected group. Click a picked icon again to remove it.</p>';
   const bulkControls=document.createElement('div');bulkControls.className='aht-dd-bulk-controls';
-  bulkControls.innerHTML='<button type="button" id="ahtDdBulkMode" aria-pressed="false">Bulk Select Icons</button>'+
+  bulkControls.innerHTML='<button type="button" id="ahtDdBulkMode" aria-pressed="false">Bulk Select / Box</button>'+
     '<button type="button" id="ahtDdBulkClear" hidden>Clear picked</button>'+
     '<span id="ahtDdBulkCount" role="status">Select an icon normally, or use Bulk Select to pick several</span>';
   section.appendChild(bulkControls);
@@ -122,7 +122,7 @@
     bulkMode=!!on;
     if(bulkMode && typeof setTool==='function')setTool(null);
     bulkButton.setAttribute('aria-pressed',String(bulkMode));
-    bulkButton.textContent=bulkMode?'Done Selecting':'Bulk Select';
+    bulkButton.textContent=bulkMode?'Done Selecting':'Bulk Select / Box';
     bulkControls.classList.toggle('aht-dd-bulk-on',bulkMode);
     bulkClear.hidden=!bulkMode;
     if(bulkMode) {guidedStage='pick';}
@@ -135,9 +135,10 @@
   // Bulk selection has its own pointer-down activation. Starting the native editor's
   // move explicitly is necessary: otherwise its normal click handler can clear the
   // multi-selection before a drag is recognized.
-  let bulkDragCandidate=null;
+  let bulkDragCandidate=null,bulkBoxCandidate=null;
   viewport.addEventListener('pointerdown',event=>{
-    if(!bulkMode || event.button!==0 || event.ctrlKey || event.metaKey)return;
+    if(!bulkMode || event.button!==0 || event.ctrlKey || event.metaKey ||
+      (typeof spaceDown!=='undefined'&&spaceDown) || (typeof calMode!=='undefined'&&calMode))return;
     const el=event.target instanceof Element?event.target:null;
     const hit=el?.closest('g[data-id]');
     const id=hit&&surface.contains(hit)?Number(hit.getAttribute('data-id')):NaN;
@@ -145,9 +146,20 @@
     if(!marker){
       event.stopImmediatePropagation();event.preventDefault();
       bulkDragCandidate=null;
-      if(sel.size){sel.clear();saveNotice='';guidedStage=null;refresh();}
+      // All five established tools already support a native Shift-drag marquee.
+      // Start that same drag mode here so Bulk Select also supports an ordinary
+      // drag over blank plan space; their native move/up logic draws the box,
+      // selects icons, and refreshes the existing floating Done guidance.
+      if(!vp)return;
+      const start=toView(event);
+      if(start[0]<0||start[1]<0||start[0]>vp.width||start[1]>vp.height)return;
+      saveNotice='';guidedStage='pick';rememberPointer(event);
+      drag={mode:'marq',start,cur:start};
+      bulkBoxCandidate={pointerId:event.pointerId};
+      try{viewport.setPointerCapture(event.pointerId);}catch(_){/* pointer may already be captured */}
       return;
     }
+    bulkBoxCandidate=null;
     saveNotice='';
     rememberPointer(event);
     event.stopImmediatePropagation();event.preventDefault();
@@ -173,6 +185,13 @@
     try{viewport.setPointerCapture(event.pointerId);}catch(_){/* detached pointer */}
   },true);
   viewport.addEventListener('pointerup',event=>{
+    if(bulkBoxCandidate&&bulkBoxCandidate.pointerId===event.pointerId){
+      bulkBoxCandidate=null;
+      rememberPointer(event);
+      // The editor's normal pointerup computes box membership immediately
+      // after this capture handler; update the popup after that selection lands.
+      requestAnimationFrame(sync);
+    }
     if(!bulkMode||!bulkDragCandidate||bulkDragCandidate.pointerId!==event.pointerId)return;
     const candidate=bulkDragCandidate;bulkDragCandidate=null;
     const distance=Math.hypot(event.clientX-candidate.x,event.clientY-candidate.y);
@@ -184,7 +203,7 @@
       sel.delete(candidate.id);refresh();
     }
   },true);
-  viewport.addEventListener('pointercancel',()=>{bulkDragCandidate=null;drag=null;},true);
+  viewport.addEventListener('pointercancel',()=>{bulkDragCandidate=null;bulkBoxCandidate=null;drag=null;},true);
   // Prevent default drawing navigation keys from editing while bulk selection is active.
   document.addEventListener('keydown',event=>{
     if(!bulkMode || event.key!=='Escape')return;
@@ -235,11 +254,11 @@
   function sync(){
     const items=selectedMarkers(); const signature=items.map(m=>m.id).sort().join('|');
     // Clear next step: finish picking without losing selection, then drag as a group.
-    bulkButton.textContent=bulkMode?'Done Selecting':'Bulk Select';
-    bulkButton.title=bulkMode?'Finish choosing icons and see available actions':'Choose several icons';
+    bulkButton.textContent=bulkMode?'Done Selecting':'Bulk Select / Box';
+    bulkButton.title=bulkMode?'Finish picking or drag a box around the icons':'Pick scattered icons or drag a box around a group';
     if(items.length)saveNotice='';
-    bulkCount.textContent=saveNotice || (bulkMode?`${items.length} icon${items.length===1?'':'s'} picked · click icons to add/remove`:
-      'Select normally or use Bulk Select to pick specific icons');
+    bulkCount.textContent=saveNotice || (bulkMode?`${items.length} icon${items.length===1?'':'s'} picked · click icons or draw a box to select`:
+      'Select normally, or use Bulk Select / Box to pick icons');
     panel.hidden=!items.length;
     if(!items.length)guidedStage=null;
     showGuide();
@@ -310,7 +329,7 @@
     bulkMode=false;
     guidedStage=null;guide.hidden=true;
     bulkButton.setAttribute('aria-pressed','false');
-    bulkButton.textContent='Bulk Select';
+    bulkButton.textContent='Bulk Select / Box';
     bulkControls.classList.remove('aht-dd-bulk-on');
     bulkClear.hidden=true;
     sel.clear();

@@ -16,7 +16,7 @@
   const grants=Array.isArray(u.toolGrants)?u.toolGrants:[];
   if(key==='labels')return grants.includes('labels');
   // Markup tool grants require a System Owner-approved permission record.
-  return grants.includes(key) && ['lighting','shades','cctv','devices','access'].includes(key);
+  return grants.includes(key) && ['lighting','shades','cctv','devices','access','wifi'].includes(key);
  }
  function canOpenHub(){const u=actor();return Boolean(eligible(u)&&(ops(u)||u.canEdit||admin(u)));}
  function refresh(){const u=actor();if(!eligible(u))return;

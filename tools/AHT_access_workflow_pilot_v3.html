@@ -561,7 +561,6 @@
     <section class="workflow-step" id="exportSection">
       <div class="step-heading"><span class="step-number">5</span><h2>Save / Share</h2></div>
       <!-- AHT_PDF_LEGEND_TOGGLE_V3: opt-in PDF title/device legend -->
-      <label class="chk pdf-legend-option" style="display:flex;gap:8px;align-items:center;margin:9px 0 7px"><input type="checkbox" id="pdfLegendChk"><span><strong>Include title and device legend in exported PDF</strong></span></label>
       <div class="muted export-help" style="margin-bottom:9px">Off by default. Leave unchecked to keep the plan clear; your actual notes and markups still export.</div>
       <button id="pdfBtn" class="primary full export-main">Export Marked-Up PDF</button>
       <div class="muted export-help">Includes a door-by-door device / system schedule appended to the PDF. This is a preliminary coordination markup, not a hardware specification.</div>
@@ -596,6 +595,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="aht-drawing-key-v1.js?v=20261122-1"></script>
 <script>
 const CFG = {"title":"AHT Access Control / Door Systems Markup Tool","fileTag":"Access","iconScale":1.2,"devices":[{"key":"opening","label":"Door / Opening","style":"diamond","color":"#b4dced","fill":"#ffffff","textColor":"#185782","glyph":"D","kind":"point","group":"Door / Opening"},{"key":"ac","label":"Access control point (AC)","style":"diamond","color":"#ffff99","fill":"#ffffff","textColor":"#999b37","glyph":"AC","kind":"point","group":"Control / Panels"},{"key":"reader","label":"Card / credential reader","style":"tile","color":"#6a3d9a","fill":"#ffffff","textColor":"#6a3d9a","glyph":"CR","kind":"point","group":"Credential / Entry"},{"key":"readerkp","label":"Reader + keypad","style":"tile","color":"#8e44ad","fill":"#ffffff","textColor":"#8e44ad","glyph":"RK","kind":"point","group":"Credential / Entry"},{"key":"keypad","label":"PIN keypad","style":"tile","color":"#7e55bb","fill":"#ffffff","textColor":"#7e55bb","glyph":"KP","kind":"point","group":"Credential / Entry"},{"key":"biometric","label":"Biometric reader","style":"tile","color":"#7254a1","fill":"#ffffff","textColor":"#7254a1","glyph":"BIO","kind":"point","group":"Credential / Entry"},{"key":"strike","label":"Electric strike / lock","style":"tile","color":"#34495e","fill":"#ffffff","textColor":"#34495e","glyph":"EL","kind":"point","group":"Locks / Hardware"},{"key":"maglock","label":"Magnetic lock","style":"tile","color":"#315c7e","fill":"#ffffff","textColor":"#315c7e","glyph":"ML","kind":"point","group":"Locks / Hardware"},{"key":"eleclock","label":"Electrified lockset / lever","style":"tile","color":"#506c83","fill":"#ffffff","textColor":"#506c83","glyph":"LS","kind":"point","group":"Locks / Hardware"},{"key":"panic","label":"Electrified panic hardware","style":"tile","color":"#667f90","fill":"#ffffff","textColor":"#667f90","glyph":"PH","kind":"point","group":"Locks / Hardware"},{"key":"rex","label":"Request-to-exit sensor","style":"tile","color":"#1b9aaa","fill":"#ffffff","textColor":"#1b9aaa","glyph":"REX","kind":"point","group":"Egress / Monitoring"},{"key":"rexbtn","label":"Request-to-exit push button","style":"tile","color":"#188c91","fill":"#ffffff","textColor":"#188c91","glyph":"PB","kind":"point","group":"Egress / Monitoring"},{"key":"dc","label":"Door position contact","style":"tile","color":"#7f8c8d","fill":"#ffffff","textColor":"#7f8c8d","glyph":"DC","kind":"point","group":"Egress / Monitoring"},{"key":"emrelease","label":"Emergency door release","style":"tile","color":"#ad4848","fill":"#ffffff","textColor":"#ad4848","glyph":"ER","kind":"point","group":"Egress / Monitoring"},{"key":"fireinterface","label":"Fire / life-safety interface","style":"tile","color":"#ae6b4b","fill":"#ffffff","textColor":"#ae6b4b","glyph":"FA","kind":"point","group":"Egress / Monitoring"},{"key":"cb","label":"Call box / intercom","style":"tile","color":"#9f7fff","fill":"#ffffff","textColor":"#9f7fff","glyph":"CB","kind":"point","group":"Intercom / Automation"},{"key":"videointercom","label":"Video intercom","style":"tile","color":"#7963c4","fill":"#ffffff","textColor":"#7963c4","glyph":"VI","kind":"point","group":"Intercom / Automation"},{"key":"dooroperator","label":"Automatic door operator","style":"tile","color":"#ba8e4c","fill":"#ffffff","textColor":"#ba8e4c","glyph":"DO","kind":"point","group":"Intercom / Automation"},{"key":"pushplate","label":"ADA / push-to-open plate","style":"tile","color":"#bf9b3c","fill":"#ffffff","textColor":"#bf9b3c","glyph":"ADA","kind":"point","group":"Intercom / Automation"},{"key":"controller","label":"Door controller / interface","style":"tile","color":"#42757b","fill":"#ffffff","textColor":"#42757b","glyph":"CTL","kind":"point","group":"Control / Panels"},{"key":"power","label":"Power supply / enclosure","style":"tile","color":"#6f717a","fill":"#ffffff","textColor":"#6f717a","glyph":"PS","kind":"point","group":"Control / Panels"},{"key":"other","label":"Other / custom device","style":"tile","color":"#6b7b96","fill":"#ffffff","textColor":"#6b7b96","glyph":"DEV","kind":"point","group":"Other"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","fill":"#ffffff","textColor":"#39ff14","glyph":"","kind":"point","group":"Annotations","overlay":true},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","fill":"#ffffff","textColor":"#e00000","glyph":"","kind":"point","group":"Annotations","overlay":true}],"preview":null};
 const NS = 'http://www.w3.org/2000/svg';
@@ -1769,14 +1769,14 @@ $('viewport').addEventListener('pointercancel',()=>{
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, activeDoorId, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, ahtLayers: ahtLayerVisibility, pdfLegend: $('pdfLegendChk').checked, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, activeDoorId, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, ahtLayers: ahtLayerVisibility, drawingKey:window.ahtDrawingKey?.serialize(), markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
   r.onload = () => { try {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
     ahtLayerVisibility={...(o.ahtLayers||{})};ahtRefreshLayerControls();
-    $('pdfLegendChk').checked = o.pdfLegend === true;
+    window.ahtDrawingKey?.restore(o.drawingKey, o.pdfLegend === true);
 
     if (o.tool && o.tool !== CFG.fileTag) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || isAnnotation(m); const bad = o.markers.filter(m => !okM(m)).length; const ms = o.markers.filter(okM);
@@ -1957,22 +1957,7 @@ $('pdfBtn').onclick = async () => {
       G.lines.forEach((line,i)=>{const clean=String(line).replace(/[^\x20-\x7e]/g,'?');text(clean,G.lx,G.base(i),G.fs,txt,true);});
     });
 
-    // AHT_PDF_LEGEND_TOGGLE_V3: optional PDF title / device legend / compact stamp
-    if ($('pdfLegendChk').checked) {
-        // AHT_BRANDED_EXPORT_V1: compact, two-line plan stamp; no counts or dates.
-    const fs = Math.max(8, Math.min(10, Math.max(vp.width, vp.height) / 360));
-    const stampTitle = 'AHT GLOBAL - PRELIMINARY';
-    const stampSub = 'For review and coordination only. Not a final engineered design.';
-    const titleSize = fs * 1.04, subSize = fs * .78;
-    const bw = Math.max(font.widthOfTextAtSize(stampTitle, titleSize),
-                        font.widthOfTextAtSize(stampSub, subSize)) + fs * 1.4;
-    const bh = fs * 3.05, bx = 44, by = 44; // AHT_EXCEL_COMPAT_V2: inset from sheet edge
-    const ink = rgb(.075, .22, .38);
-    polygon([[bx, by], [bx+bw, by], [bx+bw, by+bh], [bx, by+bh]],
-      rgb(1, 1, 1), .94, ink, .9, .8);
-    text(stampTitle, bx + fs * .7, by + fs * 1.35, titleSize, ink, false);
-    text(stampSub, bx + fs * .7, by + fs * 2.42, subSize, black, false);
-    } // AHT_PDF_LEGEND_TOGGLE_V3: optional stamp end
+    window.ahtDrawingKey?.drawPdf({pageNumber:exportPageNum,viewport:vp,page,conv,polygon,text,rgb,drawIconPdf,hexRgb,PDFLib});
     } // End drawing-page annotation pass. The door schedule below is generated once.
     // Detailed linked opening/device schedule (separate PDF pages, not overlaid on floorplans).
     const bodyFont=await doc.embedFont(StandardFonts.Helvetica);
@@ -2025,9 +2010,16 @@ function drawIconPdf(dev, cx, cy, d, polygon, text, hexRgb, PDFLib) {
 function showLenOn() { return CFG.devices.some(d => d.kind === 'line') && $('lenChk').checked; }
 window.addEventListener('resize', () => { if (vp) scheduleSharpRedraw(); });
 refresh();
+window.ahtDrawingKey = AHTDrawingKey.create({
+  toolName:CFG.fileTag,getMarkers:()=>markers,getPage:()=>pageNum,getViewport:()=>vp,
+  isDevice:m=>!!DEV[m.type]&&!isAnnotation(m),isVisible:m=>ahtLayerShown(m)&&!!ahtBulkDisplayDev(DEV[m.type],m),
+  variantKey:m=>m.type,labelFor:m=>DEV[m.type]?.label||m.type,
+  deviceFor:m=>actualDev(ahtBulkDisplayDev(DEV[m.type],m),m),
+  drawSvgIcon:(dev,x,y,d,g)=>drawIcon(dev,x,y,d,g,g)
+});
 </script>
 <script src="aht-tool-project-picker-button.js?v=1"></script>
-<script src="aht-guided-editors-v1.js?v=1" data-editor="access"></script>
+<script src="aht-guided-editors-v1.js?v=20261122-1" data-editor="access"></script>
 
 <script>
 /* AHT_STICKY_TOOL_WORKFLOW_V1 — keeps existing jump navigation and mode dock visible.
@@ -2049,6 +2041,7 @@ refresh();
         ['detailsSection','Adjust','Select a speaker to adjust its layout details.'],
         ['bulkCoveragePanel','Coverage','Adjust speaker coverage and group controls.'],
         ['reviewSection','Review','Review your device placements and counts.'],
+        ['drawingKeySection','Key','Customize the key of symbols present on the drawing.'],
         ['exportSection','Export','Save editable work and marked-up PDFs.']
       ];
       if(cfg.some(x=>!document.getElementById(x[0])))return;
@@ -2123,7 +2116,7 @@ refresh();
   else init();
 })();
 </script>
-<script src="aht-drawing-details-v1.js?v=20261106-11"></script>
+<script src="aht-drawing-details-v1.js?v=20261123-box1"></script>
 <script src="aht-drawing-copy-paste-v1.js?v=20261106-2"></script>
 </body>
 </html>

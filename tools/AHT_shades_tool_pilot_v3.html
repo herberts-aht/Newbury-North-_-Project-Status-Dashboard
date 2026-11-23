@@ -537,7 +537,6 @@
     <section class="workflow-step" id="exportSection">
       <div class="step-heading"><span class="step-number">5</span><h2>Save / Share</h2></div>
       <!-- AHT_PDF_LEGEND_TOGGLE_V3: opt-in PDF title/device legend -->
-      <label class="chk pdf-legend-option" style="display:flex;gap:8px;align-items:center;margin:9px 0 7px"><input type="checkbox" id="pdfLegendChk"><span><strong>Include title and device legend in exported PDF</strong></span></label>
       <div class="muted export-help" style="margin-bottom:9px">Off by default. Leave unchecked to keep the plan clear; your actual notes and markups still export.</div>
       <button id="pdfBtn" class="primary full export-main">Export Marked-Up PDF</button>
       <div class="muted export-help">Share this PDF with engineering or the client for review.</div>
@@ -571,6 +570,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="aht-drawing-key-v1.js?v=20261122-1"></script>
 <script>
 const CFG = {"title":"AHT Shades / Drapery Markup Tool","fileTag":"Shades","devices":[{"key":"r_ms","label":"Roller, motorized (sheer)","kind":"line","color":"#f4c28a"},{"key":"r_mb","label":"Roller, motorized (blackout)","kind":"line","color":"#1a3fd0"},{"key":"r_me","label":"Roller exterior, motorized (sheer)","kind":"line","color":"#7db3f2"},{"key":"r_ns","label":"Roller, manual (sheer)","kind":"line","color":"#5ad000"},{"key":"r_nb","label":"Roller, manual (blackout)","kind":"line","color":"#f26a00"},{"key":"d_ms","label":"Drapery, motorized (sheer)","kind":"line","color":"#00d8f0"},{"key":"d_mb","label":"Drapery, motorized (blackout)","kind":"line","color":"#e0289a"},{"key":"d_ns","label":"Drapery, manual (sheer)","kind":"line","color":"#f080f0"},{"key":"d_nb","label":"Drapery, manual (blackout)","kind":"line","color":"#e08a00"},{"key":"mwt","label":"Shade head-end (MWT H-E)","style":"tile","color":"#2a8f86","fill":"#7fe3dc","glyph":"MWT\nH-E","kind":"point"},{"key":"td","label":"Drape outlet (TD)","style":"ring","color":"#1a3fd0","textColor":"#555555","glyph":"TD","kind":"point"},{"key":"bd","label":"Blackout drape outlet (BD)","style":"ring","color":"#1a3fd0","textColor":"#555555","glyph":"BD","kind":"point"},{"key":"addmark","label":"ADDED device (green ring)","style":"addring","color":"#39ff14","overlay":true,"kind":"point"},{"key":"rmmark","label":"REMOVE existing (red ring + X)","style":"rmring","color":"#e00000","overlay":true,"kind":"point"}],"preview":null};
 const NS = 'http://www.w3.org/2000/svg';
@@ -1726,14 +1726,14 @@ $('viewport').addEventListener('pointercancel',()=>{
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, ahtLayers: ahtLayerVisibility, pdfLegend: $('pdfLegendChk').checked, markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 1, pdfName, page: pageNum, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, ahtLayers: ahtLayerVisibility, drawingKey:window.ahtDrawingKey?.serialize(), markers }, null, 1)], { type: 'application/json' })); status('Saved. Reload this file later with “Load work…”.'); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
   r.onload = () => { try {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
     ahtLayerVisibility={...(o.ahtLayers||{})};ahtRefreshLayerControls();
-    $('pdfLegendChk').checked = o.pdfLegend === true;
+    window.ahtDrawingKey?.restore(o.drawingKey, o.pdfLegend === true);
 
     if (o.tool && o.tool !== CFG.fileTag) { if (!confirm('This work file was saved from a different tool (' + o.tool + '). Load anyway?')) return; }
     const okM = m => DEV[m.type] || isAnnotation(m); const bad = o.markers.filter(m => !okM(m)).length; const ms = o.markers.filter(okM);
@@ -1914,22 +1914,7 @@ $('pdfBtn').onclick = async () => {
       G.lines.forEach((line,i)=>{const clean=String(line).replace(/[^\x20-\x7e]/g,'?');text(clean,G.lx,G.base(i),G.fs,txt,true);});
     });
 
-    // AHT_PDF_LEGEND_TOGGLE_V3: optional PDF title / device legend / compact stamp
-    if ($('pdfLegendChk').checked) {
-        // AHT_BRANDED_EXPORT_V1: compact, two-line plan stamp; no counts or dates.
-    const fs = Math.max(8, Math.min(10, Math.max(vp.width, vp.height) / 360));
-    const stampTitle = 'AHT GLOBAL - PRELIMINARY';
-    const stampSub = 'For review and coordination only. Not a final engineered design.';
-    const titleSize = fs * 1.04, subSize = fs * .78;
-    const bw = Math.max(font.widthOfTextAtSize(stampTitle, titleSize),
-                        font.widthOfTextAtSize(stampSub, subSize)) + fs * 1.4;
-    const bh = fs * 3.05, bx = 44, by = 44; // AHT_EXCEL_COMPAT_V2: inset from sheet edge
-    const ink = rgb(.075, .22, .38);
-    polygon([[bx, by], [bx+bw, by], [bx+bw, by+bh], [bx, by+bh]],
-      rgb(1, 1, 1), .94, ink, .9, .8);
-    text(stampTitle, bx + fs * .7, by + fs * 1.35, titleSize, ink, false);
-    text(stampSub, bx + fs * .7, by + fs * 2.42, subSize, black, false);
-    } // AHT_PDF_LEGEND_TOGGLE_V3: optional stamp end
+    window.ahtDrawingKey?.drawPdf({pageNumber:exportPageNum,viewport:vp,page,conv,polygon,text,rgb,drawIconPdf,hexRgb,PDFLib});
     } // End drawing-page annotation pass.
     const out = await doc.save();
     download(baseName() + ' - ' + CFG.fileTag + ' (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
@@ -1944,9 +1929,16 @@ function drawIconPdf(dev, cx, cy, d, polygon, text, hexRgb, PDFLib) {
 function showLenOn() { return CFG.devices.some(d => d.kind === 'line') && $('lenChk').checked; }
 window.addEventListener('resize', () => { if (vp) scheduleSharpRedraw(); });
 refresh();
+window.ahtDrawingKey = AHTDrawingKey.create({
+  toolName:CFG.fileTag,getMarkers:()=>markers,getPage:()=>pageNum,getViewport:()=>vp,
+  isDevice:m=>!!DEV[m.type]&&!isAnnotation(m),isVisible:m=>ahtLayerShown(m)&&!!ahtBulkDisplayDev(DEV[m.type],m),
+  variantKey:m=>m.type,labelFor:m=>DEV[m.type]?.label||m.type,
+  deviceFor:m=>actualDev(ahtBulkDisplayDev(DEV[m.type],m),m),
+  drawSvgIcon:(dev,x,y,d,g)=>drawIcon(dev,x,y,d,g,g)
+});
 </script>
 <script src="aht-tool-project-picker-button.js?v=1"></script>
-<script src="aht-guided-editors-v1.js?v=1" data-editor="shades"></script>
+<script src="aht-guided-editors-v1.js?v=20261122-1" data-editor="shades"></script>
 
 <script>
 /* AHT_STICKY_TOOL_WORKFLOW_V1 — keeps existing jump navigation and mode dock visible.
@@ -1968,6 +1960,7 @@ refresh();
         ['detailsSection','Adjust','Select a speaker to adjust its layout details.'],
         ['bulkCoveragePanel','Coverage','Adjust speaker coverage and group controls.'],
         ['reviewSection','Review','Review your device placements and counts.'],
+        ['drawingKeySection','Key','Customize the key of symbols present on the drawing.'],
         ['exportSection','Export','Save editable work and marked-up PDFs.']
       ];
       if(cfg.some(x=>!document.getElementById(x[0])))return;
@@ -2042,7 +2035,7 @@ refresh();
   else init();
 })();
 </script>
-<script src="aht-drawing-details-v1.js?v=20261106-11"></script>
+<script src="aht-drawing-details-v1.js?v=20261123-box1"></script>
 <script src="aht-drawing-copy-paste-v1.js?v=20261106-2"></script>
 </body>
 </html>

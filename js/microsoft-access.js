@@ -433,7 +433,6 @@ const MicrosoftAccess = (() => {
           email: memberEmail(member),
           company: isGuest ? "External" : "AHT Global",
           role: isGuest ? "External Viewer" : "Viewer",
-          passwordProfile: isGuest ? "external" : "aht",
           active: true,
           projects: isGuest ? [] : ["*"],
           canEdit: false,
@@ -665,7 +664,6 @@ const MicrosoftAccess = (() => {
           email,
           company: "AHT Global",
           role: "Viewer",
-          passwordProfile: "aht",
           active: true,
           projects: [],
           projectAccess: {},
@@ -917,7 +915,6 @@ const MicrosoftAccess = (() => {
           email,
           company: company || "External",
           role: "External Viewer",
-          passwordProfile: "external",
           active: true,
           projects: [],
           projectAccess: {},
@@ -1069,10 +1066,7 @@ const MicrosoftAccess = (() => {
     el("addInternalBtn")?.addEventListener("click", addInternal);
     el("copyRedeemLinkBtn")?.addEventListener("click", copyRedeemLink);
     el("openInviteDraftBtn")?.addEventListener("click", openCurrentInviteDraft);
-    if (APP_CONFIG.authProvider === "microsoft") {
-      el("legacyPasswordControls")?.classList.add("hidden");
-      el("newUserBtn")?.classList.add("hidden");
-    }
+    el("newUserBtn")?.classList.add("hidden");
   }
 
   return {

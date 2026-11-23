@@ -42,6 +42,7 @@
     const place = $('placeSection');
     const review = $('reviewSection');
     const exportArea = $('exportSection');
+    const drawingKey = (editor === 'access' || editor === 'shades') ? $('drawingKeySection') : null;
     const plan = $('planSection');
     if (!sidebar || !header || !details || !selected || !place || !review || !exportArea || !plan) return;
     if ($('ahtGuidedSteps')) return;
@@ -55,7 +56,8 @@
     };
     stepHeading(details, 3, config.headings[0]);
     stepHeading(review, 5, 'Review Changes & Counts');
-    stepHeading(exportArea, 6, 'Save & Export');
+    if (drawingKey) stepHeading(drawingKey, 6, 'Drawing Key');
+    stepHeading(exportArea, drawingKey ? 7 : 6, 'Save & Export');
 
     // Move the existing, fully wired selection panel into plain view.
     // Preserve the actual element so its event handlers, IDs and state are unchanged.
@@ -142,7 +144,9 @@
       fourth.appendChild(remind);
     }
 
-    const sections = [plan, place, details, fourth, review, exportArea];
+    const sections = [plan, place, details, fourth, review, ...(drawingKey ? [drawingKey] : []), exportArea];
+    const labels = drawingKey ? [...config.labels.slice(0,5), 'Key', config.labels[5]] : config.labels;
+    const messages = drawingKey ? [...config.messages.slice(0,5), 'Edit the automatic key; drag and resize it, then choose whether it appears in the PDF.',config.messages[5]] : config.messages;
     const nav = document.createElement('nav');
     nav.id = 'ahtGuidedSteps';
     nav.setAttribute('aria-label', 'Plan editor workflow steps');
@@ -159,7 +163,7 @@
         if (i === index) button.setAttribute('aria-current','step');
         else button.removeAttribute('aria-current');
       });
-      note.textContent = config.messages[index] || '';
+      note.textContent = messages[index] || '';
     }
     sections.forEach((section, i) => {
       const button = document.createElement('button');
@@ -167,7 +171,7 @@
       button.dataset.target = section.id;
       const number = document.createElement('b');
       number.textContent = String(i+1);
-      button.append(number,document.createTextNode(config.labels[i]));
+      button.append(number,document.createTextNode(labels[i]));
       button.addEventListener('click', () => jumpTo(section,i));
       grid.appendChild(button);
       buttons.push(button);

@@ -476,7 +476,8 @@ button, input, select, textarea { outline-offset:2px; }
         <button type="button" class="aht-jump" data-aht-jump="adjust"><b>3</b><span>Adjust</span></button>
         <button type="button" class="aht-jump" data-aht-jump="layers"><b>4</b><span>Layers</span></button>
         <button type="button" class="aht-jump" data-aht-jump="review"><b>5</b><span>Review</span></button>
-        <button type="button" class="aht-jump" data-aht-jump="export"><b>6</b><span>Export</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="key"><b>6</b><span>Key</span></button>
+        <button type="button" class="aht-jump" data-aht-jump="export"><b>7</b><span>Export</span></button>
       </div>
       <div class="aht-workflow-helper">Select a step to jump there. All sections stay available while scrolling.</div>
     </nav>
@@ -866,7 +867,6 @@ button, input, select, textarea { outline-offset:2px; }
       </div>
       <label class="chk pdf-view-option"><input type="checkbox" id="pdfViewChk" checked><span>Include illustrative camera viewing areas in PDF</span></label>
       <!-- AHT_PDF_LEGEND_TOGGLE_V3: opt-in PDF title/device legend -->
-      <label class="chk pdf-legend-option" style="display:flex;gap:8px;align-items:center;margin:9px 0 7px"><input type="checkbox" id="pdfLegendChk"><span><strong>Include title and device legend in exported PDF</strong></span></label>
       <div class="muted export-help" style="margin-bottom:9px">Off by default. Leave unchecked to keep the plan clear; your actual notes and markups still export.</div>
       <button id="pdfBtn" class="primary full export-main">Export Marked-Up PDF</button>
       <div class="muted export-help">Teal = initial layout; orange = proposed changes. Viewing areas are illustrative only and not validated engineering coverage.</div>
@@ -903,6 +903,7 @@ button, input, select, textarea { outline-offset:2px; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="aht-drawing-key-v1.js?v=20261122-1"></script>
 <script>
 // AHT_CCTV_V3_5_8: AHT-style single scrolling sidebar with sticky jump navigation.
 // Move original DOM nodes, never clone them: all IDs, handlers, JSON and export remain.
@@ -954,6 +955,7 @@ button, input, select, textarea { outline-offset:2px; }
   const review=step('review','Review');
   review.appendChild(get('reviewSection'));
   review.appendChild(get('detailsSection'));
+  step('key','Key'); // the shared Drawing Key initializes after the editor script
   const exportBlock=step('export','Export');
   exportBlock.appendChild(get('exportSection'));
   exportBlock.appendChild(get('countsSettings'));
@@ -1013,7 +1015,8 @@ button, input, select, textarea { outline-offset:2px; }
     adjust:['Adjust Selected Items','Select a symbol to change size, direction, field of view or notes','Adjust camera viewing-area color and fill opacity','Use Bulk Adjustments for all-page reach, fill % and colors'],
     layers:['Drawing Layers & Appearance','Show or hide device types without deleting them','Show or hide camera viewing areas, outlines and LiDAR coverage','Set global camera fill strength and review visibility before PDF export'],
     review:['Review Changes','Check device counts and initial vs proposed items','Identify the room or area and reason for each change','Jump to items needing information before export'],
-    export:['Save / Export','Save an editable JSON work file to resume later','Export the marked-up multipage PDF','Choose viewing-area and legend inclusion for the review PDF']
+    key:['Drawing Key','Only icons placed on the current page appear, once per type','Edit the default names and short descriptions','Drag the key on the drawing, resize it or hide it'],
+    export:['Save / Export','Save an editable JSON work file to resume later','Export the marked-up multipage PDF','The key settings are included in PDF and saved JSON when enabled']
   };
   // AHT_CCTV_STEP_HELP_V2: no permanent label and no overlay on the jump buttons.
   // Append to the document, not the scrollable sidebar, to avoid clipping.
@@ -2851,13 +2854,13 @@ $('viewport').addEventListener('pointercancel',()=>{
 // ---------- save / load ----------
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 const baseName = () => (pdfName || 'plan').replace(/\.pdf$/i, '');
-$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 7, pdfName, page: pageNum, layoutMode, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, pdfLegend: $('pdfLegendChk').checked, showLengths: $('lenChk').checked, cameraAppearance:{outlines:cameraOutlinesOn(),fillStrength:Number($('cameraFillStrength').value)}, coverageVisibility:{cameraCones:showCameraCones(),lidar360Fills:showLidar360Fills(),lidar360Outlines:showLidar360Outlines()}, drawingLayers:{...layerVisibility}, markers }, null, 1)], { type: 'application/json' })); status('Saved work JSON. '+(unidentifiedChanges().length?unidentifiedChanges().length+' change(s) still need identification for tracked review.':'All placed changes are identified.')); };
+$('saveBtn').onclick = () => { download(baseName() + ' - ' + CFG.fileTag + ' work.json', new Blob([JSON.stringify({ tool: CFG.fileTag, version: 7, pdfName, page: pageNum, layoutMode, inchesPerFt, calPtsPerFt: calibratedPtsPerFt, pageRotations, drawingKey:window.ahtDrawingKey?.serialize(), showLengths: $('lenChk').checked, cameraAppearance:{outlines:cameraOutlinesOn(),fillStrength:Number($('cameraFillStrength').value)}, coverageVisibility:{cameraCones:showCameraCones(),lidar360Fills:showLidar360Fills(),lidar360Outlines:showLidar360Outlines()}, drawingLayers:{...layerVisibility}, markers }, null, 1)], { type: 'application/json' })); status('Saved work JSON. '+(unidentifiedChanges().length?unidentifiedChanges().length+' change(s) still need identification for tracked review.':'All placed changes are identified.')); };
 $('loadBtn').onclick = () => $('loadInput').click();
 $('loadInput').onchange = e => {
   const f = e.target.files[0]; if (!f) return; const r = new FileReader();
   r.onload = () => { try {
     const o = JSON.parse(r.result); if (!Array.isArray(o.markers)) throw new Error('not a work file');
-    $('pdfLegendChk').checked = o.pdfLegend === true;
+    window.ahtDrawingKey?.restore(o.drawingKey, o.pdfLegend === true);
     $('cameraOutlineChk').checked=o.cameraAppearance?.outlines!==false;
     $('cameraFillStrength').value=Math.max(0,Math.min(100,Number(o.cameraAppearance?.fillStrength ?? 100)));
     $('cameraFillStrengthVal').textContent=$('cameraFillStrength').value;
@@ -3087,24 +3090,7 @@ $('pdfBtn').onclick = async () => {
       G.lines.forEach((line,i)=>{const clean=String(line).replace(/[^\x20-\x7e]/g,'?');text(clean,G.lx,G.base(i),G.fs,txt,true);});
     });
 
-    // legend + stamp (top-left of the sheet)
-    // AHT_PDF_LEGEND_TOGGLE_V3: optional PDF title / device legend / compact stamp
-    if ($('pdfLegendChk').checked) {
-    const fs = Math.max(10, Math.max(vp.width, vp.height) / 190);
-    const used = CFG.devices.filter(d => PM.some(m => m.type === d.key)); if(PM.some(m=>m.type==='relocate')) used.push(DEV.relocate);
-    const lines = ['PRELIMINARY — CAMERA LAYOUT FOR REVIEW', 'Teal = initial layout; Orange = proposed additions/revisions.', 'Viewing areas / route footage are estimates. Verify drawing scale. Not for construction.', new Date().toLocaleDateString()];
-    const lh = fs * 1.35, bw = Math.max(fs * 22, ...lines.map((t, i) => font.widthOfTextAtSize(t, i === 0 ? fs * 1.05 : fs * 0.85)), ...used.map(d => font.widthOfTextAtSize(d.label + '  ×' + PM.filter(m => m.type === d.key).length, fs * 0.9) + fs * 2.3)) + fs * 1.6, bh = lh * (lines.length + used.length + 1) + fs;
-    const bx = 30, by = 30;
-    polygon([[bx, by], [bx + bw, by], [bx + bw, by + bh], [bx, by + bh]], rgb(1, 1, 1), 0.92, rgb(0.2, 0.2, 0.2), 1, 0.8);
-    let yy = by + fs * 1.5;
-    lines.forEach((t, i) => { text(t, bx + fs * 0.7, yy, i === 0 ? fs * 1.05 : fs * 0.85, i === 0 ? rgb(0.64, 0.18, 0.18) : black, false); yy += lh; });
-    yy += lh * 0.2;
-    used.forEach(d => { const cnt = PM.filter(m => m.type === d.key).length; const c = hexRgb(d.color, PDFLib);
-      if (d.kind === 'line' || d.kind === 'route') { [-1,1].slice(0,d.kind==='line'?1:2).forEach((z,i)=>{const a=conv(bx+fs*.8,yy-fs*.3+z*fs*.24),b=conv(bx+fs*2.2,yy-fs*.3+z*fs*.24);page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:fs*.3,color:d.kind==='route'?hexRgb(i===0?d.color:d.secondaryColor,PDFLib):c,lineCap:1});}); }
-      else if(d.kind==='relocate') text('MOVE',bx+fs*1.3,yy,fs*.7,hexRgb(d.color,PDFLib),true);
-      else drawIconPdf(d, bx + fs * 1.5, yy - fs * 0.35, d.overlay ? fs * 0.6 : fs * 1.15, polygon, text, hexRgb, PDFLib);
-      text(d.label + '  ×' + cnt + (showLenOn() && (d.kind === 'route' || d.kind === 'line') ? '  (Est. ' + PM.filter(m => m.type === d.key).reduce((a, m) => a + lineLenFt(m), 0).toFixed(0) + ' ft)' : ''), bx + fs * 3, yy, fs * 0.9, black, false); yy += lh; });
-    } // AHT_PDF_LEGEND_TOGGLE_V3: optional stamp end
+    window.ahtDrawingKey?.drawPdf({pageNumber:exportPageNum,viewport:vp,page,conv,polygon,text,rgb,drawIconPdf,hexRgb,PDFLib});
     } // end of annotations on each original PDF page
     const out = await doc.save();
     download(baseName() + ' - ' + CFG.fileTag + ' (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
@@ -3119,8 +3105,16 @@ function drawIconPdf(dev, cx, cy, d, polygon, text, hexRgb, PDFLib) {
 function showLenOn() { return CFG.devices.some(d => d.kind === 'line' || d.kind === 'route') && $('lenChk').checked; }
 window.addEventListener('resize', () => { if (vp) scheduleSharpRedraw(); });
 refresh();
+window.ahtDrawingKey = AHTDrawingKey.create({
+  toolName:CFG.fileTag,getMarkers:()=>markers,getPage:()=>pageNum,getViewport:()=>vp,
+  isDevice:m=>!!DEV[m.type]&&!isAnnotation(m),isVisible:m=>visibleMarker(m),
+  variantKey:m=>m.type,labelFor:m=>DEV[m.type]?.label||m.type,
+  deviceFor:m=>actualDev(DEV[m.type],m),
+  drawSvgIcon:(dev,x,y,d,g)=>drawIcon(dev,x,y,d,g,g)
+});
 </script>
-<script src="aht-drawing-details-v1.js?v=20261106-11"></script>
+<script src="aht-drawing-details-v1.js?v=20261123-box1"></script>
 <script src="aht-drawing-copy-paste-v1.js?v=20261106-2"></script>
+<script src="aht-cctv-wifi-bridge-v1.js?v=20261122-b"></script>
 </body>
 </html>
