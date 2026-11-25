@@ -69,6 +69,36 @@
     });
     return Array.from(map.values()).sort((a,b)=>a.defaultName.localeCompare(b.defaultName));
   }
+
+  // Independent key-only icon settings: do not modify the placed marker.
+  const iconModes=['auto','original','compact','tv','square','circle','line','hide'];
+  const validHex=s=>/^#[0-9a-f]{6}$/i.test(String(s||''));
+  function keyIconSettings(e){
+    const o=e.iconEdit||{};
+    return {mode:iconModes.includes(o.iconMode)?o.iconMode:'auto',
+      scale:clamp(Number(o.iconScale)||1,.5,1.3),
+      color:validHex(o.iconColor)?o.iconColor:(validHex(e.dev.color)?e.dev.color:'#17649a'),
+      dx:clamp(Number(o.iconDx)||0,-25,25)/100,
+      dy:clamp(Number(o.iconDy)||0,-25,25)/100};
+  }
+  function keyIcon(e,x,y,size){
+    const o=keyIconSettings(e),dev={...e.dev,color:o.color,textColor:o.color,markerId:undefined};
+    // Discard TV callouts in the legend, not on the actual drawing.
+    if(dev.style==='avRectangle')dev.tvLabelVisible=false;
+    const wide=['avRectangle','avScreen','avProjector','soundbarSymbol'].includes(dev.style);
+    const mode=o.mode==='auto'?(wide?'compact':'original'):o.mode;
+    if(mode==='compact'){
+      if(['avRectangle','avScreen','avProjector'].includes(dev.style)){
+        dev.deviceWidth=1.45;dev.deviceHeight=.42;dev.direction=0;
+      }else if(dev.style==='soundbarSymbol'){dev.barLength=1.65;dev.barThickness=.42;dev.direction=0;}
+    }
+    let d=size*o.scale;
+    if(mode==='original'&&wide){
+      const w=Number(dev.style==='soundbarSymbol'?dev.barLength:dev.deviceWidth)||3;
+      d=Math.min(d,size*1.6/Math.max(1,w));
+    }
+    return {mode,dev,d,x:x+size*o.dx,y:y+size*o.dy,color:o.color};
+  }
   function create(adapter) {
     const state = { enabled: false, scale: 1, title: 'DEVICE KEY', positions: {}, hiddenPages: {}, edits: {} };
     const rootSvgId=adapter.rootSvgId||'ov',sceneId=adapter.sceneId||'annotationScene';
@@ -91,7 +121,7 @@
       '<label>Y (%)<input id="ahtKeyY" type="number" min="0" max="100" step="1" value="4"></label></div></details>' +
       '<button type="button" id="ahtKeyReset">Reset position for this page</button>' +
       '<p class="muted helper">Size, location and visibility are saved with your work JSON.</p>' +
-      '<h3 class="aht-key-subheading">Icons on this page</h3><div id="ahtKeyRows"></div>';
+      '<h3 class="aht-key-subheading">Icons on this page</h3><p class="muted helper">Customize icons in the key without changing drawing symbols.</p><div id="ahtKeyRows"></div>';
     const style = document.createElement('style');
     style.textContent = '.aht-drawing-key-step{border-top:1px solid #c6dce9;margin-top:8px;padding-top:10px}' +
       '.aht-drawing-key-step .aht-key-check{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:12px}' +
@@ -106,7 +136,13 @@
       '.aht-key-edit-head svg{width:31px;height:31px;flex:none}' +
       '.aht-key-edit input,.aht-key-edit textarea{width:100%;box-sizing:border-box;font-size:12px;padding:6px;border:1px solid #b6cede;border-radius:4px;background:#fff}' +
       '.aht-key-edit textarea{min-height:51px;resize:vertical;margin-top:6px}' +
-      '.aht-key-empty{font-size:12px;color:#60768a;margin:8px 0}';
+      '.aht-key-empty{font-size:12px;color:#60768a;margin:8px 0}' +
+      '.aht-key-symbol{margin-top:8px;border-top:1px solid #d7e5ef;padding-top:8px}' +
+      '.aht-key-symbol summary{cursor:pointer;font-size:12px;font-weight:600;color:#24577d}' +
+      '.aht-key-symbol label{display:block;font-size:11px;color:#425b70;margin:7px 0}' +
+      '.aht-key-symbol select,.aht-key-symbol input[type=range],.aht-key-symbol input[type=color]{display:block;width:100%;margin-top:3px}' +
+      '.aht-key-symbol select{padding:5px;border:1px solid #b6cede;border-radius:4px;background:#fff}' +
+      '.aht-key-symbol input[type=color]{height:30px}';
     document.head.appendChild(style);
     const existingBlock = document.getElementById('ahtStepKey');
     const exportBlock = document.getElementById('ahtStepexport');
@@ -124,7 +160,7 @@
     function formatEntry(e) {
       const edit = state.edits[e.id] || {};
       return { ...e, name: edit.name == null ? e.defaultName : edit.name,
-        description: edit.description == null ? defaultDefinition(adapter.toolName, e) : edit.description };
+        description: edit.description == null ? defaultDefinition(adapter.toolName, e) : edit.description, iconEdit:edit };
     }
     function layout(pageViewport, p) {
       const entries = entriesForPage(p).map(formatEntry);
@@ -143,12 +179,37 @@
       const y = clamp(pos.y * pageViewport.height, 4, Math.max(4, pageViewport.height - h - 4));
       return { entries: rows, fs, w, h, x, y };
     }
-    function iconSvg(e, x, y, size, to) {
-      if (e.dev.kind === 'line' || e.dev.kind === 'route') {
-        node('line', { x1: x-size*.55, y1:y, x2:x+size*.55, y2:y, stroke:e.dev.color || '#17649a',
-          'stroke-width': size*.25, 'stroke-linecap':'round' }, to);
-      } else if (e.dev.kind === 'relocate') svgText(to, 'MOVE', x-size*.5, y+size*.2, size*.34, e.dev.color || '#17649a', 700);
-      else adapter.drawSvgIcon(e.dev, x, y, size, to);
+    // Legend-only icon geometry is identical in the on-screen SVG and exported PDF.
+    function iconSvg(e,x,y,size,to){
+      const v=keyIcon(e,x,y,size),{mode,dev,d,color}=v;
+      if(mode==='hide')return;
+      if(mode==='line'||(['original','compact'].includes(mode)&&['line','route'].includes(dev.kind))){
+        node('line',{x1:v.x-d*.65,y1:v.y,x2:v.x+d*.65,y2:v.y,stroke:color,'stroke-width':d*.24,'stroke-linecap':'round'},to);
+      }else if(mode==='circle'){
+        node('circle',{cx:v.x,cy:v.y,r:d*.58,fill:'#fff',stroke:color,'stroke-width':Math.max(.6,d*.11)},to);
+      }else if(mode==='tv'||mode==='square'){
+        node('rect',{x:v.x-d*.68,y:v.y-d*.38,width:d*1.36,height:d*.76,rx:mode==='tv'?d*.06:0,
+          fill:mode==='tv'?'#e7f0fa':'#ffffff',stroke:color,'stroke-width':Math.max(.6,d*.1)},to);
+        if(mode==='tv')svgText(to,'TV',v.x-d*.3,v.y+d*.16,d*.4,color,700);
+      }else if(dev.kind==='relocate')svgText(to,'MOVE',v.x-d*.5,v.y+d*.2,d*.34,color,700);
+      else adapter.drawSvgIcon(dev,v.x,v.y,d,to);
+    }
+    function iconPdf(e,x,y,size,opt){
+      const v=keyIcon(e,x,y,size),{mode,dev,d,color}=v;
+      if(mode==='hide')return;
+      const {polygon,text,rgb,conv,page,drawIconPdf,hexRgb,PDFLib}=opt,c=hexRgb(color,PDFLib);
+      if(mode==='line'||(['original','compact'].includes(mode)&&['line','route'].includes(dev.kind))){
+        const a=conv(v.x-d*.65,v.y),b=conv(v.x+d*.65,v.y);
+        page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:d*.24,color:c});
+      }else if(mode==='circle'){
+        polygon(Array.from({length:32},(_,i)=>[v.x+Math.cos(i*Math.PI/16)*d*.58,
+          v.y+Math.sin(i*Math.PI/16)*d*.58]),rgb(1,1,1),1,c,1,Math.max(.6,d*.11));
+      }else if(mode==='tv'||mode==='square'){
+        polygon([[v.x-d*.68,v.y-d*.38],[v.x+d*.68,v.y-d*.38],[v.x+d*.68,v.y+d*.38],[v.x-d*.68,v.y+d*.38]],
+          mode==='tv'?rgb(.91,.95,.98):rgb(1,1,1),1,c,1,Math.max(.6,d*.1));
+        if(mode==='tv')text('TV',v.x-d*.3,v.y+d*.16,d*.4,c,false);
+      }else if(dev.kind==='relocate')text('MOVE',v.x-d*.5,v.y+d*.2,d*.34,c,false);
+      else drawIconPdf(dev,v.x,v.y,d,polygon,text,hexRgb,PDFLib);
     }
     function paintSvg() {
       const scene = document.getElementById(sceneId);
@@ -168,9 +229,9 @@
       for (let i=0;i<3;i++) node('line',{x1:g.w-g.fs*(1.55+i*.28),x2:g.w-g.fs*(1.55+i*.28),
         y1:g.fs*.75,y2:g.fs*1.53,stroke:'#4d7998','stroke-width':g.fs*.09,'stroke-linecap':'round'},main);
       g.entries.forEach(e => {
-        const ix=g.fs*1.68, iy=e.top+g.fs*1.26;
+        const ix=g.fs*1.6, iy=e.top+g.fs*1.26;
         iconSvg(e,ix,iy,g.fs*1.28,main);
-        const tx=g.fs*3.2; let lineY=e.top+g.fs*1.06;
+        const tx=g.fs*3.35; let lineY=e.top+g.fs*1.06;
         e.nameLines.forEach(t => { svgText(main,t,tx,lineY,g.fs*.87,'#173b58',700);lineY+=g.fs*1.12; });
         e.detailLines.forEach(t => { svgText(main,t,tx,lineY,g.fs*.75,'#425b70',400);lineY+=g.fs*.96; });
         node('line',{x1:g.fs*.65,x2:g.w-g.fs*.65,y1:e.top+e.height-.12*g.fs,y2:e.top+e.height-.12*g.fs,
@@ -222,15 +283,41 @@
       rows.forEach(e=>{
         const card=document.createElement('div');card.className='aht-key-edit';
         const heading=document.createElement('div');heading.className='aht-key-edit-head';
-        const sample=node('svg',{viewBox:'-19 -19 38 38'},heading);
-        iconSvg(e,0,0,22,sample);
+        const sample=node('svg',{viewBox:'-24 -24 48 48'},heading);
         const summary=document.createElement('span');summary.textContent=e.defaultName+' · '+e.count+' placed';heading.append(summary);
         const name=document.createElement('input');name.type='text';name.maxLength=110;name.setAttribute('aria-label','Key name for '+e.defaultName);
         const description=document.createElement('textarea');description.maxLength=500;description.rows=2;description.setAttribute('aria-label','Brief key description for '+e.defaultName);
         const formatted=formatEntry(e);name.value=formatted.name;description.value=formatted.description;
-        const change=()=>{state.edits[e.id]={name:name.value,description:description.value};paintSvg();};
-        name.addEventListener('input',change);description.addEventListener('input',change);
-        card.append(heading,name,description);parent.append(card);
+        const preview=()=>{sample.replaceChildren();iconSvg(formatEntry(e),0,0,22,sample);};
+        const change=edit=>{state.edits[e.id]={...(state.edits[e.id]||{}),...edit};preview();paintSvg();};
+        name.addEventListener('input',()=>change({name:name.value}));
+        description.addEventListener('input',()=>change({description:description.value}));
+        const controls=document.createElement('details');controls.className='aht-key-symbol';
+        const head=document.createElement('summary');head.textContent='Customize icon in key';controls.append(head);
+        const field=(caption,input)=>{const label=document.createElement('label');label.append(document.createTextNode(caption),input);controls.append(label);return label;};
+        const mode=document.createElement('select');
+        [['auto','Auto - fit to key'],['original','Original icon (fitted)'],['compact','Compact icon'],
+          ['tv','Simple TV screen'],['square','Square'],['circle','Circle'],['line','Line'],['hide','Hide icon']]
+          .forEach(([v,t])=>{const opt=document.createElement('option');opt.value=v;opt.textContent=t;mode.append(opt);});
+        field('Icon appearance',mode);
+        const scale=document.createElement('input');scale.type='range';scale.min='50';scale.max='130';scale.step='5';
+        const scaleLabel=field('Icon size',scale);
+        const color=document.createElement('input');color.type='color';field('Icon color',color);
+        const dx=document.createElement('input');dx.type='range';dx.min='-25';dx.max='25';dx.step='5';field('Move icon horizontally',dx);
+        const dy=document.createElement('input');dy.type='range';dy.min='-25';dy.max='25';dy.step='5';field('Move icon vertically',dy);
+        const reset=document.createElement('button');reset.type='button';reset.textContent='Reset icon';controls.append(reset);
+        const sync=()=>{const v=keyIconSettings(formatEntry(e));mode.value=v.mode;scale.value=Math.round(v.scale*100);
+          scaleLabel.firstChild.textContent='Icon size: '+Math.round(v.scale*100)+'%';
+          color.value=v.color;dx.value=Math.round(v.dx*100);dy.value=Math.round(v.dy*100);};
+        mode.addEventListener('change',()=>change({iconMode:mode.value}));
+        scale.addEventListener('input',()=>{scaleLabel.firstChild.textContent='Icon size: '+scale.value+'%';change({iconScale:Number(scale.value)/100});});
+        color.addEventListener('input',()=>change({iconColor:color.value}));
+        dx.addEventListener('input',()=>change({iconDx:Number(dx.value)}));
+        dy.addEventListener('input',()=>change({iconDy:Number(dy.value)}));
+        reset.addEventListener('click',()=>{const o={...(state.edits[e.id]||{})};
+          ['iconMode','iconScale','iconColor','iconDx','iconDy'].forEach(k=>delete o[k]);
+          state.edits[e.id]=o;sync();preview();paintSvg();});
+        sync();preview();card.append(heading,name,description,controls);parent.append(card);
       });
     }
     function refresh() {
@@ -278,14 +365,9 @@
       polygon(P([[0,0],[g.w,0],[g.w,g.fs*2.22],[0,g.fs*2.22]]),rgb(.91,.95,.98),1,null,0,0);
       text(safe(state.title),g.x+g.fs*.72,g.y+g.fs*1.53,g.fs*1.13,rgb(.08,.23,.36),false);
       g.entries.forEach(e=>{
-        const ix=g.x+g.fs*1.68,iy=g.y+e.top+g.fs*1.26;
-        if(e.dev.kind==='line'||e.dev.kind==='route'){
-          const a=conv(ix-g.fs*.65,iy),b=conv(ix+g.fs*.65,iy);
-          page.drawLine({start:{x:a[0],y:a[1]},end:{x:b[0],y:b[1]},thickness:g.fs*.25,
-            color:hexRgb(e.dev.color||'#17649a',PDFLib)});
-        }else if(e.dev.kind==='relocate')text('MOVE',ix-g.fs*.45,iy,g.fs*.45,hexRgb(e.dev.color||'#17649a',PDFLib),false);
-        else drawIconPdf(e.dev,ix,iy,g.fs*1.28,polygon,text,hexRgb,PDFLib);
-        const xx=g.x+g.fs*3.2;let yy=g.y+e.top+g.fs*1.06;
+        const ix=g.x+g.fs*1.6,iy=g.y+e.top+g.fs*1.26;
+        iconPdf(e,ix,iy,g.fs*1.28,opts);
+        const xx=g.x+g.fs*3.35;let yy=g.y+e.top+g.fs*1.06;
         e.nameLines.forEach(t=>{text(safe(t),xx,yy,g.fs*.87,rgb(.09,.23,.35),false);yy+=g.fs*1.12;});
         e.detailLines.forEach(t=>{text(safe(t),xx,yy,g.fs*.75,rgb(.26,.36,.44),false);yy+=g.fs*.96;});
       });
@@ -307,5 +389,5 @@
     refresh();
     return {refresh,serialize,restore,drawPdf,entriesForPage};
   }
-  root.AHTDrawingKey={create,wrap,defaultDefinition,collectEntries,inside};
+  root.AHTDrawingKey={create,wrap,defaultDefinition,collectEntries,inside,keyIconSettings,keyIcon};
 })(window);
