@@ -101,3 +101,19 @@ test('conversion selects only TVs and preserves work-file identity',()=>{
   assert.match(html,/id="monitorConvertSelected"/);
   assert.match(html,/id="monitorConvertMount"/);
 });
+
+test('wall-mounted monitors have no pedestal and use the same screen footprint',()=>{
+  const base={key:'monitor',style:'avMonitor',color:'#137d98',fill:'#effaff'};
+  const table=iconParts({...actualDev(base,{type:'monitor',mount:'table'}),tvLabelVisible:false},100,100,10);
+  const wall=iconParts({...actualDev(base,{type:'monitor',mount:'wall'}),tvLabelVisible:false},100,100,10);
+  assert.equal(table.polys.length,wall.polys.length+2);
+  assert.deepEqual(JSON.parse(JSON.stringify(table.polys.slice(0,2))),JSON.parse(JSON.stringify(wall.polys.slice(0,2))));
+});
+test('TV and monitor labels drag by the same handle and text cannot intercept the pointer',()=>{
+  assert.match(app,/m\\?\\.type==='tv'\\|\\|m\\?\\.type==='monitor'/);
+  assert.match(app,/h==='tv-label'/);
+  assert.match(app,/color:dev\\.color,noHit:true/);
+  assert.match(app,/t\\.noHit\\?\\{style:'pointer-events:none'\\}/);
+  assert.match(html,/id="displayLabelDragGuide"/);
+  assert.match(html,/id="displayLabelSizeGuide"/);
+});
