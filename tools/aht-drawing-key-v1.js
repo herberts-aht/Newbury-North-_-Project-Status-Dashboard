@@ -84,12 +84,14 @@
   function keyIcon(e,x,y,size){
     const o=keyIconSettings(e),dev={...e.dev,color:o.color,textColor:o.color,markerId:undefined};
     // Discard TV callouts in the legend, not on the actual drawing.
-    if(dev.style==='avRectangle')dev.tvLabelVisible=false;
-    const wide=['avRectangle','avScreen','avProjector','soundbarSymbol'].includes(dev.style);
+    if(dev.style==='avRectangle'||dev.style==='avMonitor')dev.tvLabelVisible=false;
+    const wide=['avRectangle','avMonitor','avScreen','avProjector','soundbarSymbol'].includes(dev.style);
     const mode=o.mode==='auto'?(wide?'compact':'original'):o.mode;
     if(mode==='compact'){
-      if(['avRectangle','avScreen','avProjector'].includes(dev.style)){
-        dev.deviceWidth=1.45;dev.deviceHeight=.42;dev.direction=0;
+      if(['avRectangle','avMonitor','avScreen','avProjector'].includes(dev.style)){
+        dev.deviceWidth=dev.style==='avMonitor'?1.6:1.45;
+        dev.deviceHeight=dev.style==='avMonitor'?.8:.42;
+        dev.direction=0;
       }else if(dev.style==='soundbarSymbol'){dev.barLength=1.65;dev.barThickness=.42;dev.direction=0;}
     }
     let d=size*o.scale;
