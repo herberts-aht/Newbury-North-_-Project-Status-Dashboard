@@ -72,13 +72,13 @@ test('monitor display label, dimensions and color remain independent from TV',()
   assert.equal(actualDev({key:'monitor',style:'avMonitor',color:'#137d98'},{...desk,tvStatus:'future'}).color,'#8872b4');
   assert.equal(actualDev({key:'tv',style:'avRectangle',color:'#304f94'}, {type:'tv',mount:'wall'}).color,'#304f94');
 });
-test('screen and PDF share distinctive desk-stand and wall-bracket geometry',()=>{
+test('screen and PDF share distinctive desktop and wall-mounted monitor geometry',()=>{
   const d={type:'monitor',mount:'table'};
   const base={key:'monitor',style:'avMonitor',color:'#137d98',fill:'#effaff'};
   const desk=iconParts({...actualDev(base,d),tvLabelVisible:false},100,100,10);
   const wall=iconParts({...actualDev(base,{type:'monitor',mount:'wall'}),tvLabelVisible:false},100,100,10);
   assert.ok(desk.polys.length>=5);
-  assert.ok(wall.polys.length>=5);
+  assert.ok(wall.polys.length>=3);
   assert.notDeepEqual(JSON.parse(JSON.stringify(desk.polys)),JSON.parse(JSON.stringify(wall.polys)));
   assert.match(app,/const P = iconParts\(dev, cx, cy, d\);/);
 });
@@ -100,4 +100,19 @@ test('conversion selects only TVs and preserves work-file identity',()=>{
   assert.match(app,/const okM = m => DEV\[m\.type\]/);
   assert.match(html,/id="monitorConvertSelected"/);
   assert.match(html,/id="monitorConvertMount"/);
+});
+
+test('wall-mounted monitors have no pedestal and use the same screen footprint',()=>{
+  const base={key:'monitor',style:'avMonitor',color:'#137d98',fill:'#effaff'};
+  const table=iconParts({...actualDev(base,{type:'monitor',mount:'table'}),tvLabelVisible:false},100,100,10);
+  const wall=iconParts({...actualDev(base,{type:'monitor',mount:'wall'}),tvLabelVisible:false},100,100,10);
+  assert.equal(table.polys.length,wall.polys.length+2);
+  assert.deepEqual(JSON.parse(JSON.stringify(table.polys.slice(0,2))),JSON.parse(JSON.stringify(wall.polys.slice(0,2))));
+});
+test('TV and monitor labels drag by the same handle and text cannot intercept the pointer',()=>{
+  assert.ok(app.includes("if((m?.type==='tv'||m?.type==='monitor') && h==='tv-label')"));
+  assert.ok(app.includes("color:dev.color,noHit:true"));
+  assert.ok(app.includes("...(t.noHit?{style:'pointer-events:none'}:{})"));
+  assert.match(html,/id="displayLabelDragGuide"/);
+  assert.match(html,/id="displayLabelSizeGuide"/);
 });

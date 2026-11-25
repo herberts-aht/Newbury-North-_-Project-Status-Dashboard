@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT Device Locations — Pilot v1.3.4</title>
+<title>AHT Device Locations — Pilot v1.3.5</title>
 <style>
   :root { --border:#d8d5cc; --border2:#b7b3a6; --text:#1a1a18; --text2:#5f5e5a; --muted:#8a877d; --bg:#f4f2ec; --card:#fff; --accent:#185fa5; --danger:#a32d2d; }
   * { box-sizing:border-box; }
@@ -475,10 +475,10 @@
           <label class="lbl" for="tvLabelScale"><span id="displaySizeCaption">TV text & label size: </span><strong id="tvLabelScaleValue">100%</strong></label>
           <input type="range" id="tvLabelScale" min="0.4" max="1.6" step="0.05" value="1" style="width:100%">
           <div class="row" style="margin-top:5px"><button type="button" id="tvResetLabelSize">Reset to 100%</button><button type="button" id="tvApplyLabelSizeAll">Apply size to all TVs</button></div>
-          <div class="muted">Changes the label text and its box, not the sized TV footprint. Apply to all includes TVs on other drawing pages.</div>
+          <div class="muted" id="displayLabelSizeGuide">Changes the label text and its box, not the sized TV footprint. Apply to all includes TVs on other drawing pages.</div>
           <label class="chk"><input type="checkbox" id="tvLabelVisible" checked><span>Show movable TV label and leader line</span></label>
           <button type="button" id="tvResetLabelPosition" class="full">Reset label position</button>
-          <div class="muted">Drag the TV label independently on the plan. The connecting line follows; the sized TV footprint does not move.</div>
+          <div class="muted" id="displayLabelDragGuide">Drag the TV label independently on the plan. The connecting line follows; the sized TV footprint does not move.</div>
           <label class="lbl" for="tvIndividualColor"><span id="displayColorCaption">Individual TV color override</span></label>
           <div class="tv-inline"><input type="color" id="tvIndividualColor" value="#304f94"><button type="button" id="tvUseTypeColor">Use type's default color</button></div>
           <div class="muted" id="tvColorState">Using type color.</div>
@@ -997,10 +997,8 @@ function iconParts(dev, cx, cy, d) {
           if(dev.mount==='table'){
             P.polys.push({pts:[rotate(-w*.048,h*.5),rotate(w*.048,h*.5),rotate(w*.048,h*.79),rotate(-w*.048,h*.79)],fill:dev.color,stroke:null,sw:0});
             P.polys.push({pts:[rotate(-w*.22,h*.79),rotate(w*.22,h*.79),rotate(w*.22,h*.87),rotate(-w*.22,h*.87)],fill:dev.color,stroke:null,sw:0});
-          }else{
-            P.polys.push({pts:[rotate(-w*.67,-h*.63),rotate(-w*.62,-h*.63),rotate(-w*.62,h*.63),rotate(-w*.67,h*.63)],fill:dev.color,stroke:null,sw:0});
-            P.polys.push({pts:[rotate(-w*.62,-h*.09),rotate(-w*.5,-h*.09),rotate(-w*.5,h*.09),rotate(-w*.62,h*.09)],fill:dev.color,stroke:null,sw:0});
           }
+          // Wall-mounted monitors are screen-only; no desktop pedestal or bracket.
         }
         if(dev.tvLabelVisible!==false){
           const L=tvLabelGeometry(dev,cx,cy,d),[a,b]=[L.start,L.end],dist=Math.hypot(b[0]-a[0],b[1]-a[1]);
@@ -1010,8 +1008,8 @@ function iconParts(dev, cx, cy, d) {
           }
           P.polys.push({pts:[[-L.labelW/2,-L.labelH/2],[L.labelW/2,-L.labelH/2],[L.labelW/2,L.labelH/2],[-L.labelW/2,L.labelH/2]].map(([x,y])=>[L.lx+x,L.ly+y]),fill:'#ffffff',stroke:dev.color,sw:Math.max(.45,d*.055*tvLabelScaleOf(dev)),handle:'tv-label'});
           const title=String(dev.tvLabelText||'TV'),subtitle=String(dev.tvLabelSub||'');
-          P.texts.push({s:title,x:L.lx,y:L.ly+(subtitle?-L.fs*.12:L.fs*.34),size:L.fs,color:dev.color});
-          if(subtitle)P.texts.push({s:subtitle,x:L.lx,y:L.ly+L.fs*.67,size:L.fs*.48,color:dev.color});
+          P.texts.push({s:title,x:L.lx,y:L.ly+(subtitle?-L.fs*.12:L.fs*.34),size:L.fs,color:dev.color,noHit:true});
+          if(subtitle)P.texts.push({s:subtitle,x:L.lx,y:L.ly+L.fs*.67,size:L.fs*.48,color:dev.color,noHit:true});
         }
       } else if(st==='avScreen'){
         P.polys.push({pts:rectangle(w*.96,Math.max(h*.3,d*.14)),fill:'#e3e9eb',stroke:dev.color,sw:d*.035});
@@ -1103,7 +1101,7 @@ function drawIcon(dev, cx, cy, d, parent, textParent) {
     if(p.handle && dev.markerId!=null){attrs['data-handle']=p.handle;attrs['data-id']=dev.markerId;attrs.style='cursor:move';}
     el('polygon',attrs,parent);
   });
-  P.texts.forEach(t => { const e = el('text', { x: t.x, y: t.y, 'text-anchor': 'middle', 'font-size': t.size, 'font-weight': 800, fill: t.color, 'font-family': 'Helvetica,Arial,sans-serif' }, textParent || parent); e.textContent = t.s; });
+  P.texts.forEach(t => { const e = el('text', { x: t.x, y: t.y, 'text-anchor': 'middle', 'font-size': t.size, 'font-weight': 800, fill: t.color, 'font-family': 'Helvetica,Arial,sans-serif', ...(t.noHit?{style:'pointer-events:none'}:{}) }, textParent || parent); e.textContent = t.s; });
 }
 
 // ---------- palette ----------
@@ -1824,7 +1822,7 @@ $('viewport').addEventListener('pointermove', e => {
   } else if (drag.mode === 'handle') {
     if (!drag.moved) { pushUndo(); drag.moved = true; }
     const m = markers.find(x => x.id === drag.id), h = drag.handle;
-    if(m?.type==='tv' && h==='tv-label'){
+    if((m?.type==='tv'||m?.type==='monitor') && h==='tv-label'){
       const o=drag.m0[m.id];
       m.tvLabelDx=(Number(o.tvLabelDx)||0)+(pt[0]-drag.start[0]);
       m.tvLabelDy=(Number(o.tvLabelDy)||0)+(pt[1]-drag.start[1]);
@@ -2102,6 +2100,8 @@ function showAVPanel(m){
   $('displayLabelCaption').textContent=displayName+' label text (editable)';
   $('displaySizeCaption').textContent=displayName+' text & label size: ';
   $('displayLabelGuide').textContent='Future '+displayName.toLowerCase()+'s show FUTURE; prewire-only '+displayName.toLowerCase()+'s show ROUGH-IN ONLY.';
+  $('displayLabelSizeGuide').textContent='Changes the label text and box, not the '+displayName.toLowerCase()+' footprint. Apply to all includes '+displayName.toLowerCase()+'s on other pages.';
+  $('displayLabelDragGuide').textContent='Drag the '+displayName.toLowerCase()+' label independently from its border or text. The leader line follows; the screen footprint stays in place.';
   $('tvLabelVisible').closest('label').querySelector('span').textContent='Show movable '+displayName+' label and leader line';
   $('tvApplyLabelSizeAll').textContent='Apply size to all '+displayName.toLowerCase()+'s';
   $('displayColorCaption').textContent='Individual '+displayName+' color override';
