@@ -13,6 +13,9 @@ function extract(name) {
   const marker = 'function ' + name + '(';
   const start = app.indexOf(marker);
   assert.ok(start >= 0, 'missing ' + name);
+  const lineEnd = app.indexOf('\n', start);
+  const firstLine = app.slice(start, lineEnd);
+  if (firstLine.includes('}')) return firstLine;
   const end = app.indexOf('\n}', start);
   assert.ok(end > start, 'missing end of ' + name);
   return app.slice(start, end + 2);
