@@ -870,7 +870,7 @@ function escText(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 function mountLabel(m) { return ({'ceiling':'In-ceiling','wall':'In-wall / on-wall','in-ground':'In-ground','on-ground':'On-ground','pole':'Pole / post','table':'Table / shelf'})[mountOf(m)] || mountOf(m); }
 function speakerLabel(m) {
   const dev=DEV[m.type]; if(m.type==='tv') return 'TV / Display — '+TV_STATUS_LABELS[tvStatusOf(m)]+' — '+mountLabel(m);
-  if(m.type==='monitor') return 'Monitor — '+(mountOf(m)==='table'?'Desktop / tabletop':'Wall-mounted')+' — '+MONITOR_STATUS_LABELS[tvStatusOf(m)];
+  if(m.type==='monitor') return 'Monitor — '+(mountOf(m)==='table'?'Desktop / tabletop':'Wall-mounted')+' — '+({confirmed:'Confirmed',future:'Future',prewire:'Rough-in only'})[tvStatusOf(m)];
   if(isAVDevice(dev)) return dev.label + ' — ' + mountLabel(m);
   if (!isSpeaker(dev)) return dev?.label || m.type;
   if(isSoundbar(dev)) return 'Soundbar (wall, adjustable rectangular symbol)';
