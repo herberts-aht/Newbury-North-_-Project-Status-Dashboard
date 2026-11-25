@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AHT Device Locations — Pilot v1.3.3</title>
+<title>AHT Device Locations — Pilot v1.3.4</title>
 <style>
   :root { --border:#d8d5cc; --border2:#b7b3a6; --text:#1a1a18; --text2:#5f5e5a; --muted:#8a877d; --bg:#f4f2ec; --card:#fff; --accent:#185fa5; --danger:#a32d2d; }
   * { box-sizing:border-box; }
@@ -396,6 +396,9 @@
         <div class="minor-label">Change selected TV(s)</div>
         <div class="row"><select id="tvBulkStatus" aria-label="TV type for selected TVs"><option value="confirmed">Confirmed TV</option><option value="future">Future TV</option><option value="prewire">Prewire only</option></select><button type="button" id="tvApplySelectedStatus">Apply</button></div>
         <div class="muted">Shift-click or Shift-drag to select several TVs before using Apply. Colors, labels, and types are saved with your JSON.</div>
+        <div class="minor-label">Convert selected TV placements to monitors</div>
+        <div class="row"><select id="monitorConvertMount" aria-label="Monitor mounting type"><option value="table">Desktop / tabletop</option><option value="wall">Wall-mounted</option></select><button type="button" id="monitorConvertSelected">Convert TVs</button></div>
+        <div class="muted">Select one or more existing TV symbols on the plan. Converts only those devices and keeps their room, position, status and movable labels. Undo is available.</div>
       </details>
       <div id="previewBox" class="pir-preview-controls" style="display:none">
         <label class="chk" style="font-weight:700"><input type="checkbox" id="previewChk"><span id="previewLbl">Show illustrative speaker coverage</span></label>
@@ -463,20 +466,20 @@
           <div class="muted">Relative symbol proportions. Use Size Setup to scale the whole symbol to match the PDF.</div>
         </div>
         <div id="avTvControls" class="tv-selected-tools" style="display:none">
-          <div class="minor-label">TV Type / Label</div>
-          <label class="lbl" for="tvStatus">TV installation status</label>
+          <div class="minor-label" id="displayDetailsHeading">TV Type / Label</div>
+          <label class="lbl" for="tvStatus"><span id="displayStatusCaption">TV installation status</span></label>
           <select id="tvStatus"><option value="confirmed">Confirmed TV</option><option value="future">Future TV</option><option value="prewire">Prewire only</option></select>
-          <label class="lbl" for="tvLabelText">TV label text (editable)</label>
+          <label class="lbl" for="tvLabelText"><span id="displayLabelCaption">TV label text (editable)</span></label>
           <input type="text" id="tvLabelText" value="TV" maxlength="18" placeholder="TV">
-          <div class="muted">Future TVs show “FUTURE” beneath the label; prewire-only TVs show “ROUGH-IN ONLY.” Confirmed TVs show the label alone.</div>
-          <label class="lbl" for="tvLabelScale">TV text & label size: <strong id="tvLabelScaleValue">100%</strong></label>
+          <div class="muted" id="displayLabelGuide">Future TVs show FUTURE; prewire-only TVs show ROUGH-IN ONLY.</div>
+          <label class="lbl" for="tvLabelScale"><span id="displaySizeCaption">TV text & label size: </span><strong id="tvLabelScaleValue">100%</strong></label>
           <input type="range" id="tvLabelScale" min="0.4" max="1.6" step="0.05" value="1" style="width:100%">
           <div class="row" style="margin-top:5px"><button type="button" id="tvResetLabelSize">Reset to 100%</button><button type="button" id="tvApplyLabelSizeAll">Apply size to all TVs</button></div>
           <div class="muted">Changes the label text and its box, not the sized TV footprint. Apply to all includes TVs on other drawing pages.</div>
           <label class="chk"><input type="checkbox" id="tvLabelVisible" checked><span>Show movable TV label and leader line</span></label>
           <button type="button" id="tvResetLabelPosition" class="full">Reset label position</button>
           <div class="muted">Drag the TV label independently on the plan. The connecting line follows; the sized TV footprint does not move.</div>
-          <label class="lbl" for="tvIndividualColor">Individual TV color override</label>
+          <label class="lbl" for="tvIndividualColor"><span id="displayColorCaption">Individual TV color override</span></label>
           <div class="tv-inline"><input type="color" id="tvIndividualColor" value="#304f94"><button type="button" id="tvUseTypeColor">Use type's default color</button></div>
           <div class="muted" id="tvColorState">Using type color.</div>
         </div>
@@ -740,6 +743,7 @@ function callGeom(m, wfn) {
 // AHT DEVICE LOCATIONS PILOT — added without replacing any original speaker IDs.
 CFG.devices.splice(CFG.devices.length-2,0,
   {key:'tv',label:'TV / Display',style:'avRectangle',color:'#304f94',fill:'#eef4ff',glyph:'TV',kind:'point',rotatable:true},
+  {key:'monitor',label:'Computer / Surveillance Monitor',style:'avMonitor',color:'#137d98',fill:'#effaff',glyph:'MON',kind:'point',rotatable:true},
   {key:'apind',label:'Indoor Wireless AP',style:'avAccessPoint',color:'#078b7e',fill:'#e6fcf6',glyph:'AP',preview:'circle',kind:'point',rotatable:true},
   {key:'apout',label:'Outdoor Wireless AP',style:'avAccessPoint',color:'#177969',fill:'#edfcf3',glyph:'AP',preview:'circle',kind:'point',rotatable:true},
   {key:'projector',label:'Projector',style:'avProjector',color:'#784da4',fill:'#f7f0ff',glyph:'PROJ',kind:'point',rotatable:true},
@@ -749,17 +753,22 @@ CFG.devices.splice(CFG.devices.length-2,0,
 const DEV = {}; CFG.devices.forEach(d => DEV[d.key] = d);
 const TV_DEFAULT_COLORS = Object.freeze({confirmed:'#304f94',future:'#8963b5',prewire:'#8995a4'});
 const TV_STATUS_LABELS = Object.freeze({confirmed:'Confirmed TV',future:'Future TV',prewire:'Prewire only'});
+const MONITOR_STATUS_LABELS = Object.freeze({confirmed:'Confirmed Monitor',future:'Future Monitor',prewire:'Prewire only'});
+const MONITOR_DEFAULT_COLORS = Object.freeze({confirmed:'#137d98',future:'#8872b4',prewire:'#849aa5'});
+const isDisplayDevice = d => !!d && (d.key==='tv'||d.key==='monitor');
+const displayStatusLabel = m => (m.type==='monitor'?MONITOR_STATUS_LABELS:TV_STATUS_LABELS)[tvStatusOf(m)];
+const displayDefaultName = m => m?.type==='monitor'?'MONITOR':'TV';
 let tvTypeColors = {...TV_DEFAULT_COLORS};
 const validTvColor = value => /^#[0-9a-f]{6}$/i.test(String(value||''));
 function tvStatusOf(m){return TV_STATUS_LABELS[m?.tvStatus] ? m.tvStatus : 'confirmed';}
-function tvColorOf(m){return validTvColor(m?.tvColorOverride) ? m.tvColorOverride : tvTypeColors[tvStatusOf(m)];}
-function tvLabelMain(m){return String(m?.tvLabelText||'TV').replace(/\s+/g,' ').trim().slice(0,18)||'TV';}
+function tvColorOf(m){return validTvColor(m?.tvColorOverride) ? m.tvColorOverride : (m?.type==='monitor'?MONITOR_DEFAULT_COLORS:tvTypeColors)[tvStatusOf(m)];}
+function tvLabelMain(m){return String(m?.tvLabelText||displayDefaultName(m)).replace(/\s+/g,' ').trim().slice(0,18)||displayDefaultName(m);}
 function tvLabelSub(m){const status=tvStatusOf(m);return status==='future'?'FUTURE':status==='prewire'?'ROUGH-IN ONLY':'';}
 function tvLabelScaleOf(m){const n=Number(m?.tvLabelScale);return Number.isFinite(n)&&n>0?Math.max(.4,Math.min(1.6,n)):1;}
 function normalizedTvColors(c){const result={...TV_DEFAULT_COLORS};Object.keys(result).forEach(k=>{if(validTvColor(c?.[k]))result[k]=c[k];});return result;}
 const isAccessPoint = d => !!d && ['apind','apout'].includes(d.key);
-const isAVDevice = d => !!d && ['tv','apind','apout','projector','screenfixed','screenmotor'].includes(d.key);
-const isWideDevice = d => !!d && ['tv','projector','screenfixed','screenmotor'].includes(d.key);
+const isAVDevice = d => !!d && ['tv','monitor','apind','apout','projector','screenfixed','screenmotor'].includes(d.key);
+const isWideDevice = d => !!d && ['tv','monitor','projector','screenfixed','screenmotor'].includes(d.key);
 const isPlaceableDevice = d => isSpeaker(d) || isAVDevice(d);
 const isRotatableDevice = m => isAVDevice(DEV[m?.type]);
 // The original AHT speaker-tool keys are intentionally retained for saved-work compatibility.
@@ -842,6 +851,7 @@ function isLandscape(dev) { return !!dev && ['landspk','landsub'].includes(dev.k
 function isSoundbar(dev) { return !!dev && dev.key==='soundbar'; }
 function mountOf(m) {
   const dev=DEV[m?.type];
+  if(dev?.key==='monitor') return m?.mount==='wall'?'wall':'table';
   if(isAVDevice(dev)) return m?.mount || 'wall';
   if(isSoundbar(dev)) return 'wall';
   if(isLandscape(dev)) return ['wall','in-ground','on-ground'].includes(m?.mount) ? m.mount : 'in-ground';
@@ -860,6 +870,7 @@ function escText(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 function mountLabel(m) { return ({'ceiling':'In-ceiling','wall':'In-wall / on-wall','in-ground':'In-ground','on-ground':'On-ground','pole':'Pole / post','table':'Table / shelf'})[mountOf(m)] || mountOf(m); }
 function speakerLabel(m) {
   const dev=DEV[m.type]; if(m.type==='tv') return 'TV / Display — '+TV_STATUS_LABELS[tvStatusOf(m)]+' — '+mountLabel(m);
+  if(m.type==='monitor') return 'Monitor — '+(mountOf(m)==='table'?'Desktop / tabletop':'Wall-mounted')+' — '+MONITOR_STATUS_LABELS[tvStatusOf(m)];
   if(isAVDevice(dev)) return dev.label + ' — ' + mountLabel(m);
   if (!isSpeaker(dev)) return dev?.label || m.type;
   if(isSoundbar(dev)) return 'Soundbar (wall, adjustable rectangular symbol)';
@@ -882,8 +893,8 @@ function previewSpec(dev, m) {
 }
 function actualDev(dev, m) {
   if(isAVDevice(dev)) {
-    const appearance={direction:m?.rot||0,deviceWidth:m?.deviceWidth??(dev.key==='tv'?3.2:dev.key==='projector'?1.55:4.5),deviceHeight:m?.deviceHeight??(dev.key==='tv'?1.5:dev.key==='projector'?1.0:.35),mount:mountOf(m)};
-    if(dev.key==='tv' && m){Object.assign(appearance,{color:tvColorOf(m),tvLabelText:tvLabelMain(m),tvLabelSub:tvLabelSub(m),tvLabelScale:tvLabelScaleOf(m),tvLabelVisible:m.tvLabelVisible!==false,tvLabelDx:Number(m.tvLabelDx)||0,tvLabelDy:Number(m.tvLabelDy)||0,markerId:m.id});}
+    const appearance={direction:m?.rot||0,deviceWidth:m?.deviceWidth??(dev.key==='tv'?3.2:dev.key==='monitor'?2.4:dev.key==='projector'?1.55:4.5),deviceHeight:m?.deviceHeight??(dev.key==='tv'?1.5:dev.key==='monitor'?1.1:dev.key==='projector'?1.0:.35),mount:mountOf(m)};
+    if(isDisplayDevice(dev) && m){Object.assign(appearance,{color:tvColorOf(m),tvLabelText:tvLabelMain(m),tvLabelSub:tvLabelSub(m),tvLabelScale:tvLabelScaleOf(m),tvLabelVisible:m.tvLabelVisible!==false,tvLabelDx:Number(m.tvLabelDx)||0,tvLabelDy:Number(m.tvLabelDy)||0,markerId:m.id});}
     return Object.assign({},dev,appearance);
   }
   if (!isSpeaker(dev)) return dev;
@@ -961,7 +972,7 @@ function iconParts(dev, cx, cy, d) {
   const lines = dev.glyph ? String(dev.glyph).split('\n') : [];
   const put = (color, fs, dx) => { const n = lines.length; lines.forEach((ln, i) => { const f = fs * (n > 1 ? 0.72 : 1) * (ln.length <= 2 ? 1 : ln.length === 3 ? 0.74 : 0.52); P.texts.push({ s: ln, x: cx + (dx || 0), y: cy + f * 0.35 + (n > 1 ? (i - (n - 1) / 2) * fs * 0.62 : 0), size: f, color }); }); };
   const st = dev.style || 'fill';
-  if (['avRectangle','avScreen','avProjector','avAccessPoint'].includes(st)) {
+  if (['avRectangle','avMonitor','avScreen','avProjector','avAccessPoint'].includes(st)) {
     const ang=(Number(dev.direction)||0)*Math.PI/180, ca=Math.cos(ang),sa=Math.sin(ang);
     const rotate=(x,y)=>[cx+x*ca-y*sa,cy+x*sa+y*ca];
     const rectangle=(w,h)=>[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y])=>rotate(x,y));
@@ -979,8 +990,18 @@ function iconParts(dev, cx, cy, d) {
     } else {
       const w=d*Math.max(1,Number(dev.deviceWidth)||3),h=d*Math.max(.2,Number(dev.deviceHeight)||1);
       P.polys.push({pts:rectangle(w,h),fill:dev.fill||'#fff',stroke:dev.color,sw:Math.max(sw,d*.075)});
-      if(st==='avRectangle'){
-        P.polys.push({pts:rectangle(w*.93,h*.77),fill:'#d8e8fc',stroke:dev.color,sw:d*.035});
+      if(st==='avRectangle'||st==='avMonitor'){
+        P.polys.push({pts:rectangle(w*.93,h*.77),fill:st==='avMonitor'?'#e4f5fa':'#d8e8fc',stroke:dev.color,sw:d*.035});
+        if(st==='avMonitor'){
+          // A dedicated device footprint: desktop stand or a compact wall bracket.
+          if(dev.mount==='table'){
+            P.polys.push({pts:[rotate(-w*.048,h*.5),rotate(w*.048,h*.5),rotate(w*.048,h*.79),rotate(-w*.048,h*.79)],fill:dev.color,stroke:null,sw:0});
+            P.polys.push({pts:[rotate(-w*.22,h*.79),rotate(w*.22,h*.79),rotate(w*.22,h*.87),rotate(-w*.22,h*.87)],fill:dev.color,stroke:null,sw:0});
+          }else{
+            P.polys.push({pts:[rotate(-w*.67,-h*.63),rotate(-w*.62,-h*.63),rotate(-w*.62,h*.63),rotate(-w*.67,h*.63)],fill:dev.color,stroke:null,sw:0});
+            P.polys.push({pts:[rotate(-w*.62,-h*.09),rotate(-w*.5,-h*.09),rotate(-w*.5,h*.09),rotate(-w*.62,h*.09)],fill:dev.color,stroke:null,sw:0});
+          }
+        }
         if(dev.tvLabelVisible!==false){
           const L=tvLabelGeometry(dev,cx,cy,d),[a,b]=[L.start,L.end],dist=Math.hypot(b[0]-a[0],b[1]-a[1]);
           if(dist>Math.max(d*.18,.5)){
@@ -1116,6 +1137,7 @@ const landscapeMounts=[['in-ground','In-ground'],['on-ground','On-ground'],['wal
 const soundbarMounts=[['wall','In-wall / on-wall']];
 const avMountOptions={
  tv:[['wall','Wall / angled wall']],
+ monitor:[['table','Desktop / tabletop'],['wall','Wall-mounted']],
  apind:[['ceiling','In-ceiling'],['wall','Wall-mounted']],
  apout:[['wall','Exterior wall'],['pole','Exterior pole / post'],['ceiling','Exterior ceiling / soffit']],
  projector:[['ceiling','Ceiling-mounted'],['wall','Wall-mounted'],['table','Shelf / table']],
@@ -1136,7 +1158,7 @@ function refreshPlacementOptions() {
   $('placeShapeBox').style.display=shapeChoice?'block':'none';
   $('placeBarSettings').style.display=isSoundbar(dev)?'block':'none';
   $('placeCoverage').closest('.chk').style.display=(isSpeaker(dev)||isAccessPoint(dev))?'flex':'none';
-  $('mountHint').textContent=isAVDevice(dev)?'Rotate the front indicator after placement. TV, projection screen, and projector symbols have adjustable dimensions; access points offer three illustrative Wi-Fi rings.':isSoundbar(dev)?'Wall soundbar: long, skinny rectangle. Direction and coverage adjustable after placement.':
+  $('mountHint').textContent=isAVDevice(dev)?'Rotate the front indicator after placement. TV, monitor, projection screen and projector symbols have adjustable dimensions; access points offer three illustrative Wi-Fi rings.':isSoundbar(dev)?'Wall soundbar: long, skinny rectangle. Direction and coverage adjustable after placement.':
     isLandscape(dev)?(mount==='wall'?'Wall-mounted landscape devices use square symbols and directional coverage.':'Ground-mounted landscape devices use round symbols and adjustable 0°–360° coverage.'):
     mount==='ceiling'?'In-ceiling defaults to round. Choose square for square ceiling lights. Coverage remains circular.':'Wall speakers/subs are rectangular with directional coverage.';
   CFG.devices.filter(isPlaceableDevice).forEach(d=>{
@@ -1765,7 +1787,7 @@ $('viewport').addEventListener('pointerdown', e => {
     if (dev.kind === 'line') {
       if (!pendingLine) { pendingLine = { x: pt[0], y: pt[1] }; banner('Click the end point'); }
       else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pendingLine.x, y: pendingLine.y, x2: pt[0], y2: pt[1], note: roomForChange() }; markers.push(m); pendingLine = null; sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); else banner('Placing: ' + dev.label + ' — click start, then end (Esc to stop)'); drawRubber(null); refresh(); openChangeDetails(m.id); }
-    } else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pt[0], y: pt[1], rot: 0, note: roomForChange() }; if(isPlaceableDevice(dev)){m.mount=$('placeMount').value; m.symbolShape=$('placeShape').value; m.fov=120; m.showRange=(isSpeaker(dev)||isAccessPoint(dev))&&$('placeCoverage').checked; if(isSoundbar(dev)){m.barLength=+$('placeBarLength').value;m.barThickness=.46;} if(isAccessPoint(dev)){m.wifiRings=[2,3.2,4.5];m.wifiAngle=180;} if(isWideDevice(dev)){m.deviceWidth=dev.key==='tv'?3.2:dev.key==='projector'?1.55:4.5;m.deviceHeight=dev.key==='tv'?1.5:dev.key==='projector'?1.0:.35;} } markers.push(m); sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); refresh(); if (isPlaceableDevice(dev)) startDeviceSizing(m); else openChangeDetails(m.id); }
+    } else { pushUndo(); const m = { id: nextId++, page: pageNum, type: tool, x: pt[0], y: pt[1], rot: 0, note: roomForChange() }; if(isPlaceableDevice(dev)){m.mount=$('placeMount').value; m.symbolShape=$('placeShape').value; m.fov=120; m.showRange=(isSpeaker(dev)||isAccessPoint(dev))&&$('placeCoverage').checked; if(isSoundbar(dev)){m.barLength=+$('placeBarLength').value;m.barThickness=.46;} if(isAccessPoint(dev)){m.wifiRings=[2,3.2,4.5];m.wifiAngle=180;} if(isWideDevice(dev)){m.deviceWidth=dev.key==='tv'?3.2:dev.key==='monitor'?2.4:dev.key==='projector'?1.55:4.5;m.deviceHeight=dev.key==='tv'?1.5:dev.key==='monitor'?1.1:dev.key==='projector'?1.0:.35;} } markers.push(m); sel = new Set([m.id]); if (!$('placeMultiple').checked) setTool(null); refresh(); if (isPlaceableDevice(dev)) startDeviceSizing(m); else openChangeDetails(m.id); }
     return;
   }
   if (hitId !== null) {
@@ -2071,8 +2093,21 @@ function showAVPanel(m){
  setMountOptions($('avMount'),d,mountOf(m));
  $('avDirection').value=m.rot||0;$('avDirectionValue').textContent=(m.rot||0)+'°';
  const wide=isWideDevice(d);$('avDimensions').style.display=wide?'block':'none';
- if(wide){ $('avWidth').value=m.deviceWidth??(d.key==='tv'?3.2:d.key==='projector'?1.55:4.5);$('avHeight').value=m.deviceHeight??(d.key==='tv'?1.5:d.key==='projector'?1:.35);$('avWidthValue').textContent=(+$('avWidth').value).toFixed(1)+'×';$('avHeightValue').textContent=(+$('avHeight').value).toFixed(2)+'×'; }
- const tv=d.key==='tv';$('avTvControls').style.display=tv?'block':'none';
+ if(wide){ $('avWidth').value=m.deviceWidth??(d.key==='tv'?3.2:d.key==='monitor'?2.4:d.key==='projector'?1.55:4.5);$('avHeight').value=m.deviceHeight??(d.key==='tv'?1.5:d.key==='monitor'?1.1:d.key==='projector'?1:.35);$('avWidthValue').textContent=(+$('avWidth').value).toFixed(1)+'×';$('avHeightValue').textContent=(+$('avHeight').value).toFixed(2)+'×'; }
+ const tv=isDisplayDevice(d);$('avTvControls').style.display=tv?'block':'none';
+ const displayName=d.key==='monitor'?'Monitor':'TV';
+ if(tv){
+  $('displayDetailsHeading').textContent=displayName+' Type / Label';
+  $('displayStatusCaption').textContent=displayName+' installation status';
+  $('displayLabelCaption').textContent=displayName+' label text (editable)';
+  $('displaySizeCaption').textContent=displayName+' text & label size: ';
+  $('displayLabelGuide').textContent='Future '+displayName.toLowerCase()+'s show FUTURE; prewire-only '+displayName.toLowerCase()+'s show ROUGH-IN ONLY.';
+  $('tvLabelVisible').closest('label').querySelector('span').textContent='Show movable '+displayName+' label and leader line';
+  $('tvApplyLabelSizeAll').textContent='Apply size to all '+displayName.toLowerCase()+'s';
+  $('displayColorCaption').textContent='Individual '+displayName+' color override';
+  [['confirmed','Confirmed '+displayName],['future','Future '+displayName],['prewire','Prewire only']].forEach(([key,label],i)=>{$('tvStatus').options[i].textContent=label;});
+  $('tvLabelText').placeholder=displayDefaultName(m);
+ }
  if(tv){
   $('tvStatus').value=tvStatusOf(m);
   if(document.activeElement!==$('tvLabelText'))$('tvLabelText').value=tvLabelMain(m);
@@ -2081,7 +2116,7 @@ function showAVPanel(m){
   $('tvLabelScaleValue').textContent=Math.round(scale*100)+'%';
   $('tvLabelVisible').checked=m.tvLabelVisible!==false;
   if(document.activeElement!==$('tvIndividualColor'))$('tvIndividualColor').value=tvColorOf(m);
-  $('tvColorState').textContent=validTvColor(m.tvColorOverride)?'Individual color override active.':'Using the '+TV_STATUS_LABELS[tvStatusOf(m)]+' type color.';
+  $('tvColorState').textContent=validTvColor(m.tvColorOverride)?'Individual color override active.':'Using the '+displayStatusLabel(m)+' type color.';
  }
  const wifi=isAccessPoint(d);$('avWifi').style.display=wifi?'block':'none';
  if(wifi){ $('avWifiOn').checked=m.showRange===true;
@@ -2092,30 +2127,31 @@ function showAVPanel(m){
 }
 function selectedAV(){const m=markers.find(x=>x.id===[...sel][0]);return m&&isAVDevice(DEV[m.type])?m:null;}
 function updateAV(fn){const m=selectedAV();if(!m)return;pushUndo();fn(m);refresh();}
-function updateTV(fn){const m=selectedAV();if(m?.type==='tv')updateAV(fn);}
+function updateTV(fn){const m=selectedAV();if(m&&['tv','monitor'].includes(m.type))updateAV(fn);}
 $('tvStatus').onchange=e=>updateTV(m=>{m.tvStatus=e.target.value;});
 $('tvLabelText').onchange=e=>{
- const text=e.target.value.replace(/\s+/g,' ').trim().slice(0,18)||'TV';e.target.value=text;
- const current=selectedAV();if(current?.type!=='tv'||tvLabelMain(current)===text)return;
- updateTV(m=>{if(text==='TV')delete m.tvLabelText;else m.tvLabelText=text;});
+ const current=selectedAV();if(!current||!['tv','monitor'].includes(current.type))return;
+ const defaultName=displayDefaultName(current),text=e.target.value.replace(/\s+/g,' ').trim().slice(0,18)||defaultName;e.target.value=text;
+ if(tvLabelMain(current)===text)return;
+ updateTV(m=>{if(text===defaultName)delete m.tvLabelText;else m.tvLabelText=text;});
 };
-$('tvLabelScale').onpointerdown=()=>{if(selectedAV()?.type==='tv')pushUndo();};
-$('tvLabelScale').onkeydown=e=>{if(selectedAV()?.type==='tv'&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key))pushUndo();};
+$('tvLabelScale').onpointerdown=()=>{if(['tv','monitor'].includes(selectedAV()?.type))pushUndo();};
+$('tvLabelScale').onkeydown=e=>{if(['tv','monitor'].includes(selectedAV()?.type)&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key))pushUndo();};
 $('tvLabelScale').oninput=e=>{
-  const m=selectedAV();if(m?.type!=='tv')return;
+  const m=selectedAV();if(!['tv','monitor'].includes(m?.type))return;
   m.tvLabelScale=+e.target.value;
   refresh();
 };
 $('tvResetLabelSize').onclick=()=>{
-  const m=selectedAV();if(m?.type!=='tv'||tvLabelScaleOf(m)===1)return;
+  const m=selectedAV();if(!['tv','monitor'].includes(m?.type)||tvLabelScaleOf(m)===1)return;
   updateTV(tv=>{delete tv.tvLabelScale;});
 };
 $('tvApplyLabelSizeAll').onclick=()=>{
-  const selected=selectedAV();if(selected?.type!=='tv')return;
-  const scale=tvLabelScaleOf(selected),tvs=markers.filter(m=>m.type==='tv');
+  const selected=selectedAV();if(!['tv','monitor'].includes(selected?.type))return;
+  const scale=tvLabelScaleOf(selected),tvs=markers.filter(m=>m.type===selected.type);
   if(tvs.every(m=>tvLabelScaleOf(m)===scale))return;
   pushUndo();tvs.forEach(m=>{if(scale===1)delete m.tvLabelScale;else m.tvLabelScale=scale;});
-  refresh();status('Applied '+Math.round(scale*100)+'% TV label size to '+tvs.length+' TVs on all pages.');
+  refresh();status('Applied '+Math.round(scale*100)+'% '+(selected.type==='monitor'?'monitor':'TV')+' label size to '+tvs.length+' '+(selected.type==='monitor'?'monitors':'TVs')+' on all pages.');
 };
 $('tvLabelVisible').onchange=e=>updateTV(m=>{m.tvLabelVisible=e.target.checked;});
 $('tvResetLabelPosition').onclick=()=>updateTV(m=>{delete m.tvLabelDx;delete m.tvLabelDy;});
@@ -2128,6 +2164,14 @@ $('tvResetColors').onclick=()=>{pushUndo();tvTypeColors={...TV_DEFAULT_COLORS};r
 for(const [id,visible] of [['tvShowAllLabels',true],['tvHideAllLabels',false]]){
  $(id).onclick=()=>{const tvs=markers.filter(m=>m.type==='tv');if(!tvs.some(m=>(m.tvLabelVisible!==false)!==visible))return;pushUndo();tvs.forEach(m=>{m.tvLabelVisible=visible;});refresh();status((visible?'Showing':'Hiding')+' TV labels on all pages. TV footprints remain visible.');};
 }
+$('monitorConvertSelected').onclick=()=>{
+ const selected=[...sel].map(id=>markers.find(m=>m.id===id)).filter(m=>m?.type==='tv');
+ if(!selected.length){status('Select one or more TV placements first.');return;}
+ const mount=$('monitorConvertMount').value==='wall'?'wall':'table';pushUndo();
+ selected.forEach(m=>{m.type='monitor';m.mount=mount;m.deviceWidth=2.4;m.deviceHeight=1.1;delete m.tvColorOverride;
+   if(!m.tvLabelText||/^(tv|monitor)$/i.test(m.tvLabelText.trim()))delete m.tvLabelText;});
+ refresh();status('Converted '+selected.length+' TV placement(s) into '+(mount==='table'?'desktop / tabletop':'wall-mounted')+' monitors. Save JSON to preserve the change.');
+};
 $('tvApplySelectedStatus').onclick=()=>{const tvs=[...sel].map(id=>markers.find(m=>m.id===id)).filter(m=>m?.type==='tv');if(!tvs.length){status('Select one or more TV devices first.');return;}const type=$('tvBulkStatus').value;pushUndo();tvs.forEach(m=>{m.tvStatus=type;});refresh();status('Set '+tvs.length+' selected TVs to '+TV_STATUS_LABELS[type]+'.');};
 $('avMount').onchange=e=>updateAV(m=>{m.mount=e.target.value;});
 $('avDirection').onpointerdown=()=>{if(selectedAV())pushUndo();};
