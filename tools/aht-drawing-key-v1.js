@@ -46,6 +46,9 @@
     const name = (entry.defaultName || '').toLowerCase();
     if (/rough.in|prewire|pre-wire/.test(name)) return 'Future equipment rough-in; final display is not included.';
     if (/future/.test(name)) return 'Reserved for a possible future installation.';
+    if (/monitor/.test(name)) return /desktop|tabletop/.test(name) ?
+      'Computer or surveillance monitor on a desktop or tabletop stand.' :
+      'Computer or surveillance monitor, wall-mounted; coordinate backing, mounting and cabling.';
     if (/cctv|camera/.test(tool)) return 'Proposed security device location; coverage is illustrative.';
     if (/access/.test(tool)) return 'Access control device at the indicated opening or location.';
     if (/shade/.test(tool)) return 'Shade system component; confirm mounting and control requirements.';
@@ -84,12 +87,14 @@
   function keyIcon(e,x,y,size){
     const o=keyIconSettings(e),dev={...e.dev,color:o.color,textColor:o.color,markerId:undefined};
     // Discard TV callouts in the legend, not on the actual drawing.
-    if(dev.style==='avRectangle')dev.tvLabelVisible=false;
-    const wide=['avRectangle','avScreen','avProjector','soundbarSymbol'].includes(dev.style);
+    if(dev.style==='avRectangle'||dev.style==='avMonitor')dev.tvLabelVisible=false;
+    const wide=['avRectangle','avMonitor','avScreen','avProjector','soundbarSymbol'].includes(dev.style);
     const mode=o.mode==='auto'?(wide?'compact':'original'):o.mode;
     if(mode==='compact'){
-      if(['avRectangle','avScreen','avProjector'].includes(dev.style)){
-        dev.deviceWidth=1.45;dev.deviceHeight=.42;dev.direction=0;
+      if(['avRectangle','avMonitor','avScreen','avProjector'].includes(dev.style)){
+        dev.deviceWidth=dev.style==='avMonitor'?1.6:1.45;
+        dev.deviceHeight=dev.style==='avMonitor'?.8:.42;
+        dev.direction=0;
       }else if(dev.style==='soundbarSymbol'){dev.barLength=1.65;dev.barThickness=.42;dev.direction=0;}
     }
     let d=size*o.scale;
