@@ -6,14 +6,14 @@ const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'AHT_device_locations_pilot_v1.html'), 'utf8');
 const keyScript = fs.readFileSync(path.join(__dirname, '..', 'aht-drawing-key-v1.js'), 'utf8');
-const appScripts = [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)].map(m => m[1]).filter(Boolean);
+const appScripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m => m[1]).filter(Boolean);
 const app = appScripts.find(text => text.includes('function actualDev(dev, m)'));
 assert.ok(app, 'main device locations JavaScript should exist');
 function extract(name) {
   const marker = 'function ' + name + '(';
   const start = app.indexOf(marker);
   assert.ok(start >= 0, 'missing ' + name);
-  const end = app.indexOf('\\n}', start);
+  const end = app.indexOf('\n}', start);
   assert.ok(end > start, 'missing end of ' + name);
   return app.slice(start, end + 2);
 }
@@ -37,7 +37,7 @@ const modelSource = `
   const tvLabelGeometry=()=>{throw Error('Key icon should suppress movable callout');};
   const wScreen=()=>0;
   const isSoundbarDevice=()=>false;
-  ${['tvStatusOf','tvColorOf','displayDefaultName','tvLabelMain','tvLabelSub','tvLabelScaleOf','mountOf','speakerLabel','actualDev','iconParts'].map(extract).join('\\n')}
+  ${['tvStatusOf','tvColorOf','displayDefaultName','tvLabelMain','tvLabelSub','tvLabelScaleOf','mountOf','speakerLabel','actualDev','iconParts'].map(extract).join('\n')}
   this.monitorModel={mountOf,speakerLabel,actualDev,iconParts};
 `;
 const model = vm.runInNewContext(modelSource, {});
@@ -52,7 +52,7 @@ test('desktop and wall mounted monitors have separate key variants',()=>{
   const wall={type:'monitor',mount:'wall',tvStatus:'confirmed'};
   assert.equal(mountOf(desk),'table');
   assert.equal(mountOf(wall),'wall');
-  assert.match(speakerLabel(desk),/Monitor — Desktop \\/ tabletop — Confirmed/);
+  assert.match(speakerLabel(desk),/Monitor — Desktop \/ tabletop — Confirmed/);
   assert.match(speakerLabel(wall),/Monitor — Wall-mounted — Confirmed/);
   assert.notEqual(speakerLabel(desk),speakerLabel(wall));
   assert.match(speakerLabel({...desk,tvStatus:'prewire'}),/Rough-in only/);
@@ -76,7 +76,7 @@ test('screen and PDF share distinctive desk-stand and wall-bracket geometry',()=
   assert.ok(desk.polys.length>=5);
   assert.ok(wall.polys.length>=5);
   assert.notDeepEqual(JSON.parse(JSON.stringify(desk.polys)),JSON.parse(JSON.stringify(wall.polys)));
-  assert.match(app,/const P = iconParts\\(dev, cx, cy, d\\);/);
+  assert.match(app,/const P = iconParts\(dev, cx, cy, d\);/);
 });
 test('legend suppresses movable monitor callouts without changing placed marker',()=>{
   const input={key:'monitor',style:'avMonitor',kind:'point',mount:'table',tvLabelVisible:true,
@@ -90,10 +90,10 @@ test('legend suppresses movable monitor callouts without changing placed marker'
   assert.equal(input.markerId,7);
 });
 test('conversion selects only TVs and preserves work-file identity',()=>{
-  assert.match(app,/filter\\(m=>m\\?\\.type==='tv'\\)/);
-  assert.match(app,/selected\\.forEach\\(m=>\\{m\\.type='monitor';m\\.mount=mount;/);
-  assert.match(app,/pushUndo\\(\\);\\s*selected\\.forEach/);
-  assert.match(app,/const okM = m => DEV\\[m\\.type\\]/);
+  assert.match(app,/filter\(m=>m\?\.type==='tv'\)/);
+  assert.match(app,/selected\.forEach\(m=>\{m\.type='monitor';m\.mount=mount;/);
+  assert.match(app,/pushUndo\(\);\s*selected\.forEach/);
+  assert.match(app,/const okM = m => DEV\[m\.type\]/);
   assert.match(html,/id="monitorConvertSelected"/);
   assert.match(html,/id="monitorConvertMount"/);
 });
