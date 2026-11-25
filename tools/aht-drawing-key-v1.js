@@ -46,6 +46,9 @@
     const name = (entry.defaultName || '').toLowerCase();
     if (/rough.in|prewire|pre-wire/.test(name)) return 'Future equipment rough-in; final display is not included.';
     if (/future/.test(name)) return 'Reserved for a possible future installation.';
+    if (/monitor/.test(name)) return /desktop|tabletop/.test(name) ?
+      'Computer or surveillance monitor on a desktop or tabletop stand.' :
+      'Computer or surveillance monitor, wall-mounted; coordinate backing, mounting and cabling.';
     if (/cctv|camera/.test(tool)) return 'Proposed security device location; coverage is illustrative.';
     if (/access/.test(tool)) return 'Access control device at the indicated opening or location.';
     if (/shade/.test(tool)) return 'Shade system component; confirm mounting and control requirements.';
