@@ -29,6 +29,7 @@ const modelSource = `
   const validTvColor=value=>/^#[0-9a-f]{6}$/i.test(String(value||''));
   const isAVDevice=d=>!!d&&['tv','monitor'].includes(d.key);
   const isDisplayDevice=d=>!!d&&['tv','monitor'].includes(d.key);
+  const displayDefaultName=m=>m?.type==='monitor'?'MONITOR':'TV';
   const isSpeaker=()=>false;
   const isSoundbar=()=>false;
   const isLandscape=()=>false;
@@ -37,7 +38,7 @@ const modelSource = `
   const tvLabelGeometry=()=>{throw Error('Key icon should suppress movable callout');};
   const wScreen=()=>0;
   const isSoundbarDevice=()=>false;
-  ${['tvStatusOf','tvColorOf','displayDefaultName','tvLabelMain','tvLabelSub','tvLabelScaleOf','mountOf','speakerLabel','actualDev','iconParts'].map(extract).join('\n')}
+  ${['tvStatusOf','tvColorOf','tvLabelMain','tvLabelSub','tvLabelScaleOf','mountOf','speakerLabel','actualDev','iconParts'].map(extract).join('\n')}
   this.monitorModel={mountOf,speakerLabel,actualDev,iconParts};
 `;
 const model = vm.runInNewContext(modelSource, {});
