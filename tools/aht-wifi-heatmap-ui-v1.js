@@ -759,7 +759,7 @@ async function exportPdf(){if(!pdfBytes||!pdfDoc){status('Open a PDF drawing fir
         window.ahtDrawingKey.drawPdf({pageNumber:p,viewport,polygon,text:keyText,rgb,conv,page,drawIconPdf,hexRgb,PDFLib:window.PDFLib});
       }
     }
-    const out=await doc.save();download(pdfName.replace(/\.pdf$/i,'')+' - Wi-Fi Heat Map.pdf',new Blob([out],{type:'application/pdf'}));status('Exported '+pages.length+' PDF pages. Original drawing unchanged.');
+    const out=await doc.save({ useObjectStreams: false });download(pdfName.replace(/\.pdf$/i,'')+' - Wi-Fi Heat Map.pdf',new Blob([out],{type:'application/pdf'}));status('Exported '+pages.length+' PDF pages. Original drawing unchanged.');
   }catch(e){console.error(e);status('PDF export failed: '+e.message);}finally{btn.disabled=false;}
 }
 bind();setupWifiDrawingKey();
