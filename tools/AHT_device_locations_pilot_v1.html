@@ -2072,7 +2072,7 @@ $('pdfBtn').onclick = async () => {
     text(stampTitle, bx + fs * .7, by + fs * 1.35, titleSize, ink, false);
     text(stampSub, bx + fs * .7, by + fs * 2.42, subSize, black, false);
     }
-    const out = await doc.save();
+    const out = await doc.save({ useObjectStreams: false });
     download(baseName() + ' - Device Locations (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
     status('Exported marked-up PDF with changes on every marked page. Original file is untouched.');
   } catch (err) { console.error(err); status('Export failed: ' + err.message); }

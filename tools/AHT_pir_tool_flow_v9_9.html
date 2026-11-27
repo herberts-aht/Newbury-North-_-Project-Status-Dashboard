@@ -1942,7 +1942,7 @@ $('pdfBtn').onclick = async () => {
     text(stampSub, bx + fs * .7, by + fs * 2.42, subSize, black, false);
     } // AHT_PDF_LEGEND_TOGGLE_V3: optional stamp end
     } // End drawing-page annotation pass.
-    const out = await doc.save();
+    const out = await doc.save({ useObjectStreams: false });
     download(baseName() + ' - ' + CFG.fileTag + ' (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
     status('Exported all ' + originalPages.length + ' drawing pages (' + markedPages + ' with markups). Original PDF is untouched.');
   } catch (err) { console.error(err); status('Export failed: ' + err.message); }

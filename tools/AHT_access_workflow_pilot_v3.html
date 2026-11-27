@@ -1997,7 +1997,7 @@ $('pdfBtn').onclick = async () => {
         if(m.systemTags||m.side||m.hardware||m.changeComment)row([m.systemTags,m.side,m.hardware,m.changeComment].filter(Boolean).join(' | '),4);
       }
     }
-    const out = await doc.save();
+    const out = await doc.save({ useObjectStreams: false });
     download(baseName() + ' - ' + CFG.fileTag + ' (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
     status('Exported all ' + originalPages.length + ' drawing pages (' + markedPages + ' marked), plus the opening/device schedule. Original PDF is untouched.');
   } catch (err) { console.error(err); status('Export failed: ' + err.message); }
