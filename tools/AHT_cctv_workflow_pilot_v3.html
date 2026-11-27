@@ -3092,7 +3092,7 @@ $('pdfBtn').onclick = async () => {
 
     window.ahtDrawingKey?.drawPdf({pageNumber:exportPageNum,viewport:vp,page,conv,polygon,text,rgb,drawIconPdf,hexRgb,PDFLib});
     } // end of annotations on each original PDF page
-    const out = await doc.save();
+    const out = await doc.save({ useObjectStreams: false });
     download(baseName() + ' - ' + CFG.fileTag + ' (marked up).pdf', new Blob([out], { type: 'application/pdf' }));
     status('Exported all ' + pages.length + ' PDF pages (' + annotatedPages + ' page(s) with markups). Original file is untouched.');
   } catch (err) { console.error(err); status('Export failed: ' + err.message); }
